@@ -1,0 +1,674 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mapa de gestión de solicitudes de clientes</title>
+<style>:root{
+  --bg:#f2f5f3;--card:#fff;--ink:#14201b;--muted:#56665f;
+  --brand:#0f4d3a;--brand2:#0a3328;--brand3:#b8912f;--accent:#c9a227;
+  --ok:#1f7a4d;--okbg:#e3f1e9;--bad:#a63a32;--badbg:#f7e6e4;--line:#d6dfda;
+  --radius:12px;--shadow:0 1px 2px rgba(10,51,40,.08),0 6px 18px rgba(10,51,40,.07);
+  --grad:linear-gradient(90deg,var(--brand2),var(--mid));
+  --tint:#e8eeec;--tint2:#eef3f0;--line2:#b9c7c0;--mid:#1f5c47;--accent-light:#e9d9a1;--accent-dark:#b8901f;--accent-soft:#f7f1dc;
+  --font:"Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif;--fs:17px
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;font-family:var(--font);color:var(--ink);line-height:1.6;font-size:var(--fs);background:var(--bg);overflow-x:hidden}
+.wrap{max-width:1040px;margin:0 auto;padding:0 16px 56px}
+/* ---- Cabecera institucional ---- */
+.hero{position:relative;background:linear-gradient(180deg,var(--brand2),var(--brand));color:#fff;padding:40px 16px 52px;border-bottom:5px solid var(--accent)}
+.hero:before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(135deg,rgba(255,255,255,.035) 0 2px,transparent 2px 18px);pointer-events:none}
+.hero .in{position:relative;max-width:1040px;margin:0 auto;z-index:1}
+.tag{display:inline-block;border:1px solid rgba(255,255,255,.45);padding:4px 12px;border-radius:4px;font-size:.74rem;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:var(--accent-light)}
+.hero h1{margin:.7rem 0 .4rem;font-size:clamp(1.7rem,4.4vw,2.5rem);line-height:1.15;font-weight:700;letter-spacing:-.01em}
+.hero p{margin:0;max-width:740px;opacity:.93;font-size:1.08rem}
+.meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
+.meta span{background:rgba(255,255,255,.1);border-left:3px solid var(--accent);padding:4px 12px;font-size:.85rem}
+/* ---- Secciones y tarjetas ---- */
+section.sec{margin-top:34px}
+h2{font-size:1.4rem;margin:0 0 14px;color:var(--brand2);font-weight:700;display:flex;align-items:center;gap:10px}
+h2:before{content:"";width:5px;height:24px;background:var(--accent);flex:none}
+h3{margin:.2rem 0 .4rem;font-weight:700}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px}
+.grid{display:grid;gap:18px}
+/* ---- Botones ---- */
+.btn{font:inherit;cursor:pointer;border:2px solid var(--brand);border-radius:8px;padding:10px 22px;background:var(--brand);color:#fff;font-weight:600;letter-spacing:.01em;transition:background .15s,transform .1s}
+.btn:hover:not(:disabled){background:var(--brand2);border-color:var(--brand2)}
+.btn:active:not(:disabled){transform:translateY(1px)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.sec{background:#fff;color:var(--brand)}
+.btn.sec:hover:not(:disabled){background:var(--tint)}
+.btn.warn{background:var(--accent);border-color:var(--accent);color:#1b1500}
+.btn.warn:hover:not(:disabled){background:var(--accent-dark);border-color:var(--accent-dark)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+/* ---- Retroalimentación ---- */
+.fb{border-radius:8px;padding:12px 16px;margin-top:12px;border-left:5px solid}
+.fb.ok{background:var(--okbg);border-color:var(--ok)}
+.fb.bad{background:var(--badbg);border-color:var(--bad)}
+.fb.info{background:var(--tint);border-color:var(--brand)}
+.fb b:first-child{display:block;margin-bottom:2px}
+/* ---- Ventana emergente ---- */
+.overlay{position:fixed;inset:0;background:rgba(8,28,22,.7);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
+.modal{background:#fff;border-radius:12px;border-top:5px solid var(--accent);max-width:600px;width:100%;max-height:92vh;overflow:auto;padding:24px;position:relative;box-shadow:0 20px 50px rgba(0,0,0,.35)}
+.modal .x{position:absolute;top:10px;right:12px;border:0;background:var(--tint2);border-radius:6px;width:36px;height:36px;font-size:1.5rem;line-height:1;cursor:pointer;color:var(--brand2)}
+/* ---- Formularios y barras ---- */
+.bar{height:10px;background:var(--line);border-radius:2px;overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--grad);width:0;transition:width .4s}
+textarea,select,input[type=text]{font:inherit;width:100%;padding:10px 12px;border:1.5px solid var(--line2);border-radius:8px;background:#fff;color:var(--ink)}
+textarea:focus,select:focus,input[type=text]:focus{outline:0;border-color:var(--brand);box-shadow:0 0 0 3px rgba(15,77,58,.18)}
+textarea{min-height:92px;resize:vertical}
+input[type=checkbox],input[type=radio]{accent-color:var(--brand)}
+label{font-weight:600}
+/* ---- Ilustraciones ---- */
+.art svg{width:100%;height:auto;display:block;border-radius:8px}
+.art img{width:100%;display:block;border-radius:8px}
+.badge{display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:30px;border-radius:6px;background:var(--brand);color:#fff;font-weight:700;font-size:.9rem;flex:none}
+.muted{color:var(--muted)}
+.sr{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+footer{margin-top:44px;padding:0 16px 34px;text-align:center;color:var(--muted);font-size:.85rem}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media print{.hero{background:#fff;color:#000}.btn{display:none}}
+@media(max-width:600px){body{font-size:16.5px}.card{padding:16px}.hero{padding:28px 16px 40px}}
+/* ---- Interacción obligatoria: bloqueos, avance, avisos ---- */
+.gated>:not(.veil){display:none!important}
+.gated>.veil{display:flex;align-items:center;justify-content:center;text-align:center;border:2px dashed var(--line2);background:repeating-linear-gradient(135deg,var(--tint2),var(--tint2) 12px,var(--tint) 12px,var(--tint) 24px);border-radius:var(--radius);padding:26px 18px;color:var(--brand2);font-weight:600}
+.veil h3{margin:6px 0 4px;font-size:1.15rem}
+.veil p{margin:0;font-weight:400;color:var(--muted)}
+.unlocked{animation:unl .5s}
+@keyframes unl{from{opacity:.3;transform:translateY(12px)}to{opacity:1;transform:none}}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--brand2);color:#fff;padding:10px 20px;border-radius:8px;border-left:5px solid var(--accent);z-index:90;transition:opacity .5s;max-width:92vw;text-align:center;box-shadow:var(--shadow);font-weight:600}
+.toast.out{opacity:0}
+.hud{position:fixed;top:12px;right:12px;z-index:60;background:var(--brand2);color:#fff;font-weight:600;font-size:.9rem;padding:6px 14px;border-radius:6px;border-left:4px solid var(--accent);box-shadow:var(--shadow)}
+.hud.pop{animation:hudpop .35s}
+@keyframes hudpop{50%{transform:scale(1.12)}}
+.shake{animation:shake .4s}
+@keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.hint{font-size:.9rem;color:var(--muted);margin:6px 0 0}
+/* Iconos de contenido en tono neutro (evita aspecto infantil) */
+.ico,.hot span,.lh .ic,.dot,.stepper li>span,.cust .av,.scn-i{filter:grayscale(1) contrast(1.05)}
+/* Ventana emergente compacta: evita desplazamiento */
+.modal{max-width:640px;padding:20px 24px;max-height:96vh}
+.modal h3{margin:0 40px 8px 0;font-size:1.2rem}
+.modal .art svg{height:84px;border-radius:6px}
+.modal p{margin:.4rem 0}
+.modal .fb{margin-top:8px;padding:10px 14px}
+.modal .fb .hint{display:none}
+.modal .reto .opt,.modal .opt{padding:8px 14px;margin:5px 0}
+.opt:disabled,.reto .opt:disabled{color:var(--ink)}
+.modal .row{margin-top:8px!important}
+@media(max-height:760px){.modal .art{display:none}}
+/* Ventana emergente: encabezado institucional, sin ilustración recortada */
+.modal .art{display:none}
+.modal h3{background:var(--brand2);color:#fff;margin:-20px -24px 14px;padding:16px 60px 16px 24px;font-size:1.1rem;border-radius:7px 7px 0 0}
+.modal .x{background:rgba(255,255,255,.15);color:#fff;top:9px}
+.modal .x:hover{background:rgba(255,255,255,.28)}
+.modal .opt{border-radius:8px}
+.modal .row{justify-content:flex-end}
+
+/* Acordeón de secciones */
+section.sec{scroll-margin-top:12px}
+.ab[hidden]{display:none}
+.ah{display:block;width:100%;font:inherit;text-align:left;cursor:pointer;border:0;background:none;padding:0;color:var(--brand2)}
+.ah.open{display:flex;align-items:center;gap:10px;font-size:1.4rem;font-weight:700;margin:0 0 14px}
+.ah.open:before{content:'';width:5px;height:24px;background:var(--accent);flex:none}
+.ah.lock,.ah.done,.ah.idle{display:flex;flex-direction:column;align-items:center;text-align:center;padding:12px 18px;border-radius:var(--radius);gap:0}
+.ah.lock{border:2px dashed var(--line2);background:repeating-linear-gradient(135deg,var(--tint2),var(--tint2) 12px,var(--tint) 12px,var(--tint) 24px);cursor:not-allowed}
+.ah.done{border:2px solid var(--ok);background:var(--okbg)}
+.ah.idle{border:2px solid var(--brand);background:#fff}
+.ah.done:hover,.ah.idle:hover{filter:brightness(.97)}
+.ah .ic{font-size:1.5rem;line-height:1.2}
+.ah.done .ic{color:var(--ok);font-weight:800}
+.ah.idle .ic{color:var(--brand);font-size:1.1rem}
+.ah .tt{font-weight:700;font-size:1.05rem}
+.ah .st{font-size:.9rem;color:var(--muted);font-weight:400}
+</style>
+<style>
+.mapa{display:grid;grid-template-columns:2.3fr 1fr;gap:16px;align-items:start}
+.svgwrap{padding:8px}
+svg.map{width:100%;height:auto;display:block}
+.node{cursor:pointer}
+.node rect{fill:#eef3f0;stroke:#1f5c47;stroke-width:2.5}
+.node text{font-size:20px;font-weight:600;fill:#14213d;text-anchor:middle;pointer-events:none}
+.node.n0 rect{fill:var(--brand);stroke:var(--brand2)}
+.node.n0 text{fill:#fff;font-size:22px}
+.node:hover rect,.node:focus rect,.node.sel rect{stroke:var(--accent);stroke-width:5}
+.node:not(.seen) rect{stroke-dasharray:7 5}
+.node .mark{font-size:15px;fill:var(--ok)}
+.edge{stroke:#7f988b;stroke-width:2.5;fill:none}
+.elab rect{fill:#fff;stroke:#c3d0de}
+.elab text{font-size:16px;fill:#4a5c75;text-anchor:middle;font-style:italic}
+.ficha{position:sticky;top:12px}
+.ficha h3{margin-top:0}
+.lista-mapa{display:none}
+.lista-mapa ul{list-style:none;margin:0;padding-left:18px;border-left:3px solid #ccd6d1}
+.lista-mapa>ul{padding-left:0;border:0}
+.lista-mapa li{margin:8px 0}
+.lista-mapa .enl{display:block;font-size:.85rem;font-style:italic;color:var(--muted)}
+.lista-mapa button{font:inherit;text-align:left;width:100%;cursor:pointer;border:2px solid #1f5c47;background:#eef3f0;border-radius:10px;padding:8px 12px;font-weight:600}
+.lista-mapa button.sel{border-color:var(--accent);box-shadow:0 0 0 3px rgba(201,162,39,.35)}
+.cats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:14px 0}
+.cat{border:2.5px dashed #8fa69b;border-radius:14px;padding:10px;min-height:120px;background:#fbfdff;cursor:pointer;text-align:left}
+.cat.over{background:#eef3f0;border-color:var(--brand)}
+.cat h4{margin:0}.cat small{color:var(--muted);display:block;margin-bottom:8px}
+.pool{display:flex;flex-wrap:wrap;gap:8px;min-height:50px;padding:10px;border-radius:12px;background:#eef2f7}
+.chip{font:inherit;cursor:grab;border:2px solid #7f988b;background:#fff;border-radius:99px;padding:6px 14px;font-size:.95rem}
+.chip.sel{border-color:var(--accent);background:#f4ecd0;box-shadow:0 0 0 3px rgba(201,162,39,.35)}
+.chip.ok{border-color:var(--ok);background:var(--okbg)}
+.chip.bad{border-color:var(--bad);background:var(--badbg)}
+.cat .chip{display:block;margin:6px 0;border-radius:10px}
+@media(max-width:760px){.mapa{grid-template-columns:1fr}.svgwrap{display:none}.lista-mapa{display:block}.ficha{position:static}}
+</style>
+</head>
+<body>
+<!--
+  PLANTILLA · Mapa conceptual interactivo + Clasificaciones
+  Rangos: 6–10 nodos · máx. 3 niveles · etiqueta 2–6 palabras · ficha 25–40 palabras.
+  Clasificaciones: 8–12 elementos, 3–4 categorías, etiquetas 1–5 palabras.
+  Cada nodo puede indicar x,y (coordenadas en un lienzo de 1000×640). Verifique con: node validar.js
+-->
+<header class="hero"><div class="in" id="hero"></div></header>
+<main class="wrap">
+  <section class="sec" id="mapa" aria-labelledby="t-mapa"></section>
+  <section class="sec" id="cierre" aria-labelledby="t-cierre"></section>
+  <section class="sec" id="act" aria-labelledby="t-act"></section>
+</main>
+<footer id="foot"></footer>
+
+<script type="application/json" id="contenido">{
+  "id": "mapa-conceptual",
+  "tipo": "Mapa conceptual interactivo",
+  "titulo": "Mapa de gestión de solicitudes de clientes",
+  "subtitulo": "Explore cómo se relacionan los conceptos clave. Toque cada nodo para ver su definición y un ejemplo.",
+  "meta": [
+    "Competencia: gestionar solicitudes de clientes con calidad",
+    "Duración: 4 a 7 minutos",
+    "Actividad: Clasificaciones"
+  ],
+  "instruccionMapa": "Toque un nodo para descubrirlo: elija la palabra de enlace correcta y se abrirá su ficha. «Tipos de solicitud» se despliega al descubrirlo.",
+  "nodos": [
+    {
+      "id": "c",
+      "nivel": 0,
+      "etiqueta": "Gestión de solicitudes de clientes",
+      "x": 500,
+      "y": 290,
+      "tono": 200,
+      "ficha": "Conjunto de acciones para recibir, entender y resolver lo que un cliente pide o reclama. Su meta es dar una respuesta oportuna, completa y documentada. Ejemplo: atender un pedido incompleto hasta lograr la conformidad."
+    },
+    {
+      "id": "ca",
+      "padre": "c",
+      "nivel": 1,
+      "etiqueta": "Canales de atención",
+      "enlace": "llega por",
+      "x": 165,
+      "y": 90,
+      "tono": 160,
+      "ficha": "Medios por los cuales el cliente se comunica: teléfono, correo, chat o presencial. Cada canal tiene tiempos y reglas propias. Ejemplo: un reclamo por chat se responde en cinco minutos y se registra igual."
+    },
+    {
+      "id": "re",
+      "padre": "c",
+      "nivel": 1,
+      "etiqueta": "Registro del caso",
+      "enlace": "queda en",
+      "x": 835,
+      "y": 90,
+      "tono": 40,
+      "ficha": "Documento en el sistema que reúne datos del cliente, descripción, evidencias y acciones realizadas. Sin registro no hay trazabilidad. Ejemplo: el ticket 1048 incluye foto del paquete, pedido y teléfono de contacto."
+    },
+    {
+      "id": "pr",
+      "padre": "c",
+      "nivel": 1,
+      "etiqueta": "Prioridad del caso",
+      "enlace": "se ordena por",
+      "x": 150,
+      "y": 330,
+      "tono": 280,
+      "ficha": "Nivel de urgencia asignado según el impacto en el cliente y en la organización. Define quién atiende primero y en cuánto tiempo. Ejemplo: un cobro duplicado tiene prioridad alta frente a una consulta de horarios."
+    },
+    {
+      "id": "in",
+      "padre": "c",
+      "nivel": 1,
+      "etiqueta": "Indicadores de calidad",
+      "enlace": "se evalúa con",
+      "x": 850,
+      "y": 330,
+      "tono": 340,
+      "ficha": "Medidas que muestran qué tan bien se atiende: tiempo de respuesta, casos resueltos y satisfacción del cliente. Permiten mejorar procesos. Ejemplo: el 90 % de los reclamos se resuelve en veinticuatro horas."
+    },
+    {
+      "id": "ti",
+      "padre": "c",
+      "nivel": 1,
+      "etiqueta": "Tipos de solicitud",
+      "enlace": "se clasifica en",
+      "x": 500,
+      "y": 470,
+      "tono": 100,
+      "despliega": true,
+      "ficha": "Categorías en que se agrupa lo que el cliente expresa: consulta, queja, reclamo o sugerencia. Identificar el tipo correcto orienta la respuesta. Ejemplo: quien pide devolución por un daño presenta un reclamo."
+    },
+    {
+      "id": "t1",
+      "padre": "ti",
+      "nivel": 2,
+      "etiqueta": "Consulta de información",
+      "enlace": "si pregunta",
+      "x": 130,
+      "y": 580,
+      "tono": 100,
+      "ficha": "Solicitud de datos o aclaraciones sin inconformidad. Se responde con información clara y rápida. Ejemplo: un cliente pregunta cuáles son los requisitos para hacer válida la garantía de su producto."
+    },
+    {
+      "id": "t2",
+      "padre": "ti",
+      "nivel": 2,
+      "etiqueta": "Queja por el servicio",
+      "enlace": "si se inconforma",
+      "x": 375,
+      "y": 580,
+      "tono": 100,
+      "ficha": "Expresión de inconformidad con la atención recibida o con el trato de una persona. Busca que se reconozca y corrija la conducta. Ejemplo: un asesor fue descortés durante una llamada."
+    },
+    {
+      "id": "t3",
+      "padre": "ti",
+      "nivel": 2,
+      "etiqueta": "Reclamo por incumplimiento",
+      "enlace": "si exige corrección",
+      "x": 625,
+      "y": 580,
+      "tono": 100,
+      "ficha": "Petición de corregir o compensar un incumplimiento del producto o del servicio. Exige una solución concreta y un plazo. Ejemplo: el pedido llegó dañado y el cliente solicita el cambio."
+    },
+    {
+      "id": "t4",
+      "padre": "ti",
+      "nivel": 2,
+      "etiqueta": "Sugerencia de mejora",
+      "enlace": "si propone",
+      "x": 870,
+      "y": 580,
+      "tono": 100,
+      "ficha": "Propuesta voluntaria para mejorar un producto, proceso o servicio. No exige respuesta inmediata, pero conviene agradecerla y registrarla. Ejemplo: un cliente recomienda habilitar pagos desde el celular."
+    }
+  ],
+  "cierre": {
+    "pregunta": "Pregunta de relación: ¿cómo influye el tipo de solicitud en la prioridad que asignaría y en el registro que debe dejar del caso?",
+    "actividad": {
+      "nombre": "Clasificaciones: ¿consulta, queja, reclamo o sugerencia?",
+      "instruccion": "Criterio de clasificación: según lo que el cliente espera. Pregunta datos, expresa inconformidad con el trato, exige corrección de un incumplimiento o propone mejorar. Seleccione cada situación y luego la categoría donde corresponde.",
+      "categorias": [
+        {
+          "id": "consulta",
+          "nombre": "Consulta",
+          "ayuda": "Pide información"
+        },
+        {
+          "id": "queja",
+          "nombre": "Queja",
+          "ayuda": "Inconformidad con el trato"
+        },
+        {
+          "id": "reclamo",
+          "nombre": "Reclamo",
+          "ayuda": "Exige corregir un incumplimiento"
+        },
+        {
+          "id": "sugerencia",
+          "nombre": "Sugerencia",
+          "ayuda": "Propone una mejora"
+        }
+      ],
+      "elementos": [
+        {
+          "texto": "Pregunta por horarios de atención",
+          "cat": "consulta",
+          "porque": "Solo solicita información y no expresa inconformidad ni exige corrección alguna."
+        },
+        {
+          "texto": "Solicita estado de su pedido",
+          "cat": "consulta",
+          "porque": "Pide un dato de seguimiento. Aunque puede venir con impaciencia, mientras no exija corrección sigue siendo una consulta."
+        },
+        {
+          "texto": "Asesor fue grosero en llamada",
+          "cat": "queja",
+          "porque": "Se inconforma por el trato recibido, no por el producto. Las quejas se relacionan con conductas del servicio.",
+          "confunde": true
+        },
+        {
+          "texto": "Espera de cuarenta minutos inaceptable",
+          "cat": "queja",
+          "porque": "Expresa inconformidad con la atención. No exige reparar un producto, por eso no es un reclamo.",
+          "confunde": true
+        },
+        {
+          "texto": "Producto llegó dañado, exige cambio",
+          "cat": "reclamo",
+          "porque": "Existe un incumplimiento del producto y el cliente exige una corrección concreta: el cambio."
+        },
+        {
+          "texto": "Cobro duplicado en factura",
+          "cat": "reclamo",
+          "porque": "Es un error de la empresa que debe corregirse mediante devolución o ajuste del valor cobrado."
+        },
+        {
+          "texto": "Propone agregar pago por celular",
+          "cat": "sugerencia",
+          "porque": "Plantea una mejora voluntaria. No hay incumplimiento ni inconformidad que corregir."
+        },
+        {
+          "texto": "Recomienda ampliar horario sabatino",
+          "cat": "sugerencia",
+          "porque": "Es una idea para mejorar el servicio. Se agradece, se registra y se envía al área responsable."
+        },
+        {
+          "texto": "Pide requisitos para la garantía",
+          "cat": "consulta",
+          "porque": "Busca información previa sobre un derecho. Todavía no hay un incumplimiento que reclamar."
+        },
+        {
+          "texto": "Entrega tardía, solicita compensación",
+          "cat": "reclamo",
+          "porque": "Hay incumplimiento del plazo y se pide una compensación concreta. Se diferencia de la queja porque exige reparación.",
+          "confunde": true
+        }
+      ],
+      "retroOk": "¡Excelente! Clasificó correctamente todas las situaciones. Recuerde que lo que define la categoría es lo que el cliente espera: información, reconocimiento, reparación o una mejora.",
+      "retroMal": "Algunas situaciones quedaron en otra categoría. Revise las explicaciones marcadas, observe qué espera el cliente en cada caso y vuelva a intentarlo.",
+      "confundibles": "Elementos que suelen confundirse: la queja trata del trato o la espera; el reclamo exige corregir o compensar un incumplimiento."
+    }
+  }
+}</script>
+<script>/* Utilidades compartidas por todas las plantillas */
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+function h(tag,attrs,...kids){
+  const e=document.createElement(tag);
+  for(const k in (attrs||{})){
+    const v=attrs[k];
+    if(v==null||v===false)continue;
+    if(k.slice(0,2)==='on')e.addEventListener(k.slice(2),v);
+    else if(k==='class')e.className=v;
+    else e.setAttribute(k,v===true?'':v);
+  }
+  kids.flat(9).forEach(c=>{if(c==null||c===false)return;e.append(c.nodeType?c:document.createTextNode(c))});
+  return e;
+}
+const CFG=JSON.parse(document.getElementById('contenido').textContent);
+const words=t=>(t||'').trim().split(/\s+/).filter(Boolean).length;
+const norm=t=>(t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+function store(k,v){
+  try{
+    const key='ova:'+CFG.id+':'+k;
+    if(v===undefined)return JSON.parse(localStorage.getItem(key));
+    localStorage.setItem(key,JSON.stringify(v));
+  }catch(e){return null}
+}
+function hero(){
+  document.title=CFG.titulo;
+  $('#hero').append(
+    h('span',{class:'tag'},CFG.tipo),
+    h('h1',{},CFG.titulo),
+    ...(CFG.subtitulo?[h('p',{},CFG.subtitulo)]:[]),
+    h('div',{class:'meta'},(CFG.meta||[]).map(m=>h('span',{},m)))
+  );
+  const f=$('#foot');
+  if(f)f.textContent=CFG.pie||'Recurso educativo digital · plantilla reutilizable';
+}
+let _gid=0;
+function art(icon,hue,img){
+  const d=h('div',{class:'art','aria-hidden':'true'});
+  if(img){d.append(h('img',{src:img,alt:''}));return d}
+  const id='g'+(++_gid);
+  d.innerHTML='<svg viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="'+id+'" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0a3328"/><stop offset="1" stop-color="#1f5c47"/></linearGradient><pattern id="'+id+'p" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24 0H0V24" fill="none" stroke="#ffffff" stroke-opacity=".06"/></pattern></defs><rect width="400" height="200" fill="url(#'+id+')"/><rect width="400" height="200" fill="url(#'+id+'p)"/><path d="M200 36l62 20v50c0 38-27 62-62 76-35-14-62-38-62-76V56z" fill="none" stroke="#c9a227" stroke-width="3"/><path d="M200 58l40 13v35c0 25-17 41-40 51-23-10-40-26-40-51V71z" fill="#c9a227" fill-opacity=".14" stroke="#c9a227" stroke-opacity=".6" stroke-width="1.5"/><rect x="0" y="192" width="400" height="8" fill="#c9a227"/></svg>';
+  return d;
+}
+function modal(title,body){
+  const prev=document.activeElement;
+  const close=()=>{ov.remove();document.removeEventListener('keydown',esc);if(prev&&prev.focus)prev.focus()};
+  const esc=ev=>{if(ev.key==='Escape')close()};
+  const x=h('button',{class:'x','aria-label':'Cerrar ventana',onclick:close},'×');
+  const ov=h('div',{class:'overlay',role:'dialog','aria-modal':'true','aria-label':title,onclick:ev=>{if(ev.target===ov)close()}},
+    h('div',{class:'modal'},x,h('h3',{},title),body,h('div',{class:'row',style:'margin-top:14px'},h('button',{class:'btn sec',onclick:close},'Cerrar'))));
+  document.body.append(ov);document.addEventListener('keydown',esc);x.focus();
+  return close;
+}
+function fb(kind,title,text){return h('div',{class:'fb '+kind,role:'status'},h('b',{},title),text)}
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function download(name,text){
+  const a=h('a',{href:URL.createObjectURL(new Blob([text],{type:'text/plain;charset=utf-8'})),download:name});
+  document.body.append(a);a.click();a.remove();
+}
+
+/* ---- Interacción obligatoria: avisos, confeti, puntos y bloqueo de secciones ---- */
+function toast(msg){
+  document.querySelectorAll('.toast').forEach(x=>x.remove());
+  const t=h('div',{class:'toast',role:'status'},msg);document.body.append(t);
+  setTimeout(()=>t.classList.add('out'),2300);setTimeout(()=>t.remove(),2900);
+}
+function burst(){}
+let _pts=0,_hud=null;
+function addPts(n,why){
+  _pts+=n;
+  if(!_hud){_hud=h('div',{class:'hud','aria-live':'polite'});document.body.append(_hud)}
+  _hud.textContent=''+_pts+' puntos';_hud.classList.remove('pop');void _hud.offsetWidth;_hud.classList.add('pop');
+  if(why)toast('+'+n+' · '+why);
+}
+/* ---- Secciones principales tipo acordeón: bloqueada → abierta → completada (se puede reabrir) ---- */
+const topLevel=el=>el.parentElement&&el.parentElement.matches('main.wrap')&&el.classList.contains('sec');
+function accWrap(el){
+  if(el._acc||el.hidden)return;
+  const t=el.querySelector(':scope>h2');
+  const title=t?t.textContent:'';
+  if(t)t.remove();
+  const ab=h('div',{class:'ab'});
+  while(el.firstChild)ab.append(el.firstChild);
+  const hd=h('button',{class:'ah',type:'button',id:t&&t.id||null});
+  el.append(hd,ab);
+  el._acc={locked:false,done:false,open:true,msg:'',title,hd,ab};
+  hd.onclick=()=>{
+    const a=el._acc;
+    if(a.locked){toast('🔒 '+a.msg);hd.classList.add('shake');setTimeout(()=>hd.classList.remove('shake'),400);return}
+    a.open?(a.open=false,accRender(el)):accOpen(el);
+  };
+  accRender(el);
+}
+function accRender(el){
+  const a=el._acc;if(!a)return;
+  const st=a.locked?'lock':a.open?'open':a.done?'done':'idle';
+  a.hd.className='ah '+st;
+  a.hd.setAttribute('aria-expanded',String(a.open));
+  a.hd.replaceChildren(...(st==='open'?[h('span',{class:'tt'},a.title)]:[
+    h('span',{class:'ic','aria-hidden':'true'},st==='lock'?'🔒':st==='done'?'✔':'▶'),
+    h('span',{class:'tt'},a.title),
+    h('span',{class:'st'},st==='lock'?a.msg:st==='done'?'Completada · toque para abrir':'En curso · toque para abrir')]));
+  a.ab.hidden=!a.open;
+}
+function accOpen(el){
+  accWrap(el);const a=el._acc;if(!a)return;
+  a.locked=false;
+  const all=[...el.parentElement.children].filter(x=>x._acc);
+  const k=all.indexOf(el);
+  all.forEach((x,j)=>{if(x===el)return;x._acc.open=false;if(j<k&&!x._acc.locked)x._acc.done=true;accRender(x)});
+  a.open=true;accRender(el);
+  setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'start'}),120);
+}
+function accAll(){$$('main.wrap>section.sec').forEach(accWrap)}
+function gate(el,msg){
+  if(topLevel(el)){accWrap(el);const a=el._acc;a.locked=true;a.open=false;a.msg=msg;accRender(el);return}
+  el.classList.add('gated');el.setAttribute('inert','');
+  const t=el.querySelector(':scope>h2');
+  el._veil=h('div',{class:'veil'},h('div',{},h('div',{style:'font-size:2rem','aria-hidden':'true'},'🔒'),t?h('h3',{},t.textContent):null,h('p',{},msg)));
+  el.append(el._veil);
+}
+function ungate(el,msg){
+  if(topLevel(el)){if(!el._acc||!el._acc.locked)return;accOpen(el);toast('🔓 '+(msg||'Sección desbloqueada'));return}
+  if(!el._veil)return;
+  el._veil.remove();el._veil=null;el.removeAttribute('inert');el.classList.remove('gated');el.classList.add('unlocked');
+  toast('🔓 '+(msg||'Sección desbloqueada'));
+}
+</script>
+<script>
+hero();
+const N=CFG.nodos,byId={};N.forEach(n=>byId[n.id]=n);
+const NS='http://www.w3.org/2000/svg';
+function s(tag,attrs,...kids){
+  const e=document.createElementNS(NS,tag);
+  for(const k in attrs||{}){if(k.slice(0,2)==='on')e.addEventListener(k.slice(2),attrs[k]);else e.setAttribute(k,attrs[k])}
+  kids.flat().forEach(c=>{if(c!=null)e.append(c.nodeType?c:document.createTextNode(c))});
+  return e;
+}
+function wrap(t,max){const w=t.split(' '),L=[];let c='';w.forEach(x=>{if((c+' '+x).trim().length>max&&c){L.push(c);c=x}else c=(c+' '+x).trim()});L.push(c);return L}
+
+(function(){
+  const open=new Set(),seen=new Set(['c']);let sel=null;
+  const svg=s('svg',{class:'map',viewBox:'0 0 1000 640',role:'group','aria-label':'Mapa conceptual: '+CFG.titulo});
+  const list=h('div',{class:'lista-mapa'});
+  const ficha=h('div',{class:'card ficha','aria-live':'polite'});
+  const cnt=h('p',{class:'muted'});
+  const visible=n=>n.nivel<2||open.has(n.padre);
+
+  function challenge(n){
+    const p=byId[n.padre];
+    const otros=shuffle([...new Set(N.filter(x=>x.enlace&&x.enlace!==n.enlace).map(x=>x.enlace))]).slice(0,2);
+    let close;const out=h('div',{'aria-live':'polite'});
+    const bs=shuffle([n.enlace,...otros]).map(o=>h('button',{class:'btn sec',style:'display:block;width:100%;margin:8px 0',onclick:e=>{
+      if(o===n.enlace){close();addPts(10,'Nodo descubierto');seen.add(n.id);pick(n)}
+      else{e.target.classList.add('shake');e.target.disabled=true;out.replaceChildren(fb('bad','Esa palabra no los une','Piense en cómo se relacionan ambos conceptos y pruebe con otra opción.'))}
+    }},o));
+    close=modal('Descubra el nodo: '+n.etiqueta,h('div',{},h('p',{},'¿Qué palabra de enlace une «'+p.etiqueta+'» con «'+n.etiqueta+'»?'),...bs,out));
+  }
+  function pick(n){
+    if(!seen.has(n.id)){challenge(n);return}
+    sel=n.id;seen.add(n.id);
+    if(n.despliega){open.has(n.id)?open.delete(n.id):open.add(n.id)}
+    draw();
+    const p=n.padre?byId[n.padre]:null;
+    ficha.replaceChildren(
+      h('span',{class:'tag',style:'background:var(--brand);border-color:var(--brand)'},n.nivel===0?'Concepto central':'Nivel '+n.nivel),
+      h('h3',{style:'margin-top:8px'},n.etiqueta),
+      h('p',{},n.ficha),
+      p?h('p',{class:'fb info'},'',h('b',{style:'display:inline'},p.etiqueta),' ',h('em',{},n.enlace),' → ',n.etiqueta):null,
+      n.despliega?h('p',{class:'muted'},open.has(n.id)?'Las variantes de este concepto ya están visibles en el mapa.':'Variantes ocultadas.'):null);
+    ficha.replaceChildren(...[...ficha.childNodes].filter(c=>c.nodeType===1));
+    if(seen.size===N.length)ungate($('#cierre'),'¡Mapa completo! Responda la pregunta de relación.');
+  }
+  function draw(){
+    svg.replaceChildren();
+    const vis=N.filter(visible);
+    vis.filter(n=>n.padre).forEach(n=>{
+      const p=byId[n.padre];
+      svg.append(s('line',{class:'edge',x1:p.x,y1:p.y,x2:n.x,y2:n.y}));
+    });
+    vis.filter(n=>n.padre).forEach(n=>{
+      const p=byId[n.padre],mx=(p.x+n.x)/2,my=(p.y+n.y)/2,w=n.enlace.length*8.6+20;
+      svg.append(s('g',{class:'elab'},s('rect',{x:mx-w/2,y:my-13,width:w,height:26,rx:13}),s('text',{x:mx,y:my+5},n.enlace)));
+    });
+    vis.forEach(n=>{
+      const W=n.nivel===0?270:214,Hh=n.nivel===0?96:66,L=wrap(n.etiqueta,n.nivel===0?16:17);
+      const g=s('g',{class:'node n'+n.nivel+(sel===n.id?' sel':'')+(seen.has(n.id)?' seen':''),style:'--h:'+n.tono,tabindex:'0',role:'button','aria-label':n.etiqueta+(n.despliega?(open.has(n.id)?' (desplegado)':' (se despliega)'):''),onclick:()=>pick(n),onkeydown:e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();pick(n)}}});
+      g.append(s('rect',{x:n.x-W/2,y:n.y-Hh/2,width:W,height:Hh,rx:16}));
+      L.forEach((l,i)=>g.append(s('text',{x:n.x,y:n.y+5+(i-(L.length-1)/2)*(n.nivel===0?26:23)},l)));
+      if(n.nivel>0)g.append(s('text',{class:'mark',style:seen.has(n.id)?'':'fill:#b36b00',x:n.x+W/2-14,y:n.y-Hh/2+17},seen.has(n.id)?'✔':'?'));
+      if(n.despliega)g.append(s('text',{class:'mark',style:'fill:#14213d',x:n.x+W/2-14,y:n.y+Hh/2-7},open.has(n.id)?'−':'+'));
+      svg.append(g);
+    });
+    /* versión en lista (pantallas angostas) */
+    const ul=h('ul');
+    const kid=(n,parentUl)=>{
+      const li=h('li',{},n.enlace?h('span',{class:'enl'},'↳ '+byId[n.padre].etiqueta+' '+n.enlace+':'):null,
+        h('button',{style:'--h:'+n.tono,class:sel===n.id?'sel':'','aria-expanded':n.despliega?String(open.has(n.id)):null,onclick:()=>pick(n)},(n.nivel>0?(seen.has(n.id)?'✔ ':''):'')+n.etiqueta+(n.despliega?(open.has(n.id)?'  −':'  +'):'')));
+      parentUl.append(li);
+      const ch=N.filter(x=>x.padre===n.id&&visible(x));
+      if(ch.length){const u=h('ul');li.append(u);ch.forEach(c=>kid(c,u))}
+    };
+    kid(N.find(n=>n.nivel===0),ul);
+    list.replaceChildren(ul);
+    cnt.textContent='Nodos descubiertos: '+seen.size+' de '+N.length;
+  }
+  $('#mapa').append(h('h2',{id:'t-mapa'},CFG.titulo),h('p',{class:'muted'},CFG.instruccionMapa),
+    h('div',{class:'mapa'},h('div',{},h('div',{class:'card svgwrap'},svg),list,cnt),ficha));
+  ficha.append(h('h3',{},'Ficha del concepto'),h('p',{class:'muted'},'Descubra cada nodo eligiendo la palabra de enlace correcta; luego verá su definición y un ejemplo.'));
+  draw();
+})();
+
+/* ---- Cierre y actividad ---- */
+const A=CFG.cierre.actividad;
+{
+  const ta=h('textarea',{'aria-label':'Su respuesta a la pregunta de relación',placeholder:'Escriba su reflexión (mínimo 10 palabras)…'});
+  const c=h('p',{class:'hint'},'0 / 10 palabras');
+  const b=h('button',{class:'btn',disabled:true,onclick:()=>{b.disabled=true;ta.disabled=true;b.textContent='✔ Respuesta registrada';addPts(10,'Pregunta de relación');ungate($('#act'),'Actividad desbloqueada')}},'Registrar y continuar');
+  ta.oninput=()=>{const n=words(ta.value);c.textContent=n+' / 10 palabras';b.disabled=n<10};
+  $('#cierre').append(h('h2',{id:'t-cierre'},'Cierre'),h('div',{class:'card',style:'background:#f7f1dc;border:2px solid var(--accent)'},h('h3',{},'Pregunta de relación'),h('p',{},CFG.cierre.pregunta),ta,c,b));
+  gate($('#cierre'),'Descubra los 10 nodos del mapa para desbloquear el cierre.');
+}
+
+(function(){
+  const root=$('#act');
+  let place={},selI=null,checked=false,order=shuffle(A.elementos.map((_,i)=>i));
+  const pool=h('div',{class:'pool','aria-label':'Situaciones por clasificar'});
+  const cats=h('div',{class:'cats'});
+  const out=h('div',{'aria-live':'polite'});
+  const bCheck=h('button',{class:'btn',onclick:comprobar},'Comprobar respuestas');
+  const bReset=h('button',{class:'btn sec',onclick:()=>{place={};selI=null;checked=false;order=shuffle(order);out.replaceChildren();render()}},'Reintentar');
+  const status=h('p',{class:'muted'});
+
+  function chip(i){
+    const e=A.elementos[i];
+    const b=h('button',{class:'chip'+(selI===i?' sel':'')+(checked?(place[i]===e.cat?' ok':' bad'):''),draggable:!checked,'aria-pressed':String(selI===i),
+      ondragstart:ev=>{ev.dataTransfer.setData('text/plain',String(i));selI=i},
+      onclick:ev=>{ev.stopPropagation();if(checked)return;
+        if(place[i]!=null&&selI!==i){selI=i}else if(place[i]!=null&&selI===i){delete place[i];selI=null}else selI=selI===i?null:i;render()}},
+      (checked?(place[i]===e.cat?'✔ ':'✘ '):'')+e.texto);
+    return b;
+  }
+  function put(c){if(selI==null||checked)return;place[selI]=c;selI=null;render()}
+  function render(){
+    pool.replaceChildren(...order.filter(i=>place[i]==null).map(chip));
+    if(!pool.children.length)pool.append(h('span',{class:'muted'},'Todas las situaciones fueron ubicadas.'));
+    cats.replaceChildren(...A.categorias.map(c=>{
+      const box=h('div',{class:'cat',role:'button',tabindex:'0','aria-label':'Categoría '+c.nombre+'. Pulse para ubicar la situación seleccionada',
+        onclick:()=>put(c.id),onkeydown:e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();put(c.id)}},
+        ondragover:e=>{e.preventDefault();box.classList.add('over')},ondragleave:()=>box.classList.remove('over'),
+        ondrop:e=>{e.preventDefault();box.classList.remove('over');const i=+e.dataTransfer.getData('text/plain');if(!checked&&!isNaN(i)){selI=i;put(c.id)}}},
+        h('h4',{},c.nombre),h('small',{},c.ayuda),
+        ...order.filter(i=>place[i]===c.id).map(chip));
+      return box;
+    }));
+    const left=A.elementos.length-Object.keys(place).length;
+    bCheck.disabled=left>0||checked;
+    status.textContent=checked?'':(selI!=null?'Situación seleccionada: elija ahora su categoría.':(left>0?'Faltan '+left+' situaciones por ubicar. Seleccione una y luego toque su categoría (o arrástrela).':'Todo ubicado: pulse «Comprobar respuestas».'));
+  }
+  function comprobar(){
+    checked=true;render();
+    const bad=A.elementos.map((e,i)=>({e,i})).filter(x=>place[x.i]!==x.e.cat);
+    const good=A.elementos.length-bad.length;
+    const nombre=id=>A.categorias.find(c=>c.id===id).nombre;
+    out.replaceChildren(
+      h('p',{},h('b',{},'Aciertos: '+good+' de '+A.elementos.length)),
+      fb(bad.length?'bad':'ok',bad.length?'Revise estas situaciones':'¡Clasificación correcta!',bad.length?A.retroMal:A.retroOk),
+      ...bad.map(x=>fb('bad',x.e.texto+' → corresponde a '+nombre(x.e.cat),x.e.porque)),
+      h('h3',{style:'margin-top:14px'},'Explicación de los elementos que suelen confundirse'),
+      h('p',{},A.confundibles),
+      ...A.elementos.filter(e=>e.confunde).map(e=>fb('info',e.texto+' → '+nombre(e.cat),e.porque)),
+      h('div',{class:'row',style:'margin-top:10px'},h('button',{class:'btn',onclick:()=>bReset.click()},'Reintentar la actividad')));
+  }
+  root.append(h('h2',{id:'t-act'},'Actividad de autoaprendizaje · '+A.nombre),
+    h('div',{class:'card'},h('h3',{},'Instrucción y criterio de clasificación'),h('p',{},A.instruccion),
+      h('h3',{},'Situaciones'),pool,h('h3',{style:'margin-top:14px'},'Categorías'),cats,status,
+      h('div',{class:'row'},bCheck,bReset),out));
+  render();
+  gate(root,'Responda la pregunta de relación para desbloquear la actividad.');
+})();
+accAll();
+</script>
+</body>
+</html>

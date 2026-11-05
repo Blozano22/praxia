@@ -1,0 +1,649 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ruta de una solicitud: de la llegada al cierre</title>
+<style>:root{
+  --bg:#f2f5f3;--card:#fff;--ink:#14201b;--muted:#56665f;
+  --brand:#0f4d3a;--brand2:#0a3328;--brand3:#b8912f;--accent:#c9a227;
+  --ok:#1f7a4d;--okbg:#e3f1e9;--bad:#a63a32;--badbg:#f7e6e4;--line:#d6dfda;
+  --radius:12px;--shadow:0 1px 2px rgba(10,51,40,.08),0 6px 18px rgba(10,51,40,.07);
+  --grad:linear-gradient(90deg,var(--brand2),var(--mid));
+  --tint:#e8eeec;--tint2:#eef3f0;--line2:#b9c7c0;--mid:#1f5c47;--accent-light:#e9d9a1;--accent-dark:#b8901f;--accent-soft:#f7f1dc;
+  --font:"Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif;--fs:17px
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;font-family:var(--font);color:var(--ink);line-height:1.6;font-size:var(--fs);background:var(--bg);overflow-x:hidden}
+.wrap{max-width:1040px;margin:0 auto;padding:0 16px 56px}
+/* ---- Cabecera institucional ---- */
+.hero{position:relative;background:linear-gradient(180deg,var(--brand2),var(--brand));color:#fff;padding:40px 16px 52px;border-bottom:5px solid var(--accent)}
+.hero:before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(135deg,rgba(255,255,255,.035) 0 2px,transparent 2px 18px);pointer-events:none}
+.hero .in{position:relative;max-width:1040px;margin:0 auto;z-index:1}
+.tag{display:inline-block;border:1px solid rgba(255,255,255,.45);padding:4px 12px;border-radius:4px;font-size:.74rem;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:var(--accent-light)}
+.hero h1{margin:.7rem 0 .4rem;font-size:clamp(1.7rem,4.4vw,2.5rem);line-height:1.15;font-weight:700;letter-spacing:-.01em}
+.hero p{margin:0;max-width:740px;opacity:.93;font-size:1.08rem}
+.meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
+.meta span{background:rgba(255,255,255,.1);border-left:3px solid var(--accent);padding:4px 12px;font-size:.85rem}
+/* ---- Secciones y tarjetas ---- */
+section.sec{margin-top:34px}
+h2{font-size:1.4rem;margin:0 0 14px;color:var(--brand2);font-weight:700;display:flex;align-items:center;gap:10px}
+h2:before{content:"";width:5px;height:24px;background:var(--accent);flex:none}
+h3{margin:.2rem 0 .4rem;font-weight:700}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px}
+.grid{display:grid;gap:18px}
+/* ---- Botones ---- */
+.btn{font:inherit;cursor:pointer;border:2px solid var(--brand);border-radius:8px;padding:10px 22px;background:var(--brand);color:#fff;font-weight:600;letter-spacing:.01em;transition:background .15s,transform .1s}
+.btn:hover:not(:disabled){background:var(--brand2);border-color:var(--brand2)}
+.btn:active:not(:disabled){transform:translateY(1px)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.sec{background:#fff;color:var(--brand)}
+.btn.sec:hover:not(:disabled){background:var(--tint)}
+.btn.warn{background:var(--accent);border-color:var(--accent);color:#1b1500}
+.btn.warn:hover:not(:disabled){background:var(--accent-dark);border-color:var(--accent-dark)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+/* ---- Retroalimentación ---- */
+.fb{border-radius:8px;padding:12px 16px;margin-top:12px;border-left:5px solid}
+.fb.ok{background:var(--okbg);border-color:var(--ok)}
+.fb.bad{background:var(--badbg);border-color:var(--bad)}
+.fb.info{background:var(--tint);border-color:var(--brand)}
+.fb b:first-child{display:block;margin-bottom:2px}
+/* ---- Ventana emergente ---- */
+.overlay{position:fixed;inset:0;background:rgba(8,28,22,.7);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
+.modal{background:#fff;border-radius:12px;border-top:5px solid var(--accent);max-width:600px;width:100%;max-height:92vh;overflow:auto;padding:24px;position:relative;box-shadow:0 20px 50px rgba(0,0,0,.35)}
+.modal .x{position:absolute;top:10px;right:12px;border:0;background:var(--tint2);border-radius:6px;width:36px;height:36px;font-size:1.5rem;line-height:1;cursor:pointer;color:var(--brand2)}
+/* ---- Formularios y barras ---- */
+.bar{height:10px;background:var(--line);border-radius:2px;overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--grad);width:0;transition:width .4s}
+textarea,select,input[type=text]{font:inherit;width:100%;padding:10px 12px;border:1.5px solid var(--line2);border-radius:8px;background:#fff;color:var(--ink)}
+textarea:focus,select:focus,input[type=text]:focus{outline:0;border-color:var(--brand);box-shadow:0 0 0 3px rgba(15,77,58,.18)}
+textarea{min-height:92px;resize:vertical}
+input[type=checkbox],input[type=radio]{accent-color:var(--brand)}
+label{font-weight:600}
+/* ---- Ilustraciones ---- */
+.art svg{width:100%;height:auto;display:block;border-radius:8px}
+.art img{width:100%;display:block;border-radius:8px}
+.badge{display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:30px;border-radius:6px;background:var(--brand);color:#fff;font-weight:700;font-size:.9rem;flex:none}
+.muted{color:var(--muted)}
+.sr{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+footer{margin-top:44px;padding:0 16px 34px;text-align:center;color:var(--muted);font-size:.85rem}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media print{.hero{background:#fff;color:#000}.btn{display:none}}
+@media(max-width:600px){body{font-size:16.5px}.card{padding:16px}.hero{padding:28px 16px 40px}}
+/* ---- Interacción obligatoria: bloqueos, avance, avisos ---- */
+.gated>:not(.veil){display:none!important}
+.gated>.veil{display:flex;align-items:center;justify-content:center;text-align:center;border:2px dashed var(--line2);background:repeating-linear-gradient(135deg,var(--tint2),var(--tint2) 12px,var(--tint) 12px,var(--tint) 24px);border-radius:var(--radius);padding:26px 18px;color:var(--brand2);font-weight:600}
+.veil h3{margin:6px 0 4px;font-size:1.15rem}
+.veil p{margin:0;font-weight:400;color:var(--muted)}
+.unlocked{animation:unl .5s}
+@keyframes unl{from{opacity:.3;transform:translateY(12px)}to{opacity:1;transform:none}}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--brand2);color:#fff;padding:10px 20px;border-radius:8px;border-left:5px solid var(--accent);z-index:90;transition:opacity .5s;max-width:92vw;text-align:center;box-shadow:var(--shadow);font-weight:600}
+.toast.out{opacity:0}
+.hud{position:fixed;top:12px;right:12px;z-index:60;background:var(--brand2);color:#fff;font-weight:600;font-size:.9rem;padding:6px 14px;border-radius:6px;border-left:4px solid var(--accent);box-shadow:var(--shadow)}
+.hud.pop{animation:hudpop .35s}
+@keyframes hudpop{50%{transform:scale(1.12)}}
+.shake{animation:shake .4s}
+@keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.hint{font-size:.9rem;color:var(--muted);margin:6px 0 0}
+/* Iconos de contenido en tono neutro (evita aspecto infantil) */
+.ico,.hot span,.lh .ic,.dot,.stepper li>span,.cust .av,.scn-i{filter:grayscale(1) contrast(1.05)}
+/* Ventana emergente compacta: evita desplazamiento */
+.modal{max-width:640px;padding:20px 24px;max-height:96vh}
+.modal h3{margin:0 40px 8px 0;font-size:1.2rem}
+.modal .art svg{height:84px;border-radius:6px}
+.modal p{margin:.4rem 0}
+.modal .fb{margin-top:8px;padding:10px 14px}
+.modal .fb .hint{display:none}
+.modal .reto .opt,.modal .opt{padding:8px 14px;margin:5px 0}
+.opt:disabled,.reto .opt:disabled{color:var(--ink)}
+.modal .row{margin-top:8px!important}
+@media(max-height:760px){.modal .art{display:none}}
+/* Ventana emergente: encabezado institucional, sin ilustración recortada */
+.modal .art{display:none}
+.modal h3{background:var(--brand2);color:#fff;margin:-20px -24px 14px;padding:16px 60px 16px 24px;font-size:1.1rem;border-radius:7px 7px 0 0}
+.modal .x{background:rgba(255,255,255,.15);color:#fff;top:9px}
+.modal .x:hover{background:rgba(255,255,255,.28)}
+.modal .opt{border-radius:8px}
+.modal .row{justify-content:flex-end}
+
+/* Acordeón de secciones */
+section.sec{scroll-margin-top:12px}
+.ab[hidden]{display:none}
+.ah{display:block;width:100%;font:inherit;text-align:left;cursor:pointer;border:0;background:none;padding:0;color:var(--brand2)}
+.ah.open{display:flex;align-items:center;gap:10px;font-size:1.4rem;font-weight:700;margin:0 0 14px}
+.ah.open:before{content:'';width:5px;height:24px;background:var(--accent);flex:none}
+.ah.lock,.ah.done,.ah.idle{display:flex;flex-direction:column;align-items:center;text-align:center;padding:12px 18px;border-radius:var(--radius);gap:0}
+.ah.lock{border:2px dashed var(--line2);background:repeating-linear-gradient(135deg,var(--tint2),var(--tint2) 12px,var(--tint) 12px,var(--tint) 24px);cursor:not-allowed}
+.ah.done{border:2px solid var(--ok);background:var(--okbg)}
+.ah.idle{border:2px solid var(--brand);background:#fff}
+.ah.done:hover,.ah.idle:hover{filter:brightness(.97)}
+.ah .ic{font-size:1.5rem;line-height:1.2}
+.ah.done .ic{color:var(--ok);font-weight:800}
+.ah.idle .ic{color:var(--brand);font-size:1.1rem}
+.ah .tt{font-weight:700;font-size:1.05rem}
+.ah .st{font-size:.9rem;color:var(--muted);font-weight:400}
+</style>
+<style>
+.track{display:flex;align-items:flex-start;gap:0;overflow-x:auto;padding:18px 4px 8px;margin:0;list-style:none}
+.track li{flex:1 0 118px;position:relative;text-align:center;padding:0 4px}
+.track li:before{content:"";position:absolute;top:22px;left:-50%;width:100%;height:5px;background:#ccd6d1;z-index:0}
+.track li:first-child:before{display:none}
+.track li.past:before,.track li.cur:before{background:var(--brand)}
+.dot{position:relative;z-index:1;width:46px;height:46px;border-radius:50%;border:4px solid #ccd6d1;background:#fff;font-size:1.3rem;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.dot:disabled{cursor:not-allowed;filter:grayscale(1);opacity:.6}
+.track li.past .dot{border-color:var(--brand);background:#e6eeea}
+.track li.cur .dot{border-color:var(--accent);background:#f4ecd0;transform:scale(1.15);box-shadow:0 0 0 5px rgba(201,162,39,.25)}
+.track small{display:block;font-size:.78rem;line-height:1.2;margin-top:6px;color:var(--muted)}
+.track li.cur small{color:var(--ink);font-weight:700}
+.detail{display:grid;grid-template-columns:1fr 1.3fr;gap:22px;align-items:start;margin-top:10px}
+.fase{display:inline-block;background:var(--brand);color:#fff;border-radius:99px;padding:2px 12px;font-size:.85rem;font-weight:700}
+.link{margin-top:12px;padding:10px 14px;border-radius:10px;background:#e8eeec;border:1px dashed var(--brand)}
+.intro{font-size:1.08rem}
+.lista li{margin:6px 0}
+.chk label{display:flex;gap:10px;align-items:flex-start;font-weight:400;padding:5px 0}
+.chk input{width:22px;height:22px;margin-top:2px}
+.contador{font-weight:700}
+.contador.ok{color:var(--ok)}.contador.bad{color:var(--bad)}
+.reqs{list-style:none;padding:0;margin:12px 0 0}
+.reqs li{padding:3px 0}
+.reqs li.ok{color:var(--ok);font-weight:700}
+.q .opt{display:block;width:100%;font:inherit;text-align:left;cursor:pointer;border:2px solid #c3cfc9;background:#fff;border-radius:12px;padding:9px 14px;margin:8px 0}
+.q .opt.ok{border-color:var(--ok);background:var(--okbg)}
+.q .opt.bad{border-color:var(--bad);background:var(--badbg)}
+.inst{border:2px solid var(--line);border-radius:12px;padding:10px 14px;margin:10px 0}
+.inst.open{border-color:var(--brand)}
+.inst.read{border-color:var(--ok);background:var(--okbg)}
+.inst.lk{opacity:.5}
+@media(max-width:720px){.detail{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<!--
+  PLANTILLA · Línea de tiempo dinámica + Tarea evaluativa
+  Interacción obligatoria: para avanzar de hito hay que abrir el ejemplo y acertar «¿qué fase sigue?».
+  Rangos: 6–8 hitos · nombre 3–7 palabras · explicación 25–45 palabras · duración 4–6 min.
+  Edite solo el JSON de <script id="contenido">. Verifique con: node validar.js
+-->
+<header class="hero"><div class="in" id="hero"></div></header>
+<main class="wrap">
+  <section class="sec" id="intro" aria-labelledby="t-intro"></section>
+  <section class="sec" id="linea" aria-labelledby="t-linea"></section>
+  <section class="sec" id="cierre" aria-labelledby="t-cierre"></section>
+  <section class="sec" id="tarea" aria-labelledby="t-tarea"></section>
+</main>
+<footer id="foot"></footer>
+
+<script type="application/json" id="contenido">{
+  "id": "linea-tiempo",
+  "tipo": "Línea de tiempo dinámica",
+  "titulo": "Ruta de una solicitud: de la llegada al cierre",
+  "meta": [
+    "Competencia: gestionar solicitudes de clientes con calidad",
+    "Duración: 4 a 6 minutos",
+    "Actividad: Tarea evaluativa"
+  ],
+  "introduccion": "Toda solicitud de cliente recorre una ruta con fases y tiempos definidos. Conocer esa evolución le permite anticipar qué sigue, cumplir los plazos acordados y evitar que un caso se pierda entre áreas. Seleccione cada hito para explorar sus acciones, un ejemplo y su conexión con la fase siguiente.",
+  "hitos": [
+    {
+      "fase": "Minuto 0",
+      "icono": "📥",
+      "tono": 200,
+      "nombre": "Recepción de la solicitud",
+      "explicacion": "El cliente contacta por llamada, correo o chat. Usted saluda, escucha sin interrumpir y reconoce el problema. Esta primera impresión define el tono de toda la atención y la confianza posterior.",
+      "ejemplo": "Un cliente escribe al correo: «Mi pedido llegó incompleto». Usted responde en pocos minutos confirmando que su mensaje fue recibido.",
+      "conexion": "alimenta el registro"
+    },
+    {
+      "fase": "Minutos 1 a 5",
+      "icono": "📝",
+      "tono": 160,
+      "nombre": "Registro y número de caso",
+      "explicacion": "Se crea el caso en el sistema con datos del cliente, descripción del problema y evidencias. Se entrega un número de seguimiento para que el cliente pueda consultar el avance cuando lo necesite.",
+      "ejemplo": "Se genera el ticket 1048 y se informa al cliente: «Su número de caso es 1048; con él puede consultar el estado».",
+      "conexion": "permite clasificar"
+    },
+    {
+      "fase": "Minutos 5 a 15",
+      "icono": "🗂️",
+      "tono": 40,
+      "nombre": "Clasificación y prioridad del caso",
+      "explicacion": "Se identifica si es consulta, queja o reclamo y se asigna una prioridad según urgencia e impacto. La clasificación determina el responsable, el plazo máximo y los recursos que se destinarán.",
+      "ejemplo": "El faltante de un pedido pagado se marca como reclamo de prioridad media, con plazo de respuesta de veinticuatro horas.",
+      "conexion": "define quién responde"
+    },
+    {
+      "fase": "Hora 1",
+      "icono": "👥",
+      "tono": 280,
+      "nombre": "Asignación al responsable adecuado",
+      "explicacion": "El caso llega al área o persona con autoridad para resolverlo. Usted entrega un resumen claro del problema, evidencias y plazo acordado, para que el responsable no tenga que contactar de nuevo al cliente.",
+      "ejemplo": "Se asigna el caso a logística con el resumen: pedido 1048, faltan dos productos, entrega vencida y foto adjunta.",
+      "conexion": "habilita la solución"
+    },
+    {
+      "fase": "Horas 2 a 24",
+      "icono": "🛠️",
+      "tono": 340,
+      "nombre": "Solución y acciones correctivas",
+      "explicacion": "El responsable ejecuta la solución definida: reposición, reembolso, corrección o aclaración. Se registra cada acción realizada y se comunica cualquier cambio de plazo antes de que venza el compromiso.",
+      "ejemplo": "Logística despacha los dos productos faltantes el mismo día y registra la guía de envío dentro del ticket.",
+      "conexion": "debe comunicarse al cliente"
+    },
+    {
+      "fase": "Días 1 a 2",
+      "icono": "🤝",
+      "tono": 100,
+      "nombre": "Confirmación con el cliente",
+      "explicacion": "Se informa la solución y se verifica que el cliente quedó conforme. Si responde que persiste el problema, el caso se reabre y se ajusta el plan. Sin confirmación no hay solución comprobada.",
+      "ejemplo": "Usted llama al cliente: «Sus productos llegaron hoy; ¿está todo correcto?». El cliente confirma y agradece la rapidez.",
+      "conexion": "autoriza el cierre"
+    },
+    {
+      "fase": "Días 2 a 3",
+      "icono": "✅",
+      "tono": 20,
+      "nombre": "Cierre y mejora continua",
+      "explicacion": "Se cierra el caso con causa, solución y tiempo total empleado. El análisis de estos datos permite detectar patrones, corregir procesos y reducir futuras solicitudes similares con la misma causa.",
+      "ejemplo": "Se cierra el ticket 1048 con causa «error de empaque» y se propone una revisión adicional antes del despacho.",
+      "conexion": "reinicia el ciclo con mejoras"
+    }
+  ],
+  "ejemploEtiqueta": "Ejemplo práctico",
+  "cierrePregunta": "Pregunta de aplicación: si en su trabajo un caso se queda detenido en la fase de asignación, ¿qué dos acciones tomaría para recuperar el plazo comprometido con el cliente?",
+  "tarea": {
+    "nombre": "Tarea evaluativa: protocolo de atención por correo electrónico",
+    "resultado": "Diseñar una secuencia de atención que respete las fases y tiempos de una solicitud real.",
+    "reto": "Su organización recibe muchas solicitudes por correo electrónico y los tiempos de respuesta son irregulares. Usted debe redactar un protocolo breve que indique qué hacer en cada fase de la ruta estudiada.",
+    "producto": "Un protocolo escrito de 150 a 250 palabras que incluya las fases en orden, un tiempo máximo por fase y un ejemplo de mensaje al cliente.",
+    "duracion": "30 minutos aproximadamente",
+    "instrucciones": [
+      "Revise la línea de tiempo y elija las fases que aplican a una solicitud recibida por correo.",
+      "Redacte el protocolo con una acción concreta para cada fase, respetando el orden de la ruta.",
+      "Indique un tiempo máximo de ejecución para al menos tres de las fases.",
+      "Incluya un ejemplo de mensaje dirigido al cliente, escrito entre comillas.",
+      "Revise la lista de verificación y entregue el producto para ver la retroalimentación."
+    ],
+    "recursos": [
+      "Esta línea de tiempo",
+      "Sus apuntes personales",
+      "Ejemplos de la organización donde trabaja"
+    ],
+    "condiciones": "Formato: texto continuo o lista numerada. Extensión: entre 150 y 250 palabras. Entrega: una sola vez, con la lista de verificación completa. Puede descargar su evidencia en archivo de texto.",
+    "minPalabras": 150,
+    "maxPalabras": 250,
+    "checklist": [
+      "Mencioné las fases en el orden de la ruta",
+      "Incluí tiempos máximos concretos",
+      "Escribí un ejemplo de mensaje entre comillas",
+      "Mi texto tiene entre 150 y 250 palabras",
+      "Revisé ortografía y claridad de las frases"
+    ],
+    "criterios": [
+      {
+        "id": "orden",
+        "tipo": "orden",
+        "nombre": "Fases en orden",
+        "descripcion": "Menciona al menos seis fases de la ruta en el orden correcto.",
+        "raices": [
+          "recib",
+          "regist",
+          "clasific",
+          "asign",
+          "solu",
+          "confirm",
+          "cierr"
+        ],
+        "min": 6,
+        "retroOk": "Excelente: su protocolo respeta la secuencia de la ruta. Mantener el orden evita saltos de fase y facilita que cualquier compañero siga el procedimiento.",
+        "retroMejora": "Su texto no muestra al menos seis fases en el orden correcto. Revise la línea de tiempo y use verbos o nombres de cada fase en secuencia."
+      },
+      {
+        "id": "tiempos",
+        "tipo": "tiempos",
+        "nombre": "Tiempos máximos",
+        "descripcion": "Incluye al menos tres tiempos concretos de ejecución.",
+        "min": 3,
+        "retroOk": "Muy bien: define tiempos concretos para varias fases. Los plazos medibles permiten cumplir lo prometido al cliente y detectar a tiempo cuándo un caso se retrasa.",
+        "retroMejora": "Faltan tiempos concretos. Escriba al menos tres plazos con número y unidad, por ejemplo «5 minutos», «2 horas» o «1 día»."
+      },
+      {
+        "id": "ejemplo",
+        "tipo": "ejemplo",
+        "nombre": "Mensaje al cliente",
+        "descripcion": "Incluye un ejemplo de mensaje escrito entre comillas.",
+        "retroOk": "Buen trabajo: incorpora un mensaje listo para usar. Un ejemplo concreto hace el protocolo más práctico y asegura un tono consistente en todo el equipo.",
+        "retroMejora": "No se detecta un mensaje de ejemplo. Escríbalo entre comillas, con saludo, resumen de la solución y una pregunta de confirmación."
+      },
+      {
+        "id": "extension",
+        "tipo": "extension",
+        "nombre": "Extensión solicitada",
+        "descripcion": "El texto tiene entre 150 y 250 palabras.",
+        "retroOk": "Cumple con la extensión pedida. Un protocolo breve es más fácil de recordar y aplicar durante la atención real de los casos.",
+        "retroMejora": "La extensión está fuera del rango pedido. Ajuste su texto: agregue detalle si es muy corto o sintetice si supera las 250 palabras."
+      },
+      {
+        "id": "claridad",
+        "tipo": "manual",
+        "nombre": "Claridad del lenguaje",
+        "descripcion": "Usa frases cortas y verbos de acción (criterio de autoverificación).",
+        "retroOk": "Usted indicó que revisó la claridad. Mantenga frases cortas y verbos de acción para que el protocolo se entienda rápido.",
+        "retroMejora": "No marcó la revisión de claridad. Relea su texto, acorte las frases largas y empiece cada acción con un verbo."
+      }
+    ],
+    "retroFinal": {
+      "alto": "Logro alto: su protocolo cumple los criterios principales y puede usarse como guía de trabajo. Compártalo con su equipo para recibir observaciones.",
+      "medio": "Logro medio: su protocolo es útil pero tiene aspectos por fortalecer. Revise los criterios marcados y vuelva a entregar para mejorar su resultado.",
+      "bajo": "Logro inicial: el protocolo necesita ajustes importantes. Estudie de nuevo la línea de tiempo, corrija los criterios pendientes y entregue otra vez."
+    }
+  }
+}</script>
+<script>/* Utilidades compartidas por todas las plantillas */
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+function h(tag,attrs,...kids){
+  const e=document.createElement(tag);
+  for(const k in (attrs||{})){
+    const v=attrs[k];
+    if(v==null||v===false)continue;
+    if(k.slice(0,2)==='on')e.addEventListener(k.slice(2),v);
+    else if(k==='class')e.className=v;
+    else e.setAttribute(k,v===true?'':v);
+  }
+  kids.flat(9).forEach(c=>{if(c==null||c===false)return;e.append(c.nodeType?c:document.createTextNode(c))});
+  return e;
+}
+const CFG=JSON.parse(document.getElementById('contenido').textContent);
+const words=t=>(t||'').trim().split(/\s+/).filter(Boolean).length;
+const norm=t=>(t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+function store(k,v){
+  try{
+    const key='ova:'+CFG.id+':'+k;
+    if(v===undefined)return JSON.parse(localStorage.getItem(key));
+    localStorage.setItem(key,JSON.stringify(v));
+  }catch(e){return null}
+}
+function hero(){
+  document.title=CFG.titulo;
+  $('#hero').append(
+    h('span',{class:'tag'},CFG.tipo),
+    h('h1',{},CFG.titulo),
+    ...(CFG.subtitulo?[h('p',{},CFG.subtitulo)]:[]),
+    h('div',{class:'meta'},(CFG.meta||[]).map(m=>h('span',{},m)))
+  );
+  const f=$('#foot');
+  if(f)f.textContent=CFG.pie||'Recurso educativo digital · plantilla reutilizable';
+}
+let _gid=0;
+function art(icon,hue,img){
+  const d=h('div',{class:'art','aria-hidden':'true'});
+  if(img){d.append(h('img',{src:img,alt:''}));return d}
+  const id='g'+(++_gid);
+  d.innerHTML='<svg viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="'+id+'" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0a3328"/><stop offset="1" stop-color="#1f5c47"/></linearGradient><pattern id="'+id+'p" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24 0H0V24" fill="none" stroke="#ffffff" stroke-opacity=".06"/></pattern></defs><rect width="400" height="200" fill="url(#'+id+')"/><rect width="400" height="200" fill="url(#'+id+'p)"/><path d="M200 36l62 20v50c0 38-27 62-62 76-35-14-62-38-62-76V56z" fill="none" stroke="#c9a227" stroke-width="3"/><path d="M200 58l40 13v35c0 25-17 41-40 51-23-10-40-26-40-51V71z" fill="#c9a227" fill-opacity=".14" stroke="#c9a227" stroke-opacity=".6" stroke-width="1.5"/><rect x="0" y="192" width="400" height="8" fill="#c9a227"/></svg>';
+  return d;
+}
+function modal(title,body){
+  const prev=document.activeElement;
+  const close=()=>{ov.remove();document.removeEventListener('keydown',esc);if(prev&&prev.focus)prev.focus()};
+  const esc=ev=>{if(ev.key==='Escape')close()};
+  const x=h('button',{class:'x','aria-label':'Cerrar ventana',onclick:close},'×');
+  const ov=h('div',{class:'overlay',role:'dialog','aria-modal':'true','aria-label':title,onclick:ev=>{if(ev.target===ov)close()}},
+    h('div',{class:'modal'},x,h('h3',{},title),body,h('div',{class:'row',style:'margin-top:14px'},h('button',{class:'btn sec',onclick:close},'Cerrar'))));
+  document.body.append(ov);document.addEventListener('keydown',esc);x.focus();
+  return close;
+}
+function fb(kind,title,text){return h('div',{class:'fb '+kind,role:'status'},h('b',{},title),text)}
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function download(name,text){
+  const a=h('a',{href:URL.createObjectURL(new Blob([text],{type:'text/plain;charset=utf-8'})),download:name});
+  document.body.append(a);a.click();a.remove();
+}
+
+/* ---- Interacción obligatoria: avisos, confeti, puntos y bloqueo de secciones ---- */
+function toast(msg){
+  document.querySelectorAll('.toast').forEach(x=>x.remove());
+  const t=h('div',{class:'toast',role:'status'},msg);document.body.append(t);
+  setTimeout(()=>t.classList.add('out'),2300);setTimeout(()=>t.remove(),2900);
+}
+function burst(){}
+let _pts=0,_hud=null;
+function addPts(n,why){
+  _pts+=n;
+  if(!_hud){_hud=h('div',{class:'hud','aria-live':'polite'});document.body.append(_hud)}
+  _hud.textContent=''+_pts+' puntos';_hud.classList.remove('pop');void _hud.offsetWidth;_hud.classList.add('pop');
+  if(why)toast('+'+n+' · '+why);
+}
+/* ---- Secciones principales tipo acordeón: bloqueada → abierta → completada (se puede reabrir) ---- */
+const topLevel=el=>el.parentElement&&el.parentElement.matches('main.wrap')&&el.classList.contains('sec');
+function accWrap(el){
+  if(el._acc||el.hidden)return;
+  const t=el.querySelector(':scope>h2');
+  const title=t?t.textContent:'';
+  if(t)t.remove();
+  const ab=h('div',{class:'ab'});
+  while(el.firstChild)ab.append(el.firstChild);
+  const hd=h('button',{class:'ah',type:'button',id:t&&t.id||null});
+  el.append(hd,ab);
+  el._acc={locked:false,done:false,open:true,msg:'',title,hd,ab};
+  hd.onclick=()=>{
+    const a=el._acc;
+    if(a.locked){toast('🔒 '+a.msg);hd.classList.add('shake');setTimeout(()=>hd.classList.remove('shake'),400);return}
+    a.open?(a.open=false,accRender(el)):accOpen(el);
+  };
+  accRender(el);
+}
+function accRender(el){
+  const a=el._acc;if(!a)return;
+  const st=a.locked?'lock':a.open?'open':a.done?'done':'idle';
+  a.hd.className='ah '+st;
+  a.hd.setAttribute('aria-expanded',String(a.open));
+  a.hd.replaceChildren(...(st==='open'?[h('span',{class:'tt'},a.title)]:[
+    h('span',{class:'ic','aria-hidden':'true'},st==='lock'?'🔒':st==='done'?'✔':'▶'),
+    h('span',{class:'tt'},a.title),
+    h('span',{class:'st'},st==='lock'?a.msg:st==='done'?'Completada · toque para abrir':'En curso · toque para abrir')]));
+  a.ab.hidden=!a.open;
+}
+function accOpen(el){
+  accWrap(el);const a=el._acc;if(!a)return;
+  a.locked=false;
+  const all=[...el.parentElement.children].filter(x=>x._acc);
+  const k=all.indexOf(el);
+  all.forEach((x,j)=>{if(x===el)return;x._acc.open=false;if(j<k&&!x._acc.locked)x._acc.done=true;accRender(x)});
+  a.open=true;accRender(el);
+  setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'start'}),120);
+}
+function accAll(){$$('main.wrap>section.sec').forEach(accWrap)}
+function gate(el,msg){
+  if(topLevel(el)){accWrap(el);const a=el._acc;a.locked=true;a.open=false;a.msg=msg;accRender(el);return}
+  el.classList.add('gated');el.setAttribute('inert','');
+  const t=el.querySelector(':scope>h2');
+  el._veil=h('div',{class:'veil'},h('div',{},h('div',{style:'font-size:2rem','aria-hidden':'true'},'🔒'),t?h('h3',{},t.textContent):null,h('p',{},msg)));
+  el.append(el._veil);
+}
+function ungate(el,msg){
+  if(topLevel(el)){if(!el._acc||!el._acc.locked)return;accOpen(el);toast('🔓 '+(msg||'Sección desbloqueada'));return}
+  if(!el._veil)return;
+  el._veil.remove();el._veil=null;el.removeAttribute('inert');el.classList.remove('gated');el.classList.add('unlocked');
+  toast('🔓 '+(msg||'Sección desbloqueada'));
+}
+</script>
+<script>
+hero();
+const H=CFG.hitos;
+const secs={linea:$('#linea'),cierre:$('#cierre'),tarea:$('#tarea')};
+
+/* ---- Introducción: hay que iniciar el recorrido ---- */
+$('#intro').append(h('h2',{id:'t-intro'},'Introducción'),h('div',{class:'card'},h('p',{class:'intro'},CFG.introduccion),
+  h('button',{class:'btn warn',id:'ini',onclick:e=>{e.target.disabled=true;e.target.textContent='✔ Recorrido iniciado';addPts(5,'¡Comienza el recorrido!');ungate(secs.linea,'Recorrido desbloqueado')}},'Entendido: iniciar el recorrido')));
+
+/* ---- Línea de tiempo con avance condicionado ---- */
+(function(){
+  let cur=0,reach=0;
+  const st=H.map(()=>({ej:false,ok:false}));
+  const track=h('ol',{class:'track','aria-label':'Hitos de la línea de tiempo'});
+  const detail=h('div',{class:'card detail',id:'detalle','aria-live':'polite'});
+  const prev=h('button',{class:'btn sec',onclick:()=>go(cur-1)},'← Fase anterior');
+  const next=h('button',{class:'btn',onclick:()=>advance()},'Fase siguiente →');
+  const count=h('span',{class:'muted'});
+  const opciones=i=>{
+    const n=H[i+1];if(!n)return null;
+    const otros=shuffle(H.filter((_,k)=>k!==i&&k!==i+1)).slice(0,2);
+    return shuffle([n,...otros]).map(x=>({t:x.nombre,ok:x===n}));
+  };
+  const opts=H.map((_,i)=>opciones(i));
+
+  function need(i){return st[i].ej&&(i===H.length-1||st[i].ok)}
+  function advance(){
+    if(!need(cur)){toast('Primero complete las dos tareas del hito.');return}
+    if(cur===H.length-1){ungate(secs.cierre,'¡Recorrido completo!');return}
+    reach=Math.max(reach,cur+1);addPts(10,'Hito '+(cur+1)+' superado');go(cur+1);
+  }
+  function renderTrack(){
+    track.replaceChildren(...H.map((x,i)=>h('li',{class:i<cur?'past':i===cur?'cur':''},
+      h('button',{class:'dot',disabled:i>reach,onclick:()=>go(i),'aria-label':(i+1)+'. '+x.nombre+' ('+x.fase+')','aria-current':i===cur?'step':null},i>reach?'🔒':(st[i].ok||(i===H.length-1&&st[i].ej))&&i!==cur?'✅':x.icono),h('small',{},x.fase))));
+  }
+  function go(i){
+    if(i<0||i>=H.length||i>reach)return;
+    cur=i;renderTrack();
+    const x=H[i],n=H[i+1],S=st[i];
+    const ejBox=h('div',{class:'fb info',hidden:!S.ej},h('b',{},CFG.ejemploEtiqueta),x.ejemplo);
+    const reqs=h('ul',{class:'reqs'});
+    const upd=()=>{
+      reqs.replaceChildren(h('li',{class:S.ej?'ok':''},(S.ej?'✔':'☐')+' Abrir el ejemplo práctico'),
+        i<H.length-1?h('li',{class:S.ok?'ok':''},(S.ok?'✔':'☐')+' Responder: ¿qué fase sigue?'):null);
+      next.disabled=!need(i);next.textContent=i===H.length-1?'Finalizar recorrido':'Fase siguiente →';
+      prev.disabled=i===0;
+      count.textContent='Hito '+(i+1)+' de '+H.length;
+    };
+    const bEj=h('button',{class:'btn sec',disabled:S.ej,onclick:()=>{S.ej=true;ejBox.hidden=false;bEj.disabled=true;bEj.textContent='✔ Ejemplo abierto';addPts(3);upd()}},S.ej?'✔ Ejemplo abierto':'Abrir ejemplo práctico');
+    let quiz=null;
+    if(n){
+      const out=h('div');
+      quiz=h('div',{class:'q'},h('p',{},h('b',{},'¿Qué fase sigue después de «'+x.nombre+'»?')),
+        ...opts[i].map(o=>{const b=h('button',{class:'opt',disabled:S.ok,onclick:()=>{
+          if(S.ok)return;
+          if(o.ok){S.ok=true;b.classList.add('ok');$$('.opt',quiz).forEach(z=>z.disabled=true);out.replaceChildren(fb('ok','¡Correcto!','Esta fase '+x.conexion+': '+n.nombre+'.'));addPts(5);upd()}
+          else{b.classList.add('bad','shake');out.replaceChildren(fb('bad','Aún no','Relea la explicación y la conexión del hito. Intente de nuevo.'));setTimeout(()=>b.classList.remove('shake'),400)}
+        }},o.t);if(S.ok&&o.ok)b.classList.add('ok');return b}),out);
+      if(S.ok)out.append(fb('ok','¡Correcto!','Esta fase '+x.conexion+': '+n.nombre+'.'));
+    }
+    detail.replaceChildren(
+      art(x.icono,x.tono,x.img),
+      h('div',{},
+        h('span',{class:'fase'},x.fase),
+        h('h3',{style:'font-size:1.35rem;margin-top:8px'},(i+1)+'. '+x.nombre),
+        h('p',{},x.explicacion),bEj,ejBox,
+        h('div',{class:'link'},n?('Esta fase '+x.conexion+'.'):('Esta fase '+x.conexion+'.')),
+        quiz,reqs));
+    upd();
+  }
+  $('#linea').append(h('h2',{id:'t-linea'},'Recorra los '+H.length+' hitos'),
+    h('div',{class:'card'},track,h('p',{class:'muted',style:'margin:4px 0 0'},'Cada hito se desbloquea al abrir su ejemplo y acertar la pregunta de secuencia.')),
+    detail,h('div',{class:'row',style:'margin-top:12px;justify-content:space-between'},prev,count,next));
+  go(0);
+  gate(secs.linea,'Lea la introducción y pulse «iniciar el recorrido».');
+})();
+
+/* ---- Cierre: pregunta de aplicación respondida por escrito ---- */
+(function(){
+  const ta=h('textarea',{'aria-label':'Respuesta a la pregunta de aplicación',placeholder:'Escriba su respuesta (mínimo 15 palabras)…'});
+  const c=h('p',{class:'hint'},'0 / 15 palabras');
+  const b=h('button',{class:'btn',disabled:true,onclick:()=>{b.disabled=true;ta.disabled=true;b.textContent='✔ Respuesta registrada';addPts(10,'Respuesta de aplicación');ungate(secs.tarea,'Tarea evaluativa desbloqueada')}},'Registrar respuesta y continuar');
+  ta.oninput=()=>{const n=words(ta.value);c.textContent=n+' / 15 palabras';b.disabled=n<15};
+  $('#cierre').append(h('h2',{id:'t-cierre'},'Cierre'),h('div',{class:'card',style:'background:#f7f1dc;border:2px solid var(--accent)'},h('h3',{},'Pregunta de aplicación'),h('p',{},CFG.cierrePregunta),ta,c,b));
+  gate(secs.cierre,'Complete los 7 hitos para desbloquear el cierre.');
+})();
+
+/* ---- Actividad: Tarea evaluativa ---- */
+(function(){
+  const T=CFG.tarea,root=$('#tarea');
+  const saved=store('tarea')||{txt:'',chk:[]};
+  const save=()=>store('tarea',saved);
+
+  /* Instrucciones: se abren y marcan una a una */
+  const readN=new Set();
+  const body=h('div',{style:'margin-top:16px'});
+  const inst=T.instrucciones.map((x,i)=>{
+    const b=h('button',{class:'btn sec',style:'margin-top:6px',onclick:()=>{
+      readN.add(i);box.classList.remove('open');box.classList.add('read');b.remove();addPts(2);
+      if(i+1<T.instrucciones.length){const nx=inst[i+1];nx.classList.remove('lk');nx.classList.add('open');$('.btn',nx).disabled=false}
+      if(readN.size===T.instrucciones.length)ungate(body,'¡Instrucciones leídas! Ya puede redactar su producto.');
+    }},'✔ Entendido');
+    const box=h('div',{class:'inst'+(i===0?' open':' lk')},h('b',{},(i+1)+'. '),x,h('br'),b);
+    b.disabled=i!==0;return box;
+  });
+
+  root.append(h('h2',{id:'t-tarea'},'Actividad de autoaprendizaje · '+T.nombre),
+    h('div',{class:'card'},
+      h('h3',{style:'margin-top:0'},'1. Nombre de la tarea y resultado de aprendizaje'),h('p',{},h('b',{},T.nombre+'. '),T.resultado),
+      h('h3',{},'2. Reto'),h('p',{},T.reto),
+      h('h3',{},'3. Producto o evidencia por entregar'),h('p',{},T.producto),
+      h('p',{class:'muted'},'Duración: '+T.duracion),
+      h('h3',{},'4. Instrucciones secuenciales'),h('p',{class:'hint'},'Marque cada instrucción como entendida para habilitar la siguiente.'),...inst,
+      h('p',{},h('b',{},'Recursos permitidos: '),T.recursos.join(' · ')),
+      h('h3',{},'5. Criterios de evaluación y condiciones de entrega'),
+      h('ul',{class:'lista'},T.criterios.map(c=>h('li',{},h('b',{},c.nombre+': '),c.descripcion))),
+      h('p',{},T.condiciones)),body);
+
+  const ta=h('textarea',{id:'ent',style:'min-height:220px','aria-label':'Escriba aquí su protocolo',placeholder:'Escriba aquí su protocolo de atención…'});ta.value=saved.txt;
+  const cont=h('p',{class:'contador'});
+  const out=h('div',{'aria-live':'polite'});
+  function upd(){
+    const n=words(ta.value);
+    const okr=n>=T.minPalabras&&n<=T.maxPalabras;
+    cont.className='contador '+(okr?'ok':'bad');
+    cont.textContent=n+' palabras · rango requerido: '+T.minPalabras+' a '+T.maxPalabras;
+  }
+  ta.oninput=()=>{saved.txt=ta.value;save();upd()};
+  const ck=h('div',{class:'chk'},T.checklist.map((c,i)=>{
+    const cb=h('input',{type:'checkbox',id:'tk'+i});cb.checked=!!saved.chk[i];
+    cb.onchange=()=>{saved.chk[i]=cb.checked;save()};
+    return h('label',{for:'tk'+i},cb,c);
+  }));
+  const bEnt=h('button',{class:'btn',onclick:entregar},'Entregar y ver retroalimentación');
+  body.append(h('div',{class:'card'},
+    h('h3',{style:'margin-top:0'},'Su producto'),ta,cont,
+    h('h3',{style:'margin-top:12px'},'6. Lista de verificación'),ck,
+    h('div',{class:'row',style:'margin-top:12px'},bEnt,h('button',{class:'btn sec',onclick:()=>{ta.value='';saved.txt='';saved.chk=[];save();$$('input[type=checkbox]',ck).forEach(c=>c.checked=false);out.replaceChildren();upd()}},'Borrar y empezar de nuevo')),
+    h('h3',{style:'margin-top:16px'},'7. Retroalimentación posterior'),out));
+  upd();
+
+  function evaluar(c,texto){
+    const n=norm(texto);
+    if(c.tipo==='orden'){
+      let pos=-1,ok=0;
+      c.raices.forEach(r=>{const p=n.indexOf(r,pos+1);if(p>-1){ok++;pos=p}});
+      return ok>=c.min;
+    }
+    if(c.tipo==='tiempos'){
+      const m=n.match(/\b\d+\s*(min|minutos?|horas?|h|dias?|d)\b/g)||[];
+      return m.length>=c.min;
+    }
+    if(c.tipo==='ejemplo')return /[«"“]/.test(texto)&&/[»"”]/.test(texto);
+    if(c.tipo==='extension'){const w=words(texto);return w>=T.minPalabras&&w<=T.maxPalabras}
+    if(c.tipo==='manual')return !!saved.chk[T.checklist.length-1];
+    return false;
+  }
+  function entregar(){
+    if(words(ta.value)<20){out.replaceChildren(fb('bad','Producto muy corto','Escriba su protocolo antes de entregarlo para recibir retroalimentación.'));return}
+    if(saved.chk.filter(Boolean).length<T.checklist.length){out.replaceChildren(fb('bad','Complete la lista de verificación','Marque todos los elementos de la lista de verificación antes de entregar. Revise su texto con calma.'));return}
+    const res=T.criterios.map(c=>({c,ok:evaluar(c,ta.value)}));
+    const n=res.filter(r=>r.ok).length,tot=res.length;
+    const nivel=n>=tot-1?'alto':n>=Math.ceil(tot/2)?'medio':'bajo';
+    addPts(n*5,'Entrega evaluada');if(nivel==='alto')burst();
+    out.replaceChildren(
+      h('p',{},h('b',{},'Criterios cumplidos: '+n+' de '+tot)),
+      ...res.map(r=>fb(r.ok?'ok':'bad',(r.ok?'✔ ':'✘ ')+r.c.nombre,r.ok?r.c.retroOk:r.c.retroMejora)),
+      fb(nivel==='alto'?'ok':nivel==='medio'?'info':'bad','Valoración general',T.retroFinal[nivel]),
+      h('p',{class:'muted'},'La verificación automática es orientativa: detecta estructura, tiempos, ejemplo y extensión. Su docente o líder puede valorar la calidad del contenido.'),
+      h('div',{class:'row'},h('button',{class:'btn',onclick:()=>download('evidencia-tarea.txt',T.nombre+'\n\n'+ta.value+'\n\nCriterios cumplidos: '+n+'/'+tot+'\n'+res.map(r=>(r.ok?'[x] ':'[ ] ')+r.c.nombre).join('\n'))},'⬇ Descargar mi evidencia (.txt)')));
+  }
+  gate(body,'Marque como entendidas las 5 instrucciones para habilitar el editor.');
+  gate(secs.tarea,'Responda la pregunta de aplicación para desbloquear la tarea.');
+})();
+accAll();
+</script>
+</body>
+</html>

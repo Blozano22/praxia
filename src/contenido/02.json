@@ -1,0 +1,90 @@
+{
+  "id": "linea-tiempo",
+  "tipo": "Línea de tiempo dinámica",
+  "titulo": "Ruta de una solicitud: de la llegada al cierre",
+  "meta": ["Competencia: gestionar solicitudes de clientes con calidad", "Duración: 4 a 6 minutos", "Actividad: Tarea evaluativa"],
+  "introduccion": "Toda solicitud de cliente recorre una ruta con fases y tiempos definidos. Conocer esa evolución le permite anticipar qué sigue, cumplir los plazos acordados y evitar que un caso se pierda entre áreas. Seleccione cada hito para explorar sus acciones, un ejemplo y su conexión con la fase siguiente.",
+  "hitos": [
+    {
+      "fase": "Minuto 0", "icono": "📥", "tono": 200, "nombre": "Recepción de la solicitud",
+      "explicacion": "El cliente contacta por llamada, correo o chat. Usted saluda, escucha sin interrumpir y reconoce el problema. Esta primera impresión define el tono de toda la atención y la confianza posterior.",
+      "ejemplo": "Un cliente escribe al correo: «Mi pedido llegó incompleto». Usted responde en pocos minutos confirmando que su mensaje fue recibido.",
+      "conexion": "alimenta el registro"
+    },
+    {
+      "fase": "Minutos 1 a 5", "icono": "📝", "tono": 160, "nombre": "Registro y número de caso",
+      "explicacion": "Se crea el caso en el sistema con datos del cliente, descripción del problema y evidencias. Se entrega un número de seguimiento para que el cliente pueda consultar el avance cuando lo necesite.",
+      "ejemplo": "Se genera el ticket 1048 y se informa al cliente: «Su número de caso es 1048; con él puede consultar el estado».",
+      "conexion": "permite clasificar"
+    },
+    {
+      "fase": "Minutos 5 a 15", "icono": "🗂️", "tono": 40, "nombre": "Clasificación y prioridad del caso",
+      "explicacion": "Se identifica si es consulta, queja o reclamo y se asigna una prioridad según urgencia e impacto. La clasificación determina el responsable, el plazo máximo y los recursos que se destinarán.",
+      "ejemplo": "El faltante de un pedido pagado se marca como reclamo de prioridad media, con plazo de respuesta de veinticuatro horas.",
+      "conexion": "define quién responde"
+    },
+    {
+      "fase": "Hora 1", "icono": "👥", "tono": 280, "nombre": "Asignación al responsable adecuado",
+      "explicacion": "El caso llega al área o persona con autoridad para resolverlo. Usted entrega un resumen claro del problema, evidencias y plazo acordado, para que el responsable no tenga que contactar de nuevo al cliente.",
+      "ejemplo": "Se asigna el caso a logística con el resumen: pedido 1048, faltan dos productos, entrega vencida y foto adjunta.",
+      "conexion": "habilita la solución"
+    },
+    {
+      "fase": "Horas 2 a 24", "icono": "🛠️", "tono": 340, "nombre": "Solución y acciones correctivas",
+      "explicacion": "El responsable ejecuta la solución definida: reposición, reembolso, corrección o aclaración. Se registra cada acción realizada y se comunica cualquier cambio de plazo antes de que venza el compromiso.",
+      "ejemplo": "Logística despacha los dos productos faltantes el mismo día y registra la guía de envío dentro del ticket.",
+      "conexion": "debe comunicarse al cliente"
+    },
+    {
+      "fase": "Días 1 a 2", "icono": "🤝", "tono": 100, "nombre": "Confirmación con el cliente",
+      "explicacion": "Se informa la solución y se verifica que el cliente quedó conforme. Si responde que persiste el problema, el caso se reabre y se ajusta el plan. Sin confirmación no hay solución comprobada.",
+      "ejemplo": "Usted llama al cliente: «Sus productos llegaron hoy; ¿está todo correcto?». El cliente confirma y agradece la rapidez.",
+      "conexion": "autoriza el cierre"
+    },
+    {
+      "fase": "Días 2 a 3", "icono": "✅", "tono": 20, "nombre": "Cierre y mejora continua",
+      "explicacion": "Se cierra el caso con causa, solución y tiempo total empleado. El análisis de estos datos permite detectar patrones, corregir procesos y reducir futuras solicitudes similares con la misma causa.",
+      "ejemplo": "Se cierra el ticket 1048 con causa «error de empaque» y se propone una revisión adicional antes del despacho.",
+      "conexion": "reinicia el ciclo con mejoras"
+    }
+  ],
+  "ejemploEtiqueta": "Ejemplo práctico",
+  "cierrePregunta": "Pregunta de aplicación: si en su trabajo un caso se queda detenido en la fase de asignación, ¿qué dos acciones tomaría para recuperar el plazo comprometido con el cliente?",
+  "tarea": {
+    "nombre": "Tarea evaluativa: protocolo de atención por correo electrónico",
+    "resultado": "Diseñar una secuencia de atención que respete las fases y tiempos de una solicitud real.",
+    "reto": "Su organización recibe muchas solicitudes por correo electrónico y los tiempos de respuesta son irregulares. Usted debe redactar un protocolo breve que indique qué hacer en cada fase de la ruta estudiada.",
+    "producto": "Un protocolo escrito de 150 a 250 palabras que incluya las fases en orden, un tiempo máximo por fase y un ejemplo de mensaje al cliente.",
+    "duracion": "30 minutos aproximadamente",
+    "instrucciones": [
+      "Revise la línea de tiempo y elija las fases que aplican a una solicitud recibida por correo.",
+      "Redacte el protocolo con una acción concreta para cada fase, respetando el orden de la ruta.",
+      "Indique un tiempo máximo de ejecución para al menos tres de las fases.",
+      "Incluya un ejemplo de mensaje dirigido al cliente, escrito entre comillas.",
+      "Revise la lista de verificación y entregue el producto para ver la retroalimentación."
+    ],
+    "recursos": ["Esta línea de tiempo", "Sus apuntes personales", "Ejemplos de la organización donde trabaja"],
+    "condiciones": "Formato: texto continuo o lista numerada. Extensión: entre 150 y 250 palabras. Entrega: una sola vez, con la lista de verificación completa. Puede descargar su evidencia en archivo de texto.",
+    "minPalabras": 150,
+    "maxPalabras": 250,
+    "checklist": [
+      "Mencioné las fases en el orden de la ruta",
+      "Incluí tiempos máximos concretos",
+      "Escribí un ejemplo de mensaje entre comillas",
+      "Mi texto tiene entre 150 y 250 palabras",
+      "Revisé ortografía y claridad de las frases"
+    ],
+    "criterios": [
+      {"id": "orden", "tipo": "orden", "nombre": "Fases en orden", "descripcion": "Menciona al menos seis fases de la ruta en el orden correcto.", "raices": ["recib", "regist", "clasific", "asign", "solu", "confirm", "cierr"], "min": 6, "retroOk": "Excelente: su protocolo respeta la secuencia de la ruta. Mantener el orden evita saltos de fase y facilita que cualquier compañero siga el procedimiento.", "retroMejora": "Su texto no muestra al menos seis fases en el orden correcto. Revise la línea de tiempo y use verbos o nombres de cada fase en secuencia."},
+      {"id": "tiempos", "tipo": "tiempos", "nombre": "Tiempos máximos", "descripcion": "Incluye al menos tres tiempos concretos de ejecución.", "min": 3, "retroOk": "Muy bien: define tiempos concretos para varias fases. Los plazos medibles permiten cumplir lo prometido al cliente y detectar a tiempo cuándo un caso se retrasa.", "retroMejora": "Faltan tiempos concretos. Escriba al menos tres plazos con número y unidad, por ejemplo «5 minutos», «2 horas» o «1 día»."},
+      {"id": "ejemplo", "tipo": "ejemplo", "nombre": "Mensaje al cliente", "descripcion": "Incluye un ejemplo de mensaje escrito entre comillas.", "retroOk": "Buen trabajo: incorpora un mensaje listo para usar. Un ejemplo concreto hace el protocolo más práctico y asegura un tono consistente en todo el equipo.", "retroMejora": "No se detecta un mensaje de ejemplo. Escríbalo entre comillas, con saludo, resumen de la solución y una pregunta de confirmación."},
+      {"id": "extension", "tipo": "extension", "nombre": "Extensión solicitada", "descripcion": "El texto tiene entre 150 y 250 palabras.", "retroOk": "Cumple con la extensión pedida. Un protocolo breve es más fácil de recordar y aplicar durante la atención real de los casos.", "retroMejora": "La extensión está fuera del rango pedido. Ajuste su texto: agregue detalle si es muy corto o sintetice si supera las 250 palabras."},
+      {"id": "claridad", "tipo": "manual", "nombre": "Claridad del lenguaje", "descripcion": "Usa frases cortas y verbos de acción (criterio de autoverificación).", "retroOk": "Usted indicó que revisó la claridad. Mantenga frases cortas y verbos de acción para que el protocolo se entienda rápido.", "retroMejora": "No marcó la revisión de claridad. Relea su texto, acorte las frases largas y empiece cada acción con un verbo."}
+    ],
+    "retroFinal": {
+      "alto": "Logro alto: su protocolo cumple los criterios principales y puede usarse como guía de trabajo. Compártalo con su equipo para recibir observaciones.",
+      "medio": "Logro medio: su protocolo es útil pero tiene aspectos por fortalecer. Revise los criterios marcados y vuelva a entregar para mejorar su resultado.",
+      "bajo": "Logro inicial: el protocolo necesita ajustes importantes. Estudie de nuevo la línea de tiempo, corrija los criterios pendientes y entregue otra vez."
+    }
+  }
+}

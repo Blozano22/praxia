@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{TITULO}}</title>
+<style>/*CSS*/</style>
+<style>
+
+.deck{max-width:1060px;margin:18px auto;padding:0 12px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.top .mod{font-weight:700;color:var(--brand2)}
+.slide{background:#fff;border-radius:20px;box-shadow:var(--shadow);border:1px solid var(--line);padding:clamp(18px,3.5vw,40px);min-height:470px;animation:in .35s both}
+@keyframes in{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}
+.slide h1,.slide h2.st{margin:0 0 12px;font-size:clamp(1.4rem,3.4vw,2.1rem);line-height:1.2;color:var(--brand2)}
+.cols{display:grid;grid-template-columns:1fr 1.25fr;gap:28px;align-items:center}
+.slide p{font-size:1.06rem}
+.cover{text-align:center;background:linear-gradient(180deg,#0a3328,#0f4d3a);color:#fff;border-radius:12px;border-bottom:5px solid var(--accent);padding:34px 20px}
+.cover h1{color:#fff;font-size:clamp(1.7rem,4.6vw,2.8rem)}
+.cover .big{font-size:5rem}
+.cover p{max-width:760px;margin:12px auto;opacity:.97}
+.ex{background:#e8eeec;border-left:6px solid var(--brand);border-radius:10px;padding:10px 14px;margin-top:10px}
+.opts{display:grid;gap:10px;margin:12px 0}
+.opt{font:inherit;text-align:left;cursor:pointer;border:2px solid #c3cfc9;background:#fff;border-radius:12px;padding:12px 16px}
+.opt:hover:not(:disabled){border-color:var(--brand);background:#eef3f0}
+.opt.ok{border-color:var(--ok);background:var(--okbg)}.opt.bad{border-color:var(--bad);background:var(--badbg)}
+.chips{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}
+.chipb{font:inherit;cursor:pointer;border:2px solid var(--brand);background:#fff;color:var(--brand2);border-radius:99px;padding:8px 16px;font-weight:700}
+.chipb.on{background:var(--brand);color:#fff}
+.chipb.seen:not(.on){border-color:var(--ok);background:var(--okbg)}
+.ruta{display:grid;gap:10px;margin-top:14px}
+.ruta button{display:flex;gap:12px;align-items:center;font:inherit;text-align:left;cursor:pointer;border:2px solid var(--brand);border-radius:12px;background:#fff;padding:12px 16px;font-weight:600}
+.ruta button:hover{background:#eef3f0}
+.ruta button.lk{border-color:#c3cfc9;color:#7a8799}
+.nav{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px;flex-wrap:wrap}
+.dots{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.dots button{width:14px;height:14px;border-radius:50%;border:2px solid var(--brand);background:#fff;padding:0;cursor:pointer}
+.dots button:disabled{border-color:#c3cfc9;background:#e3e8ef;cursor:not-allowed}
+.dots button.cur{background:var(--brand);transform:scale(1.35)}
+.dots button.vis{background:#b9c7c0}
+.scn{border:2px solid var(--line);border-radius:14px;padding:16px;margin-top:12px}
+.meta2{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 10px}
+.meta2 span{background:#eef2f7;border-radius:8px;padding:3px 10px;font-size:.88rem}
+.req{flex:1 1 100%;text-align:center;font-size:.92rem;color:#8a5a00;background:#f4ecd0;border-radius:10px;padding:6px 10px;order:5}
+.req.ok{color:var(--ok);background:var(--okbg)}
+.readchip{display:inline-block;background:#eef2f7;border-radius:99px;padding:3px 12px;font-size:.88rem;font-weight:700;margin:6px 0}
+.readchip.ok{background:var(--okbg);color:var(--ok)}
+.tiles{display:grid;gap:10px;margin:12px 0}
+.tile{font:inherit;text-align:left;cursor:pointer;border:2px dashed #8fa69b;background:#fff;border-radius:12px;padding:10px 14px}
+.tile.on{border:2px solid var(--ok);background:var(--okbg)}
+@media(max-width:760px){.cols{grid-template-columns:1fr}.slide{min-height:0}}
+</style>
+</head>
+<body>
+<!--
+  PLANTILLA · Presentación multimedia interactiva + Toma de decisiones
+  Interacción obligatoria: el botón «Siguiente» se habilita solo al cumplir la tarea de cada diapositiva
+  (comenzar, leer + abrir ejemplo, acertar, explorar todo, escribir antes de ver la solución, marcar la síntesis).
+  Rangos: 8–12 diapositivas · título 5–10 palabras · texto 40–70 palabras · 2–4 interacciones · actividad con
+  1–4 escenarios, 2–4 alternativas y retroalimentación de 25–40 palabras. Verifique con: node validar.js
+-->
+<main class="deck">
+  <div class="top"><span class="mod" id="mod"></span><span class="muted" id="cnt"></span></div>
+  <div class="bar" aria-hidden="true"><i id="pb"></i></div>
+  <div id="stage" style="margin-top:10px" aria-live="polite"></div>
+  <nav class="nav" aria-label="Navegación de la presentación">
+    <button class="btn sec" id="prev">← Anterior</button>
+    <div class="dots" id="dots"></div>
+    <button class="btn" id="next">Siguiente →</button>
+    <div class="req" id="req" role="status"></div>
+  </nav>
+</main>
+<footer id="foot"></footer>
+
+<script type="application/json" id="contenido">/*CONTENIDO*/</script>
+<script>/*LIB*/</script>
+<script>
+document.title=CFG.titulo;
+$('#foot').textContent=CFG.pie||CFG.duracion+' · Recurso educativo digital · plantilla reutilizable';
+const S=CFG.diapositivas;
+let cur=0,reach=0;const done=S.map(()=>false);const vis=new Set([0]);
+const REQ={portada:'Pulse «Comenzar» para continuar.',indice:'Pulse «Iniciar el módulo 1» para continuar.',contenido:'Termine la lectura y abra el ejemplo aplicado para continuar.',pregunta:'Elija la decisión correcta para continuar.',explorar:'Toque todos los datos para continuar.',caso:'Escriba su propuesta y revele la solución para continuar.',cierre:'Marque las ideas de la síntesis para continuar.',actividad:''};
+
+function mark(i){
+  if(done[i])return;
+  done[i]=true;addPts(5,'Diapositiva completada');
+  if(i===cur)refreshNav(true);
+}
+const titulo=s=>h('h2',{class:'st'},s.titulo);
+const visual=s=>art(s.icono,s.tono,s.img);
+
+const build={
+  portada:(s,i)=>h('div',{class:'cover'},h('h1',{},s.titulo),h('p',{},s.texto),h('button',{class:'btn warn',onclick:()=>{mark(i);goNext()}},'Comenzar →')),
+  indice:(s,i)=>{
+    const bs=CFG.ruta.map((r,k)=>h('button',{onclick:()=>{r.ir<=reach?go(r.ir):toast('🔒 Ese módulo se desbloquea al avanzar en orden.')}},h('span',{class:'badge'},k+1),h('span',{},r.etiqueta),h('span',{style:'margin-left:auto'},'🔒')));
+    const el=h('div',{},titulo(s),h('p',{},s.texto),h('div',{class:'ruta'},bs),
+      h('button',{class:'btn warn',style:'margin-top:16px',onclick:()=>{mark(i);goNext()}},'Iniciar el módulo 1 →'));
+    el._show=()=>bs.forEach((b,k)=>{const lk=CFG.ruta[k].ir>reach;b.classList.toggle('lk',lk);b.lastChild.textContent=lk?'🔒':'🔓'});
+    return el;
+  },
+  contenido:(s,i)=>{
+    const secs=Math.max(5,Math.round(words(s.texto)/5));
+    let tOk=false,eOk=!s.ejemplo,started=false;
+    const chip=h('span',{class:'readchip'},'Lectura: '+secs+' s');
+    const ex=h('div',{class:'ex',hidden:true},s.ejemplo);
+    const be=s.ejemplo?h('button',{class:'btn sec',disabled:true,onclick:()=>{ex.hidden=false;be.remove();eOk=true;chk()}},'Ver ejemplo aplicado'):null;
+    const chk=()=>{if(tOk&&eOk)mark(i)};
+    const el=h('div',{class:'cols'},visual(s),h('div',{},titulo(s),h('p',{},s.texto),chip,h('br'),be,ex));
+    el._show=()=>{
+      if(started)return;started=true;let t=secs;
+      const iv=setInterval(()=>{t--;if(t<=0){clearInterval(iv);tOk=true;chip.textContent='✔ Lectura completa';chip.classList.add('ok');if(be)be.disabled=false;chk()}else chip.textContent='Lectura: '+t+' s'},1000);
+    };
+    return el;
+  },
+  pregunta:(s,i)=>{
+    const out=h('div',{'aria-live':'polite'});
+    const bs=s.opciones.map(o=>h('button',{class:'opt',onclick:ev=>{
+      if(o.ok){bs.forEach(x=>x.disabled=true);ev.target.classList.add('ok');addPts(10,'¡Buena decisión!');mark(i)}
+      else{ev.target.classList.add('bad','shake');ev.target.disabled=true}
+      out.replaceChildren(fb(o.ok?'ok':'bad',o.ok?'✔ Buena decisión':'✘ Piénselo de nuevo',o.retro));
+    }},o.texto));
+    return h('div',{class:'cols'},visual(s),h('div',{},titulo(s),h('p',{},s.texto),h('p',{},h('b',{},s.pregunta)),h('div',{class:'opts'},bs),out));
+  },
+  explorar:(s,i)=>{
+    const det=h('div',{'aria-live':'polite'},fb('info','Seleccione un dato','Toque cada botón para ver su explicación.'));
+    const seen=new Set();const c=h('p',{class:'muted'},'Explorados: 0 de '+s.elementos.length);
+    const bs=s.elementos.map((e,k)=>h('button',{class:'chipb',onclick:ev=>{
+      seen.add(k);bs.forEach(x=>x.classList.remove('on'));ev.currentTarget.classList.add('on','seen');
+      det.replaceChildren(fb('info',e.etiqueta,e.detalle));c.textContent='Explorados: '+seen.size+' de '+s.elementos.length;
+      if(seen.size===s.elementos.length)mark(i);
+    }},e.etiqueta));
+    return h('div',{},titulo(s),h('p',{},s.texto),h('div',{class:'chips'},bs),c,det);
+  },
+  caso:(s,i)=>{
+    const sol=h('div',{hidden:true},fb('ok','Propuesta de solución',s.solucion));
+    const ta=h('textarea',{'aria-label':'Su propuesta',placeholder:'Escriba cómo aplicaría los pasos (mínimo 8 palabras)…'});
+    const b=h('button',{class:'btn',disabled:true,onclick:()=>{sol.hidden=false;b.remove();ta.disabled=true;mark(i)}},s.boton);
+    const c=h('p',{class:'hint'},'0 / 8 palabras');
+    ta.oninput=()=>{const n=words(ta.value);c.textContent=n+' / 8 palabras';b.disabled=n<8};
+    return h('div',{class:'cols'},visual(s),h('div',{},titulo(s),h('p',{},s.texto),ta,c,b,sol));
+  },
+  cierre:(s,i)=>{
+    const fr=s.texto.split(/(?<=\.)\s+/).filter(Boolean);const on=new Set();
+    const tiles=fr.map((f,k)=>h('button',{class:'tile','aria-pressed':'false',onclick:ev=>{on.add(k);ev.currentTarget.classList.add('on');ev.currentTarget.setAttribute('aria-pressed','true');ev.currentTarget.prepend('✔ ');if(on.size===fr.length)mark(i)},},f));
+    return h('div',{},titulo(s),h('p',{class:'hint'},'Toque cada idea para marcarla como asimilada.'),h('div',{class:'tiles'},tiles));
+  },
+  actividad:(s)=>{
+    const E=s.escenarios;let i=0;const sc=[];
+    const box=h('div');
+    function show(){
+      if(i>=E.length){fin();return}
+      const e=E[i],out=h('div',{'aria-live':'polite'});
+      const bs=e.alternativas.map((a,j)=>h('button',{class:'opt',onclick:()=>{
+        bs.forEach(x=>x.disabled=true);
+        bs[j].classList.add(a.mejor?'ok':'bad');
+        const mejor=e.alternativas.findIndex(x=>x.mejor);if(!a.mejor)bs[mejor].classList.add('ok');
+        sc[i]=a.mejor;if(a.mejor)addPts(15,'Decisión recomendada');
+        out.replaceChildren(
+          fb('info','Consecuencia de su decisión',a.consecuencia),
+          fb(a.mejor?'ok':'bad',a.mejor?'✔ Retroalimentación y recomendación':'✘ Retroalimentación y recomendación',a.retro),
+          h('div',{},!a.mejor&&fb('ok','Alternativa recomendada',e.alternativas[mejor].texto)),
+          h('div',{class:'row',style:'margin-top:10px'},h('button',{class:'btn',onclick:()=>{i++;show()}},i+1<E.length?'Siguiente escenario →':'Ver resultado final')));
+      }},String.fromCharCode(65+j)+'. '+a.texto));
+      box.replaceChildren(h('div',{class:'scn'},
+        h('p',{class:'muted',style:'margin:0'},'Escenario '+(i+1)+' de '+E.length),
+        h('h3',{},e.titulo),h('p',{},h('b',{},'Situación: '),e.situacion),h('p',{},h('b',{},'Condiciones: '),e.condiciones),
+        h('p',{},h('b',{},'¿Qué decide? '),'Elija una alternativa.'),h('div',{class:'opts'},bs),out));
+    }
+    function fin(){
+      const ok=sc.filter(Boolean).length,pct=ok/E.length;
+      const k=pct>=1?'Alto':pct>=0.5?'Medio':'Bajo';
+      if(pct>=1)burst();
+      box.replaceChildren(h('div',{class:'scn'},h('h3',{},'Resultado: '+ok+' de '+E.length+' decisiones recomendadas'),
+        fb(pct>=1?'ok':pct>=0.5?'info':'bad','Recomendación general',s['resultado'+k]),
+        h('div',{class:'row',style:'margin-top:10px'},h('button',{class:'btn',onclick:()=>{i=0;sc.length=0;show()}},'⟲ Repetir los escenarios'),h('button',{class:'btn sec',onclick:()=>go(0)},'Volver al inicio'))));
+    }
+    show();
+    return h('div',{},titulo(s),h('p',{},s.texto),h('div',{class:'meta2'},h('span',{},''+E.length+' escenarios'),h('span',{},'2–3 min por escenario'),h('span',{},'Puede repetir')),box);
+  }
+};
+const els=S.map((s,i)=>(build[s.tipo]||build.contenido)(s,i));
+const dots=$('#dots');
+S.forEach((s,i)=>dots.append(h('button',{title:(i+1)+'. '+s.titulo,'aria-label':'Ir a la diapositiva '+(i+1)+': '+s.titulo,onclick:()=>go(i)})));
+
+function refreshNav(pulse){
+  const last=cur===S.length-1;
+  $('#prev').disabled=cur===0;
+  $('#next').disabled=last||!done[cur];
+  const rq=$('#req');
+  if(last){rq.hidden=true}
+  else{rq.hidden=false;rq.className='req'+(done[cur]?' ok':'');rq.textContent=done[cur]?'✔ Tarea completada: ya puede avanzar.':'🔒 '+(REQ[S[cur].tipo]||'');}
+  $$('#dots button').forEach((b,k)=>{b.disabled=k>reach;b.className=k===cur?'cur':vis.has(k)?'vis':''});
+  if(pulse){toast('✔ Listo: pulse «Siguiente»');}
+}
+function go(i){
+  if(i<0||i>=S.length||i>reach)return;
+  cur=i;vis.add(i);
+  $('#stage').replaceChildren(h('section',{class:'slide','aria-label':'Diapositiva '+(i+1)+' de '+S.length},els[i]));
+  $('#mod').textContent=S[i].modulo||(S[i].tipo==='actividad'?'Actividad de autoaprendizaje':S[i].tipo==='caso'?'Caso práctico':CFG.titulo);
+  $('#cnt').textContent='Diapositiva '+(i+1)+' de '+S.length;
+  $('#pb').style.width=((i+1)/S.length*100)+'%';
+  refreshNav();
+  els[i]._show&&els[i]._show();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function goNext(){if(cur<S.length-1&&done[cur]){reach=Math.max(reach,cur+1);go(cur+1)}}
+$('#prev').onclick=()=>go(cur-1);$('#next').onclick=goNext;
+document.addEventListener('keydown',e=>{
+  if(/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)||document.querySelector('.overlay'))return;
+  if(e.key==='ArrowRight')goNext();if(e.key==='ArrowLeft')go(cur-1);
+});
+go(0);
+</script>
+</body>
+</html>

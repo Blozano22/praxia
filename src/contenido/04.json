@@ -1,0 +1,128 @@
+{
+  "id": "video-microlearning",
+  "tipo": "Video de microlearning",
+  "titulo": "Entender antes de resolver: la técnica de los cuatro pasos",
+  "meta": ["Competencia: gestionar solicitudes de clientes con calidad", "Video: 2 a 4 minutos", "Actividad: Cuestionario con retroalimentación"],
+  "objetivo": "Aplicar los cuatro pasos (recibir, reformular, registrar y confirmar) para comprender correctamente una solicitud de cliente.",
+  "pasos": ["Recibir", "Reformular", "Registrar", "Confirmar"],
+  "velocidad": 2.2,
+  "pausa": 0.8,
+  "escenas": [
+    {
+      "titulo": "Apertura", "icono": "📞", "tono": 200,
+      "cues": [
+        {"texto": "Imagine que un cliente llama muy molesto y habla tan rápido que usted no alcanza a entender qué le pasó.", "rotulo": "¿Y ahora qué hago?"},
+        {"texto": "Si responde sin entender, puede resolver el problema equivocado y perder la confianza de esa persona.", "rotulo": "Riesgo: resolver lo equivocado"},
+        {"texto": "Situaciones como esta ocurren todos los días en cualquier empresa, y la forma de responder marca la diferencia.", "rotulo": "Pasa todos los días"}
+      ]
+    },
+    {
+      "titulo": "Objetivo", "icono": "🎯", "tono": 160,
+      "cues": [
+        {"texto": "En este video aprenderá una técnica sencilla de cuatro pasos para recibir, entender y registrar correctamente cualquier solicitud.", "rotulo": "Objetivo: técnica de 4 pasos"},
+        {"texto": "Al terminar, podrá aplicarla en su trabajo en menos de dos minutos por cada llamada o mensaje.", "rotulo": "Menos de 2 minutos"}
+      ]
+    },
+    {
+      "titulo": "Idea clave", "icono": "💡", "tono": 40,
+      "cues": [
+        {"texto": "La idea central es simple: antes de buscar una solución, asegúrese de haber comprendido el problema tal como lo vive el cliente.", "rotulo": "Primero entender"},
+        {"texto": "Para lograrlo no necesita herramientas especiales; necesita orden, atención y una pregunta de verificación en el momento justo.", "rotulo": "Orden + atención + pregunta"},
+        {"texto": "Esta práctica también ahorra tiempo, porque evita llamar al cliente de nuevo para preguntar lo que ya debió quedar registrado.", "rotulo": "Ahorra tiempo"}
+      ]
+    },
+    {
+      "titulo": "Demostración", "icono": "🧭", "tono": 280, "mostrarPasos": true,
+      "cues": [
+        {"texto": "Paso uno, recibir. Deje que el cliente termine su explicación sin interrumpirlo y tome nota de las palabras clave.", "rotulo": "1 · Recibir sin interrumpir", "paso": 0},
+        {"texto": "Paso dos, reformular. Repita con sus palabras lo que entendió: «Si entiendo bien, su pedido llegó sin dos productos».", "rotulo": "2 · Reformular con sus palabras", "paso": 1},
+        {"texto": "Paso tres, registrar. Anote en el sistema nombre, contacto, número de pedido, descripción del problema y evidencias.", "rotulo": "3 · Registrar datos y evidencias", "paso": 2},
+        {"texto": "Paso cuatro, confirmar. Pregunte: «¿Es correcto lo que registré?» y solo después ofrezca la solución.", "rotulo": "4 · Confirmar antes de actuar", "paso": 3}
+      ]
+    },
+    {
+      "titulo": "Ejemplo aplicado", "icono": "📦", "tono": 340,
+      "cues": [
+        {"texto": "Veamos un ejemplo. La clienta dice que su pedido llegó incompleto. Usted reformula, registra el caso mil cuarenta y ocho y confirma los datos.", "rotulo": "Ejemplo: pedido incompleto"},
+        {"texto": "El resultado: un caso completo, una clienta tranquila y un compañero que puede continuar sin volver a preguntar nada.", "rotulo": "Caso completo y cliente tranquilo"}
+      ]
+    },
+    {
+      "titulo": "Resumen", "icono": "📌", "tono": 100, "mostrarPasos": true,
+      "cues": [
+        {"texto": "Recuerde: primero reciba, luego reformule, después registre y siempre confirme antes de actuar.", "rotulo": "Recibir · Reformular · Registrar · Confirmar"},
+        {"texto": "Con esta rutina cada solicitud queda clara desde el primer contacto y se reducen los errores y las repeticiones.", "rotulo": "Menos errores, menos repeticiones"}
+      ]
+    },
+    {
+      "titulo": "Reto breve", "icono": "❓", "tono": 20,
+      "cues": [
+        {"texto": "Ahora un reto breve: si el cliente habla muy rápido, ¿qué paso aplicaría primero para ganar claridad? Piénselo y luego resuelva la actividad.", "rotulo": "Reto: cliente que habla rápido"}
+      ]
+    }
+  ],
+  "actividad": {
+    "nombre": "Cuestionario con retroalimentación",
+    "proposito": "Comprobar si comprendió la técnica de los cuatro pasos y si puede aplicarla en situaciones de su trabajo.",
+    "instruccion": "Responda cada pregunta y presione «Responder». Recibirá una explicación inmediata. Al final verá su resultado y una recomendación de repaso.",
+    "preguntas": [
+      {
+        "tipo": "mc", "escena": 3,
+        "enunciado": "¿Cuál es el primer paso de la técnica presentada en el video?",
+        "opciones": ["Registrar el caso en el sistema", "Recibir al cliente sin interrumpirlo", "Ofrecer de inmediato la solución", "Cerrar el caso con una encuesta"],
+        "correcta": 1,
+        "retroOk": "Correcto. Recibir significa escuchar sin interrumpir y tomar nota de lo esencial. Solo con esa información completa podrá reformular, registrar y confirmar con seguridad en los pasos siguientes.",
+        "retroMal": "No es esa opción. La técnica empieza por recibir: escuchar sin interrumpir y anotar palabras clave. Registrar, ofrecer solución o cerrar vienen después, cuando ya comprendió el problema."
+      },
+      {
+        "tipo": "vf", "escena": 3,
+        "enunciado": "Reformular consiste en repetir exactamente las mismas palabras que usó el cliente.",
+        "opciones": ["Verdadero", "Falso"],
+        "correcta": 1,
+        "retroOk": "Correcto, es falso. Reformular es decir con sus propias palabras lo que entendió, para que el cliente pueda corregirle si algo quedó mal interpretado durante la conversación.",
+        "retroMal": "Es falso. Reformular no es repetir como un eco, sino explicar con sus palabras lo que entendió. Así el cliente puede validar o corregir antes de que usted actúe."
+      },
+      {
+        "tipo": "mc", "escena": 3,
+        "enunciado": "Un cliente dice que su factura tiene un cobro doble. ¿Qué frase reformula mejor su problema?",
+        "opciones": ["«Eso no depende de mí, llame mañana.»", "«Si entiendo bien, le cobraron dos veces el mismo valor; ¿es así?»", "«Todos los clientes tienen ese problema.»"],
+        "correcta": 1,
+        "retroOk": "Muy bien. La frase resume el problema con claridad y termina con una pregunta de verificación. Esa combinación de resumen y pregunta es la base de una buena reformulación.",
+        "retroMal": "La mejor opción es la que resume el problema con sus palabras y pregunta si es correcto. Las otras respuestas evaden la responsabilidad o ignoran la situación particular del cliente."
+      },
+      {
+        "tipo": "rel", "escena": 3,
+        "enunciado": "Relacione cada paso con la acción que le corresponde.",
+        "pares": [
+          {"izq": "Recibir", "der": "Escuchar sin interrumpir"},
+          {"izq": "Reformular", "der": "Decir con sus palabras lo entendido"},
+          {"izq": "Registrar", "der": "Anotar datos y evidencias"},
+          {"izq": "Confirmar", "der": "Preguntar si lo anotado es correcto"}
+        ],
+        "retroOk": "Excelente. Relacionó correctamente los cuatro pasos con su acción. Recordar esta secuencia le permitirá aplicarla de forma natural en cualquier llamada, chat o correo que reciba.",
+        "retroMal": "Alguna relación es incorrecta. Recuerde la secuencia: se escucha, se dice con palabras propias lo entendido, se anotan datos y evidencias, y por último se pregunta si todo es correcto."
+      },
+      {
+        "tipo": "mc", "escena": 4,
+        "enunciado": "¿En qué momento debe ofrecer la solución al cliente?",
+        "opciones": ["Apenas el cliente empieza a hablar", "Después de confirmar que entendió el problema", "Nunca, siempre lo hace otra área"],
+        "correcta": 1,
+        "retroOk": "Correcto. Ofrecer la solución solo después de confirmar la comprensión evita resolver un problema equivocado y demuestra al cliente que fue realmente escuchado y entendido.",
+        "retroMal": "La solución se ofrece después de confirmar que entendió el problema. Si se adelanta, corre el riesgo de resolver algo distinto a lo que el cliente necesitaba realmente."
+      },
+      {
+        "tipo": "vf", "escena": 3,
+        "enunciado": "Registrar los datos completos evita volver a contactar al cliente por la misma información.",
+        "opciones": ["Verdadero", "Falso"],
+        "correcta": 0,
+        "retroOk": "Correcto, es verdadero. Un registro completo con contacto, pedido y evidencias permite que cualquier compañero continúe el caso sin molestar de nuevo al cliente con las mismas preguntas.",
+        "retroMal": "Es verdadero. Cuando el registro incluye todos los datos necesarios, nadie tiene que volver a preguntar lo mismo, lo que ahorra tiempo al equipo y mejora la experiencia del cliente."
+      }
+    ],
+    "resumen": {
+      "alto": "Resultado sobresaliente. Domina la técnica; aplíquela en su próxima atención real y compártala con un compañero.",
+      "medio": "Buen resultado, pero aún hay aspectos por afianzar. Repase las escenas indicadas y repita el cuestionario.",
+      "bajo": "Conviene repasar el video completo con atención, especialmente la demostración, y luego intentar de nuevo el cuestionario."
+    }
+  }
+}

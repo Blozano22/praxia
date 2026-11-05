@@ -1,0 +1,40 @@
+/* Estilos del formulario: copiados del portal «syllabus-portal.html» y limitados a .portal */
+.portal{--ink:#16251d;--muted:#69776f;--green:#217346;--green-dark:#155636;--mint:#e6f3e9;--line:#dfe8e0;--surface:rgba(255,255,255,.92);--shadow:0 24px 70px rgba(21,54,37,.10);
+  font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink);max-width:680px;display:grid;gap:18px}
+.portal .card{overflow:hidden;border:1px solid #e5ebe5;border-radius:23px;background:var(--surface);box-shadow:var(--shadow);backdrop-filter:blur(14px);padding:0}
+.portal .form-card{padding:28px}
+.portal .card-kicker{color:var(--green);font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.portal h2{margin:9px 0 8px;font-size:24px;letter-spacing:-.035em;color:var(--ink)}
+.portal h2:before{display:none}
+.portal .card-copy{margin:0 0 24px;color:var(--muted);font-size:13px;line-height:1.6}
+.portal label{display:block;margin-bottom:9px;font-size:13px;font-weight:750}
+.portal .input-wrap{position:relative}
+.portal .input-wrap svg{position:absolute;top:50%;left:14px;width:19px;height:19px;transform:translateY(-50%);color:#7d8d82;pointer-events:none}
+.portal input[type=url]{width:100%;height:52px;padding:0 14px 0 43px;border:1px solid #d7e1d8;border-radius:12px;outline:none;background:#fbfdfb;color:var(--ink);font:inherit;font-size:13px;transition:border-color .18s,box-shadow .18s}
+.portal input.plain{width:100%;height:46px;padding:0 14px;border:1px solid #d7e1d8;border-radius:12px;outline:none;background:#fbfdfb;color:var(--ink);font:inherit;font-size:13px}
+.portal input::placeholder{color:#9aa69d}
+.portal input[type=url]:focus,.portal input.plain:focus{border-color:#5ea878;box-shadow:0 0 0 4px #21734617}
+.portal input:disabled{opacity:.7}
+.portal .hint{margin:9px 1px 19px;color:#77837a;font-size:11px;line-height:1.5}
+.portal .submit{display:flex;width:100%;min-height:51px;align-items:center;justify-content:center;gap:10px;border:0;border-radius:12px;background:linear-gradient(110deg,#237648,#185f3a);color:#fff;box-shadow:0 10px 20px #236f4621;cursor:pointer;font:inherit;font-size:14px;font-weight:750;transition:transform .16s,filter .16s,opacity .16s}
+.portal .submit:hover:not(:disabled){transform:translateY(-1px);filter:brightness(1.05)}
+.portal .submit:disabled{cursor:wait;opacity:.72}
+.portal .submit svg{width:18px;height:18px}
+.portal .status-box{display:none;margin-top:19px;padding:14px;border:1px solid var(--line);border-radius:13px;background:#f8fbf8}
+.portal .status-box.show{display:block}
+.portal .status-top{display:flex;align-items:center;gap:10px}
+.portal .status-title{font-size:13px;font-weight:750}
+.portal .status-text{margin:5px 0 0 29px;color:var(--muted);font-size:12px;line-height:1.55;overflow-wrap:anywhere}
+.portal .spinner{width:18px;height:18px;border:2px solid #cfe2d3;border-top-color:var(--green);border-radius:50%;animation:pspin .8s linear infinite}
+.portal .status-icon{display:grid;width:20px;height:20px;place-items:center;border-radius:50%;background:var(--mint);color:var(--green)}
+.portal .status-icon svg{width:13px;height:13px}
+.portal .status-box.error{border-color:#f0d6d2;background:#fff9f8}
+.portal .status-box.error .status-icon{background:#fae8e5;color:#b73d32}
+.portal .results{display:grid;gap:8px;margin-top:13px}
+.portal .result-card{display:grid;gap:9px;padding:12px;border:1px solid #dce8de;border-radius:10px;background:#fff}
+.portal .result-title{color:var(--green-dark);font-size:12px;font-weight:750}
+.portal .result-url{display:block;color:#53665a;font-size:11px;line-height:1.5;overflow-wrap:anywhere;word-break:break-word}
+.portal .result-actions{display:flex;flex-wrap:wrap;gap:8px}
+.portal .result-action{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:7px 10px;border:1px solid #dce8de;border-radius:8px;background:#f8fbf8;color:var(--green-dark);text-decoration:none;font:inherit;font-size:11px;font-weight:700;cursor:pointer}
+.portal .result-action:hover{border-color:#8abd99;background:#f0f8f1}
+@keyframes pspin{to{transform:rotate(360deg)}}

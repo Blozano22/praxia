@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{TITULO}}</title>
+<style>/*CSS*/</style>
+<style>
+.mapa{display:grid;grid-template-columns:2.3fr 1fr;gap:16px;align-items:start}
+.svgwrap{padding:8px}
+svg.map{width:100%;height:auto;display:block}
+.node{cursor:pointer}
+.node rect{fill:#eef3f0;stroke:#1f5c47;stroke-width:2.5}
+.node text{font-size:20px;font-weight:600;fill:#14213d;text-anchor:middle;pointer-events:none}
+.node.n0 rect{fill:var(--brand);stroke:var(--brand2)}
+.node.n0 text{fill:#fff;font-size:22px}
+.node:hover rect,.node:focus rect,.node.sel rect{stroke:var(--accent);stroke-width:5}
+.node:not(.seen) rect{stroke-dasharray:7 5}
+.node .mark{font-size:15px;fill:var(--ok)}
+.edge{stroke:#7f988b;stroke-width:2.5;fill:none}
+.elab rect{fill:#fff;stroke:#c3d0de}
+.elab text{font-size:16px;fill:#4a5c75;text-anchor:middle;font-style:italic}
+.ficha{position:sticky;top:12px}
+.ficha h3{margin-top:0}
+.lista-mapa{display:none}
+.lista-mapa ul{list-style:none;margin:0;padding-left:18px;border-left:3px solid #ccd6d1}
+.lista-mapa>ul{padding-left:0;border:0}
+.lista-mapa li{margin:8px 0}
+.lista-mapa .enl{display:block;font-size:.85rem;font-style:italic;color:var(--muted)}
+.lista-mapa button{font:inherit;text-align:left;width:100%;cursor:pointer;border:2px solid #1f5c47;background:#eef3f0;border-radius:10px;padding:8px 12px;font-weight:600}
+.lista-mapa button.sel{border-color:var(--accent);box-shadow:0 0 0 3px rgba(201,162,39,.35)}
+.cats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:14px 0}
+.cat{border:2.5px dashed #8fa69b;border-radius:14px;padding:10px;min-height:120px;background:#fbfdff;cursor:pointer;text-align:left}
+.cat.over{background:#eef3f0;border-color:var(--brand)}
+.cat h4{margin:0}.cat small{color:var(--muted);display:block;margin-bottom:8px}
+.pool{display:flex;flex-wrap:wrap;gap:8px;min-height:50px;padding:10px;border-radius:12px;background:#eef2f7}
+.chip{font:inherit;cursor:grab;border:2px solid #7f988b;background:#fff;border-radius:99px;padding:6px 14px;font-size:.95rem}
+.chip.sel{border-color:var(--accent);background:#f4ecd0;box-shadow:0 0 0 3px rgba(201,162,39,.35)}
+.chip.ok{border-color:var(--ok);background:var(--okbg)}
+.chip.bad{border-color:var(--bad);background:var(--badbg)}
+.cat .chip{display:block;margin:6px 0;border-radius:10px}
+@media(max-width:760px){.mapa{grid-template-columns:1fr}.svgwrap{display:none}.lista-mapa{display:block}.ficha{position:static}}
+</style>
+</head>
+<body>
+<!--
+  PLANTILLA · Mapa conceptual interactivo + Clasificaciones
+  Rangos: 6–10 nodos · máx. 3 niveles · etiqueta 2–6 palabras · ficha 25–40 palabras.
+  Clasificaciones: 8–12 elementos, 3–4 categorías, etiquetas 1–5 palabras.
+  Cada nodo puede indicar x,y (coordenadas en un lienzo de 1000×640). Verifique con: node validar.js
+-->
+<header class="hero"><div class="in" id="hero"></div></header>
+<main class="wrap">
+  <section class="sec" id="mapa" aria-labelledby="t-mapa"></section>
+  <section class="sec" id="cierre" aria-labelledby="t-cierre"></section>
+  <section class="sec" id="act" aria-labelledby="t-act"></section>
+</main>
+<footer id="foot"></footer>
+
+<script type="application/json" id="contenido">/*CONTENIDO*/</script>
+<script>/*LIB*/</script>
+<script>
+hero();
+const N=CFG.nodos,byId={};N.forEach(n=>byId[n.id]=n);
+const NS='http://www.w3.org/2000/svg';
+function s(tag,attrs,...kids){
+  const e=document.createElementNS(NS,tag);
+  for(const k in attrs||{}){if(k.slice(0,2)==='on')e.addEventListener(k.slice(2),attrs[k]);else e.setAttribute(k,attrs[k])}
+  kids.flat().forEach(c=>{if(c!=null)e.append(c.nodeType?c:document.createTextNode(c))});
+  return e;
+}
+function wrap(t,max){const w=t.split(' '),L=[];let c='';w.forEach(x=>{if((c+' '+x).trim().length>max&&c){L.push(c);c=x}else c=(c+' '+x).trim()});L.push(c);return L}
+
+(function(){
+  const open=new Set(),seen=new Set(['c']);let sel=null;
+  const svg=s('svg',{class:'map',viewBox:'0 0 1000 640',role:'group','aria-label':'Mapa conceptual: '+CFG.titulo});
+  const list=h('div',{class:'lista-mapa'});
+  const ficha=h('div',{class:'card ficha','aria-live':'polite'});
+  const cnt=h('p',{class:'muted'});
+  const visible=n=>n.nivel<2||open.has(n.padre);
+
+  function challenge(n){
+    const p=byId[n.padre];
+    const otros=shuffle([...new Set(N.filter(x=>x.enlace&&x.enlace!==n.enlace).map(x=>x.enlace))]).slice(0,2);
+    let close;const out=h('div',{'aria-live':'polite'});
+    const bs=shuffle([n.enlace,...otros]).map(o=>h('button',{class:'btn sec',style:'display:block;width:100%;margin:8px 0',onclick:e=>{
+      if(o===n.enlace){close();addPts(10,'Nodo descubierto');seen.add(n.id);pick(n)}
+      else{e.target.classList.add('shake');e.target.disabled=true;out.replaceChildren(fb('bad','Esa palabra no los une','Piense en cómo se relacionan ambos conceptos y pruebe con otra opción.'))}
+    }},o));
+    close=modal('Descubra el nodo: '+n.etiqueta,h('div',{},h('p',{},'¿Qué palabra de enlace une «'+p.etiqueta+'» con «'+n.etiqueta+'»?'),...bs,out));
+  }
+  function pick(n){
+    if(!seen.has(n.id)){challenge(n);return}
+    sel=n.id;seen.add(n.id);
+    if(n.despliega){open.has(n.id)?open.delete(n.id):open.add(n.id)}
+    draw();
+    const p=n.padre?byId[n.padre]:null;
+    ficha.replaceChildren(
+      h('span',{class:'tag',style:'background:var(--brand);border-color:var(--brand)'},n.nivel===0?'Concepto central':'Nivel '+n.nivel),
+      h('h3',{style:'margin-top:8px'},n.etiqueta),
+      h('p',{},n.ficha),
+      p?h('p',{class:'fb info'},'',h('b',{style:'display:inline'},p.etiqueta),' ',h('em',{},n.enlace),' → ',n.etiqueta):null,
+      n.despliega?h('p',{class:'muted'},open.has(n.id)?'Las variantes de este concepto ya están visibles en el mapa.':'Variantes ocultadas.'):null);
+    ficha.replaceChildren(...[...ficha.childNodes].filter(c=>c.nodeType===1));
+    if(seen.size===N.length)ungate($('#cierre'),'¡Mapa completo! Responda la pregunta de relación.');
+  }
+  function draw(){
+    svg.replaceChildren();
+    const vis=N.filter(visible);
+    vis.filter(n=>n.padre).forEach(n=>{
+      const p=byId[n.padre];
+      svg.append(s('line',{class:'edge',x1:p.x,y1:p.y,x2:n.x,y2:n.y}));
+    });
+    vis.filter(n=>n.padre).forEach(n=>{
+      const p=byId[n.padre],mx=(p.x+n.x)/2,my=(p.y+n.y)/2,w=n.enlace.length*8.6+20;
+      svg.append(s('g',{class:'elab'},s('rect',{x:mx-w/2,y:my-13,width:w,height:26,rx:13}),s('text',{x:mx,y:my+5},n.enlace)));
+    });
+    vis.forEach(n=>{
+      const W=n.nivel===0?270:214,Hh=n.nivel===0?96:66,L=wrap(n.etiqueta,n.nivel===0?16:17);
+      const g=s('g',{class:'node n'+n.nivel+(sel===n.id?' sel':'')+(seen.has(n.id)?' seen':''),style:'--h:'+n.tono,tabindex:'0',role:'button','aria-label':n.etiqueta+(n.despliega?(open.has(n.id)?' (desplegado)':' (se despliega)'):''),onclick:()=>pick(n),onkeydown:e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();pick(n)}}});
+      g.append(s('rect',{x:n.x-W/2,y:n.y-Hh/2,width:W,height:Hh,rx:16}));
+      L.forEach((l,i)=>g.append(s('text',{x:n.x,y:n.y+5+(i-(L.length-1)/2)*(n.nivel===0?26:23)},l)));
+      if(n.nivel>0)g.append(s('text',{class:'mark',style:seen.has(n.id)?'':'fill:#b36b00',x:n.x+W/2-14,y:n.y-Hh/2+17},seen.has(n.id)?'✔':'?'));
+      if(n.despliega)g.append(s('text',{class:'mark',style:'fill:#14213d',x:n.x+W/2-14,y:n.y+Hh/2-7},open.has(n.id)?'−':'+'));
+      svg.append(g);
+    });
+    /* versión en lista (pantallas angostas) */
+    const ul=h('ul');
+    const kid=(n,parentUl)=>{
+      const li=h('li',{},n.enlace?h('span',{class:'enl'},'↳ '+byId[n.padre].etiqueta+' '+n.enlace+':'):null,
+        h('button',{style:'--h:'+n.tono,class:sel===n.id?'sel':'','aria-expanded':n.despliega?String(open.has(n.id)):null,onclick:()=>pick(n)},(n.nivel>0?(seen.has(n.id)?'✔ ':''):'')+n.etiqueta+(n.despliega?(open.has(n.id)?'  −':'  +'):'')));
+      parentUl.append(li);
+      const ch=N.filter(x=>x.padre===n.id&&visible(x));
+      if(ch.length){const u=h('ul');li.append(u);ch.forEach(c=>kid(c,u))}
+    };
+    kid(N.find(n=>n.nivel===0),ul);
+    list.replaceChildren(ul);
+    cnt.textContent='Nodos descubiertos: '+seen.size+' de '+N.length;
+  }
+  $('#mapa').append(h('h2',{id:'t-mapa'},CFG.titulo),h('p',{class:'muted'},CFG.instruccionMapa),
+    h('div',{class:'mapa'},h('div',{},h('div',{class:'card svgwrap'},svg),list,cnt),ficha));
+  ficha.append(h('h3',{},'Ficha del concepto'),h('p',{class:'muted'},'Descubra cada nodo eligiendo la palabra de enlace correcta; luego verá su definición y un ejemplo.'));
+  draw();
+})();
+
+/* ---- Cierre y actividad ---- */
+const A=CFG.cierre.actividad;
+{
+  const ta=h('textarea',{'aria-label':'Su respuesta a la pregunta de relación',placeholder:'Escriba su reflexión (mínimo 10 palabras)…'});
+  const c=h('p',{class:'hint'},'0 / 10 palabras');
+  const b=h('button',{class:'btn',disabled:true,onclick:()=>{b.disabled=true;ta.disabled=true;b.textContent='✔ Respuesta registrada';addPts(10,'Pregunta de relación');ungate($('#act'),'Actividad desbloqueada')}},'Registrar y continuar');
+  ta.oninput=()=>{const n=words(ta.value);c.textContent=n+' / 10 palabras';b.disabled=n<10};
+  $('#cierre').append(h('h2',{id:'t-cierre'},'Cierre'),h('div',{class:'card',style:'background:#f7f1dc;border:2px solid var(--accent)'},h('h3',{},'Pregunta de relación'),h('p',{},CFG.cierre.pregunta),ta,c,b));
+  gate($('#cierre'),'Descubra los 10 nodos del mapa para desbloquear el cierre.');
+}
+
+(function(){
+  const root=$('#act');
+  let place={},selI=null,checked=false,order=shuffle(A.elementos.map((_,i)=>i));
+  const pool=h('div',{class:'pool','aria-label':'Situaciones por clasificar'});
+  const cats=h('div',{class:'cats'});
+  const out=h('div',{'aria-live':'polite'});
+  const bCheck=h('button',{class:'btn',onclick:comprobar},'Comprobar respuestas');
+  const bReset=h('button',{class:'btn sec',onclick:()=>{place={};selI=null;checked=false;order=shuffle(order);out.replaceChildren();render()}},'Reintentar');
+  const status=h('p',{class:'muted'});
+
+  function chip(i){
+    const e=A.elementos[i];
+    const b=h('button',{class:'chip'+(selI===i?' sel':'')+(checked?(place[i]===e.cat?' ok':' bad'):''),draggable:!checked,'aria-pressed':String(selI===i),
+      ondragstart:ev=>{ev.dataTransfer.setData('text/plain',String(i));selI=i},
+      onclick:ev=>{ev.stopPropagation();if(checked)return;
+        if(place[i]!=null&&selI!==i){selI=i}else if(place[i]!=null&&selI===i){delete place[i];selI=null}else selI=selI===i?null:i;render()}},
+      (checked?(place[i]===e.cat?'✔ ':'✘ '):'')+e.texto);
+    return b;
+  }
+  function put(c){if(selI==null||checked)return;place[selI]=c;selI=null;render()}
+  function render(){
+    pool.replaceChildren(...order.filter(i=>place[i]==null).map(chip));
+    if(!pool.children.length)pool.append(h('span',{class:'muted'},'Todas las situaciones fueron ubicadas.'));
+    cats.replaceChildren(...A.categorias.map(c=>{
+      const box=h('div',{class:'cat',role:'button',tabindex:'0','aria-label':'Categoría '+c.nombre+'. Pulse para ubicar la situación seleccionada',
+        onclick:()=>put(c.id),onkeydown:e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();put(c.id)}},
+        ondragover:e=>{e.preventDefault();box.classList.add('over')},ondragleave:()=>box.classList.remove('over'),
+        ondrop:e=>{e.preventDefault();box.classList.remove('over');const i=+e.dataTransfer.getData('text/plain');if(!checked&&!isNaN(i)){selI=i;put(c.id)}}},
+        h('h4',{},c.nombre),h('small',{},c.ayuda),
+        ...order.filter(i=>place[i]===c.id).map(chip));
+      return box;
+    }));
+    const left=A.elementos.length-Object.keys(place).length;
+    bCheck.disabled=left>0||checked;
+    status.textContent=checked?'':(selI!=null?'Situación seleccionada: elija ahora su categoría.':(left>0?'Faltan '+left+' situaciones por ubicar. Seleccione una y luego toque su categoría (o arrástrela).':'Todo ubicado: pulse «Comprobar respuestas».'));
+  }
+  function comprobar(){
+    checked=true;render();
+    const bad=A.elementos.map((e,i)=>({e,i})).filter(x=>place[x.i]!==x.e.cat);
+    const good=A.elementos.length-bad.length;
+    const nombre=id=>A.categorias.find(c=>c.id===id).nombre;
+    out.replaceChildren(
+      h('p',{},h('b',{},'Aciertos: '+good+' de '+A.elementos.length)),
+      fb(bad.length?'bad':'ok',bad.length?'Revise estas situaciones':'¡Clasificación correcta!',bad.length?A.retroMal:A.retroOk),
+      ...bad.map(x=>fb('bad',x.e.texto+' → corresponde a '+nombre(x.e.cat),x.e.porque)),
+      h('h3',{style:'margin-top:14px'},'Explicación de los elementos que suelen confundirse'),
+      h('p',{},A.confundibles),
+      ...A.elementos.filter(e=>e.confunde).map(e=>fb('info',e.texto+' → '+nombre(e.cat),e.porque)),
+      h('div',{class:'row',style:'margin-top:10px'},h('button',{class:'btn',onclick:()=>bReset.click()},'Reintentar la actividad')));
+  }
+  root.append(h('h2',{id:'t-act'},'Actividad de autoaprendizaje · '+A.nombre),
+    h('div',{class:'card'},h('h3',{},'Instrucción y criterio de clasificación'),h('p',{},A.instruccion),
+      h('h3',{},'Situaciones'),pool,h('h3',{style:'margin-top:14px'},'Categorías'),cats,status,
+      h('div',{class:'row'},bCheck,bReset),out));
+  render();
+  gate(root,'Responda la pregunta de relación para desbloquear la actividad.');
+})();
+accAll();
+</script>
+</body>
+</html>

@@ -1,0 +1,186 @@
+{
+  "id": "laboratorio",
+  "tipo": "Laboratorio virtual",
+  "titulo": "Laboratorio virtual: mesa de servicio al cliente",
+  "subtitulo": "Atienda un reclamo real simulado: observe, seleccione, manipule y compruebe sus decisiones sin ningún riesgo.",
+  "meta": [
+    "Competencia: gestionar solicitudes de clientes con calidad",
+    "Duración: 10 a 15 minutos",
+    "Actividad: Simulación de caso"
+  ],
+  "contexto": "Usted trabaja en la mesa de servicio de una distribuidora de papelería. Marta Gómez, compradora de Papelería Norte, reclama porque su pedido llegó incompleto y necesita el material para una reunión de mañana.",
+  "objetivo": "Atender el reclamo aplicando observación de datos, clasificación, plan de acción y confirmación con la clienta.",
+  "condiciones": [
+    "Puede repetir cada etapa las veces que necesite, sin ningún riesgo.",
+    "Hay tres puntos de decisión: clasificar, secuenciar acciones y comprobar la comunicación.",
+    "La atención debe quedar resuelta dentro de 24 horas."
+  ],
+  "instrucciones": "Avance por las cuatro etapas del panel superior. En cada una observe, seleccione o manipule los controles y presione «Comprobar» para recibir retroalimentación inmediata.",
+  "controles": [
+    {
+      "icono": "☑️",
+      "texto": "Casillas: marcan los datos relevantes del ticket"
+    },
+    {
+      "icono": "🃏",
+      "texto": "Tarjetas: seleccionan una opción de respuesta"
+    },
+    {
+      "icono": "↕️",
+      "texto": "Flechas ▲ ▼: cambian el orden de las acciones"
+    },
+    {
+      "icono": "✔️",
+      "texto": "Comprobar: valida su acción y explica el resultado"
+    }
+  ],
+  "ticket": {
+    "titulo": "Ticket 1048 · Mesa de servicio",
+    "datos": [
+      {
+        "id": "d1",
+        "texto": "Pedido 1048: faltan 2 de las 5 cajas de resmas",
+        "relevante": true,
+        "detalle": "El despacho figura como completo, pero la clienta recibió solo 3 de las 5 cajas."
+      },
+      {
+        "id": "d2",
+        "texto": "Logo de la empresa del cliente: azul y blanco",
+        "relevante": false,
+        "detalle": "Dato decorativo del perfil del cliente: no cambia la forma de atender el caso."
+      },
+      {
+        "id": "d3",
+        "texto": "Entrega prometida: ayer. Estado actual: vencida",
+        "relevante": true,
+        "detalle": "La fecha prometida fue ayer: ya existe un día de retraso sobre el compromiso."
+      },
+      {
+        "id": "d4",
+        "texto": "Pedido anterior de enero: entregado sin novedad",
+        "relevante": false,
+        "detalle": "Historial sin novedades: no explica ni modifica este reclamo."
+      },
+      {
+        "id": "d5",
+        "texto": "El cliente pagó el total por transferencia",
+        "relevante": true,
+        "detalle": "Pago total confirmado por transferencia el mismo día de la compra."
+      }
+    ]
+  },
+  "etapas": [
+    {
+      "clave": "observar",
+      "nombre": "Observar",
+      "icono": "🔍",
+      "instruccion": "Revise el ticket y marque únicamente los datos relevantes para decidir cómo atender el caso.",
+      "retroOk": "Muy bien: identificó los tres datos que determinan el caso: faltantes, entrega vencida y pago realizado. Observar con criterio permite decidir con rapidez y evita perder tiempo en información que no cambia la solución.",
+      "retroMal": "Su selección no coincide con los datos clave. Los relevantes son los faltantes del pedido, la entrega vencida y el pago realizado, porque definen el tipo de solicitud y la prioridad. Revise y vuelva a intentarlo.",
+      "resumen": "Identificar los datos que definen el caso",
+      "cliente": {
+        "ok": "«Veo que ya revisaron mi pedido y mis datos.»",
+        "mal": "«¿Están revisando mi caso o cosas que no tienen que ver?»"
+      }
+    },
+    {
+      "clave": "seleccionar",
+      "nombre": "Seleccionar",
+      "icono": "🗂️",
+      "decision": true,
+      "instruccion": "Con los datos observados, elija la clasificación y prioridad que corresponde al caso.",
+      "opciones": [
+        {
+          "texto": "Consulta de información · prioridad baja",
+          "ok": false
+        },
+        {
+          "texto": "Reclamo por incumplimiento · prioridad media-alta",
+          "ok": true
+        },
+        {
+          "texto": "Sugerencia de mejora · prioridad baja",
+          "ok": false
+        }
+      ],
+      "retroOk": "Correcto. Hay un incumplimiento del plazo con pago ya realizado, por eso es un reclamo con prioridad media-alta. Esta clasificación asigna el caso a logística y fija un plazo máximo de respuesta de veinticuatro horas.",
+      "retroMal": "Esa clasificación no corresponde. Cuando el cliente ya pagó y la entrega venció, existe un incumplimiento que exige corrección: es un reclamo con prioridad media-alta. Una clasificación errónea retrasa la atención del caso.",
+      "resumen": "Clasificar el caso por tipo y prioridad",
+      "cliente": {
+        "ok": "«Qué bien, entienden que es un reclamo serio.»",
+        "mal": "«Parece que no toman en serio mi reclamo.»"
+      }
+    },
+    {
+      "clave": "manipular",
+      "nombre": "Manipular",
+      "icono": "🛠️",
+      "decision": true,
+      "instruccion": "Ordene las acciones del plan de atención usando las flechas, de la primera a la última.",
+      "acciones": [
+        "Escalar a logística con un resumen del caso",
+        "Programar el despacho de las 2 cajas faltantes",
+        "Registrar acciones y plazo en el ticket",
+        "Informar a la clienta la nueva fecha de entrega"
+      ],
+      "retroOk": "Excelente secuencia: escaló primero, luego programó el despacho, registró lo hecho y finalmente informó al cliente. Este orden asegura que lo prometido sea realizable y que el cliente reciba información verdadera y completa.",
+      "retroMal": "El orden no es el más adecuado. Primero se escala con un resumen, después se programa el despacho, luego se registra y al final se informa al cliente, cuando ya existe un plazo cierto que comunicar.",
+      "resumen": "Ordenar las acciones del plan de atención",
+      "cliente": {
+        "ok": "«Perfecto, ya hay un plan claro para mi pedido.»",
+        "mal": "«Siento que las acciones están desordenadas.»"
+      }
+    },
+    {
+      "clave": "comprobar",
+      "nombre": "Comprobar",
+      "icono": "✅",
+      "decision": true,
+      "instruccion": "Elija el mensaje que enviaría a la clienta para comprobar que la solución es aceptada.",
+      "opciones": [
+        {
+          "texto": "«Estimada Marta: su pedido sale hoy y llega mañana. ¿Está de acuerdo con esta solución?»",
+          "ok": true
+        },
+        {
+          "texto": "«Su caso fue cerrado. Gracias por contactarnos.»",
+          "ok": false
+        },
+        {
+          "texto": "«Estamos revisando su caso y pronto le informaremos.»",
+          "ok": false
+        }
+      ],
+      "retroOk": "Muy bien: el mensaje informa la solución, la fecha y pregunta si el cliente está de acuerdo. Esa pregunta final es la comprobación que permite cerrar el caso con la certeza de que el cliente quedó conforme.",
+      "retroMal": "Ese mensaje no comprueba la conformidad del cliente. Debe informar la solución con una fecha concreta y preguntar si está de acuerdo. Cerrar sin confirmar o dar respuestas vagas deja el caso abierto y genera nuevos reclamos.",
+      "resumen": "Comprobar la conformidad con la clienta",
+      "cliente": {
+        "ok": "«Gracias, estoy de acuerdo con la solución.»",
+        "mal": "«No me quedó claro qué va a pasar con mi pedido.»"
+      }
+    }
+  ],
+  "resultado": {
+    "alto": "Resultado sobresaliente: resolvió el caso con criterio en casi todas las etapas. Puede aplicar este procedimiento en solicitudes reales.",
+    "medio": "Resultado aceptable: logró avanzar, pero algunas decisiones necesitaron corrección. Repita el laboratorio para afianzar los criterios.",
+    "bajo": "Resultado inicial: varias decisiones requieren práctica. Repita el laboratorio con calma y apóyese en la retroalimentación de cada etapa."
+  },
+  "autoevaluacion": {
+    "titulo": "Autoevaluación",
+    "afirmaciones": [
+      "Puedo identificar los datos relevantes de una solicitud.",
+      "Sé clasificar un caso según su tipo y prioridad.",
+      "Puedo ordenar las acciones para resolver y comunicar la solución."
+    ],
+    "niveles": [
+      "Aún no",
+      "Con ayuda",
+      "Sí, con seguridad"
+    ],
+    "pregunta": "¿En qué situación concreta de su trabajo aplicaría lo practicado en este laboratorio?"
+  },
+  "cliente": {
+    "saludo": "«Mi pedido llegó incompleto y mañana tengo reunión. ¿Pueden ayudarme?»",
+    "nombre": "Marta Gómez"
+  }
+}

@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{TITULO}}</title>
+<style>/*CSS*/</style>
+<style>
+.track{display:flex;align-items:flex-start;gap:0;overflow-x:auto;padding:18px 4px 8px;margin:0;list-style:none}
+.track li{flex:1 0 118px;position:relative;text-align:center;padding:0 4px}
+.track li:before{content:"";position:absolute;top:22px;left:-50%;width:100%;height:5px;background:#ccd6d1;z-index:0}
+.track li:first-child:before{display:none}
+.track li.past:before,.track li.cur:before{background:var(--brand)}
+.dot{position:relative;z-index:1;width:46px;height:46px;border-radius:50%;border:4px solid #ccd6d1;background:#fff;font-size:1.3rem;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.dot:disabled{cursor:not-allowed;filter:grayscale(1);opacity:.6}
+.track li.past .dot{border-color:var(--brand);background:#e6eeea}
+.track li.cur .dot{border-color:var(--accent);background:#f4ecd0;transform:scale(1.15);box-shadow:0 0 0 5px rgba(201,162,39,.25)}
+.track small{display:block;font-size:.78rem;line-height:1.2;margin-top:6px;color:var(--muted)}
+.track li.cur small{color:var(--ink);font-weight:700}
+.detail{display:grid;grid-template-columns:1fr 1.3fr;gap:22px;align-items:start;margin-top:10px}
+.fase{display:inline-block;background:var(--brand);color:#fff;border-radius:99px;padding:2px 12px;font-size:.85rem;font-weight:700}
+.link{margin-top:12px;padding:10px 14px;border-radius:10px;background:#e8eeec;border:1px dashed var(--brand)}
+.intro{font-size:1.08rem}
+.lista li{margin:6px 0}
+.chk label{display:flex;gap:10px;align-items:flex-start;font-weight:400;padding:5px 0}
+.chk input{width:22px;height:22px;margin-top:2px}
+.contador{font-weight:700}
+.contador.ok{color:var(--ok)}.contador.bad{color:var(--bad)}
+.reqs{list-style:none;padding:0;margin:12px 0 0}
+.reqs li{padding:3px 0}
+.reqs li.ok{color:var(--ok);font-weight:700}
+.q .opt{display:block;width:100%;font:inherit;text-align:left;cursor:pointer;border:2px solid #c3cfc9;background:#fff;border-radius:12px;padding:9px 14px;margin:8px 0}
+.q .opt.ok{border-color:var(--ok);background:var(--okbg)}
+.q .opt.bad{border-color:var(--bad);background:var(--badbg)}
+.inst{border:2px solid var(--line);border-radius:12px;padding:10px 14px;margin:10px 0}
+.inst.open{border-color:var(--brand)}
+.inst.read{border-color:var(--ok);background:var(--okbg)}
+.inst.lk{opacity:.5}
+@media(max-width:720px){.detail{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<!--
+  PLANTILLA · Línea de tiempo dinámica + Tarea evaluativa
+  Interacción obligatoria: para avanzar de hito hay que abrir el ejemplo y acertar «¿qué fase sigue?».
+  Rangos: 6–8 hitos · nombre 3–7 palabras · explicación 25–45 palabras · duración 4–6 min.
+  Edite solo el JSON de <script id="contenido">. Verifique con: node validar.js
+-->
+<header class="hero"><div class="in" id="hero"></div></header>
+<main class="wrap">
+  <section class="sec" id="intro" aria-labelledby="t-intro"></section>
+  <section class="sec" id="linea" aria-labelledby="t-linea"></section>
+  <section class="sec" id="cierre" aria-labelledby="t-cierre"></section>
+  <section class="sec" id="tarea" aria-labelledby="t-tarea"></section>
+</main>
+<footer id="foot"></footer>
+
+<script type="application/json" id="contenido">/*CONTENIDO*/</script>
+<script>/*LIB*/</script>
+<script>
+hero();
+const H=CFG.hitos;
+const secs={linea:$('#linea'),cierre:$('#cierre'),tarea:$('#tarea')};
+
+/* ---- Introducción: hay que iniciar el recorrido ---- */
+$('#intro').append(h('h2',{id:'t-intro'},'Introducción'),h('div',{class:'card'},h('p',{class:'intro'},CFG.introduccion),
+  h('button',{class:'btn warn',id:'ini',onclick:e=>{e.target.disabled=true;e.target.textContent='✔ Recorrido iniciado';addPts(5,'¡Comienza el recorrido!');ungate(secs.linea,'Recorrido desbloqueado')}},'Entendido: iniciar el recorrido')));
+
+/* ---- Línea de tiempo con avance condicionado ---- */
+(function(){
+  let cur=0,reach=0;
+  const st=H.map(()=>({ej:false,ok:false}));
+  const track=h('ol',{class:'track','aria-label':'Hitos de la línea de tiempo'});
+  const detail=h('div',{class:'card detail',id:'detalle','aria-live':'polite'});
+  const prev=h('button',{class:'btn sec',onclick:()=>go(cur-1)},'← Fase anterior');
+  const next=h('button',{class:'btn',onclick:()=>advance()},'Fase siguiente →');
+  const count=h('span',{class:'muted'});
+  const opciones=i=>{
+    const n=H[i+1];if(!n)return null;
+    const otros=shuffle(H.filter((_,k)=>k!==i&&k!==i+1)).slice(0,2);
+    return shuffle([n,...otros]).map(x=>({t:x.nombre,ok:x===n}));
+  };
+  const opts=H.map((_,i)=>opciones(i));
+
+  function need(i){return st[i].ej&&(i===H.length-1||st[i].ok)}
+  function advance(){
+    if(!need(cur)){toast('Primero complete las dos tareas del hito.');return}
+    if(cur===H.length-1){ungate(secs.cierre,'¡Recorrido completo!');return}
+    reach=Math.max(reach,cur+1);addPts(10,'Hito '+(cur+1)+' superado');go(cur+1);
+  }
+  function renderTrack(){
+    track.replaceChildren(...H.map((x,i)=>h('li',{class:i<cur?'past':i===cur?'cur':''},
+      h('button',{class:'dot',disabled:i>reach,onclick:()=>go(i),'aria-label':(i+1)+'. '+x.nombre+' ('+x.fase+')','aria-current':i===cur?'step':null},i>reach?'🔒':(st[i].ok||(i===H.length-1&&st[i].ej))&&i!==cur?'✅':x.icono),h('small',{},x.fase))));
+  }
+  function go(i){
+    if(i<0||i>=H.length||i>reach)return;
+    cur=i;renderTrack();
+    const x=H[i],n=H[i+1],S=st[i];
+    const ejBox=h('div',{class:'fb info',hidden:!S.ej},h('b',{},CFG.ejemploEtiqueta),x.ejemplo);
+    const reqs=h('ul',{class:'reqs'});
+    const upd=()=>{
+      reqs.replaceChildren(h('li',{class:S.ej?'ok':''},(S.ej?'✔':'☐')+' Abrir el ejemplo práctico'),
+        i<H.length-1?h('li',{class:S.ok?'ok':''},(S.ok?'✔':'☐')+' Responder: ¿qué fase sigue?'):null);
+      next.disabled=!need(i);next.textContent=i===H.length-1?'Finalizar recorrido':'Fase siguiente →';
+      prev.disabled=i===0;
+      count.textContent='Hito '+(i+1)+' de '+H.length;
+    };
+    const bEj=h('button',{class:'btn sec',disabled:S.ej,onclick:()=>{S.ej=true;ejBox.hidden=false;bEj.disabled=true;bEj.textContent='✔ Ejemplo abierto';addPts(3);upd()}},S.ej?'✔ Ejemplo abierto':'Abrir ejemplo práctico');
+    let quiz=null;
+    if(n){
+      const out=h('div');
+      quiz=h('div',{class:'q'},h('p',{},h('b',{},'¿Qué fase sigue después de «'+x.nombre+'»?')),
+        ...opts[i].map(o=>{const b=h('button',{class:'opt',disabled:S.ok,onclick:()=>{
+          if(S.ok)return;
+          if(o.ok){S.ok=true;b.classList.add('ok');$$('.opt',quiz).forEach(z=>z.disabled=true);out.replaceChildren(fb('ok','¡Correcto!','Esta fase '+x.conexion+': '+n.nombre+'.'));addPts(5);upd()}
+          else{b.classList.add('bad','shake');out.replaceChildren(fb('bad','Aún no','Relea la explicación y la conexión del hito. Intente de nuevo.'));setTimeout(()=>b.classList.remove('shake'),400)}
+        }},o.t);if(S.ok&&o.ok)b.classList.add('ok');return b}),out);
+      if(S.ok)out.append(fb('ok','¡Correcto!','Esta fase '+x.conexion+': '+n.nombre+'.'));
+    }
+    detail.replaceChildren(
+      art(x.icono,x.tono,x.img),
+      h('div',{},
+        h('span',{class:'fase'},x.fase),
+        h('h3',{style:'font-size:1.35rem;margin-top:8px'},(i+1)+'. '+x.nombre),
+        h('p',{},x.explicacion),bEj,ejBox,
+        h('div',{class:'link'},n?('Esta fase '+x.conexion+'.'):('Esta fase '+x.conexion+'.')),
+        quiz,reqs));
+    upd();
+  }
+  $('#linea').append(h('h2',{id:'t-linea'},'Recorra los '+H.length+' hitos'),
+    h('div',{class:'card'},track,h('p',{class:'muted',style:'margin:4px 0 0'},'Cada hito se desbloquea al abrir su ejemplo y acertar la pregunta de secuencia.')),
+    detail,h('div',{class:'row',style:'margin-top:12px;justify-content:space-between'},prev,count,next));
+  go(0);
+  gate(secs.linea,'Lea la introducción y pulse «iniciar el recorrido».');
+})();
+
+/* ---- Cierre: pregunta de aplicación respondida por escrito ---- */
+(function(){
+  const ta=h('textarea',{'aria-label':'Respuesta a la pregunta de aplicación',placeholder:'Escriba su respuesta (mínimo 15 palabras)…'});
+  const c=h('p',{class:'hint'},'0 / 15 palabras');
+  const b=h('button',{class:'btn',disabled:true,onclick:()=>{b.disabled=true;ta.disabled=true;b.textContent='✔ Respuesta registrada';addPts(10,'Respuesta de aplicación');ungate(secs.tarea,'Tarea evaluativa desbloqueada')}},'Registrar respuesta y continuar');
+  ta.oninput=()=>{const n=words(ta.value);c.textContent=n+' / 15 palabras';b.disabled=n<15};
+  $('#cierre').append(h('h2',{id:'t-cierre'},'Cierre'),h('div',{class:'card',style:'background:#f7f1dc;border:2px solid var(--accent)'},h('h3',{},'Pregunta de aplicación'),h('p',{},CFG.cierrePregunta),ta,c,b));
+  gate(secs.cierre,'Complete los 7 hitos para desbloquear el cierre.');
+})();
+
+/* ---- Actividad: Tarea evaluativa ---- */
+(function(){
+  const T=CFG.tarea,root=$('#tarea');
+  const saved=store('tarea')||{txt:'',chk:[]};
+  const save=()=>store('tarea',saved);
+
+  /* Instrucciones: se abren y marcan una a una */
+  const readN=new Set();
+  const body=h('div',{style:'margin-top:16px'});
+  const inst=T.instrucciones.map((x,i)=>{
+    const b=h('button',{class:'btn sec',style:'margin-top:6px',onclick:()=>{
+      readN.add(i);box.classList.remove('open');box.classList.add('read');b.remove();addPts(2);
+      if(i+1<T.instrucciones.length){const nx=inst[i+1];nx.classList.remove('lk');nx.classList.add('open');$('.btn',nx).disabled=false}
+      if(readN.size===T.instrucciones.length)ungate(body,'¡Instrucciones leídas! Ya puede redactar su producto.');
+    }},'✔ Entendido');
+    const box=h('div',{class:'inst'+(i===0?' open':' lk')},h('b',{},(i+1)+'. '),x,h('br'),b);
+    b.disabled=i!==0;return box;
+  });
+
+  root.append(h('h2',{id:'t-tarea'},'Actividad de autoaprendizaje · '+T.nombre),
+    h('div',{class:'card'},
+      h('h3',{style:'margin-top:0'},'1. Nombre de la tarea y resultado de aprendizaje'),h('p',{},h('b',{},T.nombre+'. '),T.resultado),
+      h('h3',{},'2. Reto'),h('p',{},T.reto),
+      h('h3',{},'3. Producto o evidencia por entregar'),h('p',{},T.producto),
+      h('p',{class:'muted'},'Duración: '+T.duracion),
+      h('h3',{},'4. Instrucciones secuenciales'),h('p',{class:'hint'},'Marque cada instrucción como entendida para habilitar la siguiente.'),...inst,
+      h('p',{},h('b',{},'Recursos permitidos: '),T.recursos.join(' · ')),
+      h('h3',{},'5. Criterios de evaluación y condiciones de entrega'),
+      h('ul',{class:'lista'},T.criterios.map(c=>h('li',{},h('b',{},c.nombre+': '),c.descripcion))),
+      h('p',{},T.condiciones)),body);
+
+  const ta=h('textarea',{id:'ent',style:'min-height:220px','aria-label':'Escriba aquí su protocolo',placeholder:'Escriba aquí su protocolo de atención…'});ta.value=saved.txt;
+  const cont=h('p',{class:'contador'});
+  const out=h('div',{'aria-live':'polite'});
+  function upd(){
+    const n=words(ta.value);
+    const okr=n>=T.minPalabras&&n<=T.maxPalabras;
+    cont.className='contador '+(okr?'ok':'bad');
+    cont.textContent=n+' palabras · rango requerido: '+T.minPalabras+' a '+T.maxPalabras;
+  }
+  ta.oninput=()=>{saved.txt=ta.value;save();upd()};
+  const ck=h('div',{class:'chk'},T.checklist.map((c,i)=>{
+    const cb=h('input',{type:'checkbox',id:'tk'+i});cb.checked=!!saved.chk[i];
+    cb.onchange=()=>{saved.chk[i]=cb.checked;save()};
+    return h('label',{for:'tk'+i},cb,c);
+  }));
+  const bEnt=h('button',{class:'btn',onclick:entregar},'Entregar y ver retroalimentación');
+  body.append(h('div',{class:'card'},
+    h('h3',{style:'margin-top:0'},'Su producto'),ta,cont,
+    h('h3',{style:'margin-top:12px'},'6. Lista de verificación'),ck,
+    h('div',{class:'row',style:'margin-top:12px'},bEnt,h('button',{class:'btn sec',onclick:()=>{ta.value='';saved.txt='';saved.chk=[];save();$$('input[type=checkbox]',ck).forEach(c=>c.checked=false);out.replaceChildren();upd()}},'Borrar y empezar de nuevo')),
+    h('h3',{style:'margin-top:16px'},'7. Retroalimentación posterior'),out));
+  upd();
+
+  function evaluar(c,texto){
+    const n=norm(texto);
+    if(c.tipo==='orden'){
+      let pos=-1,ok=0;
+      c.raices.forEach(r=>{const p=n.indexOf(r,pos+1);if(p>-1){ok++;pos=p}});
+      return ok>=c.min;
+    }
+    if(c.tipo==='tiempos'){
+      const m=n.match(/\b\d+\s*(min|minutos?|horas?|h|dias?|d)\b/g)||[];
+      return m.length>=c.min;
+    }
+    if(c.tipo==='ejemplo')return /[«"“]/.test(texto)&&/[»"”]/.test(texto);
+    if(c.tipo==='extension'){const w=words(texto);return w>=T.minPalabras&&w<=T.maxPalabras}
+    if(c.tipo==='manual')return !!saved.chk[T.checklist.length-1];
+    return false;
+  }
+  function entregar(){
+    if(words(ta.value)<20){out.replaceChildren(fb('bad','Producto muy corto','Escriba su protocolo antes de entregarlo para recibir retroalimentación.'));return}
+    if(saved.chk.filter(Boolean).length<T.checklist.length){out.replaceChildren(fb('bad','Complete la lista de verificación','Marque todos los elementos de la lista de verificación antes de entregar. Revise su texto con calma.'));return}
+    const res=T.criterios.map(c=>({c,ok:evaluar(c,ta.value)}));
+    const n=res.filter(r=>r.ok).length,tot=res.length;
+    const nivel=n>=tot-1?'alto':n>=Math.ceil(tot/2)?'medio':'bajo';
+    addPts(n*5,'Entrega evaluada');if(nivel==='alto')burst();
+    out.replaceChildren(
+      h('p',{},h('b',{},'Criterios cumplidos: '+n+' de '+tot)),
+      ...res.map(r=>fb(r.ok?'ok':'bad',(r.ok?'✔ ':'✘ ')+r.c.nombre,r.ok?r.c.retroOk:r.c.retroMejora)),
+      fb(nivel==='alto'?'ok':nivel==='medio'?'info':'bad','Valoración general',T.retroFinal[nivel]),
+      h('p',{class:'muted'},'La verificación automática es orientativa: detecta estructura, tiempos, ejemplo y extensión. Su docente o líder puede valorar la calidad del contenido.'),
+      h('div',{class:'row'},h('button',{class:'btn',onclick:()=>download('evidencia-tarea.txt',T.nombre+'\n\n'+ta.value+'\n\nCriterios cumplidos: '+n+'/'+tot+'\n'+res.map(r=>(r.ok?'[x] ':'[ ] ')+r.c.nombre).join('\n'))},'⬇ Descargar mi evidencia (.txt)')));
+  }
+  gate(body,'Marque como entendidas las 5 instrucciones para habilitar el editor.');
+  gate(secs.tarea,'Responda la pregunta de aplicación para desbloquear la tarea.');
+})();
+accAll();
+</script>
+</body>
+</html>

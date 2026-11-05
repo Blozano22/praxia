@@ -1,0 +1,20 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// NODO: «Preparar respuesta con enlace»  ·  Modo: \"Run Once for All Items\"\n// Se ejecuta UNA sola vez con todas las unidades y devuelve UN solo ítem con los enlaces de los documentos.\n// Ese ítem es el que debe enviar el nodo «Responder enlaces de plantillas» al portal / plataforma.\n\nconst salidas = $input.all();\nconst documentos = salidas.map((salida, i) => {\n  const actualizacion = salida.json || {};\n  if (actualizacion.error) {\n    throw new Error('No se pudo rellenar la copia de Google Docs: ' + actualizacion.error);\n  }\n\n  // Datos de la unidad y de la copia que conservó el nodo anterior (mismo orden de ítems).\n  let unidad;\n  try { unidad = $('Conservar unidad y copia').itemMatching(i).json; }\n  catch (e) { unidad = $('Conservar unidad y copia').all()[i].json; }\n\n  const copia = unidad.documento_generado || {};\n  const numero =\n    (unidad.unidad && unidad.unidad.numero) ??\n    unidad.numero_unidad ??\n    (typeof unidad.unidad === 'number' || typeof unidad.unidad === 'string' ? unidad.unidad : undefined) ??\n    (i + 1);\n  const url = copia.url || (copia.id ? 'https://docs.google.com/document/d/' + copia.id + '/edit' : '');\n\n  return {\n    unidad: { numero: Number(numero) || i + 1 },\n    nombre_unidad: unidad.nombre_unidad || copia.nombre || ('Unidad ' + (i + 1)),\n    url,\n    documento_generado: {\n      id: copia.id || '',\n      nombre: copia.nombre || unidad.nombre_copia || unidad.nombre_unidad || '',\n      url,\n      diligenciado: true\n    }\n  };\n});\n\nreturn [{\n  json: {\n    ok: true,\n    total: documentos.length,\n    documentos_generados: documentos\n  }\n}];\n"
+      },
+      "id": "856b7b84-352d-4cd5-b609-c2c72f3b4926",
+      "name": "Preparar respuesta con enlace",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5344,
+        1200
+      ]
+    }
+  ],
+  "connections": {},
+  "pinData": {}
+}

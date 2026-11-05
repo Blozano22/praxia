@@ -1,0 +1,8 @@
+node_modules/
+.env
+CLAVE-INICIAL.txt
+.pgdata/
+dist/
+*.7z
+*.zip
+.claude/

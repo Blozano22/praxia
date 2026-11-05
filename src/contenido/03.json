@@ -1,0 +1,210 @@
+{
+  "id": "mapa-conceptual",
+  "tipo": "Mapa conceptual interactivo",
+  "titulo": "Mapa de gestión de solicitudes de clientes",
+  "subtitulo": "Explore cómo se relacionan los conceptos clave. Toque cada nodo para ver su definición y un ejemplo.",
+  "meta": [
+    "Competencia: gestionar solicitudes de clientes con calidad",
+    "Duración: 4 a 7 minutos",
+    "Actividad: Clasificaciones"
+  ],
+  "instruccionMapa": "Toque un nodo para descubrirlo: elija la palabra de enlace correcta y se abrirá su ficha. «Tipos de solicitud» se despliega al descubrirlo.",
+  "nodos": [
+    {
+      "id": "c",
+      "nivel": 0,
+      "etiqueta": "Gestión de solicitudes de clientes",
+      "x": 500,
+      "y": 290,
+      "tono": 200,
+      "ficha": "Conjunto de acciones para recibir, entender y resolver lo que un cliente pide o reclama. Su meta es dar una respuesta oportuna, completa y documentada. Ejemplo: atender un pedido incompleto hasta lograr la conformidad."
+    },
+    {
+      "id": "ca",
+      "padre": "c",
+      "nivel": 1,
+      "etiqueta": "Canales de atención",
+      "enlace": "llega por",
+      "x": 165,
+      "y": 90,
+      "tono": 160,
+      "ficha": "Medios por los cuales el cliente se comunica: teléfono, correo, chat o presencial. Cada canal tiene tiempos y reglas propias. Ejemplo: un reclamo por chat se responde en cinco minutos y se registra igual."
+    },
+    {
+      "id": "re",
+      "padre": "c",
+      "nivel": 1,
+      "etiqueta": "Registro del caso",
+      "enlace": "queda en",
+      "x": 835,
+      "y": 90,
+      "tono": 40,
+      "ficha": "Documento en el sistema que reúne datos del cliente, descripción, evidencias y acciones realizadas. Sin registro no hay trazabilidad. Ejemplo: el ticket 1048 incluye foto del paquete, pedido y teléfono de contacto."
+    },
+    {
+      "id": "pr",
+      "padre": "c",
+      "nivel": 1,
+      "etiqueta": "Prioridad del caso",
+      "enlace": "se ordena por",
+      "x": 150,
+      "y": 330,
+      "tono": 280,
+      "ficha": "Nivel de urgencia asignado según el impacto en el cliente y en la organización. Define quién atiende primero y en cuánto tiempo. Ejemplo: un cobro duplicado tiene prioridad alta frente a una consulta de horarios."
+    },
+    {
+      "id": "in",
+      "padre": "c",
+      "nivel": 1,
+      "etiqueta": "Indicadores de calidad",
+      "enlace": "se evalúa con",
+      "x": 850,
+      "y": 330,
+      "tono": 340,
+      "ficha": "Medidas que muestran qué tan bien se atiende: tiempo de respuesta, casos resueltos y satisfacción del cliente. Permiten mejorar procesos. Ejemplo: el 90 % de los reclamos se resuelve en veinticuatro horas."
+    },
+    {
+      "id": "ti",
+      "padre": "c",
+      "nivel": 1,
+      "etiqueta": "Tipos de solicitud",
+      "enlace": "se clasifica en",
+      "x": 500,
+      "y": 470,
+      "tono": 100,
+      "despliega": true,
+      "ficha": "Categorías en que se agrupa lo que el cliente expresa: consulta, queja, reclamo o sugerencia. Identificar el tipo correcto orienta la respuesta. Ejemplo: quien pide devolución por un daño presenta un reclamo."
+    },
+    {
+      "id": "t1",
+      "padre": "ti",
+      "nivel": 2,
+      "etiqueta": "Consulta de información",
+      "enlace": "si pregunta",
+      "x": 130,
+      "y": 580,
+      "tono": 100,
+      "ficha": "Solicitud de datos o aclaraciones sin inconformidad. Se responde con información clara y rápida. Ejemplo: un cliente pregunta cuáles son los requisitos para hacer válida la garantía de su producto."
+    },
+    {
+      "id": "t2",
+      "padre": "ti",
+      "nivel": 2,
+      "etiqueta": "Queja por el servicio",
+      "enlace": "si se inconforma",
+      "x": 375,
+      "y": 580,
+      "tono": 100,
+      "ficha": "Expresión de inconformidad con la atención recibida o con el trato de una persona. Busca que se reconozca y corrija la conducta. Ejemplo: un asesor fue descortés durante una llamada."
+    },
+    {
+      "id": "t3",
+      "padre": "ti",
+      "nivel": 2,
+      "etiqueta": "Reclamo por incumplimiento",
+      "enlace": "si exige corrección",
+      "x": 625,
+      "y": 580,
+      "tono": 100,
+      "ficha": "Petición de corregir o compensar un incumplimiento del producto o del servicio. Exige una solución concreta y un plazo. Ejemplo: el pedido llegó dañado y el cliente solicita el cambio."
+    },
+    {
+      "id": "t4",
+      "padre": "ti",
+      "nivel": 2,
+      "etiqueta": "Sugerencia de mejora",
+      "enlace": "si propone",
+      "x": 870,
+      "y": 580,
+      "tono": 100,
+      "ficha": "Propuesta voluntaria para mejorar un producto, proceso o servicio. No exige respuesta inmediata, pero conviene agradecerla y registrarla. Ejemplo: un cliente recomienda habilitar pagos desde el celular."
+    }
+  ],
+  "cierre": {
+    "pregunta": "Pregunta de relación: ¿cómo influye el tipo de solicitud en la prioridad que asignaría y en el registro que debe dejar del caso?",
+    "actividad": {
+      "nombre": "Clasificaciones: ¿consulta, queja, reclamo o sugerencia?",
+      "instruccion": "Criterio de clasificación: según lo que el cliente espera. Pregunta datos, expresa inconformidad con el trato, exige corrección de un incumplimiento o propone mejorar. Seleccione cada situación y luego la categoría donde corresponde.",
+      "categorias": [
+        {
+          "id": "consulta",
+          "nombre": "Consulta",
+          "ayuda": "Pide información"
+        },
+        {
+          "id": "queja",
+          "nombre": "Queja",
+          "ayuda": "Inconformidad con el trato"
+        },
+        {
+          "id": "reclamo",
+          "nombre": "Reclamo",
+          "ayuda": "Exige corregir un incumplimiento"
+        },
+        {
+          "id": "sugerencia",
+          "nombre": "Sugerencia",
+          "ayuda": "Propone una mejora"
+        }
+      ],
+      "elementos": [
+        {
+          "texto": "Pregunta por horarios de atención",
+          "cat": "consulta",
+          "porque": "Solo solicita información y no expresa inconformidad ni exige corrección alguna."
+        },
+        {
+          "texto": "Solicita estado de su pedido",
+          "cat": "consulta",
+          "porque": "Pide un dato de seguimiento. Aunque puede venir con impaciencia, mientras no exija corrección sigue siendo una consulta."
+        },
+        {
+          "texto": "Asesor fue grosero en llamada",
+          "cat": "queja",
+          "porque": "Se inconforma por el trato recibido, no por el producto. Las quejas se relacionan con conductas del servicio.",
+          "confunde": true
+        },
+        {
+          "texto": "Espera de cuarenta minutos inaceptable",
+          "cat": "queja",
+          "porque": "Expresa inconformidad con la atención. No exige reparar un producto, por eso no es un reclamo.",
+          "confunde": true
+        },
+        {
+          "texto": "Producto llegó dañado, exige cambio",
+          "cat": "reclamo",
+          "porque": "Existe un incumplimiento del producto y el cliente exige una corrección concreta: el cambio."
+        },
+        {
+          "texto": "Cobro duplicado en factura",
+          "cat": "reclamo",
+          "porque": "Es un error de la empresa que debe corregirse mediante devolución o ajuste del valor cobrado."
+        },
+        {
+          "texto": "Propone agregar pago por celular",
+          "cat": "sugerencia",
+          "porque": "Plantea una mejora voluntaria. No hay incumplimiento ni inconformidad que corregir."
+        },
+        {
+          "texto": "Recomienda ampliar horario sabatino",
+          "cat": "sugerencia",
+          "porque": "Es una idea para mejorar el servicio. Se agradece, se registra y se envía al área responsable."
+        },
+        {
+          "texto": "Pide requisitos para la garantía",
+          "cat": "consulta",
+          "porque": "Busca información previa sobre un derecho. Todavía no hay un incumplimiento que reclamar."
+        },
+        {
+          "texto": "Entrega tardía, solicita compensación",
+          "cat": "reclamo",
+          "porque": "Hay incumplimiento del plazo y se pide una compensación concreta. Se diferencia de la queja porque exige reparación.",
+          "confunde": true
+        }
+      ],
+      "retroOk": "¡Excelente! Clasificó correctamente todas las situaciones. Recuerde que lo que define la categoría es lo que el cliente espera: información, reconocimiento, reparación o una mejora.",
+      "retroMal": "Algunas situaciones quedaron en otra categoría. Revise las explicaciones marcadas, observe qué espera el cliente en cada caso y vuelva a intentarlo.",
+      "confundibles": "Elementos que suelen confundirse: la queja trata del trato o la espera; el reclamo exige corregir o compensar un incumplimiento."
+    }
+  }
+}

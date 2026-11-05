@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{TITULO}}</title>
+<style>/*CSS*/</style>
+<style>
+:root{--t0:var(--brand);--f0:#fff;--t1:var(--mid);--f1:#fff;--t2:var(--cyan);--f2:var(--cyan-ink);--t3:var(--brand2);--f3:#fff;--t4:var(--nav);--f4:#fff}
+.t0{--c:var(--t0);--f:var(--f0)}.t1{--c:var(--t1);--f:var(--f1)}.t2{--c:var(--t2);--f:var(--f2)}.t3{--c:var(--t3);--f:var(--f3)}.t4{--c:var(--t4);--f:var(--f4)}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{height:100dvh;overflow:hidden;padding:0;background:#fff;color:var(--nav);font-family:var(--font);line-height:1.5;font-size:16px}
+h1,h2,h3,p,ul{margin:0}
+ul{padding:0;list-style:none}
+button{font-family:inherit}
+.app{position:fixed;inset:0;display:flex;flex-direction:column;background:#fff;overflow:hidden}
+.top{flex:none;display:flex;align-items:center;gap:clamp(.6rem,1.6vw,1.4rem);padding:clamp(.4rem,1vh,.8rem) clamp(1rem,3vw,2.4rem);min-height:clamp(54px,8.5vh,70px);border-bottom:2px solid var(--line)}
+.tt{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;justify-content:center}
+.tt .kk{font-size:.66rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--brand)}
+.tt h1{font-size:clamp(1.05rem,1.9vw,1.55rem);font-weight:800;letter-spacing:-.02em;line-height:1.15;text-wrap:balance;color:var(--nav)}
+.prog{flex:none;display:flex;align-items:center;gap:.6rem;font-size:.88rem;font-weight:800;white-space:nowrap}
+.dots{display:flex;gap:5px}
+.dots i{width:11px;height:11px;border-radius:50%;border:2px solid var(--nav);transition:background-color .3s var(--ease),transform .3s var(--ease)}
+.dots i.on{background:var(--nav)}
+.dots i.ac{transform:scale(1.35)}
+.tools{flex:none;display:flex;gap:.5rem}
+.tools .btn.off,.tools .btn.off:hover{opacity:.5;background:var(--nav);border-color:var(--nav);color:#fff;cursor:not-allowed}
+.ic{display:inline-flex;width:1.2em;height:1.2em;flex:none;vertical-align:middle}
+.ic svg{width:100%;height:100%}
+.ay p{margin:0 0 .6rem;line-height:1.6}
+.ay p:last-child{margin:0}
+.lima{display:inline-block;flex:none;width:13px;height:13px;border-radius:50%;background:var(--lime);border:2px solid var(--nav)}
+.chl{display:inline-flex;align-items:center;gap:6px;background:var(--lime);color:var(--nav);border-radius:999px;padding:2px 11px;font-size:.68rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;white-space:nowrap}
+.ckm{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:#fff;border:2px solid var(--nav);color:var(--nav);flex:none}
+.ckm svg{width:12px;height:12px}
+.pista{display:inline-flex;align-items:center;gap:.5rem;font-size:.9rem;font-weight:700;color:var(--nav)}
+/* Texto de lectura: se escala solo (--k) hasta llenar el espacio sin cortarse */
+.cuerpo{--k:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:calc(var(--k)*clamp(.5rem,1.4vh,.95rem))}
+.txt{font-size:calc(var(--k)*clamp(.94rem,.55vw + .55vh,1.15rem));line-height:1.55}
+.sub{font-size:calc(var(--k)*clamp(1rem,.6vw + .6vh,1.22rem));font-weight:800;line-height:1.3}
+.idea{border-left:6px solid var(--c);padding:.15rem 0 .15rem .9rem}
+.idea b{display:block;font-size:calc(var(--k)*.7rem);letter-spacing:.1em;text-transform:uppercase;color:var(--nav)}
+.idea span{display:block;font-size:calc(var(--k)*clamp(1rem,.7vw + .5vh,1.28rem));font-weight:800;line-height:1.3}
+.fu{align-self:flex-start;border:2px solid var(--line);border-radius:999px;padding:2px 13px;font-size:calc(var(--k)*.82rem);color:var(--nav)}
+.pts{display:flex;flex-direction:column;gap:calc(var(--k)*.45rem)}
+.pts li{display:flex;gap:.65rem;align-items:flex-start;font-size:calc(var(--k)*clamp(.92rem,.5vw + .5vh,1.1rem));line-height:1.45}
+.pts li i{flex:none;font-style:normal;width:calc(var(--k)*26px);height:calc(var(--k)*26px);border-radius:50%;background:var(--c);color:var(--f);display:grid;place-items:center;font-size:calc(var(--k)*.78rem);font-weight:800}
+.nv{flex:none;display:flex;align-items:center;justify-content:space-between;gap:.6rem}
+.nv .pp{font-size:.88rem;font-weight:800}
+.pistaf{position:absolute;left:50%;bottom:clamp(.8rem,2vh,1.4rem);transform:translateX(-50%);z-index:5;display:flex;gap:.5rem;align-items:center;background:var(--nav);color:#fff;border-radius:999px;padding:.45rem 1.1rem;font-weight:700;font-size:.9rem;box-shadow:0 8px 22px rgba(20,39,73,.3);animation:pop .5s var(--ease) both;transition:opacity .45s;pointer-events:none;max-width:92vw}
+.pistaf.x{opacity:0}
+@keyframes sube{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes pop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}}
+.en .cuerpo>*{animation:sube .5s var(--ease) both;animation-delay:calc(var(--j,0)*70ms + 60ms)}
+@media(max-width:760px){.dots{display:none}.top{padding:.4rem 1rem;gap:.5rem}.tools .btn{padding:6px 14px}}
+
+/* Infografía vertical: una franja de color por bloque; la abierta ocupa el alto restante */
+.main{flex:1;min-height:0;display:flex;flex-direction:column;padding:clamp(.6rem,1.6vh,1.1rem) clamp(1rem,3vw,2.4rem) clamp(.7rem,1.8vh,1.2rem)}
+.ruta{flex:1;min-height:0;display:flex;flex-direction:column;gap:clamp(6px,1.3vh,12px)}
+.fr{flex:0 0 auto;display:flex;flex-direction:column;border:3px solid var(--c);border-radius:20px;overflow:hidden;background:#fff;min-height:0}
+.fr.open{flex:1 1 0}
+.fh{display:flex;align-items:center;gap:clamp(.7rem,1.4vw,1.2rem);width:100%;min-height:clamp(46px,8vh,62px);padding:.3rem clamp(.8rem,1.6vw,1.3rem);border:0;background:var(--c);color:var(--f);font:inherit;text-align:left;cursor:pointer;flex:none;transition:filter .2s var(--ease)}
+.fh:hover{filter:brightness(1.1)}
+.fh:focus-visible{outline:3px solid var(--nav);outline-offset:-6px}
+.fh .nu{flex:none;width:clamp(32px,5.2vh,44px);aspect-ratio:1;border-radius:50%;background:var(--f);color:var(--c);display:grid;place-items:center;font-weight:800;font-size:clamp(.85rem,2vh,1.1rem);letter-spacing:-.03em}
+.fh .ti{flex:1;min-width:0;font-weight:800;font-size:clamp(1rem,1.2vw + .5vh,1.45rem);letter-spacing:-.02em;line-height:1.15}
+.fh .st{flex:none;display:inline-flex;align-items:center;gap:6px;border:2px solid currentColor;border-radius:999px;padding:2px 12px;font-size:.72rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase}
+.fh .st .ic{width:1em;height:1em}
+.fr.lk .fh{cursor:not-allowed;background:#fff;color:var(--nav)}
+.fr.lk .fh .nu{background:var(--c);color:var(--f)}
+.fr.lk{border-style:dashed}
+.fc{--k:1;flex:1;min-height:0;display:none;padding:clamp(.8rem,2vh,1.4rem) clamp(1rem,2vw,1.8rem);grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:clamp(1rem,2.4vw,2.4rem);overflow:hidden}
+.fr.open .fc{display:grid;animation:sube .4s var(--ease) both}
+.fc.uno{grid-template-columns:minmax(0,1fr)}
+.fc.uno .cl{max-width:84ch}
+.cl{min-height:0;overflow:auto;display:flex;flex-direction:column;gap:calc(var(--k)*clamp(.5rem,1.4vh,.95rem))}
+.cl.dr{background:var(--tint);border-radius:16px;padding:calc(var(--k)*clamp(.8rem,1.8vh,1.3rem)) clamp(1rem,1.6vw,1.4rem);justify-content:flex-start}
+.cl .im{border-radius:14px;overflow:hidden;border:2px solid var(--nav);aspect-ratio:16/9;flex:none}
+.cl .im img{width:100%;height:100%;object-fit:cover;display:block}
+.cl .nv{margin-top:auto;padding-top:.4rem}
+@media(max-width:760px){
+  .fc{grid-template-columns:minmax(0,1fr);overflow:auto;display:none}
+  .fr.open .fc{display:flex;flex-direction:column}
+  .fh .st .tx{display:none}
+  .fh .st{padding:2px 8px}
+  .cl{overflow:visible}
+  .cl.dr{padding:.9rem}
+}
+</style>
+<style>/*TEMA*/</style>
+</head>
+<body>
+<div class="app en">
+  <header class="top">
+    <div class="tt"><span class="kk" id="kk"></span><h1 id="tit"></h1></div>
+    <div class="prog" id="prog"></div>
+    <div class="tools"><button class="btn sm" id="bAct" type="button">Ir a la actividad</button><button class="btn sec sm" id="bAy" type="button">Ayuda</button></div>
+  </header>
+  <main class="main"><div class="ruta" id="ruta"></div></main>
+</div>
+<script type="application/json" id="contenido">/*CONTENIDO*/</script>
+<script>/*TEMAJS*/</script>
+<script>/*LIB*/</script>
+<script>
+const SV={
+  mano:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11V5.5a1.5 1.5 0 0 1 3 0V10m0-1.5a1.5 1.5 0 0 1 3 0V11m0-.5a1.5 1.5 0 0 1 3 0V15a6 6 0 0 1-6 6h-1.2a5 5 0 0 1-4-2L4.5 15a1.6 1.6 0 0 1 2.4-2L9 15"/></svg>',
+  cand:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
+  ok:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'
+};
+const ico=(k,c)=>{const s=h('span',{class:'ic'+(c?' '+c:''),'aria-hidden':'true'});s.innerHTML=SV[k];return s};
+const okm=()=>{const s=h('span',{class:'ckm','aria-hidden':'true'});s.innerHTML=SV.ok;return s};
+const pars=t=>String(t||'').split(/\n+/).filter(Boolean);
+const quieto=matchMedia('(prefers-reduced-motion:reduce)').matches;
+const movil=()=>innerWidth<760;
+/* Escala el texto de un panel (variable --k) para que llene el espacio y no se corte; en celular se desliza sin barra */
+function ajusta(el){
+  if(!el)return;
+  if(movil()){el.style.setProperty('--k','1');return}
+  let k=1.3;el.style.setProperty('--k',k);
+  while(el.scrollHeight>el.clientHeight+1&&k>.62){k=Math.round((k-.04)*100)/100;el.style.setProperty('--k',k)}
+}
+/* Escala UNIFORME: prueba el contenido de todos los bloques en el mismo panel y usa el menor --k,
+   para que el texto tenga el mismo tamaño en todos los bloques (se recalcula si cambia el tamaño del panel) */
+const _K={};
+function kUniforme(clave,el,gen,n,sobra){
+  if(!el)return;
+  sobra=sobra||(e=>e.scrollHeight>e.clientHeight+1);
+  if(movil()){el.style.setProperty('--k','1');return}
+  const W=el.clientWidth,H=el.clientHeight,c=_K[clave];
+  if(c&&c.w===W&&H>=c.h-2){el.style.setProperty('--k',c.k);let k=c.k;while(sobra(el)&&k>.62){k=Math.round((k-.04)*100)/100;el.style.setProperty('--k',k)}return}
+  const orig=[...el.childNodes];let kmin=1.3;
+  for(let i=0;i<n;i++){
+    el.replaceChildren(...gen(i));let k=kmin;el.style.setProperty('--k',k);
+    while(sobra(el)&&k>.62){k=Math.round((k-.04)*100)/100;el.style.setProperty('--k',k)}
+    kmin=Math.min(kmin,k);
+  }
+  el.replaceChildren(...orig);el.style.setProperty('--k',kmin);_K[clave]={w:W,h:H,k:kmin};
+}
+/* Texto de un bloque: subtítulo, párrafos (o lista si empiezan con «- »), idea central y fuente */
+function cuerpoB(b,ult){
+  const out=[];let lista=null;
+  if(b.subtitulo)out.push(h('p',{class:'sub'},b.subtitulo));
+  pars(b.texto).forEach(t=>{
+    const m=/^\s*(?:[-•*]|\d+[.)])\s+(.*)$/.exec(t);
+    if(m){if(!lista){lista=h('ul',{class:'pts'});out.push(lista)}lista.append(h('li',{},h('i',{'aria-hidden':'true'},String(lista.children.length+1)),h('span',{},m[1])))}
+    else{lista=null;out.push(h('p',{class:'txt'},t))}
+  });
+  if(b.idea)out.push(h('div',{class:'idea'},h('b',{},'Idea central'),h('span',{},b.idea)));
+  if(b.fuente)out.push(h('span',{class:'fu'},b.fuente));
+  if(ult&&CFG.fuentes)out.push(h('span',{class:'fu'},'Fuentes: '+CFG.fuentes));
+  out.forEach((e,j)=>e.style.setProperty('--j',j));
+  return out;
+}
+/* Pista inicial: aparece unos segundos y se apaga sola o al primer toque */
+function pistaInicial(txt){
+  const p=h('div',{class:'pistaf',role:'note'},ico('mano'),h('span',{},txt));$('.app').append(p);
+  const q=()=>{p.classList.add('x');setTimeout(()=>p.remove(),500)};
+  setTimeout(q,7000);addEventListener('pointerdown',q,{once:true});addEventListener('keydown',q,{once:true});
+}
+/* La actividad opcional vive en la barra superior: el botón se habilita al visitar todo el contenido */
+function montaActividad(A){
+  const host=h('div',{style:'display:none'});document.body.append(host);
+  try{actividadUI(host,A)}catch(e){}
+  const go=host.querySelector('.lanz .btn');
+  if(go)return {abrir:()=>go.click()};
+  if(!host.children.length){host.remove();return null}
+  host.style.display='';
+  return {abrir:()=>modal('Actividad',host)};
+}
+const ACT=CFG.actividad?montaActividad(CFG.actividad):null;
+let _avisoAct=false;
+function barra(ayuda){
+  const ba=$('#bAct');
+  if(ba){
+    if(!ACT)ba.remove();
+    else{ba.textContent='Ir a la actividad →';ba.onclick=()=>{if(ba.getAttribute('aria-disabled')==='true'){toast('Visita todo el contenido para habilitar la actividad.');return}ACT.abrir()}}
+  }
+  const by=$('#bAy');
+  if(by)by.onclick=()=>modal('Cómo usar este recurso',h('div',{class:'ay'},ayuda.map(t=>h('p',{},t))));
+}
+function estado(vistos,N,cur){
+  const pr=$('#prog');
+  if(pr){
+    pr.setAttribute('role','progressbar');pr.setAttribute('aria-label','Avance del recurso');pr.setAttribute('aria-valuemin','0');pr.setAttribute('aria-valuemax',String(N));pr.setAttribute('aria-valuenow',String(vistos.size));
+    pr.replaceChildren(h('span',{class:'dots','aria-hidden':'true'},Array.from({length:N},(_,i)=>h('i',{class:(vistos.has(i)?'on ':'')+(i===cur?'ac':'')}))),h('span',{class:'pt'},vistos.size+' de '+N));
+  }
+  const ok=N>0&&vistos.size>=N;
+  const ba=$('#bAct');
+  if(ba&&ACT){
+    const hab=FREE||ok;
+    ba.setAttribute('aria-disabled',hab?'false':'true');ba.classList.toggle('off',!hab);
+    ba.title=hab?'':'Se habilita al visitar todo el contenido';
+    if(hab&&!_avisoAct&&!FREE){_avisoAct=true;toast('Actividad habilitada: ya puedes abrirla.')}
+  }
+  if(ok)ovaCompleto();
+}
+
+const B=(CFG.bloques||[]).filter(b=>b.titulo||b.texto);
+const N=B.length;
+document.title=CFG.titulo;
+$('#tit').textContent=CFG.titulo;
+if(CFG.kicker)$('#kk').textContent=CFG.kicker;else $('#kk').remove();
+barra([
+  'Cada franja de color es un bloque de la infografía. Pulsa una franja para abrirla y leer su contenido completo.',
+  LOCK?'Avanza en orden: al terminar un bloque se habilita el siguiente.':'Puedes abrir los bloques en el orden que prefieras.',
+  'También puedes usar los botones Anterior y Continuar, o las flechas ↑ ↓ del teclado para moverte entre franjas.'
+].concat(CFG.actividad?['Cuando hayas visitado todos los bloques se habilita el botón «Ir a la actividad».']:[]));
+let cur=0;const vistos=new Set(FREE?B.map((_,i)=>i):[]);
+if(N)vistos.add(0);
+const canOpen=i=>!LOCK||i===0||vistos.has(i)||vistos.has(i-1);
+const pad=n=>String(n).padStart(2,'0');
+function ir(i,desdeTeclado){
+  if(i<0||i>=N)return;
+  if(!canOpen(i)){toast('Lee primero el bloque anterior.');return}
+  cur=i;vistos.add(i);ovaUbicacion('bloque'+(i+1));pinta();
+  const bt=$('#fh'+i);if(bt)bt.focus({preventScroll:true});
+}
+function fitFila(fc){
+  kUniforme('f',fc,columnas,N,e=>[...e.children].some(c=>c.scrollHeight>c.clientHeight+1));
+}
+function columnas(i){
+  const b=B[i];
+  const partes=cuerpoB(b,i===N-1);
+  const der=partes.filter(e=>e.classList.contains('idea')||e.classList.contains('fu'));
+  const izq=partes.filter(e=>!der.includes(e));
+  const nv=h('div',{class:'nv'},
+    h('button',{type:'button',class:'btn sec sm',disabled:i===0,onclick:()=>ir(i-1)},'← Anterior'),
+    h('span',{class:'pp'},'Bloque '+(i+1)+' de '+N),
+    i<N-1?h('button',{type:'button',class:'btn sm',onclick:()=>ir(i+1)},'Continuar →'):h('button',{type:'button',class:'btn sm',onclick:()=>{toast(ACT?'Recorrido completo. Ya puedes ir a la actividad.':'Recorrido completo.');const a=$('#bAct');if(a)a.focus()}},'Finalizar ✔'));
+  const cIzq=h('div',{class:'cl'},izq);
+  const cDer=h('div',{class:'cl dr'},b.img?h('div',{class:'im','aria-hidden':'true'},h('img',{src:b.img,alt:''})):null,der,nv);
+  return [cIzq,cDer];
+}
+function pinta(){
+  const host=$('#ruta');host.replaceChildren();
+  B.forEach((b,i)=>{
+    const open=i===cur,lk=!canOpen(i),vis=vistos.has(i);
+    const st=open?h('span',{class:'chl'},'Leyendo'):(vis?h('span',{class:'st'},ico('ok'),h('span',{class:'tx'},'Leído')):(lk?h('span',{class:'st'},ico('cand'),h('span',{class:'tx'},'Bloqueado')):h('span',{class:'st'},h('span',{class:'tx'},'Por leer'))));
+    const hd=h('button',{type:'button',class:'fh',id:'fh'+i,'aria-expanded':String(open),'aria-controls':'fc'+i,'aria-disabled':lk?'true':null,
+      onclick:()=>{if(!open)ir(i)},
+      onkeydown:e=>{if(e.key==='ArrowDown'){e.preventDefault();const t=$('#fh'+(i+1));if(t)t.focus()}else if(e.key==='ArrowUp'){e.preventDefault();const t=$('#fh'+(i-1));if(t)t.focus()}}},
+      h('span',{class:'nu','aria-hidden':'true'},pad(i+1)),h('span',{class:'ti'},b.titulo||('Bloque '+(i+1))),st);
+    const row=h('article',{class:'fr t'+(i%5)+(open?' open':'')+(lk?' lk':'')},hd);
+    if(open)row.append(h('div',{class:'fc',id:'fc'+i,role:'region','aria-labelledby':'fh'+i},columnas(i)));
+    host.append(row);
+  });
+  estado(vistos,N,cur);
+  fitFila($('.fr.open .fc'));
+}
+if(!N){$('#ruta').replaceWith(h('p',{class:'txt',style:'padding:1rem'},'Esta infografía todavía no tiene bloques. Agrégalos en el editor.'))}
+else{pinta();ovaUbicacion('bloque1');pistaInicial(CFG.instruccion||'Pulsa una franja para abrirla.');let ancho=innerWidth;addEventListener('resize',()=>{if(Math.abs(innerWidth-ancho)>2)ancho=innerWidth;fitFila($('.fr.open .fc'))})}
+</script>
+</body>
+</html>

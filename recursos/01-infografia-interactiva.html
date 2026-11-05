@@ -1,0 +1,711 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cómo atender una solicitud de cliente paso a paso</title>
+<style>:root{
+  --bg:#f2f5f3;--card:#fff;--ink:#14201b;--muted:#56665f;
+  --brand:#0f4d3a;--brand2:#0a3328;--brand3:#b8912f;--accent:#c9a227;
+  --ok:#1f7a4d;--okbg:#e3f1e9;--bad:#a63a32;--badbg:#f7e6e4;--line:#d6dfda;
+  --radius:12px;--shadow:0 1px 2px rgba(10,51,40,.08),0 6px 18px rgba(10,51,40,.07);
+  --grad:linear-gradient(90deg,var(--brand2),var(--mid));
+  --tint:#e8eeec;--tint2:#eef3f0;--line2:#b9c7c0;--mid:#1f5c47;--accent-light:#e9d9a1;--accent-dark:#b8901f;--accent-soft:#f7f1dc;
+  --font:"Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif;--fs:17px
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;font-family:var(--font);color:var(--ink);line-height:1.6;font-size:var(--fs);background:var(--bg);overflow-x:hidden}
+.wrap{max-width:1040px;margin:0 auto;padding:0 16px 56px}
+/* ---- Cabecera institucional ---- */
+.hero{position:relative;background:linear-gradient(180deg,var(--brand2),var(--brand));color:#fff;padding:40px 16px 52px;border-bottom:5px solid var(--accent)}
+.hero:before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(135deg,rgba(255,255,255,.035) 0 2px,transparent 2px 18px);pointer-events:none}
+.hero .in{position:relative;max-width:1040px;margin:0 auto;z-index:1}
+.tag{display:inline-block;border:1px solid rgba(255,255,255,.45);padding:4px 12px;border-radius:4px;font-size:.74rem;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:var(--accent-light)}
+.hero h1{margin:.7rem 0 .4rem;font-size:clamp(1.7rem,4.4vw,2.5rem);line-height:1.15;font-weight:700;letter-spacing:-.01em}
+.hero p{margin:0;max-width:740px;opacity:.93;font-size:1.08rem}
+.meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
+.meta span{background:rgba(255,255,255,.1);border-left:3px solid var(--accent);padding:4px 12px;font-size:.85rem}
+/* ---- Secciones y tarjetas ---- */
+section.sec{margin-top:34px}
+h2{font-size:1.4rem;margin:0 0 14px;color:var(--brand2);font-weight:700;display:flex;align-items:center;gap:10px}
+h2:before{content:"";width:5px;height:24px;background:var(--accent);flex:none}
+h3{margin:.2rem 0 .4rem;font-weight:700}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px}
+.grid{display:grid;gap:18px}
+/* ---- Botones ---- */
+.btn{font:inherit;cursor:pointer;border:2px solid var(--brand);border-radius:8px;padding:10px 22px;background:var(--brand);color:#fff;font-weight:600;letter-spacing:.01em;transition:background .15s,transform .1s}
+.btn:hover:not(:disabled){background:var(--brand2);border-color:var(--brand2)}
+.btn:active:not(:disabled){transform:translateY(1px)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.sec{background:#fff;color:var(--brand)}
+.btn.sec:hover:not(:disabled){background:var(--tint)}
+.btn.warn{background:var(--accent);border-color:var(--accent);color:#1b1500}
+.btn.warn:hover:not(:disabled){background:var(--accent-dark);border-color:var(--accent-dark)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+/* ---- Retroalimentación ---- */
+.fb{border-radius:8px;padding:12px 16px;margin-top:12px;border-left:5px solid}
+.fb.ok{background:var(--okbg);border-color:var(--ok)}
+.fb.bad{background:var(--badbg);border-color:var(--bad)}
+.fb.info{background:var(--tint);border-color:var(--brand)}
+.fb b:first-child{display:block;margin-bottom:2px}
+/* ---- Ventana emergente ---- */
+.overlay{position:fixed;inset:0;background:rgba(8,28,22,.7);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
+.modal{background:#fff;border-radius:12px;border-top:5px solid var(--accent);max-width:600px;width:100%;max-height:92vh;overflow:auto;padding:24px;position:relative;box-shadow:0 20px 50px rgba(0,0,0,.35)}
+.modal .x{position:absolute;top:10px;right:12px;border:0;background:var(--tint2);border-radius:6px;width:36px;height:36px;font-size:1.5rem;line-height:1;cursor:pointer;color:var(--brand2)}
+/* ---- Formularios y barras ---- */
+.bar{height:10px;background:var(--line);border-radius:2px;overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--grad);width:0;transition:width .4s}
+textarea,select,input[type=text]{font:inherit;width:100%;padding:10px 12px;border:1.5px solid var(--line2);border-radius:8px;background:#fff;color:var(--ink)}
+textarea:focus,select:focus,input[type=text]:focus{outline:0;border-color:var(--brand);box-shadow:0 0 0 3px rgba(15,77,58,.18)}
+textarea{min-height:92px;resize:vertical}
+input[type=checkbox],input[type=radio]{accent-color:var(--brand)}
+label{font-weight:600}
+/* ---- Ilustraciones ---- */
+.art svg{width:100%;height:auto;display:block;border-radius:8px}
+.art img{width:100%;display:block;border-radius:8px}
+.badge{display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:30px;border-radius:6px;background:var(--brand);color:#fff;font-weight:700;font-size:.9rem;flex:none}
+.muted{color:var(--muted)}
+.sr{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+footer{margin-top:44px;padding:0 16px 34px;text-align:center;color:var(--muted);font-size:.85rem}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media print{.hero{background:#fff;color:#000}.btn{display:none}}
+@media(max-width:600px){body{font-size:16.5px}.card{padding:16px}.hero{padding:28px 16px 40px}}
+/* ---- Interacción obligatoria: bloqueos, avance, avisos ---- */
+.gated>:not(.veil){display:none!important}
+.gated>.veil{display:flex;align-items:center;justify-content:center;text-align:center;border:2px dashed var(--line2);background:repeating-linear-gradient(135deg,var(--tint2),var(--tint2) 12px,var(--tint) 12px,var(--tint) 24px);border-radius:var(--radius);padding:26px 18px;color:var(--brand2);font-weight:600}
+.veil h3{margin:6px 0 4px;font-size:1.15rem}
+.veil p{margin:0;font-weight:400;color:var(--muted)}
+.unlocked{animation:unl .5s}
+@keyframes unl{from{opacity:.3;transform:translateY(12px)}to{opacity:1;transform:none}}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--brand2);color:#fff;padding:10px 20px;border-radius:8px;border-left:5px solid var(--accent);z-index:90;transition:opacity .5s;max-width:92vw;text-align:center;box-shadow:var(--shadow);font-weight:600}
+.toast.out{opacity:0}
+.hud{position:fixed;top:12px;right:12px;z-index:60;background:var(--brand2);color:#fff;font-weight:600;font-size:.9rem;padding:6px 14px;border-radius:6px;border-left:4px solid var(--accent);box-shadow:var(--shadow)}
+.hud.pop{animation:hudpop .35s}
+@keyframes hudpop{50%{transform:scale(1.12)}}
+.shake{animation:shake .4s}
+@keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.hint{font-size:.9rem;color:var(--muted);margin:6px 0 0}
+/* Iconos de contenido en tono neutro (evita aspecto infantil) */
+.ico,.hot span,.lh .ic,.dot,.stepper li>span,.cust .av,.scn-i{filter:grayscale(1) contrast(1.05)}
+/* Ventana emergente compacta: evita desplazamiento */
+.modal{max-width:640px;padding:20px 24px;max-height:96vh}
+.modal h3{margin:0 40px 8px 0;font-size:1.2rem}
+.modal .art svg{height:84px;border-radius:6px}
+.modal p{margin:.4rem 0}
+.modal .fb{margin-top:8px;padding:10px 14px}
+.modal .fb .hint{display:none}
+.modal .reto .opt,.modal .opt{padding:8px 14px;margin:5px 0}
+.opt:disabled,.reto .opt:disabled{color:var(--ink)}
+.modal .row{margin-top:8px!important}
+@media(max-height:760px){.modal .art{display:none}}
+/* Ventana emergente: encabezado institucional, sin ilustración recortada */
+.modal .art{display:none}
+.modal h3{background:var(--brand2);color:#fff;margin:-20px -24px 14px;padding:16px 60px 16px 24px;font-size:1.1rem;border-radius:7px 7px 0 0}
+.modal .x{background:rgba(255,255,255,.15);color:#fff;top:9px}
+.modal .x:hover{background:rgba(255,255,255,.28)}
+.modal .opt{border-radius:8px}
+.modal .row{justify-content:flex-end}
+
+/* Acordeón de secciones */
+section.sec{scroll-margin-top:12px}
+.ab[hidden]{display:none}
+.ah{display:block;width:100%;font:inherit;text-align:left;cursor:pointer;border:0;background:none;padding:0;color:var(--brand2)}
+.ah.open{display:flex;align-items:center;gap:10px;font-size:1.4rem;font-weight:700;margin:0 0 14px}
+.ah.open:before{content:'';width:5px;height:24px;background:var(--accent);flex:none}
+.ah.lock,.ah.done,.ah.idle{display:flex;flex-direction:column;align-items:center;text-align:center;padding:12px 18px;border-radius:var(--radius);gap:0}
+.ah.lock{border:2px dashed var(--line2);background:repeating-linear-gradient(135deg,var(--tint2),var(--tint2) 12px,var(--tint) 12px,var(--tint) 24px);cursor:not-allowed}
+.ah.done{border:2px solid var(--ok);background:var(--okbg)}
+.ah.idle{border:2px solid var(--brand);background:#fff}
+.ah.done:hover,.ah.idle:hover{filter:brightness(.97)}
+.ah .ic{font-size:1.5rem;line-height:1.2}
+.ah.done .ic{color:var(--ok);font-weight:800}
+.ah.idle .ic{color:var(--brand);font-size:1.1rem}
+.ah .tt{font-weight:700;font-size:1.05rem}
+.ah .st{font-size:.9rem;color:var(--muted);font-weight:400}
+</style>
+<style>
+.central{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:center}
+.ring{position:relative;width:min(100%,430px);aspect-ratio:1;margin:auto}
+.ring:before{content:"";position:absolute;inset:11%;border:3px dashed #b4c3bb;border-radius:50%}
+.core{position:absolute;inset:32%;border-radius:50%;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;text-align:center;padding:10px;font-weight:700;line-height:1.2}
+.hot{position:absolute;transform:translate(-50%,-50%);width:74px;height:74px;border-radius:50%;border:3px solid #1f5c47;background:#eef3f0;font-size:1.7rem;cursor:pointer;display:flex;align-items:center;justify-content:center;animation:pulse 2.4s infinite}
+.hot b{position:absolute;top:-8px;left:-6px;width:26px;height:26px;border-radius:50%;background:#1f5c47;color:#fff;font-size:.8rem;display:flex;align-items:center;justify-content:center}
+.hot.seen{animation:none;border-color:var(--ok);box-shadow:0 0 0 4px var(--okbg)}
+.hot.lock{border-color:#9aa8b8;background:#e6ebf1;filter:grayscale(1);animation:none;cursor:not-allowed}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(15,77,58,.45)}70%{box-shadow:0 0 0 14px rgba(15,77,58,0)}100%{box-shadow:0 0 0 0 rgba(15,77,58,0)}}
+.idea{font-size:1.3rem;font-weight:700;color:var(--brand2);line-height:1.3}
+.blocks{grid-template-columns:repeat(auto-fill,minmax(290px,1fr))}
+.block{display:flex;flex-direction:column;gap:10px;border-top:6px solid #1f5c47}
+.block h3{display:flex;gap:8px;align-items:center;margin:0}
+.block p{margin:0;flex:1}
+.blur{filter:blur(6px);user-select:none}
+.cierre{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.reco{background:#f7f1dc;border:2px solid var(--accent)}
+.step{border-left:5px solid var(--brand);padding-left:14px;margin:16px 0}
+.step.done{border-color:var(--ok)}
+.step.lk{opacity:.5}
+.chk label{display:flex;gap:10px;align-items:flex-start;font-weight:400;padding:6px 0}
+.chk input{width:22px;height:22px;margin-top:2px}
+.reto .opt{display:block;width:100%;font:inherit;text-align:left;cursor:pointer;border:2px solid #c3cfc9;background:#fff;border-radius:12px;padding:10px 14px;margin:8px 0}
+.reto .opt.ok{border-color:var(--ok);background:var(--okbg)}
+.reto .opt.bad{border-color:var(--bad);background:var(--badbg)}
+.hotlist{display:none;gap:10px;grid-template-columns:1fr 1fr;margin-top:6px}
+.lh{font:inherit;cursor:pointer;border:3px solid #1f5c47;background:#eef3f0;border-radius:16px;padding:12px 8px;display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;min-height:118px;position:relative;color:var(--ink)}
+.lh .ic{font-size:2.3rem;line-height:1}
+.lh .nm{font-weight:700;font-size:1rem;line-height:1.2}
+.lh .n{position:absolute;top:6px;left:8px;width:26px;height:26px;border-radius:50%;background:#1f5c47;color:#fff;font-size:.85rem;font-weight:700;display:flex;align-items:center;justify-content:center}
+.lh.seen{border-color:var(--ok);background:var(--okbg)}
+.lh.lock{border-color:#9aa8b8;background:#e6ebf1;filter:grayscale(1);cursor:not-allowed}
+.lh.next{animation:pulse 2.2s infinite}
+.tsteps{display:flex;gap:6px;flex-wrap:wrap;list-style:none;padding:0;margin:14px 0}
+.tchip{font:inherit;cursor:pointer;display:flex;align-items:center;gap:6px;border:2px solid #c3cfc9;background:#fff;border-radius:8px;padding:5px 10px;font-size:.85rem;font-weight:600;color:var(--ink)}
+.tchip .tn{min-width:22px;height:22px;border-radius:50%;background:#e3e9e6;display:inline-flex;align-items:center;justify-content:center;font-size:.8rem}
+.tchip.cur{border-color:var(--accent);background:#f7f1dc}
+.tchip.cur .tn{background:var(--accent);color:#1b1500}
+.tchip.ok{border-color:var(--ok);background:var(--okbg)}
+.tchip.ok .tn{background:var(--ok);color:#fff}
+.tchip.lk{opacity:.5;cursor:not-allowed}
+.tw{display:grid;grid-template-columns:1.7fr 1fr;gap:16px;align-items:start}
+.texp{position:sticky;top:12px}
+.texpl{list-style:none;padding:0;margin:8px 0 0}
+.texpl li{padding:6px 0;border-bottom:1px solid var(--line);font-size:.88rem;color:var(--muted)}
+.texpl li.ok b{color:var(--ok)}
+.texpl li span{display:block;color:var(--ink)}
+.q2{margin:14px 0}
+.cl{display:flex;gap:10px;align-items:flex-start;font-weight:400;padding:5px 0}
+.cl input{width:22px;height:22px;margin-top:2px}
+@media(max-width:720px){.tw{grid-template-columns:1fr}.texp{position:static}.tchip .tl{display:none}.tchip.cur .tl{display:inline}.central,.cierre{grid-template-columns:1fr}.ring{display:none}.hotlist{display:grid}.idea{font-size:1.2rem}}
+</style>
+</head>
+<body>
+<!--
+  PLANTILLA · Infografía interactiva + Taller aplicado
+  Interacción obligatoria: cada sección se desbloquea al completar la anterior (retos relámpago → bloques → cierre → taller).
+  Edite únicamente el bloque <script id="contenido"> (JSON). Rangos: 5–7 bloques, texto 25–45 palabras,
+  título 5–10 palabras, subtítulo 10–20 palabras. Verifique con: node validar.js
+-->
+<header class="hero"><div class="in" id="hero"></div></header>
+<main class="wrap">
+  <section class="sec" id="central" aria-labelledby="t-central"></section>
+  <section class="sec" id="bloques" aria-labelledby="t-bloques"></section>
+  <section class="sec" id="cierre" aria-labelledby="t-cierre"></section>
+  <section class="sec" id="taller" aria-labelledby="t-taller"></section>
+</main>
+<footer id="foot"></footer>
+
+<script type="application/json" id="contenido">{
+  "id": "infografia",
+  "tipo": "Infografía interactiva",
+  "titulo": "Cómo atender una solicitud de cliente paso a paso",
+  "subtitulo": "Seis acciones ordenadas que convierten un reclamo inicial en una solución confirmada y en un cliente satisfecho.",
+  "meta": [
+    "Competencia: gestionar solicitudes de clientes con calidad",
+    "Lectura e interacción: 4 a 6 minutos",
+    "Actividad: Taller aplicado"
+  ],
+  "nucleo": "Ciclo de atención",
+  "ideaCentral": "Atender bien es un ciclo: escuchar, registrar, clasificar, resolver, confirmar y cerrar.",
+  "bloques": [
+    {
+      "icono": "👂",
+      "tono": 200,
+      "titulo": "Escuchar con atención",
+      "texto": "Deje hablar al cliente sin interrumpir, tome nota de lo esencial y confirme que entendió. Una escucha activa reduce malentendidos y demuestra respeto desde el primer minuto de la conversación.",
+      "ejemplo": "Una clienta llama porque su pedido llegó incompleto. Usted repite: «Entiendo que faltan dos productos de su compra del lunes; ¿es correcto?»",
+      "reto": {
+        "pregunta": "¿Qué caracteriza a una escucha activa?",
+        "opciones": [
+          "Interrumpir para ahorrar tiempo",
+          "Confirmar con sus palabras lo que entendió",
+          "Ofrecer la solución de inmediato"
+        ],
+        "correcta": 1
+      }
+    },
+    {
+      "icono": "📝",
+      "tono": 160,
+      "titulo": "Registrar el caso completo",
+      "texto": "Registre la solicitud de inmediato en el sistema con nombre, contacto, fecha, descripción y evidencias. Un registro completo evita preguntar lo mismo dos veces y permite que cualquier compañero continúe el caso sin perder información.",
+      "ejemplo": "Se crea el ticket 1048 con el número de pedido, la foto de la caja recibida y el teléfono de contacto del cliente.",
+      "reto": {
+        "pregunta": "¿Para qué sirve un registro completo del caso?",
+        "opciones": [
+          "Para que otro compañero continúe sin volver a preguntar",
+          "Para llenar más formatos",
+          "Para no contactar nunca al cliente"
+        ],
+        "correcta": 0
+      }
+    },
+    {
+      "icono": "🗂️",
+      "tono": 40,
+      "titulo": "Clasificar y priorizar",
+      "texto": "Determine si es una consulta, queja o reclamo y asigne una prioridad según impacto y urgencia. Clasificar bien define quién atiende el caso, en cuántas horas y con qué recursos disponibles.",
+      "ejemplo": "Un faltante en un pedido ya pagado se clasifica como reclamo de prioridad media, con respuesta máxima en veinticuatro horas.",
+      "reto": {
+        "pregunta": "¿Qué define la prioridad de un caso?",
+        "opciones": [
+          "La hora en que llegó",
+          "El canal que usó el cliente",
+          "El impacto y la urgencia"
+        ],
+        "correcta": 2
+      }
+    },
+    {
+      "icono": "🛠️",
+      "tono": 280,
+      "titulo": "Resolver la causa real",
+      "texto": "Aplique el procedimiento vigente para solucionar la causa y no solo el síntoma. Si no tiene autoridad suficiente, escale el caso al área responsable explicando con claridad qué necesita y para cuándo.",
+      "ejemplo": "Se programa el envío de los dos productos faltantes y se solicita a bodega priorizar el despacho para el mismo día.",
+      "reto": {
+        "pregunta": "Si no tiene autoridad para resolver, usted:",
+        "opciones": [
+          "Promete la solución igualmente",
+          "Escala con resumen claro y plazo",
+          "Pide al cliente que llame después"
+        ],
+        "correcta": 1
+      }
+    },
+    {
+      "icono": "🤝",
+      "tono": 340,
+      "titulo": "Confirmar con el cliente",
+      "texto": "Comunique la solución por el canal que prefiere el cliente y verifique que quedó conforme. Confirmar permite detectar errores a tiempo y transforma una experiencia negativa en una oportunidad real de fidelización.",
+      "ejemplo": "Usted escribe: «Su pedido sale hoy y llegará mañana; ¿le parece bien esta solución?» y espera la respuesta antes de continuar.",
+      "reto": {
+        "pregunta": "¿Cuándo se considera resuelto un caso?",
+        "opciones": [
+          "Cuando el cliente confirma su conformidad",
+          "Cuando termina su turno",
+          "Cuando el sistema lo permite"
+        ],
+        "correcta": 0
+      }
+    },
+    {
+      "icono": "✅",
+      "tono": 100,
+      "titulo": "Cerrar y mejorar",
+      "texto": "Cierre el caso en el sistema con la solución aplicada, el tiempo empleado y las lecciones aprendidas. Los cierres documentados alimentan los indicadores de calidad y ayudan a evitar que el mismo problema se repita.",
+      "ejemplo": "Se cierra el ticket 1048 con la causa «error de empaque» y se sugiere revisar la lista de verificación de despacho.",
+      "reto": {
+        "pregunta": "¿Qué debe documentar el cierre del caso?",
+        "opciones": [
+          "Solo la fecha",
+          "Nada, el cliente ya sabe",
+          "Causa, solución, tiempo y mejora"
+        ],
+        "correcta": 2
+      }
+    }
+  ],
+  "sintesis": "Una buena atención no depende de la suerte sino de un orden: cada paso prepara al siguiente. Si omite uno, el cliente lo percibe y el caso se vuelve más largo y costoso.",
+  "recomendacion": "Antes de cerrar cualquier caso, repase mentalmente los seis pasos y confirme que cada uno quedó registrado. Nunca cierre una solicitud sin la conformidad explícita del cliente.",
+  "taller": {
+    "nombre": "Taller aplicado: registro completo de un reclamo",
+    "resultado": "Aplicar los seis pasos de atención a un caso simulado y dejar evidencia clara de cada decisión.",
+    "problema": "Un cliente llamó molesto: su pedido de oficina llegó incompleto y la fecha de entrega prometida ya venció. Usted debe atender el caso aplicando la secuencia aprendida y registrar cada decisión como evidencia.",
+    "objetivo": "Practicar los seis pasos de atención y producir un registro completo del caso, listo para entregarlo a su líder de servicio.",
+    "materiales": [
+      "Esta infografía como guía de consulta",
+      "Formato de registro de esta misma página",
+      "Datos del caso: pedido 1048, faltan 2 productos, entrega vencida hace 2 días"
+    ],
+    "duracion": "20 minutos aproximadamente",
+    "minPalabras": 8,
+    "pasos": [
+      {
+        "titulo": "Escuchar",
+        "instruccion": "Escriba cómo reformularía el problema para confirmar que entendió al cliente.",
+        "modelo": "Ejemplo esperado: «Entiendo que su pedido 1048 llegó sin dos productos y que la entrega prometida venció hace dos días. ¿Es correcto?» Incluye datos concretos y termina con una pregunta de confirmación."
+      },
+      {
+        "titulo": "Registrar",
+        "instruccion": "Liste los datos que registraría en el sistema para que otro compañero pueda continuar el caso.",
+        "modelo": "Debe incluir nombre y contacto del cliente, número de pedido, fecha de compra, productos faltantes, fecha de entrega prometida y evidencia como foto o factura. Si omitió alguno, agréguelo ahora."
+      },
+      {
+        "titulo": "Clasificar",
+        "instruccion": "Indique el tipo de solicitud y su prioridad, justificando su decisión.",
+        "modelo": "Es un reclamo, porque existe un incumplimiento. La prioridad es alta o media por el retraso y el pago realizado. Lo importante es justificar con impacto y urgencia, no solo nombrar la categoría."
+      },
+      {
+        "titulo": "Resolver",
+        "instruccion": "Describa la solución que ofrecería y a quién escalaría si le falta autoridad.",
+        "modelo": "Una buena respuesta propone enviar los productos faltantes, indica un responsable (bodega o logística) y fija un plazo concreto. Si hay compensación, debe estar autorizada por la política vigente."
+      },
+      {
+        "titulo": "Confirmar",
+        "instruccion": "Redacte el mensaje con el que comunicaría la solución y pediría la conformidad del cliente.",
+        "modelo": "El mensaje ideal resume la solución, informa la fecha de entrega y termina preguntando si el cliente está de acuerdo. Evite tecnicismos y use un tono amable y directo."
+      },
+      {
+        "titulo": "Cerrar",
+        "instruccion": "Escriba cómo documentaría el cierre y qué mejora sugeriría para evitar que el caso se repita.",
+        "modelo": "El cierre debe registrar causa, solución, tiempo empleado y conformidad del cliente. La mejora puede ser una revisión adicional en el empaque o una alerta automática de entregas vencidas."
+      }
+    ],
+    "analisis": [
+      {
+        "pregunta": "¿Qué habría pasado si omitiera el paso de confirmar con el cliente?",
+        "modelo": "Podría haber cerrado un caso aún sin resolver, generando una nueva queja, repetición de contactos y pérdida de confianza. La confirmación es la única forma de comprobar que la solución funcionó."
+      },
+      {
+        "pregunta": "¿Qué información faltante habría dificultado que otro compañero continuara el caso?",
+        "modelo": "Sin número de pedido, productos faltantes o evidencia, el compañero tendría que volver a contactar al cliente. Un registro completo protege el tiempo del equipo y la experiencia del cliente."
+      },
+      {
+        "pregunta": "¿Qué mejora de proceso propondría a partir de este caso?",
+        "modelo": "Una buena propuesta ataca la causa: revisar el empaque, automatizar alertas de retraso o capacitar al equipo de despacho. Debe ser concreta, medible y asignarse a un responsable."
+      }
+    ],
+    "checklist": [
+      "El registro incluye datos del cliente y del pedido",
+      "La solicitud quedó clasificada con prioridad justificada",
+      "La solución indica responsable y plazo",
+      "Existe un mensaje de confirmación dirigido al cliente",
+      "El cierre documenta causa y mejora propuesta"
+    ],
+    "reflexion": "¿Qué paso le resultó más difícil y cómo lo aplicará en su trabajo diario?"
+  }
+}</script>
+<script>/* Utilidades compartidas por todas las plantillas */
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+function h(tag,attrs,...kids){
+  const e=document.createElement(tag);
+  for(const k in (attrs||{})){
+    const v=attrs[k];
+    if(v==null||v===false)continue;
+    if(k.slice(0,2)==='on')e.addEventListener(k.slice(2),v);
+    else if(k==='class')e.className=v;
+    else e.setAttribute(k,v===true?'':v);
+  }
+  kids.flat(9).forEach(c=>{if(c==null||c===false)return;e.append(c.nodeType?c:document.createTextNode(c))});
+  return e;
+}
+const CFG=JSON.parse(document.getElementById('contenido').textContent);
+const words=t=>(t||'').trim().split(/\s+/).filter(Boolean).length;
+const norm=t=>(t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+function store(k,v){
+  try{
+    const key='ova:'+CFG.id+':'+k;
+    if(v===undefined)return JSON.parse(localStorage.getItem(key));
+    localStorage.setItem(key,JSON.stringify(v));
+  }catch(e){return null}
+}
+function hero(){
+  document.title=CFG.titulo;
+  $('#hero').append(
+    h('span',{class:'tag'},CFG.tipo),
+    h('h1',{},CFG.titulo),
+    ...(CFG.subtitulo?[h('p',{},CFG.subtitulo)]:[]),
+    h('div',{class:'meta'},(CFG.meta||[]).map(m=>h('span',{},m)))
+  );
+  const f=$('#foot');
+  if(f)f.textContent=CFG.pie||'Recurso educativo digital · plantilla reutilizable';
+}
+let _gid=0;
+function art(icon,hue,img){
+  const d=h('div',{class:'art','aria-hidden':'true'});
+  if(img){d.append(h('img',{src:img,alt:''}));return d}
+  const id='g'+(++_gid);
+  d.innerHTML='<svg viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="'+id+'" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0a3328"/><stop offset="1" stop-color="#1f5c47"/></linearGradient><pattern id="'+id+'p" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24 0H0V24" fill="none" stroke="#ffffff" stroke-opacity=".06"/></pattern></defs><rect width="400" height="200" fill="url(#'+id+')"/><rect width="400" height="200" fill="url(#'+id+'p)"/><path d="M200 36l62 20v50c0 38-27 62-62 76-35-14-62-38-62-76V56z" fill="none" stroke="#c9a227" stroke-width="3"/><path d="M200 58l40 13v35c0 25-17 41-40 51-23-10-40-26-40-51V71z" fill="#c9a227" fill-opacity=".14" stroke="#c9a227" stroke-opacity=".6" stroke-width="1.5"/><rect x="0" y="192" width="400" height="8" fill="#c9a227"/></svg>';
+  return d;
+}
+function modal(title,body){
+  const prev=document.activeElement;
+  const close=()=>{ov.remove();document.removeEventListener('keydown',esc);if(prev&&prev.focus)prev.focus()};
+  const esc=ev=>{if(ev.key==='Escape')close()};
+  const x=h('button',{class:'x','aria-label':'Cerrar ventana',onclick:close},'×');
+  const ov=h('div',{class:'overlay',role:'dialog','aria-modal':'true','aria-label':title,onclick:ev=>{if(ev.target===ov)close()}},
+    h('div',{class:'modal'},x,h('h3',{},title),body,h('div',{class:'row',style:'margin-top:14px'},h('button',{class:'btn sec',onclick:close},'Cerrar'))));
+  document.body.append(ov);document.addEventListener('keydown',esc);x.focus();
+  return close;
+}
+function fb(kind,title,text){return h('div',{class:'fb '+kind,role:'status'},h('b',{},title),text)}
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function download(name,text){
+  const a=h('a',{href:URL.createObjectURL(new Blob([text],{type:'text/plain;charset=utf-8'})),download:name});
+  document.body.append(a);a.click();a.remove();
+}
+
+/* ---- Interacción obligatoria: avisos, confeti, puntos y bloqueo de secciones ---- */
+function toast(msg){
+  document.querySelectorAll('.toast').forEach(x=>x.remove());
+  const t=h('div',{class:'toast',role:'status'},msg);document.body.append(t);
+  setTimeout(()=>t.classList.add('out'),2300);setTimeout(()=>t.remove(),2900);
+}
+function burst(){}
+let _pts=0,_hud=null;
+function addPts(n,why){
+  _pts+=n;
+  if(!_hud){_hud=h('div',{class:'hud','aria-live':'polite'});document.body.append(_hud)}
+  _hud.textContent=''+_pts+' puntos';_hud.classList.remove('pop');void _hud.offsetWidth;_hud.classList.add('pop');
+  if(why)toast('+'+n+' · '+why);
+}
+/* ---- Secciones principales tipo acordeón: bloqueada → abierta → completada (se puede reabrir) ---- */
+const topLevel=el=>el.parentElement&&el.parentElement.matches('main.wrap')&&el.classList.contains('sec');
+function accWrap(el){
+  if(el._acc||el.hidden)return;
+  const t=el.querySelector(':scope>h2');
+  const title=t?t.textContent:'';
+  if(t)t.remove();
+  const ab=h('div',{class:'ab'});
+  while(el.firstChild)ab.append(el.firstChild);
+  const hd=h('button',{class:'ah',type:'button',id:t&&t.id||null});
+  el.append(hd,ab);
+  el._acc={locked:false,done:false,open:true,msg:'',title,hd,ab};
+  hd.onclick=()=>{
+    const a=el._acc;
+    if(a.locked){toast('🔒 '+a.msg);hd.classList.add('shake');setTimeout(()=>hd.classList.remove('shake'),400);return}
+    a.open?(a.open=false,accRender(el)):accOpen(el);
+  };
+  accRender(el);
+}
+function accRender(el){
+  const a=el._acc;if(!a)return;
+  const st=a.locked?'lock':a.open?'open':a.done?'done':'idle';
+  a.hd.className='ah '+st;
+  a.hd.setAttribute('aria-expanded',String(a.open));
+  a.hd.replaceChildren(...(st==='open'?[h('span',{class:'tt'},a.title)]:[
+    h('span',{class:'ic','aria-hidden':'true'},st==='lock'?'🔒':st==='done'?'✔':'▶'),
+    h('span',{class:'tt'},a.title),
+    h('span',{class:'st'},st==='lock'?a.msg:st==='done'?'Completada · toque para abrir':'En curso · toque para abrir')]));
+  a.ab.hidden=!a.open;
+}
+function accOpen(el){
+  accWrap(el);const a=el._acc;if(!a)return;
+  a.locked=false;
+  const all=[...el.parentElement.children].filter(x=>x._acc);
+  const k=all.indexOf(el);
+  all.forEach((x,j)=>{if(x===el)return;x._acc.open=false;if(j<k&&!x._acc.locked)x._acc.done=true;accRender(x)});
+  a.open=true;accRender(el);
+  setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'start'}),120);
+}
+function accAll(){$$('main.wrap>section.sec').forEach(accWrap)}
+function gate(el,msg){
+  if(topLevel(el)){accWrap(el);const a=el._acc;a.locked=true;a.open=false;a.msg=msg;accRender(el);return}
+  el.classList.add('gated');el.setAttribute('inert','');
+  const t=el.querySelector(':scope>h2');
+  el._veil=h('div',{class:'veil'},h('div',{},h('div',{style:'font-size:2rem','aria-hidden':'true'},'🔒'),t?h('h3',{},t.textContent):null,h('p',{},msg)));
+  el.append(el._veil);
+}
+function ungate(el,msg){
+  if(topLevel(el)){if(!el._acc||!el._acc.locked)return;accOpen(el);toast('🔓 '+(msg||'Sección desbloqueada'));return}
+  if(!el._veil)return;
+  el._veil.remove();el._veil=null;el.removeAttribute('inert');el.classList.remove('gated');el.classList.add('unlocked');
+  toast('🔓 '+(msg||'Sección desbloqueada'));
+}
+</script>
+<script>
+hero();
+const B=CFG.bloques;
+const done=new Set(),read=new Set();
+const secs={bloques:$('#bloques'),cierre:$('#cierre'),taller:$('#taller')};
+
+/* ---- Idea central con hotspots secuenciales ---- */
+const prog=h('div',{class:'bar','aria-hidden':'true'},h('i'));
+const txt=h('p',{class:'muted'});
+const hots=[],lhots=[];
+function refreshHots(){
+  hots.forEach((b,i)=>{
+    const lock=i>0&&!done.has(i-1)&&!done.has(i);
+    b.classList.toggle('lock',lock);b.classList.toggle('seen',done.has(i));
+    b.disabled=lock;
+    b.lastChild.textContent=lock?'🔒':done.has(i)?'✅':B[i].icono;
+  });
+  lhots.forEach((b,i)=>{const lock=i>0&&!done.has(i-1)&&!done.has(i);b.classList.toggle('lock',lock);b.classList.toggle('seen',done.has(i));b.classList.toggle('next',!lock&&!done.has(i));b.disabled=lock;$('.ic',b).textContent=lock?'🔒':done.has(i)?'✅':B[i].icono});
+  $('i',prog).style.width=(done.size/B.length*100)+'%';
+  txt.textContent='Retos superados: '+done.size+' de '+B.length+(done.size<B.length?' · el siguiente hotspot se desbloquea al responder':' · ¡ciclo completo!');
+}
+(function(){
+  const ring=h('div',{class:'ring'},h('div',{class:'core'},CFG.nucleo));
+  B.forEach((b,i)=>{
+    const a=(-90+i*360/B.length)*Math.PI/180;
+    const btn=h('button',{class:'hot',style:'left:'+(50+41*Math.cos(a))+'%;top:'+(50+41*Math.sin(a))+'%;--hue:'+b.tono,'aria-label':(i+1)+'. '+b.titulo,onclick:()=>detalle(i)},h('b',{},i+1),h('span',{},b.icono));
+    hots.push(btn);ring.append(btn);
+  });
+  const list=h('div',{class:'hotlist'},B.map((b,i)=>{const lb=h('button',{class:'lh',style:'--hue:'+b.tono,onclick:()=>detalle(i)},h('span',{class:'n'},i+1),h('span',{class:'ic','aria-hidden':'true'},b.icono),h('span',{class:'nm'},b.titulo));lhots.push(lb);return lb}));
+  $('#central').append(
+    h('h2',{id:'t-central'},'Idea central'),
+    h('div',{class:'card central'},
+      h('div',{},h('p',{class:'idea'},CFG.ideaCentral),h('p',{},'Abra los hotspots en orden. Cada uno trae información y un reto relámpago: solo al acertar se desbloquea el siguiente.'),prog,txt),
+      ring,list));
+  refreshHots();
+})();
+
+function detalle(i){
+  const b=B[i],r=b.reto;
+  const ex=h('div',{});
+  const body=h('div',{class:'reto'});
+  const showEx=()=>ex.replaceChildren(fb('info','Ejemplo aplicado al trabajo',b.ejemplo));
+  const opts=r.opciones.map((o,j)=>h('button',{class:'opt',onclick:ev=>{
+    if(done.has(i))return;
+    if(j===r.correcta){
+      ev.target.classList.add('ok');opts.forEach(x=>x.disabled=true);showEx();
+      done.add(i);addPts(10,'Reto superado');refreshHots();
+      if(done.size===B.length){ungate(secs.bloques,'¡Ciclo completo! Ahora lea los bloques.')}
+    }else{ev.target.classList.add('bad','shake');setTimeout(()=>ev.target.classList.remove('shake'),400);toast('Casi. Relea el texto y pruebe otra vez.')}
+  }},o));
+  if(done.has(i)){opts[r.correcta].classList.add('ok');opts.forEach(x=>x.disabled=true);showEx()}
+  body.append(art(b.icono,b.tono,b.img),h('p',{},b.texto),h('div',{class:'fb info'},h('b',{},'Reto relámpago: '+r.pregunta),h('span',{class:'hint'},'Responda correctamente para registrar este hotspot y ver el ejemplo.')),...opts,ex);
+  modal((i+1)+'. '+b.titulo,body);
+}
+
+/* ---- Bloques: se leen uno a uno ---- */
+(function(){
+  const cnt=h('p',{class:'muted'});
+  const upd=()=>cnt.textContent='Bloques leídos: '+read.size+' de '+B.length;
+  const cards=B.map((b,i)=>{
+    const p=h('p',{class:'blur'},b.texto);
+    const ejb=h('button',{class:'btn sec',disabled:true,onclick:()=>modal((i+1)+'. '+b.titulo,h('div',{},fb('info','Ejemplo aplicado al trabajo',b.ejemplo)))},'Ver ejemplo aplicado');
+    const rb=h('button',{class:'btn',onclick:()=>{
+      p.classList.remove('blur');rb.remove();ejb.disabled=false;read.add(i);addPts(5,'Bloque leído');upd();
+      if(read.size===B.length)ungate(secs.cierre,'¡Todos los bloques leídos!');
+    }},'Leer este bloque');
+    return h('article',{class:'card block',style:'--hue:'+b.tono},art(b.icono,b.tono,b.img),h('h3',{},h('span',{class:'badge'},i+1),b.titulo),p,rb,ejb);
+  });
+  $('#bloques').append(h('h2',{id:'t-bloques'},'Los '+B.length+' bloques del procedimiento'),cnt,h('div',{class:'grid blocks'},cards));
+  upd();gate(secs.bloques,'Supere los 6 retos del ciclo central para desbloquear los bloques.');
+})();
+
+/* ---- Cierre: se revela tocando ---- */
+(function(){
+  const rev=new Set();
+  const mk=(k,icon,t,tx)=>{
+    const p=h('p',{class:'blur'},tx);
+    const b=h('button',{class:'btn',onclick:()=>{p.classList.remove('blur');b.remove();rev.add(k);addPts(5);if(rev.size===2)ungate(secs.taller,'Taller desbloqueado: ¡a practicar!')}},'Revelar');
+    return h('div',{class:'card'+(k?' reco':'')},h('h3',{},icon+' '+t),p,b);
+  };
+  $('#cierre').append(h('h2',{id:'t-cierre'},'Cierre'),h('div',{class:'cierre'},mk(0,'','Síntesis',CFG.sintesis),mk(1,'','Recomendación práctica',CFG.recomendacion)));
+  gate(secs.cierre,'Lea los 6 bloques para desbloquear el cierre.');
+})();
+
+/* ---- Actividad: Taller aplicado (asistente por etapas + expediente que se compila solo) ---- */
+(function(){
+  const T=CFG.taller,root=$('#taller');
+  let saved=store('taller2')||{pasos:{},ana:{},chk:[],ref:'',evi:'',stage:0,reach:0};
+  const save=()=>store('taller2',saved);
+  const stages=[{k:'caso',t:'Caso'},...T.pasos.map((p,i)=>({k:'p',i,t:p.titulo})),{k:'ana',t:'Análisis'},{k:'fin',t:'Cierre'}];
+  const okp=i=>!!(saved.pasos[i]&&saved.pasos[i].ok);
+  const prog=h('div',{class:'bar','aria-hidden':'true'},h('i'));
+  const steps=h('ol',{class:'tsteps','aria-label':'Etapas del taller'});
+  const main=h('div',{class:'card tmain','aria-live':'polite'});
+  const exp=h('div',{class:'card texp'});
+  root.append(h('h2',{id:'t-taller'},'Actividad de autoaprendizaje · '+T.nombre),
+    h('p',{class:'muted',style:'margin-top:-6px'},'Resultado de aprendizaje: '+T.resultado),prog,steps,
+    h('div',{class:'tw'},main,exp));
+
+  function complete(k,pts){
+    const first=saved.reach<=k;
+    saved.reach=Math.max(saved.reach,k+1);save();
+    if(first&&pts)addPts(pts);
+  }
+  function go(k){
+    if(k<0||k>=stages.length||k>saved.reach)return;
+    saved.stage=k;save();render();
+    if(k>0)root.scrollIntoView({behavior:'smooth',block:'start'});
+  }
+  function renderSteps(){
+    steps.replaceChildren(...stages.map((st,k)=>{
+      const lock=k>saved.reach,done=k<saved.reach;
+      return h('li',{},h('button',{class:'tchip'+(k===saved.stage?' cur':'')+(done?' ok':'')+(lock?' lk':''),disabled:lock,onclick:()=>go(k),'aria-current':k===saved.stage?'step':null,title:st.t},
+        h('span',{class:'tn'},done&&k!==saved.stage?'✔':lock?'🔒':String(k)),h('span',{class:'tl'},st.t)));
+    }));
+    $('i',prog).style.width=(Math.min(saved.reach,stages.length-1)/(stages.length-1)*100)+'%';
+  }
+  function renderExp(){
+    const items=T.pasos.map((p,i)=>h('li',{class:okp(i)?'ok':''},h('b',{},(okp(i)?'✔ ':'○ ')+p.titulo),okp(i)?h('span',{},(saved.pasos[i].t||'').slice(0,110)+((saved.pasos[i].t||'').length>110?'…':'')):null));
+    exp.replaceChildren(h('h3',{style:'margin-top:0'},'Expediente del caso'),
+      h('p',{class:'hint'},'Se compila solo con sus respuestas: es su registro de decisiones y evidencias.'),
+      h('p',{style:'font-size:.9rem'},h('b',{},'Caso: '),'pedido 1048 · faltan 2 productos · entrega vencida'),
+      h('ul',{class:'texpl'},...items));
+  }
+  const area=(id,val,ph,on)=>{const t=h('textarea',{id,placeholder:ph||'Escriba aquí su respuesta…','aria-label':ph||id});t.value=val||'';t.oninput=()=>on(t.value);return t};
+  const counter=(ta)=>{const c=h('p',{class:'hint'});const u=()=>{const n=words(ta.value);c.textContent=n+' palabras · mínimo '+T.minPalabras;c.style.color=n>=T.minPalabras?'var(--ok)':''};ta.addEventListener('input',u);u();return c};
+
+  function stageCaso(){
+    return h('div',{},h('h3',{style:'margin-top:0'},'Problema práctico'),h('p',{},T.problema),
+      h('h3',{},'Objetivo'),h('p',{},T.objetivo),
+      h('h3',{},'Materiales'),h('ul',{},T.materiales.map(m=>h('li',{},m))),
+      h('p',{class:'muted'},'Duración: '+T.duracion+' · '+T.pasos.length+' pasos, un análisis y un cierre.'),
+      h('div',{class:'row'},h('button',{class:'btn',onclick:()=>{complete(0,5);go(1)}},'Iniciar el taller →')));
+  }
+  function stagePaso(k){
+    const st=stages[k],i=st.i,p=T.pasos[i];
+    const out=h('div');
+    const nextBtn=h('button',{class:'btn',onclick:()=>go(k+1)},k<T.pasos.length?'Siguiente paso →':'Ir al análisis →');
+    const ta=area('p'+i,(saved.pasos[i]&&saved.pasos[i].t)||'',null,v=>{saved.pasos[i]=Object.assign({},saved.pasos[i],{t:v});save();renderExp()});
+    const showRef=()=>out.replaceChildren(fb('ok','Respuesta registrada · compare con la referencia',p.modelo),h('div',{class:'row',style:'margin-top:10px'},nextBtn));
+    const chk=h('button',{class:'btn',onclick:()=>{
+      const n=words(ta.value);
+      if(n<T.minPalabras){out.replaceChildren(fb('bad','Complete su respuesta','Escriba al menos '+T.minPalabras+' palabras para comparar con la referencia. Lleva '+n+'.'));return}
+      const first=!okp(i);saved.pasos[i]={t:ta.value,ok:true};save();
+      complete(k,10);renderSteps();renderExp();showRef();
+      if(first)toast('Paso '+(i+1)+' registrado en el expediente');
+    }},'Comprobar y ver referencia');
+    if(okp(i))showRef();
+    return h('div',{},h('p',{class:'hint',style:'margin:0'},'Paso '+(i+1)+' de '+T.pasos.length),h('h3',{style:'margin-top:2px'},p.titulo),h('p',{},p.instruccion),ta,counter(ta),h('div',{class:'row',style:'margin-top:8px'},chk),out);
+  }
+  function stageAna(k){
+    const nextBtn=h('button',{class:'btn',disabled:true,onclick:()=>{complete(k,10);go(k+1)}},'Continuar al cierre →');
+    const upd=()=>{nextBtn.disabled=!T.analisis.every((_,i)=>words(saved.ana[i]||'')>=T.minPalabras)};
+    const qs=T.analisis.map((q,i)=>{
+      const out=h('div');
+      const ta=area('a'+i,saved.ana[i],null,v=>{saved.ana[i]=v;save();upd()});
+      return h('div',{class:'q2'},h('p',{},h('b',{},(i+1)+'. '),q.pregunta),ta,counter(ta),
+        h('button',{class:'btn sec',style:'margin-top:6px',onclick:()=>{
+          if(words(ta.value)<T.minPalabras){out.replaceChildren(fb('bad','Escriba primero su respuesta','Redacte al menos '+T.minPalabras+' palabras y luego compare.'));return}
+          out.replaceChildren(fb('info','Respuesta de referencia',q.modelo));
+        }},'Ver respuesta de referencia'),out);
+    });
+    upd();
+    return h('div',{},h('h3',{style:'margin-top:0'},'Preguntas de análisis'),h('p',{class:'hint'},'Responda las '+T.analisis.length+' preguntas; luego compare con la referencia.'),...qs,h('div',{class:'row',style:'margin-top:12px'},nextBtn));
+  }
+  function stageFin(){
+    const res=h('div');
+    const calc=()=>{
+      const p=T.pasos.filter((_,i)=>okp(i)).length,a=T.analisis.filter((_,i)=>words(saved.ana[i]||'')>=T.minPalabras).length,c=saved.chk.filter(Boolean).length;
+      const pct=Math.round((p+a+c)/(T.pasos.length+T.analisis.length+T.checklist.length)*100);
+      const n=pct>=85?['ok','Nivel alto','Aplicó la secuencia completa con evidencia. Compártala con su líder para recibir observaciones.']:pct>=50?['info','Nivel medio','Va por buen camino. Complete los pasos o criterios pendientes.']:['bad','Nivel inicial','Aún faltan pasos y criterios. Retome el procedimiento y use las referencias.'];
+      res.replaceChildren(h('p',{},h('b',{},'Pasos: '+p+'/'+T.pasos.length+' · Análisis: '+a+'/'+T.analisis.length+' · Criterios: '+c+'/'+T.checklist.length+' · Avance: '+pct+' %')),fb(n[0],n[1],n[2]));
+    };
+    const ck=T.checklist.map((c,i)=>{const cb=h('input',{type:'checkbox',id:'ck'+i});cb.checked=!!saved.chk[i];cb.onchange=()=>{saved.chk[i]=cb.checked;save();calc();if(cb.checked)addPts(2)};return h('label',{for:'ck'+i,class:'cl'},cb,c)});
+    const evi=area('evi',saved.evi,'Evidencias del caso (foto, factura, número de ticket…)',v=>{saved.evi=v;save()});
+    const ref=area('ref',saved.ref,T.reflexion,v=>{saved.ref=v;save()});
+    calc();
+    return h('div',{},h('h3',{style:'margin-top:0'},'Verificación y cierre'),
+      h('p',{},h('b',{},'Lista de verificación del producto final')),...ck,
+      h('p',{style:'margin-top:12px'},h('b',{},'Evidencias del caso')),evi,
+      h('h3',{},'Criterios de evaluación'),res,
+      h('p',{style:'margin-top:12px'},h('b',{},T.reflexion)),ref,
+      h('div',{class:'row',style:'margin-top:12px'},h('button',{class:'btn',onclick:descargar},'⬇ Descargar mi expediente (.txt)'),
+        h('button',{class:'btn sec',onclick:()=>{if(confirm('¿Borrar todas sus respuestas del taller?')){saved={pasos:{},ana:{},chk:[],ref:'',evi:'',stage:0,reach:0};save();render()}}},'Reiniciar taller')));
+  }
+  function descargar(){
+    let t=T.nombre+'\n'+'='.repeat(40)+'\n\nPROBLEMA: '+T.problema+'\n\n';
+    T.pasos.forEach((p,i)=>{t+='PASO '+(i+1)+' · '+p.titulo+'\n'+((saved.pasos[i]&&saved.pasos[i].t)||'(sin respuesta)')+'\n\n'});
+    t+='EVIDENCIAS: '+saved.evi+'\n\n';
+    T.analisis.forEach((q,i)=>{t+=q.pregunta+'\n'+(saved.ana[i]||'(sin respuesta)')+'\n\n'});
+    t+='LISTA DE VERIFICACIÓN\n';T.checklist.forEach((c,i)=>{t+=(saved.chk[i]?'[x] ':'[ ] ')+c+'\n'});
+    t+='\nREFLEXIÓN: '+saved.ref+'\n';
+    download('expediente-taller.txt',t);
+  }
+  function render(){
+    renderSteps();renderExp();
+    const st=stages[saved.stage],k=saved.stage;
+    main.replaceChildren(st.k==='caso'?stageCaso():st.k==='p'?stagePaso(k):st.k==='ana'?stageAna(k):stageFin());
+  }
+  render();
+})();
+accAll();
+</script>
+</body>
+</html>

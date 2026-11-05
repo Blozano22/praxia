@@ -1,0 +1,110 @@
+.toast-app{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--g2);color:#fff;border-left:5px solid var(--gold);border-radius:8px;padding:10px 18px;z-index:99;box-shadow:0 6px 20px rgba(0,0,0,.3);font-weight:600}
+.listrow{display:flex;gap:6px;margin:5px 0;align-items:center}
+.pasos .p b{font-weight:700}
+.pasos .p strong{font-weight:700}
+/* Dashboard por syllabus */
+.dash{display:grid;grid-template-columns:260px 1fr;min-height:calc(100vh - 58px)}
+.side{background:#fff;border-right:1px solid var(--line);padding:16px 14px}
+.side h4{margin:20px 0 6px;font-size:.78rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.sd{display:flex;width:100%;justify-content:space-between;gap:8px;align-items:center;text-align:left;border:0;background:none;padding:9px 10px;border-radius:8px;cursor:pointer;color:var(--ink);font-weight:600}
+.sd:hover{background:var(--tint)}
+.sd.on{background:var(--tint);box-shadow:inset 4px 0 0 var(--gold)}
+.sd b{background:#fff;border:1px solid var(--line);border-radius:99px;min-width:26px;text-align:center;font-size:.8rem}
+.dmain{padding:22px 24px 60px;min-width:0}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:14px 0 6px}
+.st{padding:14px 16px}
+.st b{display:block;font-size:1.8rem;color:var(--g2);line-height:1.1}
+.st span{color:var(--muted);font-size:.85rem}
+.sy{display:flex;flex-direction:column;gap:2px;min-height:150px}
+.sy h3{margin:0;font-size:1.08rem}
+.crumbs{font-size:.9rem;color:var(--muted)}
+.lnk{border:0;background:none;color:var(--g);font-weight:600;cursor:pointer;padding:0;text-decoration:underline}
+.pj{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.stepper2{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0 32px}
+.stepper2 button{flex:1 1 200px;display:flex;gap:12px;align-items:center;text-align:left;background:#fff;border:2px solid var(--line);border-radius:12px;padding:10px 14px;cursor:pointer}
+.stepper2 button i{font-style:normal;width:32px;height:32px;border-radius:8px;background:var(--tint);color:var(--g2);display:flex;align-items:center;justify-content:center;font-weight:800;flex:none}
+.stepper2 button b{display:block}
+.stepper2 button small{color:var(--muted)}
+.stepper2 button.on{border-color:var(--g);box-shadow:inset 0 -4px 0 var(--gold)}
+.stepper2 button.on i{background:var(--g);color:#fff}
+.stepper2 button:disabled{opacity:.5;cursor:not-allowed;border-style:dashed}
+.kvc{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px 20px}
+.kvc div b{display:block;font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.kvc div span{overflow-wrap:anywhere;font-size:.92rem}
+.docs{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+.doc{display:flex;flex-direction:column;gap:8px;padding:14px}
+.docurl{font-size:.82rem;color:var(--g);overflow-wrap:anywhere}
+@media(max-width:860px){.dash{grid-template-columns:1fr}.side{border-right:0;border-bottom:1px solid var(--line)}}
+/* Revisión de documentos */
+.revhead{display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:10px 0 14px}
+.doc.activo{border-color:var(--gold);box-shadow:0 0 0 3px rgba(215,255,30,.25)}
+.doc.aprobado{border-color:var(--ok)}
+.doc.bloq{opacity:.6}
+.paso-rev{background:var(--tint);border-radius:10px;padding:10px 12px}
+.paso-rev p{margin:0 0 8px}
+
+/* Unidades y temas */
+.ud{display:flex;flex-direction:column;gap:4px;min-height:200px}
+.ud h3{margin:0;font-size:1.08rem}
+.tema{margin-top:22px}
+.temahd{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+.temahd input{flex:1;min-width:220px;font-weight:600}
+
+.recursos-hd{all:unset;box-sizing:border-box;display:flex;width:100%;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;cursor:pointer}
+.recursos-hd:focus-visible{outline:2px solid var(--g1,var(--g));outline-offset:4px;border-radius:6px}
+.recursos-hd i{font-style:normal;font-size:1.2rem;color:var(--g1,var(--g))}
+.recursos-card .tema:first-of-type{margin-top:14px}
+
+/* Vista de una unidad: respiro bajo el paso a paso y bloques con separación pareja */
+.stepper2 + div > .fade > .crumbs,.stepper2 + div > .crumbs{margin-top:4px}
+.stepper2 + div .pj{margin:10px 0 22px}
+.stepper2 + div .guiones{margin:0 0 26px !important}
+.stepper2 + div .recursos-card{margin:0 0 26px !important}
+
+/* Recursos: cada tema es una card plegable con cabecera clara */
+.tema-card{border:1px solid var(--line);border-radius:12px;margin:12px 0;background:#fff;overflow:hidden}
+.tema-card.open{border-color:var(--line2,var(--line))}
+.tema-hd{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:12px;width:100%;padding:12px 14px;cursor:pointer;background:var(--tint,var(--tint))}
+.tema-hd:focus-visible{outline:2px solid var(--g,var(--g));outline-offset:-2px}
+.tema-hd b{flex:1;min-width:0;font-size:1rem;line-height:1.3}
+.tema-hd i{font-style:normal;color:var(--g,var(--g));font-size:1.1rem}
+.tema-n{flex:none;background:var(--g,var(--g));color:#fff;border-radius:8px;padding:4px 10px;font-weight:700;font-size:.8rem;letter-spacing:.03em;text-transform:uppercase}
+.tema-body{padding:14px}
+.tema-body .grid{margin-top:4px}
+
+/* ===== Movimiento y pulido (criterios de emil-design-eng) ===== */
+:root{--ease-out:cubic-bezier(.23,1,.32,1);--ease-io:cubic-bezier(.77,0,.175,1)}
+/* Botones: respuesta inmediata al presionar; solo propiedades concretas */
+.btn,.ic,.sd,.stepper2 button,.tema-hd,.recursos-hd,.lnk{transition:background-color .15s ease,border-color .15s ease,color .15s ease,box-shadow .15s ease,transform .16s var(--ease-out)}
+.btn:active:not(:disabled),.ic:active,.sd:active,.stepper2 button:active:not(:disabled){transform:scale(.97)}
+.tema-hd:active{transform:scale(.995)}
+/* Tarjetas que se pueden abrir: solo cambia el borde, sin saltos */
+.card,.doc,.sy,.ud{transition:border-color .18s ease,box-shadow .18s ease}
+@media (hover:hover) and (pointer:fine){
+  .sy:hover,.ud:hover,.doc:hover{border-color:#9fb3a9;box-shadow:0 1px 2px rgba(19,35,91,.08),0 10px 24px rgba(19,35,91,.1)}
+}
+/* Foco visible y uniforme para teclado */
+:focus-visible{outline:2px solid var(--g);outline-offset:2px}
+.btn:focus-visible{outline-offset:3px}
+/* Entrada de pantallas: ease-out fuerte, corta */
+.fade{animation:fadeIn .24s var(--ease-out) both}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+/* Escalonado corto en rejillas (30-60 ms, sin bloquear clics) */
+.stats>*,.docs>*{animation:fadeIn .26s var(--ease-out) both}
+.stats>*:nth-child(2),.docs>*:nth-child(2){animation-delay:40ms}
+.stats>*:nth-child(3),.docs>*:nth-child(3){animation-delay:80ms}
+.stats>*:nth-child(4),.docs>*:nth-child(4){animation-delay:120ms}
+.stats>*:nth-child(n+5),.docs>*:nth-child(n+5){animation-delay:150ms}
+/* Aviso emergente: entra desde abajo, sale rápido */
+.toast-app{animation:toastIn .22s var(--ease-out) both}
+@keyframes toastIn{from{opacity:0;transform:translate(-50%,10px) scale(.96)}to{opacity:1;transform:translate(-50%,0) scale(1)}}
+/* Zona de soltar archivo */
+.drop{transition:border-color .15s ease,background-color .15s ease,transform .18s var(--ease-out)}
+.drop.over{transform:scale(1.01)}
+/* Movimiento reducido: se quita el desplazamiento, se conserva el cambio de opacidad */
+@media (prefers-reduced-motion:reduce){
+  .fade,.stats>*,.docs>*{animation:fadeOnly .2s ease both}
+  .toast-app{animation:fadeOnly .2s ease both}
+  .btn:active:not(:disabled),.ic:active,.sd:active,.stepper2 button:active:not(:disabled),.drop.over{transform:none}
+}
+@keyframes fadeOnly{from{opacity:0}to{opacity:1}}

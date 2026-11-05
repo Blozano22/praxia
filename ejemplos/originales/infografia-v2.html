@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Innovar para servir mejor</title>
+<!--
+  PLANTILLA OVA · INFOGRAFÍA DE FRANJAS · SCORM 1.2
+  Ficha de la plantilla (para el registro de plantillas):
+  - Cuándo usarla: un tema que se explica en 4 a 8 bloques que se leen en cualquier orden pero forman un conjunto, cuando cada bloque lleva bastante texto.
+  - Cuándo NO usarla: secuencias con fechas (usar línea de tiempo), comparaciones numéricas o actividades con calificación.
+  - Qué hace: una fila de franjas de color, una por bloque. Al pulsar una se abre y ocupa casi todo el ancho con su explicación (idea central, dos párrafos,
+    tres puntos clave y una pregunta para pensar); las demás quedan como franjas angostas con su número, ícono y nombre. Las visitadas se marcan.
+    En pantallas angostas las franjas se apilan en vertical. Registra estado (completado al visitar todos los bloques), tiempo y avance en Moodle (SCORM 1.2). No califica.
+  - Contenido: todo sale del bloque JSON #ova-content (meta, bloques[]: nombre, ícono, idea, p1, p2, puntos, pregunta). Es contenido de ejemplo para validar el formato.
+    Los colores son de la paleta DIEPO y no dependen de la formación.
+  - Íconos disponibles: libro, lupa, balanza, grafica, objetivo, validar, lista.
+  - Un solo archivo, sin recursos externos (numeral 4.6 de las especificaciones técnicas).
+-->
+<style>
+:root{
+  /* Paleta DIEPO. Cada hito cambia --bg, --fg, --acc y --soft (ver TONOS en el script). */
+  --bg:#FFFFFF; --fg:#142749; --on:#FFFFFF; --acc:#00665F; --soft:rgba(20,39,73,.08);
+  --paper:#FFFFFF; --text:#142749; --muted:rgba(20,39,73,.72); --line:#C8C8C8; --ink:#142749; --pip:#00665F;
+  /* Tipografía provisional: se reemplaza cuando COEST/GEVIP confirmen la fuente oficial */
+  --font:'Century Gothic','CenturyGothic','Apple Gothic','Futura','Avenir Next','Trebuchet MS','Segoe UI',system-ui,sans-serif;
+  --ease:cubic-bezier(.22,.9,.3,1);
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{height:100dvh;overflow:hidden;font-family:var(--font);background:var(--ink);color:var(--text);line-height:1.5;-webkit-font-smoothing:antialiased}
+h1,h2,h3,p,ol,ul{margin:0}
+ol,ul{padding:0;list-style:none}
+:focus-visible{outline:3px solid var(--fg);outline-offset:3px}
+.paper :focus-visible,dialog :focus-visible{outline-color:var(--ink)}
+h2[tabindex="-1"]:focus,#modal-title:focus,.stage:focus{outline:none}
+.sr-only{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.skip{position:absolute;left:.75rem;top:-4rem;background:var(--ink);color:#fff;padding:.6rem 1rem;z-index:100;border-radius:999px;font-weight:700}
+.skip:focus{top:.75rem}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+.btn-ln,.pill{font:inherit;font-weight:700;min-height:44px;padding:.35rem 1.2rem;border-radius:999px;cursor:pointer;border:2px solid var(--fg);transition:background .2s var(--ease),color .2s var(--ease),transform .2s var(--ease)}
+.btn-ln{background:transparent;color:inherit}
+.btn-ln:hover,.pill:hover{background:var(--fg);color:var(--on)}
+.pill{background:var(--fg);color:var(--on)}
+.pill:hover{background:transparent;color:var(--fg)}
+.btn-ln:active,.pill:active{transform:scale(.96)}
+.pill:disabled,.btn-ln:disabled{opacity:.35;cursor:not-allowed;transform:none}
+.pill .pp{display:inline-block;width:1.1em;text-align:center;margin-right:.4em}
+
+/* ---------- Estructura ---------- */
+html,body{height:100%;margin:0}
+body{height:100dvh;overflow:hidden;font-family:var(--font);background:#FFFFFF;color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased}
+.app{position:fixed;inset:0;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);background:#FFFFFF;overflow:hidden}
+.top{display:flex;align-items:center;gap:1rem;padding:.7rem clamp(1rem,3vw,2.4rem)}
+.titulo{flex:1 1 auto;min-width:0;font-size:clamp(1.05rem,1.9vw,1.5rem);font-weight:700;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prog{display:flex;align-items:center;gap:.6rem;font-size:.88rem;font-weight:700;white-space:nowrap}
+.dots{display:flex;gap:5px}
+.dots i{width:10px;height:10px;border-radius:50%;border:2px solid currentColor;transition:background .3s var(--ease),transform .3s var(--ease)}
+.dots i[data-v="1"]{background:currentColor}
+.dots i[data-c="1"]{transform:scale(1.35)}
+.tools{display:flex;gap:.5rem;flex:none}
+.tools .ico{display:none}
+@media (max-width:760px){.tools .lbl{display:none}.tools .ico{display:inline}.dots{display:none}.pista{display:none}}
+
+.main{position:relative;min-height:0;padding:0 clamp(1rem,3vw,2.4rem) clamp(.8rem,2vw,1.3rem)}
+
+/* ---------- Franjas ---------- */
+.fila{--wmin:clamp(48px,4.7vw,66px);--gap:10px;display:flex;gap:var(--gap);height:100%;min-height:0}
+.tira{--c:#00665F;--cf:#FFFFFF;position:relative;flex:0 0 var(--wmin);min-width:0;border-radius:24px;background:var(--c);color:var(--cf);overflow:hidden;
+  transition:flex-grow .8s var(--ease),flex-basis .8s var(--ease),transform .35s var(--ease)}
+.tira.act{flex:1 1 var(--wmin)}
+.tira:not(.act):hover{transform:translateY(-8px)}
+@media (prefers-reduced-motion:no-preference){.tira{animation:tiraEntra .8s var(--ease) backwards;animation-delay:calc(var(--i) * 90ms)}}
+@keyframes tiraEntra{from{opacity:0;transform:translateY(46px) scale(.92)}}
+
+/* franja cerrada */
+.mini{position:absolute;inset:0;width:100%;border:0;background:none;color:inherit;font:inherit;cursor:pointer;padding:.9rem 0 .8rem;display:flex;flex-direction:column;align-items:center;gap:.7rem;transition:opacity .3s var(--ease)}
+.tira.act .mini{opacity:0;visibility:hidden;pointer-events:none;transition:opacity .2s,visibility 0s .2s}
+.m-num{width:calc(var(--wmin) - 20px);aspect-ratio:1;border-radius:50%;background:var(--cf);color:var(--c);display:grid;place-items:center;font-size:clamp(.95rem,1.5vw,1.25rem);font-weight:700;letter-spacing:-.03em;flex:none}
+.m-ic{flex:none;width:26px;height:26px}
+.m-ic svg{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.m-tit{flex:1 1 auto;min-height:0;writing-mode:vertical-rl;transform:rotate(180deg);font-size:clamp(.9rem,1.3vw,1.12rem);font-weight:700;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center}
+.m-ok{flex:none;width:24px;height:24px;border-radius:50%;border:2.5px solid var(--cf);display:grid;place-items:center;opacity:.55}
+.m-ok svg{width:14px;height:14px;fill:none;stroke:var(--cf);stroke-width:3.4;stroke-linecap:round;stroke-linejoin:round;opacity:0;transition:opacity .4s var(--ease)}
+.tira[data-v="1"] .m-ok{background:var(--cf);opacity:1}
+.tira[data-v="1"] .m-ok svg{opacity:1;stroke:var(--c)}
+.mini:focus-visible{outline:3px solid var(--cf);outline-offset:-6px;border-radius:24px}
+@media (prefers-reduced-motion:no-preference){
+  .tira:not([data-v="1"]):not(.act) .m-num{animation:late 2.4s ease-in-out infinite;animation-delay:calc(var(--i) * 260ms)}
+}
+@keyframes late{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--cf) 55%,transparent)}60%{box-shadow:0 0 0 9px color-mix(in srgb,var(--cf) 0%,transparent)}}
+
+/* franja abierta */
+.int{position:absolute;left:0;top:0;bottom:0;width:var(--wact,640px);visibility:hidden;transition:visibility 0s .25s}
+.tira.act .int{visibility:visible;transition:none}
+.cab{height:96px;display:flex;align-items:center;gap:clamp(.8rem,1.6vw,1.3rem);padding:0 clamp(1rem,2vw,1.6rem)}
+.c-num{flex:none;width:clamp(48px,4.8vw,62px);aspect-ratio:1;border-radius:50%;background:var(--cf);color:var(--c);display:grid;place-items:center;font-size:clamp(1.15rem,1.9vw,1.55rem);font-weight:700;letter-spacing:-.03em}
+.c-t{min-width:0;flex:1 1 auto}
+.c-t small{display:block;font-size:.72rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;opacity:.9}
+.c-t h2{margin:.05rem 0 0;font-size:clamp(1.2rem,2.2vw,1.8rem);letter-spacing:-.03em;line-height:1.08;text-wrap:balance}
+.c-ic{flex:none;width:clamp(40px,4vw,54px);height:clamp(40px,4vw,54px);opacity:.9}
+.c-ic svg{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.hoja{position:absolute;left:6px;right:6px;bottom:6px;top:96px;background:#FFFFFF;color:var(--ink);border-radius:18px;display:flex;flex-direction:column;overflow:hidden}
+.cuerpo{--fs:1;flex:1 1 auto;min-height:0;overflow:hidden;scrollbar-width:none;padding:clamp(.8rem,1.6vw,1.3rem) clamp(1.1rem,2.4vw,2rem);display:flex;flex-direction:column;gap:calc(var(--fs) * clamp(.55rem,1.1vw,.9rem))}
+.idea{border-left:5px solid var(--c);padding:.05rem 0 .05rem .85rem}
+.idea b{display:block;font-size:calc(var(--fs) * .7rem);letter-spacing:.09em;text-transform:uppercase;color:var(--c)}
+.tira:nth-child(2) .idea b,.tira:nth-child(6) .idea b{color:var(--ink)}
+.idea span{display:block;font-size:calc(var(--fs) * clamp(1rem,1.4vw,1.22rem));font-weight:700;line-height:1.3}
+.txt{margin:0;font-size:calc(var(--fs) * clamp(.95rem,1.22vw,1.12rem));line-height:1.55}
+.puntos{display:flex;flex-direction:column;gap:calc(var(--fs) * .5rem);margin:0;padding:0;list-style:none}
+.punto{display:flex;gap:.65rem;align-items:flex-start;font-size:calc(var(--fs) * clamp(.92rem,1.16vw,1.08rem));line-height:1.45}
+.punto i{flex:none;font-style:normal;width:calc(var(--fs) * 24px);height:calc(var(--fs) * 24px);border-radius:50%;background:var(--c);color:var(--cf);display:grid;place-items:center;font-size:calc(var(--fs) * .78rem);font-weight:700;margin-top:.1rem}
+.punto b{font-weight:700}
+.pregunta{display:flex;gap:.6rem;align-items:flex-start;border-top:2px solid var(--ink);padding-top:calc(var(--fs) * .6rem);font-size:calc(var(--fs) * clamp(.92rem,1.16vw,1.08rem));line-height:1.4}
+.pregunta i{flex:none;font-style:normal;width:calc(var(--fs) * 24px);height:calc(var(--fs) * 24px);border-radius:50%;background:var(--ink);color:#FFFFFF;display:grid;place-items:center;font-weight:700;font-size:calc(var(--fs) * .9rem)}
+.pregunta p{margin:0}
+.pregunta p b{color:var(--c)}
+.tira:nth-child(2) .pregunta p b,.tira:nth-child(6) .pregunta p b{color:var(--ink)}
+.pie{flex:none;display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:.5rem clamp(1.1rem,2.4vw,2rem);border-top:2px solid var(--ink)}
+.pie .pasos{font-size:.88rem;font-weight:700}
+.pie .btn-ln,.pie .pill{min-height:42px}
+.pie .pill{background:var(--ink);color:#FFFFFF;border-color:var(--ink)}
+.pie .pill:hover{background:transparent;color:var(--ink)}
+.pie .btn-ln{border-color:var(--ink);color:var(--ink)}
+.pie .btn-ln:hover{background:var(--ink);color:#FFFFFF}
+.pie .flecha-dr::after{content:" \2192"}
+.pie .flecha-iz::before{content:"\2190 "}
+.pie :focus-visible,.hoja :focus-visible{outline-color:var(--ink)}
+
+@media (max-height:640px) and (min-width:821px){.cab{height:72px}.hoja{top:72px}.c-ic{display:none}.idea b{display:none}}
+.cuerpo::-webkit-scrollbar{display:none}
+/* contenido que aparece escalonado al abrir */
+.cab>*{opacity:0;transform:translateX(-16px);transition:opacity .25s,transform .25s}
+.tira.act .cab>*{opacity:1;transform:none;transition:opacity .5s var(--ease),transform .5s var(--ease);transition-delay:calc(.3s + var(--k,0) * 80ms)}
+.hoja{opacity:0;transform:translateY(18px);transition:opacity .25s,transform .25s}
+.tira.act .hoja{opacity:1;transform:none;transition:opacity .5s var(--ease) .32s,transform .6s var(--ease) .32s}
+.cuerpo>*,.puntos>li{opacity:0;transform:translateY(14px);transition:opacity .2s,transform .2s}
+.tira.act .cuerpo>*,.tira.act .puntos>li{opacity:1;transform:none;transition:opacity .5s var(--ease),transform .5s var(--ease);transition-delay:calc(.5s + var(--k,0) * 90ms)}
+.tira.act .puntos>li{transition-delay:calc(.8s + var(--j,0) * 110ms)}
+.tira.act .puntos{opacity:1;transform:none}
+.puntos{transition:none}
+
+.pista{margin:0;background:var(--ink);color:#FFFFFF;border-radius:999px;padding:.25rem .95rem;font-weight:700;font-size:.82rem;white-space:nowrap;pointer-events:none;transition:opacity .5s var(--ease)}
+.pista.oculto{opacity:0}
+.toast{left:50%;top:.85rem}
+
+/* pantallas angostas: las franjas se apilan en vertical */
+@media (max-width:820px){
+  .fila{--wmin:48px;--gap:6px;flex-direction:column}
+  .tira{border-radius:18px;transition:flex-grow .8s var(--ease),flex-basis .8s var(--ease)}
+  .tira:not(.act):hover{transform:none}
+  .mini{flex-direction:row;align-items:center;padding:0 .7rem;gap:.6rem;height:48px;bottom:auto}
+  .m-num{width:32px;font-size:.85rem}
+  .pie .pasos{display:none}
+  .m-tit{writing-mode:horizontal-tb;transform:none;flex:1 1 auto;font-size:.95rem;min-width:0}
+  .m-tit span{overflow:hidden;text-overflow:ellipsis}
+  .int{width:auto;right:0;height:var(--hact,420px);bottom:auto}
+  .cab{height:70px}
+  .hoja{top:70px}
+  .cuerpo{overflow:auto;scrollbar-width:none}
+  .cuerpo::-webkit-scrollbar{display:none}
+  .pista{display:none}
+  .c-ic{display:none}
+}
+
+/* ---------- Ventanas emergentes ---------- */
+dialog{border:0;padding:0;border-radius:28px;width:min(620px,94vw);max-width:94vw;background:var(--paper);color:var(--text);box-shadow:0 30px 80px rgba(0,0,0,.35)}
+dialog[open]{animation:dlgIn .5s var(--ease)}
+@keyframes dlgIn{from{opacity:0;transform:translateY(30px) scale(.94)}to{opacity:1;transform:none}}
+dialog::backdrop{background:color-mix(in srgb,var(--ink) 55%,transparent);backdrop-filter:blur(6px)}
+.modal-in{display:flex;flex-direction:column;max-height:88vh;max-height:88dvh}
+.modal-head{background:var(--bg);color:var(--fg);padding:1rem 1.3rem;display:flex;justify-content:space-between;align-items:center;gap:1rem}
+.modal-head h2{font-size:1.3rem;letter-spacing:-.02em}
+.modal-head .btn-ln{min-height:40px;padding:.15rem 1rem;border-color:var(--fg)}
+.modal-head .btn-ln:hover{background:var(--fg);color:var(--on)}
+.modal-body{padding:1.1rem 1.3rem 1.4rem;overflow:auto;display:flex;flex-direction:column;gap:.8rem}
+.modal-body .pill{align-self:flex-start}
+.modal-body ul.bul{list-style:disc;padding-left:1.2rem;display:grid;gap:.35rem}
+.bl{display:grid;gap:.1rem}
+.bl li{display:grid;grid-template-columns:8.5rem minmax(0,1fr);gap:.7rem;padding:.4rem 0;border-top:1px solid var(--line);line-height:1.35}
+.bl li:first-child{border-top:0}
+.bl b{font-variant-numeric:tabular-nums}
+.quote{font-size:1.6rem;font-weight:700;line-height:1.2;letter-spacing:-.02em}
+.toast{position:absolute;left:50%;top:4.6rem;transform:translateX(-50%);z-index:5;background:var(--fg);color:var(--on);padding:.4rem 1.2rem;border-radius:999px;font-weight:700;animation:toast .6s var(--ease) both}
+.toast[hidden]{display:none}
+@keyframes toast{from{opacity:0;transform:translate(-50%,-14px)}to{opacity:1;transform:translateX(-50%)}}
+.toast{z-index:20}
+</style>
+</head>
+<body>
+<a class="skip" href="#fila">Saltar al contenido</a>
+<div id="live" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+<h1 class="sr-only" id="h1"></h1>
+
+<div class="app" id="app">
+  <header class="top">
+    <p class="titulo" id="titulo"></p>
+    <p class="pista" id="pista" aria-hidden="true">Pulsa una franja para abrirla</p>
+    <div class="prog">
+      <div class="dots" id="dots" role="progressbar" aria-label="Bloques visitados" aria-valuemin="0" aria-valuemax="7" aria-valuenow="0"></div>
+      <span id="prog-text">0 de 7</span>
+    </div>
+    <div class="tools" role="group" aria-label="Ayuda">
+      <button type="button" class="btn-ln" data-modal="help" aria-label="Ayuda"><span class="lbl">Ayuda</span><span class="ico" aria-hidden="true">?</span></button>
+    </div>
+  </header>
+  <div id="toast" class="toast" role="status" hidden>Recorrido completo</div>
+
+  <main class="main" id="main">
+    <div class="fila" id="fila" aria-label="Bloques de la infografía"></div>
+  </main>
+</div>
+
+<dialog id="modal" aria-labelledby="modal-title">
+  <div class="modal-in">
+    <div class="modal-head"><h2 id="modal-title" tabindex="-1"></h2><button type="button" class="btn-ln" id="modal-close">Cerrar</button></div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</dialog>
+
+<script type="application/json" id="ova-content">
+{
+ "meta": {
+  "title": "Innovar para servir mejor",
+  "tema": "Servicio policial",
+  "hub": "Innovar para servir mejor",
+  "source": "Contenido de ejemplo para validar el formato de infografía radial"
+ },
+ "bloques": [
+  {
+   "id": "b1", "nombre": "Fundamentación conceptual", "icono": "libro",
+   "idea": "Innovar es mejorar el servicio a partir de lo que las personas necesitan, en pasos pequeños que se revisan con evidencia.",
+   "p1": "La agilidad nace de un acuerdo entre profesionales del desarrollo de software, el Manifiesto Ágil (2001), que propone valorar a las personas y su colaboración, entregar algo que funciona, trabajar de la mano con quien recibe el servicio y responder al cambio. Aunque surgió en el software, sus ideas sirven en cualquier servicio que se pueda mejorar poco a poco.",
+   "p2": "En este recurso no se trata de copiar rutinas de otras organizaciones, sino de comprender cómo una mejora pequeña puede ayudar a las personas usuarias y cómo comprobar si de verdad ayudó.",
+   "puntos": [
+    {"t": "Colaborar.", "d": "Quien presta el servicio y quien lo recibe construyen la mejora juntos."},
+    {"t": "Entregar valor.", "d": "Se prefiere una mejora pequeña y útil ahora a un plan perfecto que llega tarde."},
+    {"t": "Adaptarse.", "d": "Lo que se aprende al probar cambia el siguiente paso."}
+   ],
+   "pregunta": "¿Qué necesidad concreta se observa en tu servicio y cómo podría atenderse mejor?"
+  },
+  {
+   "id": "b2", "nombre": "Desarrollo analítico", "icono": "lupa",
+   "idea": "Un problema bien descrito se puede medir, discutir y mejorar; uno vago solo genera opiniones.",
+   "p1": "Antes de proponer una solución conviene entender el problema. Describirlo con precisión significa responder cuatro preguntas: quién lo vive, dónde y cuándo ocurre, con qué frecuencia y qué efecto tiene en el servicio. Las respuestas salen de observar, escuchar a las personas involucradas y revisar los registros disponibles.",
+   "p2": "En la Scrum Guide (2020) esta idea se refleja en el Product Backlog: una lista ordenada de todo lo que podría mejorarse, que se revisa y se reordena a medida que se aprende.",
+   "puntos": [
+    {"t": "Personas afectadas.", "d": "Quién lo vive y cómo lo percibe: su voz importa tanto como las cifras."},
+    {"t": "Lugar, momento y frecuencia.", "d": "Un problema que se repite en el mismo sitio o a la misma hora ya da pistas."},
+    {"t": "Efecto en el servicio.", "d": "Qué se deja de lograr o se demora por esta causa."}
+   ],
+   "pregunta": "¿Qué datos necesitas para describir el problema sin suponer nada?"
+  },
+  {
+   "id": "b3", "nombre": "Análisis comparativo", "icono": "balanza",
+   "idea": "Comparar evita cambiar por moda y ayuda a elegir con razones.",
+   "p1": "Con el problema claro, se compara la forma actual de trabajar con las alternativas posibles. No se parte de cero: primero se reconoce lo que ya funciona y se conserva; luego se identifica lo que estorba y se propone cambiarlo.",
+   "p2": "Cada alternativa se pesa por su costo (tiempo, personas, recursos) y por su beneficio para quien recibe el servicio. Una opción sencilla y probada puede valer más que una novedosa pero difícil de sostener.",
+   "puntos": [
+    {"t": "Lo que funciona.", "d": "Se reconoce y se conserva: ya está sirviendo a las personas."},
+    {"t": "Lo que estorba.", "d": "Pasos repetidos, esperas o falta de información que conviene cambiar."},
+    {"t": "Costo y beneficio.", "d": "Se escribe a qué costo llega cada opción y qué gana el servicio."}
+   ],
+   "pregunta": "¿Qué ganaría y qué perdería el servicio con cada alternativa?"
+  },
+  {
+   "id": "b4", "nombre": "Evidencia científica", "icono": "grafica",
+   "idea": "Una decisión con evidencia se puede explicar, revisar y corregir.",
+   "p1": "La evidencia es la información que respalda una decisión: datos del propio servicio, estudios publicados y resultados que otras personas pueden comprobar. Reemplaza el «siempre se ha hecho así» y la intuición aislada por razones que cualquiera puede consultar.",
+   "p2": "Buscar evidencia incluye reconocer sus límites: una cifra sin contexto o una fuente sin autor no alcanza. Por eso cada afirmación importante se acompaña de su fuente y se actualiza cuando aparece información nueva.",
+   "puntos": [
+    {"t": "Datos propios.", "d": "Registros y cifras del mismo servicio, con su periodo y su origen."},
+    {"t": "Fuentes confiables.", "d": "Estudios y documentos con autoría y fecha, que se pueden consultar."},
+    {"t": "Resultados verificables.", "d": "Lo que otra persona puede comprobar siguiendo los mismos pasos."}
+   ],
+   "pregunta": "¿Qué evidencia respaldaría esta mejora y de dónde saldría?"
+  },
+  {
+   "id": "b5", "nombre": "Aplicación", "icono": "objetivo",
+   "idea": "Probar en pequeño reduce el riesgo y acelera el aprendizaje.",
+   "p1": "La mejora elegida se prueba con un cambio acotado, en un ciclo corto. Scrum llama Sprint a ese ciclo: un periodo de un mes o menos, con un objetivo claro, en el que se planifica, se trabaja y se revisa lo logrado.",
+   "p2": "Antes de empezar se acuerdan tres cosas: qué se va a cambiar, quién lo hará y para cuándo, y qué señal mostrará que funcionó. Así, al final del ciclo no se discuten opiniones sino resultados.",
+   "puntos": [
+    {"t": "Cambio acotado.", "d": "Una sola mejora a la vez, lo bastante pequeña para terminarla."},
+    {"t": "Responsables y plazo.", "d": "Se acuerda quién la hace y en cuánto tiempo."},
+    {"t": "Señal de éxito.", "d": "Se define de antemano cómo se sabrá que sirvió."}
+   ],
+   "pregunta": "¿Cuál es el cambio más pequeño que ya aportaría algo?"
+  },
+  {
+   "id": "b6", "nombre": "Evaluación", "icono": "validar",
+   "idea": "Evaluar no es calificar personas: es aprender del resultado para mejorar el siguiente ciclo.",
+   "p1": "Al terminar el ciclo se revisa lo ocurrido con las personas interesadas: qué se logró frente a lo esperado, qué se aprendió y qué se ajusta. La Scrum Guide (2020) lo llama inspección y adaptación, y lo concreta en dos momentos: la Revisión del Sprint, que mira el resultado, y la Retrospectiva, que mira la forma de trabajar.",
+   "p2": "La evaluación se apoya en la señal de éxito definida antes y en la evidencia reunida durante la prueba. Si la mejora no funcionó, también se obtiene algo valioso: se sabe qué no repetir.",
+   "puntos": [
+    {"t": "Resultado.", "d": "Lo logrado frente a lo esperado, con datos."},
+    {"t": "Aprendizaje.", "d": "Lo que el equipo descubrió, incluso lo que salió mal."},
+    {"t": "Ajuste.", "d": "Qué se conserva, qué se cambia y qué se prueba después."}
+   ],
+   "pregunta": "¿Cómo sabrías que la mejora sirvió a las personas usuarias?"
+  },
+  {
+   "id": "b7", "nombre": "Síntesis y referencias", "icono": "lista",
+   "idea": "Innovar para servir mejor es un ciclo que se repite: observar, mejorar, evaluar y aprender.",
+   "p1": "El recorrido completo parte de una necesidad real, la describe con precisión, compara alternativas, se apoya en evidencia, prueba un cambio pequeño y evalúa el resultado. Cada vuelta deja un aprendizaje que mejora la siguiente.",
+   "p2": "La Scrum Guide (2020) resume esa lógica en tres pilares: transparencia (que lo importante se vea), inspección (revisar con frecuencia) y adaptación (ajustar cuando algo se desvía). Sirven igual para un equipo de software que para un servicio a la ciudadanía.",
+   "puntos": [
+    {"t": "Observar.", "d": "Reconocer la necesidad real de las personas."},
+    {"t": "Mejorar en pequeño.", "d": "Probar con un cambio acotado y un plazo corto."},
+    {"t": "Evaluar y aprender.", "d": "Revisar con evidencia y ajustar el siguiente ciclo."}
+   ],
+   "pregunta": "¿Qué necesidad de tu servicio empezarías a atender esta semana?"
+  }
+ ]
+}
+</script>
+<script>
+(function(){
+'use strict';
+/* ================= UTILIDADES ================= */
+function $(s,r){return (r||document).querySelector(s);}
+function $$(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s));}
+var MINUS='\u2212';
+function fmt(v,d){ if(d===undefined)d=2; if(!isFinite(v))return '—'; var a=Math.abs(v).toFixed(d); var neg=v<0&&Number(a)!==0; return (neg?MINUS:'')+a.replace('.',','); }
+function fmtWords(v,d){ return (v<0?'menos ':'')+Math.abs(v).toFixed(d===undefined?2:d).replace('.',','); }
+function pad(n,l){n=String(n);while(n.length<l)n='0'+n;return n;}
+var liveT=null;
+function announce(msg){ clearTimeout(liveT); liveT=setTimeout(function(){ var l=$('#live'); l.textContent=''; setTimeout(function(){l.textContent=msg;},40); },350); }
+function deepAssign(t,s){ for(var k in s){ if(!Object.prototype.hasOwnProperty.call(s,k))continue; if(s[k]&&typeof s[k]==='object'&&!Array.isArray(s[k])&&t[k]&&typeof t[k]==='object'){deepAssign(t[k],s[k]);} else {t[k]=s[k];} } }
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}
+
+/* ================= SCORM 1.2 ================= */
+var Scorm=(function(){
+  var api=null,mock=false,initialized=false,finished=false,start=Date.now(),icount=0,log=[],listener=null;
+  function findAPI(win){
+    var tries=0;
+    try{ while(win.API==null&&win.parent!=null&&win.parent!==win){ tries++; if(tries>500)return null; win=win.parent; } return win.API||null; }
+    catch(e){ return null; }
+  }
+  function createMock(){
+    var store={}; try{store=JSON.parse(localStorage.getItem(CONFIG.storageKey)||'{}');}catch(e){}
+    var err='0';
+    var defaults={'cmi.core.student_name':'Estudiante, Demo','cmi.core.student_id':'demo-001','cmi.core.lesson_mode':'normal','cmi.core.credit':'credit','cmi.launch_data':'','cmi.core.lesson_status':'not attempted','cmi.core.lesson_location':'','cmi.suspend_data':''};
+    function persist(){try{localStorage.setItem(CONFIG.storageKey,JSON.stringify(store));}catch(e){}}
+    return {
+      LMSInitialize:function(){err='0';return 'true';},
+      LMSFinish:function(){persist();err='0';return 'true';},
+      LMSGetValue:function(k){err='0';
+        if(k==='cmi.core.entry')return store['cmi.core.lesson_status']?'resume':'ab-initio';
+        if(k==='cmi.interactions._count')return String(store.__ic||0);
+        if(Object.prototype.hasOwnProperty.call(store,k))return store[k];
+        if(Object.prototype.hasOwnProperty.call(defaults,k))return defaults[k];
+        return '';},
+      LMSSetValue:function(k,v){err='0';store[k]=String(v);
+        var mt=/^cmi\.interactions\.(\d+)\.id$/.exec(k); if(mt){store.__ic=Math.max(store.__ic||0,parseInt(mt[1],10)+1);}
+        return 'true';},
+      LMSCommit:function(){persist();err='0';return 'true';},
+      LMSGetLastError:function(){return err;},LMSGetErrorString:function(){return '';},LMSGetDiagnostic:function(){return '';}
+    };
+  }
+  function note(fn,k,v,r){ log.push({fn:fn,k:k,v:v,r:r}); if(log.length>60)log.shift(); if(listener)listener(); }
+  function init(){
+    api=findAPI(window);
+    if(!api){ try{ if(window.opener&&!window.opener.closed)api=findAPI(window.opener); }catch(e){} }
+    if(!api){ api=createMock(); mock=true; }
+    var r=String(api.LMSInitialize(''));
+    initialized=(r==='true'); note('LMSInitialize','""','',r);
+    icount=parseInt(get('cmi.interactions._count'),10)||0;
+    return initialized;
+  }
+  function get(k){ if(!api)return ''; var r=String(api.LMSGetValue(k)); note('LMSGetValue',k,'',r); return r; }
+  function set(k,v){ if(!api||finished)return 'false'; var r=String(api.LMSSetValue(k,String(v))); note('LMSSetValue',k,String(v),r); return r; }
+  function commit(){ if(!api||finished)return 'false'; var r=String(api.LMSCommit('')); note('LMSCommit','""','',r); return r; }
+  function timeSpan(ms){ var s=Math.floor(ms/1000); return pad(Math.floor(s/3600),4)+':'+pad(Math.floor((s%3600)/60),2)+':'+pad(s%60,2)+'.00'; }
+  function clock(){ var d=new Date(); return pad(d.getHours(),2)+':'+pad(d.getMinutes(),2)+':'+pad(d.getSeconds(),2); }
+  function terminate(exitValue){
+    if(finished||!initialized)return;
+    set('cmi.core.session_time',timeSpan(Date.now()-start));
+    if(exitValue!==undefined)set('cmi.core.exit',exitValue);
+    commit(); var r=String(api.LMSFinish('')); note('LMSFinish','""','',r); finished=true;
+  }
+  return {init:init,get:get,set:set,commit:commit,terminate:terminate,clock:clock,timeSpan:timeSpan,
+    isMock:function(){return mock;},isFinished:function(){return finished;},
+    elapsed:function(){return Date.now()-start;},
+    nextInteraction:function(){return icount++;},
+    getLog:function(){return log;},onLog:function(f){listener=f;}};
+})();
+
+/* ================= VISTA TÉCNICA SCORM ================= */
+
+
+/* ================= CONFIGURACIÓN Y CONTENIDO ================= */
+var CONFIG={ storageKey:'pn-diepo-ova-infografia-franjas-v1' };
+var OVA=JSON.parse(document.getElementById('ova-content').textContent);
+var B=OVA.bloques, N=B.length;
+
+/* Colores de las cuatro formaciones juntos; las franjas los alternan. Sin lima ni fondos grises. */
+var COL=[['#00665F','#FFFFFF'],['#08A6CB','#151B3B'],['#1C45B4','#FFFFFF'],['#22335D','#FFFFFF']];
+B.forEach(function(b,i){ b.c=COL[i%COL.length][0]; b.cf=COL[i%COL.length][1]; b.num=pad(i+1,2); });
+
+var ICONOS={
+  libro:'<path d="M4 5.5h6a3 3 0 0 1 3 3V20a2.5 2.5 0 0 0-2.5-2.5H4z"/><path d="M20 5.5h-6a3 3 0 0 0-3 3"/><path d="M20 5.5v12h-6.5A2.5 2.5 0 0 0 11 20"/>',
+  lupa:'<circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5.5 5.5"/><path d="M8 10.5h5M10.5 8v5"/>',
+  balanza:'<path d="M12 4v15M7 19.5h10M5 7.5h14"/><path d="M5 7.5L2.5 13.5a2.8 2.8 0 0 0 5.5 0zM19 7.5L16 13.5a2.8 2.8 0 0 0 5.5 0z"/>',
+  grafica:'<path d="M4 20V4M4 20h16"/><path d="M8 16v-4M12 16V8M16 16v-6M20 16v-9"/>',
+  objetivo:'<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/><path d="M12 3V1M12 23v-2M3 12H1M23 12h-2"/>',
+  validar:'<circle cx="12" cy="12" r="9"/><path d="M7.5 12.5l3 3 6-6.5"/>',
+  lista:'<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1.2"/><circle cx="4.5" cy="12" r="1.2"/><circle cx="4.5" cy="18" r="1.2"/>'
+};
+
+function svgIcono(nombre){ return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">'+(ICONOS[nombre]||ICONOS.lista)+'</svg>'; }
+var PALOMA='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+
+/* ================= ESTADO ================= */
+var state={v:1,i:0,vis:{},done:0};
+var saveT=null;
+function save(now){
+  clearTimeout(saveT);
+  function run(){
+    if(Scorm.isFinished())return;
+    Scorm.set('cmi.suspend_data',JSON.stringify(state));
+    Scorm.set('cmi.core.lesson_location',B[state.i].id);
+    Scorm.commit();
+  }
+  if(now){run();}else{saveT=setTimeout(run,700);}
+}
+function visitedCount(){ return Object.keys(state.vis).length; }
+
+/* ================= FRANJAS ================= */
+function construir(){
+  var h='';
+  B.forEach(function(b,i){
+    h+='<article class="tira" data-k="'+i+'" style="--c:'+b.c+';--cf:'+b.cf+';--i:'+i+'">'
+      +'<button type="button" class="mini" aria-label="Abrir el bloque '+(i+1)+': '+esc(b.nombre)+'" aria-expanded="false">'
+        +'<span class="m-num" aria-hidden="true">'+b.num+'</span><span class="m-ic" aria-hidden="true">'+svgIcono(b.icono)+'</span>'
+        +'<span class="m-tit" aria-hidden="true"><span>'+esc(b.nombre)+'</span></span><span class="m-ok" aria-hidden="true">'+PALOMA+'</span></button>'
+      +'<div class="int" role="region" aria-label="Bloque '+(i+1)+': '+esc(b.nombre)+'">'
+        +'<div class="cab"><span class="c-num" style="--k:0" aria-hidden="true">'+b.num+'</span><div class="c-t" style="--k:1"><small>Bloque '+(i+1)+' de '+N+'</small><h2>'+esc(b.nombre)+'</h2></div><span class="c-ic" style="--k:2" aria-hidden="true">'+svgIcono(b.icono)+'</span></div>'
+        +'<div class="hoja"><div class="cuerpo">'
+          +'<div class="idea" style="--k:0"><b>Idea central</b><span>'+esc(b.idea)+'</span></div>'
+          +'<p class="txt" style="--k:1">'+esc(b.p1)+'</p>'
+          +(b.p2?'<p class="txt" style="--k:2">'+esc(b.p2)+'</p>':'')
+          +'<ul class="puntos" aria-label="Puntos clave">'+b.puntos.map(function(x,j){ return '<li class="punto" style="--j:'+j+'"><i aria-hidden="true">'+(j+1)+'</i><div><b>'+esc(x.t)+'</b> '+esc(x.d)+'</div></li>'; }).join('')+'</ul>'
+          +'<div class="pregunta" style="--k:4"><i aria-hidden="true">?</i><p><b>Para pensar:</b> '+esc(b.pregunta)+'</p></div>'
+        +'</div>'
+        +'<div class="pie"><button type="button" class="btn-ln flecha-iz" data-ir="-1">Anterior</button><span class="pasos">Bloque '+(i+1)+' de '+N+'</span><button type="button" class="pill flecha-dr" data-ir="1">Continuar</button></div></div>'
+      +'</div></article>';
+  });
+  $('#fila').innerHTML=h;
+  var dots=$('#dots'); dots.innerHTML=''; for(var k=0;k<N;k++)dots.appendChild(document.createElement('i')); dots.setAttribute('aria-valuemax',N);
+}
+function medir(){
+  var f=$('#fila'), narrow=window.innerWidth<=820, gap=narrow?6:10, wmin=48;
+  if(!narrow){ var t=document.createElement('div'); t.style.cssText='position:absolute;visibility:hidden;width:var(--wmin)'; f.appendChild(t); wmin=t.offsetWidth; f.removeChild(t); }
+  f.style.setProperty('--wact',Math.max(260,f.clientWidth-(N-1)*(wmin+gap))+'px');
+  f.style.setProperty('--hact',Math.max(220,f.clientHeight-(N-1)*(wmin+gap))+'px');
+}
+/* el texto se ajusta solo (hasta 1,4 veces su tamaño base) para llenar la hoja sin que sobre ni falte contenido */
+function ajustarTexto(){
+  var c=$('.tira.act .cuerpo'); if(!c)return;
+  if(window.innerWidth<=820){ c.style.setProperty('--fs',1); return; }
+  var fs=1.4; c.style.setProperty('--fs',fs);
+  while(c.scrollHeight>c.clientHeight+1&&fs>.74){ fs=Math.round((fs-.03)*100)/100; c.style.setProperty('--fs',fs); }
+  c.style.overflowY=(c.scrollHeight>c.clientHeight+1)?'auto':'hidden';
+}
+function renderProgress(){
+  var d=visitedCount();
+  $$('#dots i').forEach(function(el,k){ el.setAttribute('data-v',state.vis[k]?'1':'0'); el.setAttribute('data-c',k===state.i?'1':'0'); });
+  var pr=$('#dots'); pr.setAttribute('aria-valuenow',d); pr.setAttribute('aria-valuetext',d+' de '+N+' bloques visitados');
+  $('#prog-text').textContent=d+' de '+N;
+  $$('#fila .tira').forEach(function(t,k){
+    t.setAttribute('data-v',state.vis[k]?'1':'0');
+    t.classList.toggle('act',k===state.i);
+    $('.mini',t).setAttribute('aria-expanded',k===state.i?'true':'false');
+  });
+  $$('#fila [data-ir="-1"]').forEach(function(b){ b.disabled=(state.i===0); });
+  $$('#fila [data-ir="1"]').forEach(function(b){ b.disabled=(state.i===N-1); });
+  ajustarTexto();
+}
+function evaluate(){
+  var all=(visitedCount()>=N), prev=Scorm.get('cmi.core.lesson_status');
+  if(all){ Scorm.set('cmi.core.lesson_status','completed'); }
+  else if(!prev||prev==='not attempted'){ Scorm.set('cmi.core.lesson_status','incomplete'); }
+}
+function goBloque(i,opts){
+  opts=opts||{};
+  i=Math.max(0,Math.min(N-1,i));
+  var changed=(i!==state.i)||opts.force;
+  state.i=i; state.vis[i]=1;
+  renderProgress();
+  if(opts.user)$('#pista').classList.add('oculto');
+  if(!opts.silent&&changed)announce('Bloque '+(i+1)+': '+B[i].nombre+'.');
+  var wasDone=state.done;
+  if(visitedCount()>=N&&!state.done){ state.done=1; var t=$('#toast'); t.hidden=false; setTimeout(function(){t.hidden=true;},3600); announce('Recorrido completo: visitaste los '+N+' bloques.'); }
+  evaluate();
+  if(state.done&&!wasDone)save(true); else save();
+}
+
+/* ================= VENTANAS EMERGENTES ================= */
+var lastOpener=null;
+function openModal(title,html){
+  var dlg=$('#modal'); $('#modal-title').textContent=title; $('#modal-body').innerHTML=html;
+  lastOpener=document.activeElement;
+  dlg.onclose=function(){ var o=lastOpener; if(o&&o.focus&&document.contains(o))setTimeout(function(){o.focus();},0); };
+  if(dlg.showModal){ try{dlg.showModal();}catch(e){dlg.setAttribute('open','');} } else { dlg.setAttribute('open',''); }
+  $('#modal-title').focus();
+}
+function closeModal(){ var dlg=$('#modal'); if(dlg.close&&dlg.open){dlg.close();}else{dlg.removeAttribute('open'); if(dlg.onclose)dlg.onclose();} }
+function helpHTML(){
+  return '<ul class="bul"><li><strong>Pulsa una franja</strong> de color: se abre y ocupa casi toda la pantalla con su explicación; las demás se hacen angostas.</li><li>Con <strong>Anterior</strong> y <strong>Continuar</strong>, o con las flechas del teclado, recorres los bloques en orden.</li><li>Las franjas que ya abriste quedan marcadas con una palomita; las que faltan laten suavemente.</li><li>Arriba ves cuántos bloques llevas.</li></ul>';
+}
+function endSession(){
+  if(Scorm.isFinished())return;
+  save(true); var st=Scorm.get('cmi.core.lesson_status');
+  Scorm.terminate((st==='passed'||st==='completed'||st==='failed')?'':'suspend');
+}
+
+/* ================= EVENTOS ================= */
+function initEventos(){
+  $('#fila').addEventListener('click',function(e){
+    var m=e.target.closest?e.target.closest('.mini'):null;
+    if(m){ goBloque(parseInt(m.parentNode.getAttribute('data-k'),10),{user:true}); return; }
+    var b=e.target.closest?e.target.closest('[data-ir]'):null;
+    if(b)goBloque(state.i+parseInt(b.getAttribute('data-ir'),10),{user:true});
+  });
+  document.addEventListener('click',function(e){ var t=e.target.closest?e.target.closest('[data-modal="help"]'):null; if(t)openModal('Ayuda',helpHTML()); });
+  $('#modal-close').addEventListener('click',closeModal);
+  $('#modal').addEventListener('click',function(e){ if(e.target===$('#modal'))closeModal(); });
+  document.addEventListener('keydown',function(e){
+    if($('#modal').open)return;
+    if(e.key==='ArrowLeft'||e.key==='ArrowUp'){ e.preventDefault(); goBloque(state.i-1,{user:true}); }
+    else if(e.key==='ArrowRight'||e.key==='ArrowDown'){ e.preventDefault(); goBloque(state.i+1,{user:true}); }
+  });
+  window.addEventListener('resize',function(){ medir(); ajustarTexto(); });
+}
+
+/* ================= INICIO ================= */
+function init(){
+  Scorm.init();
+  try{ var raw=Scorm.get('cmi.suspend_data'); if(raw){ var o=JSON.parse(raw); if(o&&o.v===1)deepAssign(state,o); } }catch(e){}
+  state.i=Math.max(0,Math.min(N-1,state.i||0));
+  $('#h1').textContent=OVA.meta.title; $('#titulo').textContent=OVA.meta.title; document.title=OVA.meta.title;
+  construir(); medir(); initEventos();
+  if(visitedCount()>1)$('#pista').classList.add('oculto');
+  goBloque(state.i,{silent:true,force:true});
+  window.addEventListener('pagehide',function(){ if(!Scorm.isFinished())endSession(); });
+  window.addEventListener('beforeunload',function(){ if(!Scorm.isFinished())endSession(); });
+  save(true);
+}
+if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',init);}else{init();}
+})();
+
+</script>
+</body>
+</html>

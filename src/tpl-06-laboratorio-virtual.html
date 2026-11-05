@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{TITULO}}</title>
+<style>/*CSS*/</style>
+<style>
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.tabs button{font:inherit;cursor:pointer;border:2px solid var(--brand);background:#fff;color:var(--brand2);border-radius:10px 10px 0 0;padding:8px 16px;font-weight:700}
+.tabs button.on{background:var(--brand);color:#fff}
+.tabs button.vis:not(.on){border-color:var(--ok);background:var(--okbg)}
+.ctl{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin-top:8px}
+.ctl div{background:#e8eeec;border-radius:10px;padding:8px 12px;font-size:.93rem}
+.stepper{display:flex;gap:8px;flex-wrap:wrap;list-style:none;padding:0;margin:0 0 14px}
+.stepper li{flex:1 1 140px;border:2px solid #ccd6d1;border-radius:12px;padding:8px 12px;background:#fff;font-weight:600;display:flex;gap:8px;align-items:center}
+.stepper li.cur{border-color:var(--accent);background:#f7f1dc}
+.stepper li.ok{border-color:var(--ok);background:var(--okbg)}
+.stepper li.lock{opacity:.55}
+.cust{display:grid;grid-template-columns:auto 1fr 220px;gap:14px;align-items:center;margin-bottom:14px}
+.cust .av{width:52px;height:52px;border-radius:50%;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;filter:none!important}
+.bub{background:#e8eeec;border-radius:16px 16px 16px 4px;padding:10px 14px;position:relative;font-style:italic}
+.mood b{display:block;font-size:.85rem}
+.mood .bar>i{transition:width .6s,background .6s}
+.mood .em{font-size:1.8rem}
+.lab{display:grid;grid-template-columns:1fr 1.2fr;gap:16px;align-items:start}
+.desk{background:linear-gradient(160deg,#2a2563,#3b2bb5);color:#fff;border-radius:24px;padding:16px;box-shadow:var(--shadow)}
+.desk h3{margin:0 0 4px;color:#fff}
+.desk .sub{opacity:.75;font-size:.85rem;margin:0 0 10px}
+.ticket{background:#fbfaf3;color:var(--ink);border-radius:10px;padding:10px 14px;border-left:8px solid var(--accent)}
+.ticket .it{padding:8px 0;border-bottom:1px dashed #e6dcc0}
+.ticket .it:last-child{border:0}
+.ticket .top2{display:flex;gap:10px;align-items:flex-start}
+.ticket .top2 label{flex:1;font-weight:400;display:flex;gap:10px;align-items:flex-start}
+.ticket input{width:22px;height:22px;margin-top:1px}
+.ticket .insp{font:inherit;cursor:pointer;border:1.5px solid var(--brand);background:#fff;color:var(--brand2);border-radius:8px;padding:2px 8px;font-size:.85rem}
+.ticket .det{margin:6px 0 0 32px;font-size:.9rem;color:#5a4a1a;background:#f1e8c4;border-radius:8px;padding:5px 10px}
+.ticket .rel{background:#efe3b0;border-radius:6px;padding:0 4px;font-weight:700}
+.panel{background:#fff;border:1px solid var(--line);border-radius:24px;padding:20px;box-shadow:var(--shadow)}
+.opts{display:grid;gap:10px;margin:10px 0}
+.opt{font:inherit;text-align:left;cursor:pointer;border:2px solid #c3cfc9;background:#fff;border-radius:12px;padding:12px 14px}
+.opt.sel{border-color:var(--brand);background:#e6eeea;box-shadow:0 0 0 3px rgba(15,77,58,.2)}
+.opt:disabled{cursor:default}
+.ord{list-style:none;margin:10px 0;padding:0;display:grid;gap:8px}
+.ord li{display:flex;gap:10px;align-items:center;border:2px solid #c3cfc9;border-radius:12px;padding:8px 12px;background:#fff}
+.ord li span.n{font-weight:800;color:var(--brand2)}
+.ord li .t{flex:1}
+.ord button{border:1px solid #c3cfc9;background:#f3f6fa;border-radius:8px;width:36px;height:34px;cursor:pointer;font-size:1rem}
+.res .fila{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line)}
+.lik{display:grid;grid-template-columns:1.6fr repeat(3,1fr);gap:6px;align-items:center;margin:6px 0;font-size:.95rem}
+.lik input{width:20px;height:20px;justify-self:center}
+@media(max-width:760px){.lab{grid-template-columns:1fr}.cust{grid-template-columns:auto 1fr}.cust .mood{grid-column:1/-1}.lik{grid-template-columns:1fr 1fr 1fr}.lik>span:first-child{grid-column:1/-1;font-weight:600}}
+</style>
+</head>
+<body>
+<!--
+  PLANTILLA · Laboratorio virtual + Simulación de caso
+  Interacción obligatoria: briefing en 3 pestañas → inspeccionar cada dato del ticket → decisiones en secuencia,
+  con una clienta cuyo estado de ánimo reacciona a cada decisión.
+  Rangos: 1 reto · 3–6 pasos · 2–4 puntos de decisión · retroalimentación por paso 25–40 palabras · 10–15 min.
+  Verifique con: node validar.js
+-->
+<header class="hero"><div class="in" id="hero"></div></header>
+<main class="wrap">
+  <section class="sec" id="intro" aria-labelledby="t-intro"></section>
+  <section class="sec" id="lab" aria-labelledby="t-lab"></section>
+  <section class="sec" id="fin" aria-labelledby="t-fin" hidden></section>
+</main>
+<footer id="foot"></footer>
+
+<script type="application/json" id="contenido">/*CONTENIDO*/</script>
+<script>/*LIB*/</script>
+<script>
+hero();
+const E=CFG.etapas,T=CFG.ticket,CL=CFG.cliente;
+const labSec=$('#lab');
+
+/* ---- Briefing: 3 pestañas que hay que leer ---- */
+(function(){
+  const paneles=[
+    ['Situación y objetivo',()=>h('div',{},h('p',{},CFG.contexto),h('h3',{},'Objetivo'),h('p',{},CFG.objetivo))],
+    ['Condiciones',()=>h('div',{},h('ul',{},CFG.condiciones.map(c=>h('li',{},c))),h('h3',{},'▶ Instrucciones iniciales'),h('p',{},CFG.instrucciones))],
+    ['Controles',()=>h('div',{},h('p',{},'Estos son los controles que usará en el laboratorio:'),h('div',{class:'ctl'},CFG.controles.map(c=>h('div',{},c.texto))))]
+  ];
+  const vis=new Set();
+  const body=h('div',{class:'card',role:'tabpanel','aria-live':'polite'});
+  const cnt=h('p',{class:'hint'});
+  const go=h('button',{class:'btn warn',disabled:true,onclick:()=>{go.disabled=true;go.textContent='✔ Briefing completo';addPts(10,'Briefing leído');ungate(labSec,'¡Laboratorio desbloqueado!')}},'Iniciar laboratorio');
+  const tb=h('div',{class:'tabs',role:'tablist'},paneles.map((p,i)=>h('button',{role:'tab',onclick:()=>sel(i)},p[0])));
+  function sel(i){
+    vis.add(i);$$('button',tb).forEach((b,k)=>{b.className=(k===i?'on ':'')+(vis.has(k)?'vis':'');b.setAttribute('aria-selected',String(k===i))});
+    body.replaceChildren(paneles[i][1]());
+    cnt.textContent='Pestañas leídas: '+vis.size+' de '+paneles.length;
+    go.disabled=vis.size<paneles.length||go.textContent.startsWith('✔');
+  }
+  $('#intro').append(h('h2',{id:'t-intro'},'Briefing del reto'),tb,body,cnt,h('div',{class:'row',style:'margin-top:10px'},go));
+  sel(0);
+})();
+
+/* ---- Laboratorio ---- */
+let cur=0,st,sel,orden,marks,insp,mood,chkBtn;
+const stepper=h('ol',{class:'stepper','aria-label':'Etapas del laboratorio'});
+const desk=h('div',{class:'desk'});
+const panel=h('div',{class:'panel','aria-live':'polite'});
+const bub=h('div',{class:'bub'});
+const moodBar=h('div',{class:'bar','aria-hidden':'true'},h('i'));
+const moodEm=h('span',{class:'em','aria-hidden':'true'});
+const moodTxt=h('b',{},'Estado de ánimo de la clienta');
+labSec.append(h('h2',{id:'t-lab'},'Área de trabajo'),
+  h('div',{class:'card cust'},h('div',{class:'av','aria-hidden':'true'},'MG'),h('div',{},h('b',{},CL.nombre),bub),h('div',{class:'mood'},moodTxt,h('div',{class:'row',style:'flex-wrap:nowrap'},moodEm,h('div',{style:'flex:1'},moodBar)))),
+  stepper,h('div',{class:'lab'},desk,panel));
+function setMood(delta,text){
+  if(delta!=null)mood=Math.max(0,Math.min(100,mood+delta));
+  const i=$('i',moodBar);i.style.width=mood+'%';i.style.background=mood<35?'#b3261e':mood<60?'#f4a100':'#1b7f4b';
+  moodEm.textContent=mood<35?'':mood<60?'':mood<85?'':'';
+  if(text)bub.textContent=text;
+}
+function reset(){
+  st=E.map(()=>({ok:false,tries:0}));cur=0;sel=null;marks=new Set();orden=null;insp=new Set();mood=20;
+  $('#fin').hidden=true;setMood(0,CL.saludo);render();if(labSec._acc&&!labSec._acc.locked)accOpen(labSec);
+}
+function renderStepper(){
+  stepper.replaceChildren(...E.map((e,i)=>h('li',{class:st[i].ok?'ok':i===cur?'cur':i>cur?'lock':'','aria-current':i===cur?'step':null},h('span',{'aria-hidden':'true'},st[i].ok?'✅':i>cur?'🔒':e.icono),(i+1)+'. '+e.nombre,e.decision?h('small',{class:'muted',title:'Punto de decisión'},' ◆'):null)));
+}
+function renderDesk(){
+  const body=h('div',{class:'ticket'});
+  const done=st[0].ok,active=cur===0&&!done;
+  T.datos.forEach(d=>{
+    if(active){
+      const cb=h('input',{type:'checkbox',id:d.id,disabled:!insp.has(d.id),'aria-label':d.texto});cb.checked=marks.has(d.id);
+      cb.onchange=()=>{cb.checked?marks.add(d.id):marks.delete(d.id)};
+      const det=h('div',{class:'det',hidden:!insp.has(d.id)},d.detalle);
+      const bi=h('button',{class:'insp',disabled:insp.has(d.id),onclick:()=>{insp.add(d.id);det.hidden=false;cb.disabled=false;bi.disabled=true;bi.textContent='✔ Visto';addPts(2);
+        if(chkBtn&&E[cur].clave==='observar')chkBtn.disabled=insp.size<T.datos.length;
+        if(insp.size===T.datos.length)toast('Ya puede marcar los datos relevantes y comprobar.')}},insp.has(d.id)?'✔ Visto':'Inspeccionar');
+      body.append(h('div',{class:'it'},h('div',{class:'top2'},h('label',{for:d.id},cb,d.texto),bi),det));
+    }else body.append(h('div',{class:'it'},h('span',{class:d.relevante?'rel':''},d.texto)));
+  });
+  desk.replaceChildren(h('h3',{},''+T.titulo),h('p',{class:'sub'},active?'1) Inspeccione cada dato (). 2) Marque solo los relevantes.':'Datos relevantes resaltados.'),body);
+}
+function render(){
+  renderStepper();renderDesk();
+  const e=E[cur],out=h('div',{'aria-live':'polite'});
+  const box=h('div');
+  box.append(h('h3',{style:'margin-top:0'},'Etapa '+(cur+1)+': '+e.nombre+(e.decision?' (punto de decisión)':'')),h('p',{},e.instruccion));
+  let get;
+  if(e.clave==='observar'){
+    box.append(h('p',{class:'hint'},'🔒 «Comprobar» se habilita cuando inspeccione los '+T.datos.length+' datos del ticket.'));
+    get=()=>{const rel=T.datos.filter(d=>d.relevante).map(d=>d.id).sort().join(),m=[...marks].sort().join();return rel===m};
+  }else if(e.opciones){
+    const bs=e.opciones.map((o,j)=>h('button',{class:'opt'+(sel===j?' sel':''),'aria-pressed':String(sel===j),onclick:()=>{sel=j;bs.forEach((b,k)=>{b.classList.toggle('sel',k===j);b.setAttribute('aria-pressed',String(k===j))})}},o.texto));
+    box.append(h('div',{class:'opts'},bs));
+    get=()=>sel==null?null:e.opciones[sel].ok;
+  }else if(e.acciones){
+    if(!orden){orden=e.acciones.map((_,i)=>i);do{orden=shuffle(orden)}while(orden.every((v,i)=>v===i))}
+    const ul=h('ol',{class:'ord'});
+    const draw=()=>{ul.replaceChildren(...orden.map((v,pos)=>h('li',{},
+      h('span',{class:'n'},(pos+1)+'.'),h('span',{class:'t'},e.acciones[v]),
+      h('button',{'aria-label':'Subir acción',disabled:pos===0,onclick:()=>{[orden[pos-1],orden[pos]]=[orden[pos],orden[pos-1]];draw()}},'▲'),
+      h('button',{'aria-label':'Bajar acción',disabled:pos===orden.length-1,onclick:()=>{[orden[pos+1],orden[pos]]=[orden[pos],orden[pos+1]];draw()}},'▼'))))};
+    draw();box.append(ul);
+    get=()=>orden.every((v,i)=>v===i);
+  }
+  const bChk=h('button',{class:'btn',onclick:()=>{
+    const r=get();
+    if(r===null){out.replaceChildren(fb('bad','Falta su selección','Elija una opción antes de comprobar.'));return}
+    if(e.clave==='observar'&&marks.size===0){out.replaceChildren(fb('bad','Falta su selección','Marque al menos un dato en el ticket antes de comprobar.'));return}
+    st[cur].tries++;
+    if(r){
+      const first=st[cur].tries===1;
+      st[cur].ok=true;bChk.disabled=true;renderStepper();renderDesk();
+      setMood(first?25:12,e.cliente.ok);addPts(first?10:5,first?'¡A la primera!':'Corregido');
+      out.replaceChildren(fb('ok','✔ Correcto · '+(first?'a la primera':'tras corregir'),e.retroOk),
+        h('div',{class:'row',style:'margin-top:10px'},h('button',{class:'btn',onclick:()=>{cur<E.length-1?(cur++,sel=null,render()):final()}},cur<E.length-1?'Continuar a la siguiente etapa →':'Ver resultado final')));
+    }else{setMood(-10,e.cliente.mal);panel.classList.add('shake');setTimeout(()=>panel.classList.remove('shake'),400);out.replaceChildren(fb('bad','✘ Aún no · puede corregir y volver a intentarlo',e.retroMal))}
+  }},'Comprobar');
+  if(e.clave==='observar')bChk.disabled=insp.size<T.datos.length;
+  chkBtn=bChk;
+  box.append(h('div',{class:'row'},bChk),out);
+  panel.replaceChildren(box);
+}
+function final(){
+  const pts=st.reduce((s,x)=>s+(x.tries===1?2:1),0),max=E.length*2,pct=pts/max;
+  const k=pct>=0.85?'alto':pct>=0.6?'medio':'bajo';
+  if(k==='alto')burst();
+  const f=$('#fin');f.hidden=false;f._acc=null;
+  f.replaceChildren(h('h2',{id:'t-fin'},'Resultado final'),
+    h('div',{class:'card res'},
+      h('h3',{style:'margin-top:0'},'Puntaje: '+pts+' de '+max+' ('+Math.round(pct*100)+' %) · Ánimo final de la clienta: '+moodEm.textContent),
+      h('div',{class:'bar','aria-hidden':'true'},h('i',{style:'width:'+pct*100+'%'})),
+      fb(k==='alto'?'ok':k==='medio'?'info':'bad','Valoración',CFG.resultado[k]),
+      h('h3',{},'Aciertos y aspectos por mejorar'),
+      ...E.map((e,i)=>h('div',{class:'fila'},h('span',{'aria-hidden':'true'},st[i].tries===1?'✅':''),h('div',{},h('b',{},e.nombre+': '),e.resumen+'. ',
+        h('span',{class:st[i].tries===1?'':'muted'},st[i].tries===1?'Acierto a la primera.':'Requirió '+st[i].tries+' intentos: conviene repasar este criterio.')))),
+      h('div',{class:'row',style:'margin-top:12px'},h('button',{class:'btn',onclick:()=>{reset();labSec.scrollIntoView({behavior:'smooth'})}},'⟲ Repetir el laboratorio'))),
+    autoeval());
+  accWrap(f);accOpen(f);
+}
+function autoeval(){
+  const A=CFG.autoevaluacion,val=A.afirmaciones.map(()=>null);
+  const out=h('div',{'aria-live':'polite'});
+  const rows=A.afirmaciones.map((a,i)=>h('div',{class:'lik',role:'radiogroup','aria-label':a},h('span',{},a),
+    A.niveles.map((n,j)=>h('label',{style:'display:flex;flex-direction:column;align-items:center;font-weight:400;font-size:.8rem'},h('input',{type:'radio',name:'au'+i,value:j,onchange:()=>val[i]=j}),n))));
+  const ta=h('textarea',{'aria-label':A.pregunta,placeholder:'Escriba su respuesta…'});
+  return h('div',{class:'card',style:'margin-top:16px'},h('h3',{style:'margin-top:0'},''+A.titulo),
+    ...rows,h('label',{style:'display:block;margin-top:10px'},A.pregunta),ta,
+    h('div',{class:'row',style:'margin-top:10px'},h('button',{class:'btn',onclick:()=>{
+      if(val.some(v=>v==null)){out.replaceChildren(fb('bad','Falta responder','Valore las tres afirmaciones para ver su resumen.'));return}
+      const bajos=A.afirmaciones.filter((a,i)=>val[i]<2);
+      out.replaceChildren(bajos.length?fb('info','Resumen de su autoevaluación','Conviene reforzar: '+bajos.join(' ')+' Repita el laboratorio para practicar estos puntos.'):fb('ok','Resumen de su autoevaluación','Se siente seguro en los tres criterios. Aplique lo practicado en su próxima atención real y compártalo con su equipo.'));
+    }},'Ver mi autoevaluación')),out);
+}
+reset();
+gate(labSec,'Lea las 3 pestañas del briefing para desbloquear el laboratorio.');
+accAll();
+</script>
+</body>
+</html>

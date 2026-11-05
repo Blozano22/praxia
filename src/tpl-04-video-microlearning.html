@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{TITULO}}</title>
+<style>/*CSS*/</style>
+<style>
+.stage{position:relative;aspect-ratio:16/9;border-radius:16px;overflow:hidden;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:16px 16px 70px;background:linear-gradient(135deg,#1f5c47,hsl(calc(var(--h) + 40),60%,40%));transition:background .6s}
+.stage:before,.stage:after{content:"";position:absolute;border-radius:50%;background:rgba(255,255,255,.05)}
+.stage:before{width:60%;aspect-ratio:1;right:-12%;top:-30%}
+.stage:after{width:40%;aspect-ratio:1;left:-8%;bottom:-25%}
+.scn{position:absolute;top:10px;left:14px;font-size:.8rem;letter-spacing:.06em;text-transform:uppercase;background:rgba(0,0,0,.25);padding:3px 10px;border-radius:99px}
+.ico{font-size:clamp(3rem,12vw,6rem);font-weight:800;color:#e9d9a1;letter-spacing:.04em;filter:none!important;line-height:1;filter:drop-shadow(0 6px 10px rgba(0,0,0,.3));animation:pop .6s both}
+.rot{position:relative;font-size:clamp(1.2rem,4.4vw,2.4rem);font-weight:800;margin-top:10px;max-width:90%;line-height:1.15;animation:slide .5s both}
+@keyframes pop{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes slide{from{transform:translateY(14px);opacity:0}to{transform:none;opacity:1}}
+.pasos{position:relative;display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:12px}
+.pasos span{padding:4px 12px;border-radius:99px;border:2px solid rgba(255,255,255,.5);font-weight:700;font-size:clamp(.7rem,2.4vw,1rem);opacity:.6;transition:all .3s}
+.pasos span.on{background:var(--accent);border-color:var(--accent);color:#2b1d00;opacity:1;transform:scale(1.12)}
+.pasos span.done{opacity:1;border-color:#9be3b5}
+.sub{position:absolute;left:0;right:0;bottom:0;padding:10px 14px;background:rgba(0,0,0,.72);font-size:clamp(.8rem,2.4vw,1.1rem);min-height:58px;display:flex;align-items:center;justify-content:center}
+.sub.off{visibility:hidden}
+.poster{position:absolute;inset:0;background:rgba(10,20,40,.7);display:flex;flex-direction:column;gap:12px;align-items:center;justify-content:center;padding:20px}
+.poster h2{color:#fff;margin:0;font-size:clamp(1.1rem,3.6vw,1.9rem)}
+.poster[hidden]{display:none}
+.big{font-size:2.2rem;width:78px;height:78px;border-radius:50%;border:0;background:var(--accent);cursor:pointer}
+.ctrl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
+.ctrl button{min-width:44px}
+.pg{flex:1 1 180px;height:14px;background:#dfe7f1;border-radius:99px;overflow:hidden;cursor:pointer}
+.pg i{display:block;height:100%;width:0;background:var(--brand);transition-property:width;transition-timing-function:linear}
+.cap{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.cap button{font:inherit;cursor:pointer;border:2px solid #c3cfc9;background:#fff;border-radius:10px;padding:5px 12px;font-size:.88rem}
+.cap button.on{border-color:var(--brand);background:#e6eeea;font-weight:700}
+.q{border-top:1px solid var(--line);padding:14px 0}
+.q fieldset{border:0;padding:0;margin:0}
+.q legend{font-weight:700;padding:0;margin-bottom:6px}
+.q label{display:flex;gap:10px;align-items:flex-start;font-weight:400;padding:5px 0;cursor:pointer}
+.q input[type=radio]{width:20px;height:20px;margin-top:3px}
+.relrow{display:grid;grid-template-columns:140px 1fr;gap:10px;align-items:center;margin:6px 0}
+@media(max-width:560px){.relrow{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<!--
+  PLANTILLA · Video de microlearning + Cuestionario con retroalimentación
+  Guion total: 250–450 palabras (se calcula con node validar.js) · duración 2–4 min · 3–5 pasos en la demostración.
+  El «video» es una pieza animada con narración (voz opcional del navegador) y subtítulos; para usar un video real,
+  sustituya el escenario por una etiqueta <video> con pista de subtítulos .vtt y conserve el cuestionario.
+-->
+<header class="hero"><div class="in" id="hero"></div></header>
+<main class="wrap">
+  <section class="sec" id="video" aria-labelledby="t-video"></section>
+  <section class="sec" id="guion" aria-labelledby="t-guion"></section>
+  <section class="sec" id="act" aria-labelledby="t-act"></section>
+</main>
+<footer id="foot"></footer>
+
+<script type="application/json" id="contenido">/*CONTENIDO*/</script>
+<script>/*LIB*/</script>
+<script>
+hero();
+const SC=CFG.escenas;
+/* Línea de cues: palabras → duración */
+const cues=[];let acc=0;
+SC.forEach((sc,si)=>sc.cues.forEach(c=>{const d=words(c.texto)/CFG.velocidad+CFG.pausa;cues.push({si,c,d,t0:acc});acc+=d}));
+const TOTAL=acc;
+const fmt=s=>{s=Math.round(s);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
+
+(function(){
+  let k=-1,playing=false,timer=null,cc=true,voice=false,ended=false;
+  const stage=h('div',{class:'stage',style:'--h:200','aria-live':'off'});
+  const scn=h('span',{class:'scn'});
+  const ico=h('div',{class:'ico','aria-hidden':'true'});
+  const rot=h('div',{class:'rot'});
+  const pasos=h('div',{class:'pasos','aria-hidden':'true'});
+  const sub=h('div',{class:'sub',role:'status'});
+  const bPlay=h('button',{class:'big','aria-label':'Reproducir video',onclick:()=>{ended||k<0?start(0):toggle()}},'▶');
+  const poster=h('div',{class:'poster'},h('h2',{},CFG.titulo),bPlay,h('p',{style:'margin:0'},'Duración aproximada: '+fmt(TOTAL)+' min'));
+  stage.append(scn,ico,rot,pasos,sub,poster);
+
+  const pgI=h('i');
+  const pg=h('div',{class:'pg',role:'slider','aria-label':'Progreso del video','aria-valuemin':'0','aria-valuemax':'100','aria-valuenow':'0',tabindex:'0',
+    onclick:e=>{const r=pg.getBoundingClientRect();seek((e.clientX-r.left)/r.width*TOTAL)}});
+  pg.append(pgI);
+  const time=h('span',{class:'muted'},'0:00 / '+fmt(TOTAL));
+  const bTog=h('button',{class:'btn',onclick:()=>{ended||k<0?start(0):toggle()},'aria-label':'Reproducir o pausar'},'▶ Reproducir');
+  const bRe=h('button',{class:'btn sec',onclick:()=>start(0),'aria-label':'Reiniciar video'},'⟲');
+  const bCC=h('button',{class:'btn sec','aria-pressed':'true',onclick:()=>{cc=!cc;sub.classList.toggle('off',!cc);bCC.setAttribute('aria-pressed',cc);bCC.textContent=cc?'CC activados':'CC apagados'}},'CC activados');
+  const bVo=h('button',{class:'btn sec','aria-pressed':'false',onclick:()=>{
+    if(!('speechSynthesis' in window)){alert('Su navegador no ofrece voz sintetizada; use los subtítulos.');return}
+    voice=!voice;bVo.setAttribute('aria-pressed',voice);bVo.textContent=voice?'Voz activada':'Voz apagada';
+    if(playing){clearTimeout(timer);speechSynthesis.cancel();cue(k)}
+  }},'Voz apagada');
+  const cap=h('div',{class:'cap','aria-label':'Escenas del video'},SC.map((sc,i)=>h('button',{'data-s':i,onclick:()=>seekScene(i)},sc.titulo)));
+
+  function setPlay(p){playing=p;bPlay.textContent=p?'⏸':'▶';bTog.textContent=p?'⏸ Pausar':'▶ Reproducir'}
+  function cue(i){
+    clearTimeout(timer);if('speechSynthesis' in window)speechSynthesis.cancel();
+    if(i>=cues.length){finish();return}
+    k=i;const q=cues[i],sc=SC[q.si];
+    poster.hidden=true;ended=false;
+    stage.style.setProperty('--h',sc.tono);
+    scn.textContent='Escena '+(q.si+1)+' · '+sc.titulo;
+    const nuevaEscena=ico.textContent!==String(q.si+1).padStart(2,'0');
+    ico.textContent=String(q.si+1).padStart(2,'0');if(nuevaEscena){ico.style.animation='none';void ico.offsetWidth;ico.style.animation=''}
+    rot.textContent=q.c.rotulo;rot.style.animation='none';void rot.offsetWidth;rot.style.animation='';
+    sub.textContent=q.c.texto;
+    pasos.replaceChildren();
+    if(sc.mostrarPasos)CFG.pasos.forEach((p,n)=>pasos.append(h('span',{class:q.c.paso===n?'on':(q.c.paso!=null&&n<q.c.paso)||q.c.paso==null?'done':''},(n+1)+'. '+p)));
+    $$('.cap button',cap).forEach(b=>b.classList.toggle('on',+b.dataset.s===q.si));
+    pgI.style.transitionDuration='0s';pgI.style.width=(q.t0/TOTAL*100)+'%';void pgI.offsetWidth;
+    if(playing){pgI.style.transitionDuration=q.d+'s';pgI.style.width=((q.t0+q.d)/TOTAL*100)+'%'}
+    pg.setAttribute('aria-valuenow',Math.round(q.t0/TOTAL*100));
+    time.textContent=fmt(q.t0)+' / '+fmt(TOTAL);
+    if(!playing)return;
+    if(voice&&'speechSynthesis' in window){
+      const u=new SpeechSynthesisUtterance(q.c.texto);u.lang='es-ES';u.rate=1;
+      let done=false;const nx=()=>{if(!done){done=true;clearTimeout(timer);if(playing)cue(i+1)}};
+      u.onend=nx;u.onerror=nx;speechSynthesis.speak(u);timer=setTimeout(nx,q.d*1000+6000);
+    }else timer=setTimeout(()=>cue(i+1),q.d*1000);
+  }
+  function start(i){setPlay(true);cue(i)}
+  function toggle(){
+    if(playing){setPlay(false);clearTimeout(timer);if('speechSynthesis' in window)speechSynthesis.cancel();pgI.style.transitionDuration='0s';pgI.style.width=(cues[k].t0/TOTAL*100)+'%'}
+    else{setPlay(true);cue(Math.max(k,0))}
+  }
+  function seek(t){let i=0;cues.forEach((q,n)=>{if(q.t0<=t)i=n});setPlay(true);cue(i)}
+  function seekScene(si){const i=cues.findIndex(q=>q.si===si);setPlay(true);cue(i);stage.scrollIntoView({behavior:'smooth',block:'center'})}
+  function finish(){
+    setPlay(false);ended=true;k=cues.length-1;
+    pgI.style.transitionDuration='0s';pgI.style.width='100%';time.textContent=fmt(TOTAL)+' / '+fmt(TOTAL);
+    poster.hidden=false;poster.replaceChildren(h('h2',{},'Fin del video'),
+      h('div',{class:'row'},h('button',{class:'btn warn',onclick:()=>start(0)},'⟲ Ver de nuevo'),h('a',{class:'btn',href:'#act',style:'text-decoration:none',onclick:()=>{poster.hidden=true}},'Ir a la actividad ↓')));
+  }
+  window.__seekScene=seekScene;
+  $('#video').append(h('h2',{id:'t-video'},'Video'),h('div',{class:'card'},
+    h('p',{style:'margin-top:0'},h('b',{},'Objetivo de aprendizaje: '),CFG.objetivo),
+    stage,h('div',{class:'ctrl'},bTog,bRe,pg,time),h('div',{class:'ctrl'},bCC,bVo),cap));
+})();
+
+/* Guion completo (transcripción accesible) */
+$('#guion').append(h('details',{class:'card'},h('summary',{style:'cursor:pointer;font-weight:700'},'Ver transcripción completa del video'),
+  SC.map(sc=>h('div',{},h('h3',{},sc.titulo),sc.cues.map(c=>h('p',{},c.texto))))));
+
+/* ---- Actividad: cuestionario ---- */
+(function(){
+  const A=CFG.actividad,root=$('#act');
+  const res=[];let n=0;
+  const cont=h('div');
+  const sum=h('div',{'aria-live':'polite'});
+  const bar=h('div',{class:'bar','aria-hidden':'true'},h('i'));
+  const qs=A.preguntas.map((p,i)=>{
+    const out=h('div',{'aria-live':'polite'});
+    let get,body;
+    if(p.tipo==='rel'){
+      const opts=shuffle(p.pares.map(x=>x.der));
+      const sels=p.pares.map((x,j)=>h('select',{id:'r'+i+'_'+j,'aria-label':'Acción para '+x.izq},h('option',{value:''},'Seleccione…'),opts.map(o=>h('option',{value:o},o))));
+      body=h('div',{},p.pares.map((x,j)=>h('div',{class:'relrow'},h('label',{for:'r'+i+'_'+j},x.izq),sels[j])));
+      get=()=>sels.every(s=>s.value)?sels.every((s,j)=>s.value===p.pares[j].der):null;
+    }else{
+      const rs=p.opciones.map((o,j)=>h('input',{type:'radio',name:'q'+i,id:'q'+i+'_'+j,value:j}));
+      body=h('div',{},p.opciones.map((o,j)=>h('label',{for:'q'+i+'_'+j},rs[j],o)));
+      get=()=>{const c=rs.find(r=>r.checked);return c?+c.value===p.correcta:null};
+    }
+    const btn=h('button',{class:'btn',onclick:()=>{
+      const r=get();
+      if(r===null){out.replaceChildren(fb('bad','Falta responder','Seleccione una respuesta antes de comprobar.'));return}
+      res[i]=r;btn.disabled=true;$$('input,select',box).forEach(x=>x.disabled=true);
+      out.replaceChildren(fb(r?'ok':'bad',r?'✔ Respuesta correcta':'✘ Respuesta incorrecta',r?p.retroOk:p.retroMal));
+      n++;$('i',bar).style.width=(n/A.preguntas.length*100)+'%';
+      if(n===A.preguntas.length)final();
+    }},'Responder');
+    const box=h('div',{class:'q'},h('fieldset',{},h('legend',{},(i+1)+'. '+(p.enunciado)),body),h('div',{class:'row',style:'margin-top:8px'},btn),out);
+    return box;
+  });
+  function final(){
+    const ok=res.filter(Boolean).length,tot=A.preguntas.length,pct=ok/tot;
+    const nivel=pct>=0.84?'alto':pct>=0.5?'medio':'bajo';
+    const rep=[...new Set(A.preguntas.map((p,i)=>res[i]?null:p.escena).filter(x=>x!=null))];
+    sum.replaceChildren(h('h3',{},'Resultado final: '+ok+' de '+tot),
+      fb(nivel==='alto'?'ok':nivel==='medio'?'info':'bad','Recomendación',A.resumen[nivel]),
+      rep.length?h('div',{},h('p',{},h('b',{},'Escenas que conviene repasar:')),h('div',{class:'row'},rep.map(si=>h('button',{class:'btn sec',onclick:()=>window.__seekScene(si)},'▶ '+SC[si].titulo)))):h('p',{},'No hay escenas pendientes de repaso. ¡Muy bien!'),
+      h('div',{class:'row',style:'margin-top:12px'},h('button',{class:'btn',onclick:()=>location.reload()},'Repetir el cuestionario')));
+  }
+  cont.append(...qs);
+  root.append(h('h2',{id:'t-act'},'Actividad de autoaprendizaje · '+A.nombre),
+    h('div',{class:'card'},h('p',{},h('b',{},'Propósito: '),A.proposito),h('p',{},A.instruccion),bar,cont,sum));
+})();
+</script>
+</body>
+</html>

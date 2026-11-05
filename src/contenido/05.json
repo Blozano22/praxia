@@ -1,0 +1,120 @@
+{
+  "id": "presentacion",
+  "tipo": "Presentación multimedia interactiva",
+  "titulo": "Atención al cliente: del primer contacto al cierre",
+  "duracion": "Duración estimada: 8 a 12 minutos",
+  "ruta": [
+    {"etiqueta": "Módulo 1 · Recibir y escuchar", "ir": 2},
+    {"etiqueta": "Módulo 2 · Registrar y clasificar", "ir": 4},
+    {"etiqueta": "Módulo 3 · Resolver y confirmar", "ir": 6},
+    {"etiqueta": "Caso práctico breve", "ir": 8},
+    {"etiqueta": "Actividad de autoaprendizaje", "ir": 10}
+  ],
+  "diapositivas": [
+    {
+      "tipo": "portada", "icono": "🎧", "tono": 200,
+      "titulo": "Atención al cliente: del primer contacto al cierre",
+      "texto": "Resultado de aprendizaje: al finalizar, usted será capaz de gestionar una solicitud de cliente aplicando escucha activa, registro completo, clasificación por prioridad, solución oportuna y cierre documentado, tomando decisiones fundamentadas en situaciones reales de su propia organización. Duración estimada: diez minutos."
+    },
+    {
+      "tipo": "indice", "icono": "🧭", "tono": 160,
+      "titulo": "Ruta de aprendizaje: tres módulos, un caso y una actividad",
+      "texto": "Esta presentación se recorre en orden, pero usted puede saltar a cualquier punto con los botones de la ruta. Cada módulo presenta una idea principal, un apoyo visual y un ejemplo aplicado. Al final encontrará un caso práctico breve y una actividad de toma de decisiones con retroalimentación."
+    },
+    {
+      "tipo": "contenido", "modulo": "Módulo 1 · Recibir y escuchar", "icono": "👂", "tono": 200,
+      "titulo": "Escuchar primero evita resolver el problema equivocado",
+      "texto": "La escucha activa consiste en dejar hablar al cliente, tomar nota de las palabras clave y reformular lo entendido con sus propias palabras. Solo cuando el cliente confirma que usted comprendió, conviene proponer una solución. Esto reduce errores, acorta el tiempo de atención y genera confianza desde el primer contacto.",
+      "ejemplo": "Ejemplo: «Si entiendo bien, su pedido llegó sin dos productos; ¿es correcto?»"
+    },
+    {
+      "tipo": "pregunta", "modulo": "Módulo 1 · Recibir y escuchar", "icono": "📞", "tono": 280,
+      "titulo": "Pregunta rápida: ¿qué haría usted primero?",
+      "texto": "Un cliente llama enojado y explica su problema muy rápido, con muchos detalles. Usted no alcanzó a entender qué productos faltan. Antes de ofrecer una solución, debe elegir la acción más adecuada para recuperar claridad y mantener la calma durante la conversación.",
+      "pregunta": "¿Qué acción elige?",
+      "opciones": [
+        {"texto": "Ofrecer un descuento para calmarlo", "ok": false, "retro": "Un descuento sin entender el problema no soluciona nada y puede parecer una forma de evadir la conversación."},
+        {"texto": "Reformular lo entendido y pedir que lo corrija", "ok": true, "retro": "Correcto: reformular permite confirmar la comprensión y ordenar la conversación sin confrontar al cliente."},
+        {"texto": "Transferir la llamada a otra área", "ok": false, "retro": "Transferir sin entender obliga al cliente a repetir todo y transmite que su caso no importa."}
+      ]
+    },
+    {
+      "tipo": "explorar", "modulo": "Módulo 2 · Registrar y clasificar", "icono": "📝", "tono": 160,
+      "titulo": "Registrar: seis datos que nunca pueden faltar",
+      "texto": "Un registro completo permite que otra persona continúe el caso sin volver a preguntar. Los datos esenciales son los que identifican al cliente, describen el problema y respaldan la solicitud. Toque cada dato para conocer por qué es importante y cómo anotarlo correctamente en el sistema.",
+      "elementos": [
+        {"etiqueta": "Contacto del cliente", "detalle": "Nombre y teléfono o correo permiten volver a comunicarse. Verifique que estén bien escritos antes de continuar."},
+        {"etiqueta": "Número de pedido", "detalle": "Identifica la compra exacta y evita confundir casos de un mismo cliente. Cópielo tal como aparece."},
+        {"etiqueta": "Fecha del hecho", "detalle": "Indica cuándo ocurrió el problema y permite calcular plazos y prioridad. Use el formato del sistema."},
+        {"etiqueta": "Descripción del problema", "detalle": "Resume qué pasó en pocas frases, sin juicios y con las palabras del cliente."},
+        {"etiqueta": "Evidencia", "detalle": "Fotos, facturas o capturas respaldan la solicitud y agilizan la decisión del área responsable."},
+        {"etiqueta": "Compromiso acordado", "detalle": "Registra qué se prometió y para cuándo. Es la base para dar seguimiento y cumplir el plazo."}
+      ]
+    },
+    {
+      "tipo": "contenido", "modulo": "Módulo 2 · Registrar y clasificar", "icono": "🗂️", "tono": 40,
+      "titulo": "Clasificar bien define quién responde y cuándo",
+      "texto": "Clasificar es decidir si la solicitud es una consulta, una queja, un reclamo o una sugerencia, y asignarle una prioridad. La prioridad se calcula combinando el impacto en el cliente con la urgencia del plazo. Una buena clasificación evita atender primero lo menos importante y deja claro quién debe actuar.",
+      "ejemplo": "Ejemplo: un cobro duplicado tiene prioridad alta; una consulta de horarios, prioridad baja."
+    },
+    {
+      "tipo": "pregunta", "modulo": "Módulo 3 · Resolver y confirmar", "icono": "🛠️", "tono": 340,
+      "titulo": "Decisión rápida: cuando no tiene autoridad para resolver",
+      "texto": "Un cliente solicita un reembolso que supera el valor que usted puede autorizar. El cliente espera una respuesta hoy mismo. Su responsabilidad es evitar que el caso se estanque y garantizar que quien tiene autoridad actúe a tiempo con la información necesaria completa.",
+      "pregunta": "¿Qué decide?",
+      "opciones": [
+        {"texto": "Prometer el reembolso para tranquilizarlo", "ok": false, "retro": "Prometer lo que no puede autorizar genera una nueva queja cuando no se cumpla. Sea transparente con los plazos reales."},
+        {"texto": "Escalar con resumen completo e informar el plazo", "ok": true, "retro": "Correcto: escalar con información completa y comunicar el plazo real protege al cliente y agiliza la decisión."},
+        {"texto": "Decirle que vuelva a llamar mañana", "ok": false, "retro": "Devolver la gestión al cliente rompe la responsabilidad de la empresa y puede aumentar su molestia."}
+      ]
+    },
+    {
+      "tipo": "contenido", "modulo": "Módulo 3 · Resolver y confirmar", "icono": "🤝", "tono": 100,
+      "titulo": "Confirmar y cerrar convierte el reclamo en fidelidad",
+      "texto": "Después de resolver, comunique la solución por el canal preferido del cliente y verifique su conformidad. Solo entonces se cierra el caso, documentando causa, solución y tiempo empleado. Estos datos permiten medir la calidad del servicio y proponer mejoras que eviten que el problema se repita en el futuro.",
+      "ejemplo": "Ejemplo: «Sus productos salieron hoy; ¿está de acuerdo con esta solución?»"
+    },
+    {
+      "tipo": "caso", "icono": "📦", "tono": 20,
+      "titulo": "Caso práctico: la entrega que nunca llegó",
+      "texto": "Una cliente compró un escritorio hace cinco días. La entrega estaba prometida para ayer y no ha llegado. Escribe al chat con tono molesto exigiendo respuesta. El sistema muestra que el pedido está detenido en bodega por falta de transporte. Piense cómo aplicaría los pasos antes de ver la propuesta.",
+      "boton": "Ver propuesta de solución",
+      "solucion": "Propuesta: escuche y reformule; registre pedido, fecha y estado en bodega; clasifique como reclamo de prioridad alta; escale a logística con plazo de veinticuatro horas; informe a la clienta el nuevo compromiso; confirme su conformidad y cierre documentando la causa."
+    },
+    {
+      "tipo": "cierre", "icono": "🏁", "tono": 200,
+      "titulo": "Síntesis: seis ideas para llevar a su trabajo",
+      "texto": "Escuche y reformule antes de actuar. Registre todos los datos y evidencias. Clasifique por tipo y prioridad. Resuelva la causa o escale con información completa. Confirme la conformidad del cliente. Cierre documentando causa, solución y mejora. Practique estas seis ideas en cada caso y revise sus resultados para mejorar de forma continua."
+    },
+    {
+      "tipo": "actividad", "icono": "🎯", "tono": 280,
+      "titulo": "Actividad de autoaprendizaje: tome sus decisiones",
+      "texto": "Lea cada situación laboral, elija la alternativa que considere más adecuada y conozca las consecuencias de su decisión. Recibirá retroalimentación y una recomendación. Puede repetir los escenarios las veces que desee para explorar otras decisiones y comparar sus resultados. Cada escenario toma entre dos y tres minutos.",
+      "escenarios": [
+        {
+          "titulo": "Escenario 1: cobro duplicado",
+          "situacion": "Usted atiende el chat de una tienda en línea. Una clienta reporta que le cobraron dos veces su compra de 120.000 pesos y dice que necesita el dinero hoy.",
+          "condiciones": "Usted puede registrar y escalar casos, pero no autorizar devoluciones. El área financiera responde en 24 horas.",
+          "alternativas": [
+            {"texto": "Prometerle que el dinero estará hoy en su cuenta", "mejor": false, "consecuencia": "La clienta espera el dinero hoy, no lo recibe y vuelve a reclamar con mayor molestia y desconfianza.", "retro": "Prometer lo que no controla genera una nueva queja cuando no se cumpla. Lo recomendable es comunicar el plazo real de veinticuatro horas, registrar el caso y hacer seguimiento hasta confirmar la devolución."},
+            {"texto": "Registrar el caso, escalar a finanzas con evidencias e informar el plazo real", "mejor": true, "consecuencia": "La clienta entiende el plazo, recibe un número de seguimiento y la devolución se concreta dentro del tiempo anunciado.", "retro": "Excelente decisión. Registrar con evidencias, escalar al área con autoridad e informar el plazo real mantiene la honestidad con la clienta y permite dar seguimiento. Recuerde confirmar la devolución antes de cerrar el caso."},
+            {"texto": "Pedirle que escriba mañana al área financiera", "mejor": false, "consecuencia": "La clienta debe contar de nuevo su problema, pierde tiempo y considera cambiar de tienda.", "retro": "Trasladar la gestión a la clienta rompe la responsabilidad de la empresa y la obliga a repetir su historia. Usted debe asumir el caso, escalarlo internamente y dar seguimiento hasta lograr su solución."}
+          ]
+        },
+        {
+          "titulo": "Escenario 2: pedido incompleto",
+          "situacion": "Un cliente corporativo escribe por correo: «Su pedido de papelería llegó incompleto y necesito el material para una reunión mañana a primera hora».",
+          "condiciones": "Usted puede coordinar despachos urgentes con bodega. El cliente aún no ha enviado fotografías ni la lista de faltantes.",
+          "alternativas": [
+            {"texto": "Enviar los productos de inmediato sin pedir más datos", "mejor": false, "consecuencia": "Se despachan productos que quizás no eran los faltantes, se duplican costos y el problema real sigue sin identificarse.", "retro": "Actuar sin datos puede resolver lo equivocado. Primero reformule, solicite la lista de faltantes y una foto, y luego coordine el despacho urgente con bodega. Así la solución es precisa y verificable."},
+            {"texto": "Reformular, pedir lista de faltantes y foto, y coordinar despacho urgente", "mejor": true, "consecuencia": "El cliente recibe confirmación inmediata, envía la información y los productos correctos llegan a tiempo para su reunión.", "retro": "Muy buena decisión. Reformular y solicitar evidencia asegura precisión, y coordinar el despacho urgente responde a la necesidad real del cliente. Cierre el caso solo cuando confirme que el material llegó completo."},
+            {"texto": "Responder que debe reclamar a la transportadora", "mejor": false, "consecuencia": "El cliente siente indiferencia, no recibe solución antes de su reunión y presenta una queja formal por la atención.", "retro": "La empresa es responsable ante el cliente, aunque la falla sea de un tercero. Asuma el caso, gestione internamente con la transportadora y mantenga informado al cliente hasta que reciba su pedido completo."}
+          ]
+        }
+      ],
+      "resultadoAlto": "Tomó las decisiones más recomendables en todos los escenarios. Aplique este criterio en su trabajo diario.",
+      "resultadoMedio": "Acertó en parte. Repita los escenarios y compare cómo cambian las consecuencias según cada decisión.",
+      "resultadoBajo": "Conviene repasar los módulos de la presentación y volver a intentar los escenarios con más calma."
+    }
+  ]
+}

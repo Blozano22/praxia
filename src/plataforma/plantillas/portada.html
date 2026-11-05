@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{TITULO}}</title>
+<style>/*CSS*/</style>
+<style>
+/* ===== Portada · una sola pantalla, sin scroll ===== */
+html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--nav)}
+.por{position:fixed;inset:0;display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);grid-template-rows:minmax(0,1fr);background:var(--nav);color:#fff}
+.por .tx{position:relative;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:clamp(12px,2.4vh,24px);min-width:0;min-height:0;padding:clamp(24px,5vh,72px) clamp(24px,5.5vw,88px)}
+.por .pill{display:inline-block;background:var(--lime);color:var(--nav);padding:6px 16px;border-radius:var(--r-pill);font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;font-weight:800}
+.por h1{margin:0;max-width:16ch;font-size:80px;line-height:1;font-weight:800;letter-spacing:-.035em;color:#fff;text-wrap:balance;overflow-wrap:anywhere}
+.por .ln{width:72px;height:6px;background:var(--lime);border-radius:var(--r-pill);flex:none}
+.por .ds{margin:0;font-size:clamp(1rem,2.8vh,1.35rem);line-height:1.5;font-weight:600;max-width:40ch;color:#fff;opacity:.94}
+.por .ch{display:flex;gap:8px;flex-wrap:wrap}
+.por .ch span{border:2px solid rgba(255,255,255,.6);border-radius:var(--r-pill);padding:5px 15px;font-size:.8rem;font-weight:800;color:#fff}
+.por .acc{display:flex;gap:12px;flex-wrap:wrap;margin-top:clamp(2px,1.2vh,12px)}
+.por .bt{display:inline-flex;align-items:center;gap:10px;min-height:52px;padding:0 30px;background:#fff;color:var(--nav);border:2px solid #fff;border-radius:var(--r-pill);font:inherit;font-size:1rem;font-weight:800;cursor:pointer;transition:background-color .2s var(--ease),color .2s var(--ease),transform .2s var(--ease)}
+.por .bt:hover{background:var(--cyan);border-color:var(--cyan);color:var(--cyan-ink)}
+.por .bt:active{transform:scale(.96)}
+.por .bt.sec{background:transparent;color:#fff}
+.por .bt.sec:hover{background:#fff;color:var(--nav);border-color:#fff}
+.por :focus-visible{outline:3px solid #fff;outline-offset:3px}
+.por .ph{position:relative;overflow:hidden;background:var(--brand);min-width:0;min-height:0}
+.por .ph img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+/* Sin imagen: composición de formas de la paleta */
+.por .ph.sin i{position:absolute;display:block;border-radius:50%}
+.por .ph.sin i:nth-child(1){width:92%;aspect-ratio:1;right:-34%;bottom:-24%;background:var(--cyan)}
+.por .ph.sin i:nth-child(2){width:56%;aspect-ratio:1;left:12%;top:10%;border:8px solid rgba(255,255,255,.3)}
+.por .ph.sin i:nth-child(3){width:24%;aspect-ratio:1;left:50%;top:50%;background:var(--mid)}
+.por .ph.sin i:nth-child(4){width:12%;aspect-ratio:1;left:22%;top:66%;background:#fff}
+.por .tx>*{animation:poIn .5s var(--ease) both}
+.por .tx>*:nth-child(2){animation-delay:.06s}.por .tx>*:nth-child(3){animation-delay:.12s}.por .tx>*:nth-child(4){animation-delay:.18s}.por .tx>*:nth-child(5){animation-delay:.24s}.por .tx>*:nth-child(6){animation-delay:.3s}
+@keyframes poIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.avw{position:fixed;inset:0;z-index:60;display:grid;grid-template-rows:auto minmax(0,1fr);background:#fff;color:var(--nav)}
+.avw .avh{display:flex;align-items:center;gap:16px;padding:10px 20px;border-bottom:2px solid var(--line);font-weight:800}
+.avw .avb{overflow:auto;padding:20px clamp(16px,6vw,80px)}
+@media(max-width:820px){
+  .por{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,26vh) minmax(0,1fr)}
+  .por .ph{order:-1}
+  .por .tx{justify-content:flex-start;overflow:auto;padding:22px 22px 28px}
+  .por .bt{width:100%;justify-content:center}
+  .por .acc{width:100%}
+}
+</style>
+<style>/*TEMA*/</style>
+</head>
+<body>
+<main class="por" id="por"></main>
+<script type="application/json" id="contenido">/*CONTENIDO*/</script>
+<script>/*TEMAJS*/</script>
+<script>/*LIB*/</script>
+<script>
+document.title=CFG.titulo;
+const E2=(CFG.etiquetas||[]).map(e=>typeof e==='string'?e:e.texto).filter(Boolean);
+const sinImg=!CFG.img;
+function abrirActividad(){
+  const host=h('div');actividadUI(host,CFG.actividad);
+  const lanz=host.querySelector('.lanz .btn');
+  if(lanz){lanz.click();return}
+  const prev=document.activeElement;
+  const cierra=()=>{ov.remove();document.removeEventListener('keydown',esc);if(prev&&prev.focus)prev.focus()};
+  const esc=e=>{if(e.key==='Escape')cierra()};
+  const volver=h('button',{class:'btn sec',type:'button',onclick:cierra},'← Volver');
+  const ov=h('div',{class:'avw',role:'dialog','aria-modal':'true','aria-label':'Actividad'},h('div',{class:'avh'},volver,h('span',{},(CFG.actividad||{}).nombre||'Actividad')),h('div',{class:'avb'},host));
+  document.body.append(ov);document.addEventListener('keydown',esc);volver.focus();
+}
+const atras=!FREE&&history.length>1;
+const acc=[CFG.actividad?h('button',{class:'bt',type:'button',onclick:abrirActividad},'Ir a la actividad →'):null,
+  (atras||CFG.boton)?h('button',{class:'bt'+(CFG.actividad?' sec':''),type:'button',onclick:()=>{if(history.length>1)history.back()}},'⌂ '+(CFG.boton||'Regresar al inicio')):null].filter(Boolean);
+$('#por').append(
+  h('div',{class:'tx'},
+    CFG.tipoPortada?h('span',{class:'pill'},CFG.tipoPortada):null,
+    h('h1',{},CFG.titulo),h('div',{class:'ln'}),
+    CFG.descripcion?h('p',{class:'ds'},CFG.descripcion):null,
+    E2.length?h('div',{class:'ch'},E2.map(t=>h('span',{},t))):null,
+    acc.length?h('div',{class:'acc'},acc):null),
+  h('div',{class:'ph'+(sinImg?' sin':''),'aria-hidden':'true'},CFG.img?h('img',{src:CFG.img,alt:''}):[h('i'),h('i'),h('i'),h('i')]));
+/* El título llena el espacio disponible sin desbordar */
+function ajusta(){
+  const t=$('.tx'),e=$('h1');if(!t||!e)return;
+  let s=innerWidth<=820?Math.round(Math.min(44,Math.max(28,innerWidth/9))):Math.min(100,Math.round(innerHeight*.11));e.style.fontSize=s+'px';
+  while(s>26&&(t.scrollHeight>t.clientHeight+1||e.scrollWidth>e.clientWidth+1)){s-=2;e.style.fontSize=s+'px'}
+}
+ajusta();addEventListener('resize',ajusta);
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(ajusta);
+/* La portada es un solo contenido: queda visto al abrirla */
+try{ovaUbicacion('portada');ovaCompleto()}catch(e){}
+</script>
+</body>
+</html>

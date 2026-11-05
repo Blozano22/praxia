@@ -1,0 +1,180 @@
+{
+  "id": "infografia",
+  "tipo": "Infografía interactiva",
+  "titulo": "Cómo atender una solicitud de cliente paso a paso",
+  "subtitulo": "Seis acciones ordenadas que convierten un reclamo inicial en una solución confirmada y en un cliente satisfecho.",
+  "meta": [
+    "Competencia: gestionar solicitudes de clientes con calidad",
+    "Lectura e interacción: 4 a 6 minutos",
+    "Actividad: Taller aplicado"
+  ],
+  "nucleo": "Ciclo de atención",
+  "ideaCentral": "Atender bien es un ciclo: escuchar, registrar, clasificar, resolver, confirmar y cerrar.",
+  "bloques": [
+    {
+      "icono": "👂",
+      "tono": 200,
+      "titulo": "Escuchar con atención",
+      "texto": "Deje hablar al cliente sin interrumpir, tome nota de lo esencial y confirme que entendió. Una escucha activa reduce malentendidos y demuestra respeto desde el primer minuto de la conversación.",
+      "ejemplo": "Una clienta llama porque su pedido llegó incompleto. Usted repite: «Entiendo que faltan dos productos de su compra del lunes; ¿es correcto?»",
+      "reto": {
+        "pregunta": "¿Qué caracteriza a una escucha activa?",
+        "opciones": [
+          "Interrumpir para ahorrar tiempo",
+          "Confirmar con sus palabras lo que entendió",
+          "Ofrecer la solución de inmediato"
+        ],
+        "correcta": 1
+      }
+    },
+    {
+      "icono": "📝",
+      "tono": 160,
+      "titulo": "Registrar el caso completo",
+      "texto": "Registre la solicitud de inmediato en el sistema con nombre, contacto, fecha, descripción y evidencias. Un registro completo evita preguntar lo mismo dos veces y permite que cualquier compañero continúe el caso sin perder información.",
+      "ejemplo": "Se crea el ticket 1048 con el número de pedido, la foto de la caja recibida y el teléfono de contacto del cliente.",
+      "reto": {
+        "pregunta": "¿Para qué sirve un registro completo del caso?",
+        "opciones": [
+          "Para que otro compañero continúe sin volver a preguntar",
+          "Para llenar más formatos",
+          "Para no contactar nunca al cliente"
+        ],
+        "correcta": 0
+      }
+    },
+    {
+      "icono": "🗂️",
+      "tono": 40,
+      "titulo": "Clasificar y priorizar",
+      "texto": "Determine si es una consulta, queja o reclamo y asigne una prioridad según impacto y urgencia. Clasificar bien define quién atiende el caso, en cuántas horas y con qué recursos disponibles.",
+      "ejemplo": "Un faltante en un pedido ya pagado se clasifica como reclamo de prioridad media, con respuesta máxima en veinticuatro horas.",
+      "reto": {
+        "pregunta": "¿Qué define la prioridad de un caso?",
+        "opciones": [
+          "La hora en que llegó",
+          "El canal que usó el cliente",
+          "El impacto y la urgencia"
+        ],
+        "correcta": 2
+      }
+    },
+    {
+      "icono": "🛠️",
+      "tono": 280,
+      "titulo": "Resolver la causa real",
+      "texto": "Aplique el procedimiento vigente para solucionar la causa y no solo el síntoma. Si no tiene autoridad suficiente, escale el caso al área responsable explicando con claridad qué necesita y para cuándo.",
+      "ejemplo": "Se programa el envío de los dos productos faltantes y se solicita a bodega priorizar el despacho para el mismo día.",
+      "reto": {
+        "pregunta": "Si no tiene autoridad para resolver, usted:",
+        "opciones": [
+          "Promete la solución igualmente",
+          "Escala con resumen claro y plazo",
+          "Pide al cliente que llame después"
+        ],
+        "correcta": 1
+      }
+    },
+    {
+      "icono": "🤝",
+      "tono": 340,
+      "titulo": "Confirmar con el cliente",
+      "texto": "Comunique la solución por el canal que prefiere el cliente y verifique que quedó conforme. Confirmar permite detectar errores a tiempo y transforma una experiencia negativa en una oportunidad real de fidelización.",
+      "ejemplo": "Usted escribe: «Su pedido sale hoy y llegará mañana; ¿le parece bien esta solución?» y espera la respuesta antes de continuar.",
+      "reto": {
+        "pregunta": "¿Cuándo se considera resuelto un caso?",
+        "opciones": [
+          "Cuando el cliente confirma su conformidad",
+          "Cuando termina su turno",
+          "Cuando el sistema lo permite"
+        ],
+        "correcta": 0
+      }
+    },
+    {
+      "icono": "✅",
+      "tono": 100,
+      "titulo": "Cerrar y mejorar",
+      "texto": "Cierre el caso en el sistema con la solución aplicada, el tiempo empleado y las lecciones aprendidas. Los cierres documentados alimentan los indicadores de calidad y ayudan a evitar que el mismo problema se repita.",
+      "ejemplo": "Se cierra el ticket 1048 con la causa «error de empaque» y se sugiere revisar la lista de verificación de despacho.",
+      "reto": {
+        "pregunta": "¿Qué debe documentar el cierre del caso?",
+        "opciones": [
+          "Solo la fecha",
+          "Nada, el cliente ya sabe",
+          "Causa, solución, tiempo y mejora"
+        ],
+        "correcta": 2
+      }
+    }
+  ],
+  "sintesis": "Una buena atención no depende de la suerte sino de un orden: cada paso prepara al siguiente. Si omite uno, el cliente lo percibe y el caso se vuelve más largo y costoso.",
+  "recomendacion": "Antes de cerrar cualquier caso, repase mentalmente los seis pasos y confirme que cada uno quedó registrado. Nunca cierre una solicitud sin la conformidad explícita del cliente.",
+  "taller": {
+    "nombre": "Taller aplicado: registro completo de un reclamo",
+    "resultado": "Aplicar los seis pasos de atención a un caso simulado y dejar evidencia clara de cada decisión.",
+    "problema": "Un cliente llamó molesto: su pedido de oficina llegó incompleto y la fecha de entrega prometida ya venció. Usted debe atender el caso aplicando la secuencia aprendida y registrar cada decisión como evidencia.",
+    "objetivo": "Practicar los seis pasos de atención y producir un registro completo del caso, listo para entregarlo a su líder de servicio.",
+    "materiales": [
+      "Esta infografía como guía de consulta",
+      "Formato de registro de esta misma página",
+      "Datos del caso: pedido 1048, faltan 2 productos, entrega vencida hace 2 días"
+    ],
+    "duracion": "20 minutos aproximadamente",
+    "minPalabras": 8,
+    "pasos": [
+      {
+        "titulo": "Escuchar",
+        "instruccion": "Escriba cómo reformularía el problema para confirmar que entendió al cliente.",
+        "modelo": "Ejemplo esperado: «Entiendo que su pedido 1048 llegó sin dos productos y que la entrega prometida venció hace dos días. ¿Es correcto?» Incluye datos concretos y termina con una pregunta de confirmación."
+      },
+      {
+        "titulo": "Registrar",
+        "instruccion": "Liste los datos que registraría en el sistema para que otro compañero pueda continuar el caso.",
+        "modelo": "Debe incluir nombre y contacto del cliente, número de pedido, fecha de compra, productos faltantes, fecha de entrega prometida y evidencia como foto o factura. Si omitió alguno, agréguelo ahora."
+      },
+      {
+        "titulo": "Clasificar",
+        "instruccion": "Indique el tipo de solicitud y su prioridad, justificando su decisión.",
+        "modelo": "Es un reclamo, porque existe un incumplimiento. La prioridad es alta o media por el retraso y el pago realizado. Lo importante es justificar con impacto y urgencia, no solo nombrar la categoría."
+      },
+      {
+        "titulo": "Resolver",
+        "instruccion": "Describa la solución que ofrecería y a quién escalaría si le falta autoridad.",
+        "modelo": "Una buena respuesta propone enviar los productos faltantes, indica un responsable (bodega o logística) y fija un plazo concreto. Si hay compensación, debe estar autorizada por la política vigente."
+      },
+      {
+        "titulo": "Confirmar",
+        "instruccion": "Redacte el mensaje con el que comunicaría la solución y pediría la conformidad del cliente.",
+        "modelo": "El mensaje ideal resume la solución, informa la fecha de entrega y termina preguntando si el cliente está de acuerdo. Evite tecnicismos y use un tono amable y directo."
+      },
+      {
+        "titulo": "Cerrar",
+        "instruccion": "Escriba cómo documentaría el cierre y qué mejora sugeriría para evitar que el caso se repita.",
+        "modelo": "El cierre debe registrar causa, solución, tiempo empleado y conformidad del cliente. La mejora puede ser una revisión adicional en el empaque o una alerta automática de entregas vencidas."
+      }
+    ],
+    "analisis": [
+      {
+        "pregunta": "¿Qué habría pasado si omitiera el paso de confirmar con el cliente?",
+        "modelo": "Podría haber cerrado un caso aún sin resolver, generando una nueva queja, repetición de contactos y pérdida de confianza. La confirmación es la única forma de comprobar que la solución funcionó."
+      },
+      {
+        "pregunta": "¿Qué información faltante habría dificultado que otro compañero continuara el caso?",
+        "modelo": "Sin número de pedido, productos faltantes o evidencia, el compañero tendría que volver a contactar al cliente. Un registro completo protege el tiempo del equipo y la experiencia del cliente."
+      },
+      {
+        "pregunta": "¿Qué mejora de proceso propondría a partir de este caso?",
+        "modelo": "Una buena propuesta ataca la causa: revisar el empaque, automatizar alertas de retraso o capacitar al equipo de despacho. Debe ser concreta, medible y asignarse a un responsable."
+      }
+    ],
+    "checklist": [
+      "El registro incluye datos del cliente y del pedido",
+      "La solicitud quedó clasificada con prioridad justificada",
+      "La solución indica responsable y plazo",
+      "Existe un mensaje de confirmación dirigido al cliente",
+      "El cierre documenta causa y mejora propuesta"
+    ],
+    "reflexion": "¿Qué paso le resultó más difícil y cómo lo aplicará en su trabajo diario?"
+  }
+}

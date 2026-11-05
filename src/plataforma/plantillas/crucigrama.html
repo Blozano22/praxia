@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{TITULO}}</title>
+<style>/*CSS*/</style>
+<style>
+/* ===== Crucigrama · diseño 1 «Tres columnas»: horizontales | cuadrícula | verticales, con la pista activa en una barra bajo el título.
+   Todo cabe en una pantalla (la cuadrícula se escala al espacio libre). Paleta DIEPO fija; lima solo en el indicador de la casilla activa. ===== */
+[hidden]{display:none!important}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{padding:0;background:var(--bg);color:var(--nav);font-family:var(--font);font-size:16px;line-height:1.4;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+h1,h2,h3,p,ol{margin:0}
+ol{padding:0;list-style:none}
+.vh{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+:focus-visible{outline:3px solid var(--mid);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
+
+.app{display:flex;flex-direction:column;gap:12px;padding:14px 14px 22px;min-height:100vh;max-width:1400px;margin:0 auto}
+
+/* Encabezado: título, avance y acciones */
+.top{display:flex;align-items:center;justify-content:space-between;gap:10px 18px;flex-wrap:wrap}
+.top .tt{min-width:0;flex:1 1 260px}
+.top h1{font-size:clamp(1.15rem,4.6vw,1.6rem);line-height:1.12;font-weight:800;letter-spacing:-.02em;color:var(--nav);text-wrap:balance}
+.top .sub{margin-top:2px;font-size:.84rem;font-weight:600;color:var(--muted)}
+.ops{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.est{font-size:.84rem;font-weight:800;color:var(--brand);white-space:nowrap;margin-right:4px;font-variant-numeric:tabular-nums}
+.bt{font:inherit;font-weight:800;font-size:.84rem;min-height:44px;padding:.3rem 1.05rem;border-radius:999px;border:2px solid var(--nav);background:var(--nav);color:#fff;cursor:pointer;transition:background-color .15s var(--ease),border-color .15s var(--ease),color .15s var(--ease),transform .15s var(--ease)}
+.bt:hover:not(:disabled){background:var(--brand);border-color:var(--brand)}
+.bt.sec{background:#fff;color:var(--nav)}
+.bt.sec:hover:not(:disabled){background:var(--nav);border-color:var(--nav);color:#fff}
+.bt.go{background:var(--brand);border-color:var(--brand)}
+.bt.go:hover:not(:disabled){background:var(--nav);border-color:var(--nav)}
+.bt:active:not(:disabled){transform:scale(.97)}
+.bt:disabled{opacity:.4;cursor:not-allowed}
+
+/* Pista activa */
+.act{display:flex;align-items:center;gap:14px;background:#fff;border:2px solid var(--nav);border-radius:18px;padding:8px 10px 8px 8px;transition:background-color .25s var(--ease),border-color .25s var(--ease),color .25s var(--ease)}
+.act .nm{flex:none;min-width:46px;height:46px;padding:0 10px;border-radius:13px;background:var(--nav);color:#fff;display:grid;place-items:center;font-size:1.25rem;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.act .tx{flex:1 1 0;min-width:0}
+.act .k{display:block;font-size:.68rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--brand)}
+.act .t{display:block;font-size:clamp(.95rem,1.7vw,1.2rem);font-weight:700;line-height:1.28;color:var(--nav);text-wrap:pretty}
+.act .t,.act .k{animation:cin .22s var(--ease)}
+.act .bt{flex:none;min-height:40px;padding:.2rem .9rem;font-size:.78rem}
+.act.fin{background:var(--brand);border-color:var(--brand)}
+.act.fin .k,.act.fin .t{color:#fff}
+.act.fin .nm{background:#fff;color:var(--brand)}
+@keyframes cin{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+/* Zona principal */
+.zona{display:flex;flex-direction:column;gap:14px;min-height:0}
+.tj{order:1;display:flex;align-items:center;justify-content:center;min-height:0;min-width:0;background:#fff;border:2px solid var(--nav);border-radius:22px;padding:14px 10px;overflow:hidden}
+.cw{display:grid;gap:3px;flex:none}
+.cel{position:relative;border-radius:max(4px,calc(var(--cs,30px)*.18))}
+.cel.v{visibility:hidden}
+.cel.l{background:#fff;border:2px solid var(--nav);transition:background-color .15s var(--ease),border-color .15s var(--ease)}
+.cel input{display:block;width:100%;height:100%;margin:0;border:0;background:transparent;text-align:center;font:inherit;font-weight:800;font-size:max(14px,calc(var(--cs,30px)*.5));line-height:1;color:var(--nav);padding:0;text-transform:uppercase;border-radius:inherit;caret-color:transparent;outline:none;box-shadow:none;cursor:pointer}
+.cel.nn input{padding-top:.4em}
+.cel input::selection{background:transparent}
+.cel .n{position:absolute;top:1px;left:3px;font-size:max(8px,calc(var(--cs,30px)*.27));font-weight:800;color:var(--brand);pointer-events:none;line-height:1}
+.cel.sel{background:var(--tint);border-color:var(--brand)}
+.cel.l:focus-within{background:var(--nav);border-color:var(--nav)}
+.cel.l:focus-within:after{content:"";position:absolute;left:50%;bottom:3px;width:max(8px,calc(var(--cs,30px)*.3));height:3px;margin-left:calc(max(8px,calc(var(--cs,30px)*.3))/-2);border-radius:2px;background:var(--lime)}
+.cel.l:focus-within input,.cel.l:focus-within .n{color:#fff}
+.cel.ok input{color:var(--brand)}
+.cel.ok:before{content:"";position:absolute;right:2px;top:2px;width:5px;height:5px;border-radius:50%;background:var(--brand)}
+.cel.mal{background-image:repeating-linear-gradient(45deg,rgba(20,39,73,.2) 0 3px,transparent 3px 7px);border-style:dashed}
+.cel.ok:focus-within{background:var(--brand);border-color:var(--brand)}
+.cel.ok:focus-within:before{background:#fff}
+.cel.ok:focus-within input{color:#fff}
+.cel.mal:focus-within{background-color:var(--nav);background-image:none;border-style:solid}
+
+/* Pistas */
+.col{display:flex;flex-direction:column;min-height:0;min-width:0;border:1px solid var(--line);border-radius:20px;background:#fff;padding:14px 12px 12px}
+.col.h{order:2}.col.v{order:3}
+.col h2{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:0 4px 10px;font-size:1.05rem;font-weight:800;letter-spacing:-.01em;color:var(--nav)}
+.col h2 small{font-size:.7rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--brand)}
+.col ol{display:grid;gap:7px;align-content:start;overflow:auto;min-height:0;overscroll-behavior:contain}
+.pi{display:grid;grid-template-columns:36px minmax(0,1fr);align-items:start;gap:4px 11px;width:100%;min-height:52px;margin:0;padding:8px 12px 8px 8px;border:2px solid var(--line);border-radius:14px;background:#fff;font:inherit;color:var(--nav);text-align:left;cursor:pointer;transition:border-color .2s var(--ease),background-color .2s var(--ease),transform .2s var(--ease)}
+@media (hover:hover){.pi:hover{border-color:var(--brand)}}
+.pi:active{transform:scale(.98)}
+.pi .c{grid-row:1/3;display:grid;place-items:center;height:36px;border-radius:11px;background:var(--tint);font-size:.92rem;font-weight:800;font-variant-numeric:tabular-nums;color:var(--nav)}
+.pi .q{font-size:clamp(.84rem,1.15vw,.98rem);font-weight:600;line-height:1.32}
+.pi .l{font-size:.72rem;font-weight:700;color:var(--brand);white-space:nowrap}
+.pi.open{border-color:var(--nav);background:var(--tint)}
+.pi.open .c{background:var(--nav);color:#fff}
+.pi.hecha .c{background:var(--brand);color:#fff}
+.pi.hecha .l:after{content:" · ✔ lista"}
+
+/* Escritorio: tres columnas a pantalla completa, sin desplazamiento de página */
+@media (min-width:900px) and (min-height:520px){
+  body{height:100vh;height:100dvh;overflow:hidden}
+  .app{height:100vh;height:100dvh;min-height:0;gap:10px;padding:12px 20px 14px;display:grid;grid-template-rows:auto auto minmax(0,1fr)}
+  .zona{display:grid;grid-template-columns:minmax(210px,1fr) minmax(0,1.75fr) minmax(210px,1fr);gap:14px}
+  .tj{order:unset;padding:10px}
+  .col.h,.col.v{order:unset}
+  .top .tt{flex:1 1 0}
+  .top h1{font-size:clamp(1.25rem,2.2vw,1.7rem)}
+}
+@media (max-width:899px),(max-height:519px){
+  .act{position:sticky;top:6px;z-index:6}
+}
+@media (max-width:560px){
+  .app{padding:10px 10px 18px}
+  .act{gap:8px;padding:6px;border-radius:16px}
+  .act .nm{min-width:38px;height:38px;border-radius:11px;font-size:1.05rem;padding:0 6px}
+  .act .t{font-size:.9rem}
+  .act .bt{min-height:44px;padding:.2rem .7rem}
+  .tj{border-radius:18px;padding:10px 4px}
+  .ops{width:100%}
+  .ops .bt{flex:1 1 auto}
+  .est{width:100%;margin:0}
+}
+.vacio{padding:32px 24px;border:2px solid var(--nav);border-radius:20px;font-weight:600}
+
+/* Diálogo de confirmación */
+.dlg{border:0;padding:26px 26px 22px;border-radius:24px;width:min(440px,92vw);background:#fff;color:var(--nav);box-shadow:0 30px 80px rgba(20,39,73,.4)}
+.dlg[open]{animation:dlgIn .22s var(--ease)}
+.dlg::backdrop{background:rgba(20,39,73,.66)}
+.dlg h3{font-size:1.3rem;font-weight:800;letter-spacing:-.02em}
+.dlg p{margin-top:8px;font-size:.95rem}
+.dlg-b{display:flex;justify-content:flex-end;gap:8px;margin-top:20px;flex-wrap:wrap}
+@keyframes dlgIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+</style>
+<style>/*TEMA*/</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top">
+    <div class="tt"><h1 id="ttl"></h1><p class="sub" id="sub" hidden></p></div>
+    <div class="ops" id="ops"></div>
+  </header>
+  <div class="act" id="barra" role="status" aria-live="polite"></div>
+  <main class="zona" id="zona"></main>
+</div>
+<script type="application/json" id="contenido">/*CONTENIDO*/</script>
+<script>/*TEMAJS*/</script>
+<script>/*LIB*/</script>
+<script>var cwFin=function(){window.__cw=true;try{ovaCompleto()}catch(e){}if(window.__cwGate)window.__cwGate.abrir()};</script>
+<script>
+/* ===== Actividad opcional integrada: sale de la barra de acciones (no se agrega debajo de la página) y se habilita al completar ===== */
+const ACT=(function(){
+  const A=CFG.actividad,btns=[];
+  if(!A)return {tiene:false,btn:()=>document.createDocumentFragment(),abrir(){}};
+  const host=h('div',{hidden:true});document.body.append(host);
+  actividadUI(host,A);
+  let vista=null;
+  const abrir=()=>{
+    const l=host.querySelector('.lanz .btn');
+    if(l){l.click();return}
+    const card=host.firstElementChild;if(!card)return;
+    if(!vista)vista=vistaActividad(A.nombre||'Actividad',ACT_ROT[A.tipo]||'Actividad','Realice la actividad y descargue su evidencia.',card,()=>{});
+    vista.abre();const r=document.querySelector('.vact .pieact .btn:not(.sec)');if(r)r.remove();
+  };
+  const pon=b=>{const ok=!LOCK||!!window.__cw;b.disabled=!ok;b.title=ok?'':'Complete el crucigrama para habilitar la actividad'};
+  window.__cwGate={abrir(){btns.forEach(pon)}};
+  return {tiene:true,abrir,btn(cls){const b=h('button',{type:'button',class:cls,onclick:abrir},'Ir a la actividad →');btns.push(b);pon(b);return b}};
+})();
+</script>
+<script>
+document.title=CFG.titulo;
+$('#ttl').textContent=CFG.titulo;
+(function(){const s=[CFG.tituloCrucigrama&&CFG.tituloCrucigrama!==CFG.titulo?CFG.tituloCrucigrama:'',CFG.nota||''].filter(Boolean).join(' · ');if(s){const e=$('#sub');e.textContent=s;e.hidden=false}})();
+const P=(CFG.palabras||[]).map(p=>({raw:String(p.palabra||'').trim(),w:norm(String(p.palabra||'')).replace(/[^a-z0-9]/g,'').toUpperCase(),clue:p.pista||''})).filter(p=>p.w.length>1);
+const host=$('#zona');
+if(!P.length){$('#barra').remove();$('#ops').remove();host.append(h('div',{class:'vacio'},'Este crucigrama todavía no tiene palabras. Agréguelas en el editor (palabra y pista).'))}
+else{
+  // ---- Armado de la cuadrícula: cada palabra cruza con las ya colocadas ----
+  const placed=[];const cells=new Map();const K=(r,c)=>r+','+c;
+  const fits=(w,r,c,dir)=>{
+    const dr=dir==='v'?1:0,dc=dir==='h'?1:0;let cross=0;
+    if(cells.has(K(r-dr,c-dc))||cells.has(K(r+dr*w.length,c+dc*w.length)))return -1;
+    for(let i=0;i<w.length;i++){
+      const rr=r+dr*i,cc=c+dc*i,ex=cells.get(K(rr,cc));
+      if(ex){if(ex!==w[i])return -1;cross++}
+      else{
+        // vecinos laterales deben estar vacíos para no formar palabras extra
+        if(cells.has(K(rr+dc,cc+dr))||cells.has(K(rr-dc,cc-dr)))return -1;
+      }
+    }
+    return cross;
+  };
+  const put=(p,r,c,dir)=>{const dr=dir==='v'?1:0,dc=dir==='h'?1:0;for(let i=0;i<p.w.length;i++)cells.set(K(r+dr*i,c+dc*i),p.w[i]);placed.push({...p,r,c,dir})};
+  const orden=P.slice().sort((a,b)=>b.w.length-a.w.length);
+  const sueltas=[];
+  orden.forEach((p,idx)=>{
+    if(!placed.length){put(p,0,0,'h');return}
+    let best=null;
+    placed.forEach(q=>{
+      for(let i=0;i<q.w.length;i++)for(let j=0;j<p.w.length;j++){
+        if(q.w[i]!==p.w[j])continue;
+        const dir=q.dir==='h'?'v':'h';
+        const r=q.dir==='h'?q.r-j:q.r+i,c=q.dir==='h'?q.c+i:q.c-j;
+        const s=fits(p.w,r,c,dir);
+        if(s>0&&(!best||s>best.s))best={s,r,c,dir};
+      }
+    });
+    if(best)put(p,best.r,best.c,best.dir);else sueltas.push(p);
+  });
+  sueltas.forEach(p=>{ // sin cruce posible: debajo del resto
+    let maxr=0;cells.forEach((v,k)=>{maxr=Math.max(maxr,+k.split(',')[0])});
+    put(p,maxr+2,0,'h');
+  });
+  let r0=1e9,c0=1e9,r1=-1e9,c1=-1e9;cells.forEach((v,k)=>{const[r,c]=k.split(',').map(Number);r0=Math.min(r0,r);c0=Math.min(c0,c);r1=Math.max(r1,r);c1=Math.max(c1,c)});
+  placed.forEach(p=>{p.r-=r0;p.c-=c0});
+  const R=r1-r0+1,C=c1-c0+1;
+  // numeración por orden de aparición
+  const starts=[];placed.slice().sort((a,b)=>a.r-b.r||a.c-b.c).forEach(p=>{let s=starts.find(x=>x.r===p.r&&x.c===p.c);if(!s){s={r:p.r,c:p.c,n:starts.length+1};starts.push(s)}p.n=s.n});
+  const letra=new Map();placed.forEach(p=>{for(let i=0;i<p.w.length;i++){letra.set(K(p.r+(p.dir==='v'?i:0),p.c+(p.dir==='h'?i:0)),p.w[i])}});
+
+  const cubre=(p,r,c)=>p.dir==='h'?(p.r===r&&c>=p.c&&c<p.c+p.w.length):(p.c===c&&r>=p.r&&r<p.r+p.w.length);
+  let cur=null,want=null,fin=false;
+  const el=new Map();const pistas=[];
+  const celdasDe=p=>Array.from({length:p.w.length},(_,i)=>el.get(K(p.r+(p.dir==='v'?i:0),p.c+(p.dir==='h'?i:0))));
+  const IDLE=(CFG.instruccion&&CFG.instruccion.length<90)?CFG.instruccion:'Toca una casilla o una pista para empezar.';
+  const nm=h('span',{class:'nm','aria-hidden':'true'},'·'),kk=h('span',{class:'k'},'Pista activa'),tt=h('span',{class:'t'},IDLE);
+  const ver=h('button',{class:'bt sec',type:'button',disabled:true,onclick:()=>{if(!cur)return;celdasDe(cur).forEach((x,i)=>{x.inp.value=cur.w[i];x.cel.classList.remove('mal');x.cel.classList.add('ok')});updEst();evalua();toast('Respuesta: '+cur.w)}},'Ver respuesta');
+  const barra=$('#barra');barra.append(nm,h('span',{class:'tx'},kk,tt),ver);
+  const est=h('span',{class:'est','aria-live':'polite'});
+  const todas=()=>placed.every(p=>celdasDe(p).every((x,i)=>x.inp.value.toUpperCase()===p.w[i]));
+  const updEst=()=>{const f=placed.filter(p=>celdasDe(p).every(x=>x.inp.value)).length;est.textContent=f+' de '+placed.length+' palabras';if(fin&&!todas())desmarcaFin();else if(!fin&&todas())marcaFin()};
+  const marcaFin=()=>{fin=true;barra.classList.add('fin');nm.textContent='✔';kk.textContent='Completado';tt.textContent='¡Crucigrama completo!';pistas.forEach(z=>z.el.classList.add('hecha'));cwFin()};
+  const desmarcaFin=()=>{fin=false;setBarra()};
+  const setBarra=()=>{
+    barra.classList.remove('fin');
+    if(!cur){nm.textContent='·';kk.textContent='Pista activa';tt.textContent=IDLE;ver.disabled=true;return}
+    nm.textContent=cur.n;kk.textContent=(cur.dir==='h'?'Horizontal':'Vertical')+' · '+cur.w.length+' letras';tt.textContent=cur.clue||'(sin pista)';ver.disabled=false;
+  };
+  const marca=(p,foco)=>{
+    cur=p;el.forEach(x=>x.cel.classList.remove('sel'));
+    for(let i=0;i<p.w.length;i++){const k=K(p.r+(p.dir==='v'?i:0),p.c+(p.dir==='h'?i:0));el.get(k).cel.classList.add('sel')}
+    pistas.forEach(x=>{x.el.classList.toggle('open',x.p===p);x.el.setAttribute('aria-pressed',String(x.p===p))});
+    if(!fin)setBarra();
+    try{ovaUbicacion('p'+p.n+p.dir)}catch(e){}
+    if(foco){const k=K(p.r,p.c);el.get(k).inp.focus()}
+  };
+  const avanza=(r,c)=>{const dr=cur.dir==='v'?1:0,dc=cur.dir==='h'?1:0;const n=el.get(K(r+dr,c+dc));if(n&&cubre(cur,r+dr,c+dc))n.inp.focus()};
+  const retrocede=(r,c)=>{const dr=cur.dir==='v'?1:0,dc=cur.dir==='h'?1:0;const n=el.get(K(r-dr,c-dc));if(n&&cubre(cur,r-dr,c-dc)){n.inp.value='';n.inp.focus()}};
+
+  const grid=h('div',{class:'cw',style:'grid-template-columns:repeat('+C+',var(--cs,30px));grid-auto-rows:var(--cs,30px)',role:'group','aria-label':'Cuadrícula del crucigrama'});
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++){
+    const k=K(r,c);const cel=h('div',{class:'cel'+(letra.has(k)?' l':' v'),'aria-hidden':letra.has(k)?null:'true'});
+    if(letra.has(k)){
+      const inp=h('input',{maxlength:'1','aria-label':'Fila '+(r+1)+', columna '+(c+1),autocomplete:'off',autocapitalize:'characters',autocorrect:'off',spellcheck:'false',inputmode:'text'});
+      inp.addEventListener('input',()=>{inp.value=inp.value.replace(/[^a-zA-Z0-9ñÑ]/g,'').slice(-1).toUpperCase();cel.classList.remove('ok','mal');updEst();if(inp.value&&cur)avanza(r,c)});
+      inp.addEventListener('focus',()=>{
+        const cand=placed.filter(x=>cubre(x,r,c));
+        const quiere=want;want=null;
+        let p=cur&&cubre(cur,r,c)&&(!quiere||cur.dir===quiere)?cur:(quiere&&cand.find(x=>x.dir===quiere))||(cur&&cand.find(x=>x.dir===cur.dir))||cand[0];
+        if(p&&p!==cur)marca(p,false);
+        inp.select();
+      });
+      let estaba=false;
+      inp.addEventListener('pointerdown',()=>{estaba=document.activeElement===inp});
+      inp.addEventListener('click',()=>{
+        if(!estaba)return;
+        const otra=placed.find(x=>cubre(x,r,c)&&x!==cur);if(otra)marca(otra,false);
+      });
+      inp.addEventListener('keydown',e=>{
+        if(e.key==='Backspace'&&!inp.value&&cur){e.preventDefault();retrocede(r,c);return}
+        const d={ArrowRight:[0,1,'h'],ArrowLeft:[0,-1,'h'],ArrowDown:[1,0,'v'],ArrowUp:[-1,0,'v']}[e.key];
+        if(d){const n=el.get(K(r+d[0],c+d[1]));e.preventDefault();if(n){want=d[2];n.inp.focus()}}
+      });
+      cel.append(inp);el.set(k,{cel,inp});
+      const s=starts.find(x=>x.r===r&&x.c===c);if(s){cel.append(h('span',{class:'n','aria-hidden':'true'},s.n));cel.classList.add('nn')}
+    }
+    grid.append(cel);
+  }
+  const lista=(dir,titulo,cls)=>{
+    const g=placed.filter(p=>p.dir===dir).sort((a,b)=>a.n-b.n);if(!g.length)return null;
+    return h('section',{class:'col '+cls,'aria-label':titulo},h('h2',{},titulo,h('small',{},g.length+(g.length===1?' pista':' pistas'))),
+      h('ol',{},g.map(p=>{
+        const b=h('button',{type:'button',class:'pi','aria-pressed':'false',onclick:()=>marca(p,true)},h('span',{class:'c'},String(p.n)),h('span',{class:'q'},p.clue||'(sin pista)'),h('span',{class:'l'},p.w.length+' letras'));
+        pistas.push({p,el:b});return h('li',{},b);
+      })));
+  };
+  /* Comprobar: marca cada casilla; evalua(): estado de cada palabra y cierre del crucigrama */
+  const evalua=()=>{
+    let bien=0;
+    placed.forEach(p=>{const ok=celdasDe(p).every((x,i)=>x.inp.value.toUpperCase()===p.w[i]);const pe=pistas.find(z=>z.p===p);pe&&pe.el.classList.toggle('hecha',ok);if(ok)bien++});
+    return bien;
+  };
+  const comprobar=()=>{
+    placed.forEach(p=>{celdasDe(p).forEach((x,i)=>{const v=x.inp.value.toUpperCase();x.cel.classList.toggle('ok',v===p.w[i]&&!!v);x.cel.classList.toggle('mal',!!v&&v!==p.w[i])})});
+    const bien=evalua();
+    if(bien===placed.length&&!fin)marcaFin();
+    toast(bien===placed.length?'¡Crucigrama completo!':'Palabras correctas: '+bien+' de '+placed.length);
+  };
+  const reiniciar=()=>{el.forEach(x=>{x.inp.value='';x.cel.classList.remove('ok','mal','sel')});pistas.forEach(x=>{x.el.classList.remove('open','hecha');x.el.setAttribute('aria-pressed','false')});cur=null;fin=false;setBarra();updEst()};
+  const confirmar=(titulo,texto,okTxt,fn)=>{
+    const prev=document.activeElement;
+    const d=h('dialog',{class:'dlg','aria-labelledby':'dlg-t'});
+    d.append(h('h3',{id:'dlg-t'},titulo),h('p',{},texto),h('div',{class:'dlg-b'},
+      h('button',{class:'bt sec',type:'button',onclick:()=>d.close()},'Cancelar'),
+      h('button',{class:'bt',type:'button',onclick:()=>{d.close();fn()}},okTxt)));
+    d.addEventListener('close',()=>{d.remove();if(prev&&prev.focus)prev.focus()});
+    d.addEventListener('click',e=>{if(e.target===d)d.close()});
+    document.body.append(d);d.showModal();
+  };
+  const hayLetras=()=>Array.from(el.values()).some(x=>x.inp.value);
+  const colH=lista('h','Horizontales','h'),colV=lista('v','Verticales','v');
+  const tj=h('section',{class:'tj','aria-label':'Crucigrama'},grid);
+  host.append(...[colH,tj,colV].filter(Boolean));
+  $('#ops').append(est,
+    h('button',{class:'bt',type:'button',onclick:comprobar},'Comprobar'),
+    h('button',{class:'bt sec',type:'button',onclick:()=>{if(hayLetras())confirmar('¿Reiniciar el crucigrama?','Se borrarán todas las letras que escribió.','Reiniciar',reiniciar);else reiniciar()}},'Reiniciar'),
+    ACT.btn('bt go'));
+  /* Escala de la cuadrícula: en escritorio al alto y ancho libres de su caja (sin scroll de página); en móvil, al ancho */
+  const mq=matchMedia('(min-width:900px) and (min-height:520px)');
+  const GAP=3;
+  const ajusta=()=>{
+    const cs0=getComputedStyle(tj);
+    const W=tj.clientWidth-parseFloat(cs0.paddingLeft)-parseFloat(cs0.paddingRight);
+    const Hh=tj.clientHeight-parseFloat(cs0.paddingTop)-parseFloat(cs0.paddingBottom);
+    let cs=(W-(C-1)*GAP)/C;
+    if(mq.matches&&Hh>0)cs=Math.min(cs,(Hh-(R-1)*GAP)/R);
+    cs=Math.floor(Math.max(mq.matches?14:22,Math.min(cs,60)));
+    grid.style.setProperty('--cs',cs+'px');
+  };
+  if(window.ResizeObserver)new ResizeObserver(ajusta).observe(tj);
+  addEventListener('resize',ajusta);ajusta();
+  updEst();
+}
+</script>
+</body>
+</html>
