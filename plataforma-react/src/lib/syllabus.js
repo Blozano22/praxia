@@ -2,12 +2,13 @@ import { api } from "./api.js"
 // Llamada al flujo de n8n del portal «syllabus-portal.html». Misma dirección, mismos datos enviados
 // y misma lectura de la respuesta que el portal original (que no se modifica).
 // Flujo que trabaja con la bibliografía leída por la plataforma (copia «con bibliografía, sin IA»). El flujo original es /syllabus-a-plantilla.
-export const WEBHOOK_POR_DEFECTO = 'https://n8n.americana.edu.co/webhook/syllabus-a-plantilla-bibliografia'
-const WEBHOOK_ANTERIOR = 'https://n8n.americana.edu.co/webhook/syllabus-a-plantilla'
+export const WEBHOOK_POR_DEFECTO = 'https://n8n.americana.edu.co/webhook/syllabus-a-plantilla-bibliografia-v2'
+// Direcciones de versiones anteriores del flujo (ya no están activas en n8n): si quedaron guardadas en el navegador, se reemplazan.
+const WEBHOOKS_ANTERIORES = ['https://n8n.americana.edu.co/webhook/syllabus-a-plantilla', 'https://n8n.americana.edu.co/webhook/syllabus-a-plantilla-bibliografia']
 const CLAVE_WEBHOOK = 'ova-webhook'
 
 export const leerWebhook = () => {
-  try { const g = localStorage.getItem(CLAVE_WEBHOOK); return !g || g === WEBHOOK_ANTERIOR ? WEBHOOK_POR_DEFECTO : g } catch (e) { return WEBHOOK_POR_DEFECTO }
+  try { const g = localStorage.getItem(CLAVE_WEBHOOK); return !g || WEBHOOKS_ANTERIORES.includes(g) ? WEBHOOK_POR_DEFECTO : g } catch (e) { return WEBHOOK_POR_DEFECTO }
 }
 export const guardarWebhook = (u) => {
   try { u ? localStorage.setItem(CLAVE_WEBHOOK, u) : localStorage.removeItem(CLAVE_WEBHOOK) } catch (e) { /* sin almacenamiento */ }
