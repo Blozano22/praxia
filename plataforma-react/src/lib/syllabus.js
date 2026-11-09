@@ -1,10 +1,13 @@
+import { api } from "./api.js"
 // Llamada al flujo de n8n del portal «syllabus-portal.html». Misma dirección, mismos datos enviados
 // y misma lectura de la respuesta que el portal original (que no se modifica).
-export const WEBHOOK_POR_DEFECTO = 'https://n8n.americana.edu.co/webhook/syllabus-a-plantilla'
+// Flujo que trabaja con la bibliografía leída por la plataforma (copia «con bibliografía, sin IA»). El flujo original es /syllabus-a-plantilla.
+export const WEBHOOK_POR_DEFECTO = 'https://n8n.americana.edu.co/webhook/syllabus-a-plantilla-bibliografia'
+const WEBHOOK_ANTERIOR = 'https://n8n.americana.edu.co/webhook/syllabus-a-plantilla'
 const CLAVE_WEBHOOK = 'ova-webhook'
 
 export const leerWebhook = () => {
-  try { return localStorage.getItem(CLAVE_WEBHOOK) || WEBHOOK_POR_DEFECTO } catch (e) { return WEBHOOK_POR_DEFECTO }
+  try { const g = localStorage.getItem(CLAVE_WEBHOOK); return !g || g === WEBHOOK_ANTERIOR ? WEBHOOK_POR_DEFECTO : g } catch (e) { return WEBHOOK_POR_DEFECTO }
 }
 export const guardarWebhook = (u) => {
   try { u ? localStorage.setItem(CLAVE_WEBHOOK, u) : localStorage.removeItem(CLAVE_WEBHOOK) } catch (e) { /* sin almacenamiento */ }
@@ -75,11 +78,11 @@ function buscarTexto(payload, claves) {
 
 // Envía el syllabus a n8n. Devuelve {documentos, programa, curso}. Si n8n termina sin lista de enlaces,
 // lanza un error con code 'NO_DOCUMENT_LIST' (el portal original lo muestra como «El flujo terminó. Revisa tu carpeta»).
-export async function generarDocumentos({ syllabusUrl, carpetaUrl }) {
+export async function generarDocumentos({ syllabusUrl, carpetaUrl, bibliografia }) {
   const response = await fetch(leerWebhook(), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ syllabus_url: syllabusUrl, carpeta_destino_url: carpetaUrl })
+    body: JSON.stringify({ syllabus_url: syllabusUrl, carpeta_destino_url: carpetaUrl, ...(bibliografia ? { bibliografia } : {}) })
   })
   const raw = await response.text()
   if (!response.ok) throw new Error(responseErrorText(raw) || 'n8n respondió con HTTP ' + response.status)
@@ -98,12 +101,13 @@ export async function generarDocumentos({ syllabusUrl, carpetaUrl }) {
 }
 
 // ---- Segundo flujo: «unidad-a-guiones». Recibe el documento de la unidad y devuelve un guion por tema. ----
-export const WEBHOOK_GUIONES_POR_DEFECTO = 'https://n8n.americana.edu.co/webhook/unidad-a-guiones'
+// Copia «con bibliografía»: escribe los guiones con las fuentes leídas de la unidad. El flujo original es /unidad-a-guiones.
+export const WEBHOOK_GUIONES_POR_DEFECTO = 'https://n8n.americana.edu.co/webhook/unidad-a-guiones-bibliografia'
+const WEBHOOK_GUIONES_ANTERIOR = 'https://n8n.americana.edu.co/webhook/unidad-a-guiones'
 const CLAVE_GUIONES = 'ova-webhook-guiones'
-// Siempre se usa la dirección oficial: una dirección vieja guardada en este navegador se descarta.
+// Se usa la dirección guardada en «Conexión n8n»; si no hay (o es la del flujo anterior) se usa la de la copia con bibliografía.
 export const leerWebhookGuiones = () => {
-  try { localStorage.removeItem(CLAVE_GUIONES) } catch (e) { /* sin almacenamiento */ }
-  return WEBHOOK_GUIONES_POR_DEFECTO
+  try { const g = localStorage.getItem(CLAVE_GUIONES); return !g || g === WEBHOOK_GUIONES_ANTERIOR ? WEBHOOK_GUIONES_POR_DEFECTO : g } catch (e) { return WEBHOOK_GUIONES_POR_DEFECTO }
 }
 export const guardarWebhookGuiones = (u) => {
   try { u ? localStorage.setItem(CLAVE_GUIONES, u) : localStorage.removeItem(CLAVE_GUIONES) } catch (e) { /* sin almacenamiento */ }
@@ -123,12 +127,29 @@ function buscarArchivos(payload) {
   return []
 }
 
-// Con el syllabus, n8n cita la bibliografía en los guiones; sin él los genera «sin respaldo bibliográfico».
-export async function generarGuiones({ unidadUrl, syllabusUrl }) {
+// Los guiones se escriben con la bibliografía ya leída de ESA unidad (texto por página y cita APA 7), no con lo que el modelo conozca.
+// Sin esa bibliografía no se envía nada: antes que inventar, se pide completarla.
+export async function generarGuiones({ unidadUrl, syllabusUrl, bibliografiaId, unidad }) {
+  if (!bibliografiaId) {
+    const e = new Error('Este syllabus no tiene la bibliografía leída guardada. Vuelva a generar los documentos desde el paso «Syllabus» (se lee la bibliografía y luego se crean las unidades) y después cree los guiones.')
+    e.code = 'SIN_BIBLIOGRAFIA'
+    throw e
+  }
+  let bibliografia
+  try { bibliografia = await api('GET', '/bibliografia/trabajos/' + bibliografiaId + '/paquete' + (unidad ? '?unidad=' + encodeURIComponent(unidad) : '')) } catch (err) {
+    const e = new Error('No se pudo leer la bibliografía guardada de este syllabus: ' + (err.message || 'error'))
+    e.code = 'SIN_BIBLIOGRAFIA'
+    throw e
+  }
+  if (!bibliografia.fuentes || !bibliografia.fuentes.length) {
+    const e = new Error('La bibliografía de la unidad ' + (unidad || '') + ' no tiene fuentes leídas: los guiones no se pueden respaldar. Revise la bibliografía de esa unidad.')
+    e.code = 'SIN_BIBLIOGRAFIA'
+    throw e
+  }
   const response = await fetch(leerWebhookGuiones(), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify(syllabusUrl ? { unidad_url: unidadUrl, syllabus_url: syllabusUrl } : { unidad_url: unidadUrl })
+    body: JSON.stringify({ unidad_url: unidadUrl, ...(syllabusUrl ? { syllabus_url: syllabusUrl } : {}), unidad, bibliografia })
   })
   const raw = await response.text()
   if (!response.ok) throw new Error(responseErrorText(raw) || 'n8n respondió con HTTP ' + response.status)

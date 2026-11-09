@@ -6,3 +6,6 @@ dist/
 *.7z
 *.zip
 .claude/
+
+# Idiomas del OCR (se generan solos al primer uso)
+servidor/data/

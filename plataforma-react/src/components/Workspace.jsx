@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Documentos from './Documentos.jsx'
 import PortalSyllabus from './PortalSyllabus.jsx'
+import EnlaceDoc from './EnlaceDoc.jsx'
 import CargarGuion from './CargarGuion.jsx'
 import Revision from './Revision.jsx'
 import { Recursos, Unidades, UnidadVista } from './Unidades.jsx'
@@ -24,8 +25,8 @@ export default function Workspace({ s, tab, setTab, unidadSel, setUnidadSel, rec
   const pasos = [
     ['syllabus', '1', 'Syllabus', s.syllabusUrl ? 'Documento base del curso' : 'Sin enlace'],
     ['docs', '2', 'Unidades', docs.length ? aprobados + ' de ' + docs.length + ' documentos aprobados' : 'Sin documentos'],
-    ['unidades', '3', 'Guiones', faltan ? 'Apruebe las unidades' : s.guiones.length + ' guiones cargados'],
-    ['recursos', '4', 'Recursos', faltan ? 'Apruebe las unidades' : s.recursos.length + ' recursos por tema']
+    ['unidades', '3', 'Guiones', faltan ? 'Apruebe las unidades' : s.guiones.length + ' guiones cargados']
+    // El paso «Recursos» queda fuera por ahora: el flujo llega hasta los guiones.
   ]
   if (faltan && (tab === 'unidades' || tab === 'recursos')) setTimeout(() => setTab('docs'), 0)
   const irA = (k) => { setTab(k); setModo('lista'); if (k !== 'unidades') setUnidadSel(null); if (k === 'recursos') setRecSel({ u: null }) }
@@ -79,15 +80,11 @@ export default function Workspace({ s, tab, setTab, unidadSel, setUnidadSel, rec
       </div>
       <div className="pj" style={{ marginTop: 6 }}>
         <div>
-          <input type="text" aria-label="Curso" value={s.curso} onChange={(e) => onCambio({ ...s, curso: e.target.value })} style={{ fontSize: '1.7rem', fontWeight: 700, borderColor: 'transparent', background: 'transparent', padding: '2px 6px', color: 'var(--g2)' }} />
+          <h1 style={{ margin: '0 0 6px' }}>{s.curso}</h1>
           <div className="row" style={{ marginTop: 4 }}>
-            <input type="text" aria-label="Programa" value={s.programa === 'Sin programa' ? '' : s.programa} placeholder="Escriba el programa (para agrupar en el dashboard)" onChange={(e) => onCambio({ ...s, programa: e.target.value || 'Sin programa' })} style={{ width: 340, padding: '4px 8px', fontSize: '.9rem' }} />
+            {s.programa !== 'Sin programa' && <span className="help" style={{ margin: 0 }}>{s.programa}</span>}
             <span className={'pill ' + cls}>{txt}</span>
           </div>
-        </div>
-        <div className="row">
-          {s.syllabusUrl && <a className="btn sec sm" style={{ textDecoration: 'none' }} href={s.syllabusUrl} target="_blank" rel="noopener noreferrer">Abrir syllabus en Google Docs</a>}
-          {s.carpetaUrl && <a className="btn sec sm" style={{ textDecoration: 'none' }} href={s.carpetaUrl} target="_blank" rel="noopener noreferrer">Abrir carpeta de Drive</a>}
         </div>
       </div>
 
@@ -107,16 +104,17 @@ export default function Workspace({ s, tab, setTab, unidadSel, setUnidadSel, rec
           {regenerar ? (
             <div>
               <PortalSyllabus modo="regenerar" inicial={{ syllabusUrl: s.syllabusUrl, carpetaUrl: s.carpetaUrl }}
-                onResultado={(d) => { onCambio({ ...s, syllabusUrl: d.syllabusUrl, carpetaUrl: d.carpetaUrl, syllabus: { estado: d.estado, documentos: d.documentos.length ? d.documentos : s.syllabus.documentos, mensaje: d.mensaje } }); aviso('Resultado guardado en el syllabus'); return s.id }} />
+                onResultado={(d) => { onCambio({ ...s, syllabusUrl: d.syllabusUrl, carpetaUrl: d.carpetaUrl, bibliografiaId: d.bibliografiaId || s.bibliografiaId || '', syllabus: { estado: d.estado, documentos: d.documentos.length ? d.documentos : s.syllabus.documentos, mensaje: d.mensaje } }); aviso('Resultado guardado en el syllabus'); return s.id }} />
               <div className="row" style={{ marginTop: 12 }}><button className="btn sec" onClick={() => setRegenerar(false)}>Volver al syllabus</button></div>
             </div>
           ) : (
             <>
-              <div className="card kvc">
-                <div><b>Programa</b><span>{s.programa}</span></div>
+              <div className="card kvc kvc2">
                 <div><b>Curso</b><span>{s.curso}</span></div>
-                <div><b>Syllabus</b><span>{s.syllabusUrl || 'Sin enlace'}</span></div>
-                <div><b>Carpeta de destino</b><span>{s.carpetaUrl || 'Sin enlace'}</span></div>
+              </div>
+              <div className="ed-grid">
+                <EnlaceDoc titulo="Syllabus" url={s.syllabusUrl} />
+                <EnlaceDoc titulo="Carpeta de destino" url={s.carpetaUrl} />
               </div>
               <div className="row" style={{ margin: '12px 0' }}>
                 <button className="btn sm" onClick={() => setRegenerar(true)}>{docs.length ? 'Volver a generar documentos' : 'Generar documentos'}</button>
@@ -153,7 +151,7 @@ export default function Workspace({ s, tab, setTab, unidadSel, setUnidadSel, rec
               <CargarGuion onAnalizado={(p) => { setPend(p); setModo('revision') }} onCancelar={() => setModo('lista')} />
             </div>
           ) : unidadSel != null ? (
-            <UnidadVista s={s} unidad={unidadSel} onCambio={onCambio} onVolver={() => setUnidadSel(null)} onCargar={() => setModo('cargar')} onCrearDeGuiones={crearDeGuiones} aviso={aviso} />
+            <UnidadVista s={s} unidad={unidadSel} onCambio={onCambio} onVolver={() => setUnidadSel(null)} onCrearDeGuiones={crearDeGuiones} aviso={aviso} />
           ) : (
             <Unidades s={s} onAbrir={setUnidadSel} />
           )}

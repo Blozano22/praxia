@@ -1,0 +1,1089 @@
+{
+  "_nota": "Estructura metodológica vigente por nivel. red: [familia, formato, prioridad P/C]. act: [actividad general, prioridad]. esp: [actividad específica, prioridad, propósito pedagógico]. Prioridad: P = Prioritaria, C = Complementaria.",
+  "Licenciatura": {
+    "red": [
+      [
+        "Representación y organización visual",
+        "Cuadro comparativo interactivo",
+        "P"
+      ],
+      [
+        "Representación y organización visual",
+        "Infografías estáticas",
+        "P"
+      ],
+      [
+        "Representación y organización visual",
+        "Infografías interactivas",
+        "P"
+      ],
+      [
+        "Representación y organización visual",
+        "Diagramas de flujo",
+        "P"
+      ],
+      [
+        "Representación y organización visual",
+        "Mapas conceptuales interactivos",
+        "P"
+      ],
+      [
+        "Recursos audiovisuales y sonoros",
+        "Videos académicos estructurados",
+        "P"
+      ],
+      [
+        "Recursos audiovisuales y sonoros",
+        "Videos explicativos con audio",
+        "P"
+      ],
+      [
+        "Recursos audiovisuales y sonoros",
+        "Videos de micro-learning",
+        "P"
+      ],
+      [
+        "Recursos audiovisuales y sonoros",
+        "Podcasts",
+        "P"
+      ],
+      [
+        "Experiencias multimedia interactivas",
+        "Presentaciones multimedia interactivas",
+        "P"
+      ],
+      [
+        "Experiencias multimedia interactivas",
+        "Acordeones",
+        "P"
+      ],
+      [
+        "Experiencias multimedia interactivas",
+        "Galerías",
+        "P"
+      ],
+      [
+        "Experiencias multimedia interactivas",
+        "Casos interactivos de diagnostico",
+        "P"
+      ],
+      [
+        "Experiencias multimedia interactivas",
+        "Simuladores de gestión por roles",
+        "P"
+      ],
+      [
+        "Recursos de lectura y profundización académica",
+        "Libro de texto interactivo",
+        "P"
+      ],
+      [
+        "Recursos de lectura y profundización académica",
+        "Lecturas fundamentales diagramadas",
+        "P"
+      ],
+      [
+        "Recursos de lectura y profundización académica",
+        "Tarjetas didácticas",
+        "P"
+      ],
+      [
+        "Secuenciación y organización temporal",
+        "Líneas de tiempo dinámicas",
+        "P"
+      ]
+    ],
+    "act": [
+      [
+        "Emparejamiento",
+        "C"
+      ],
+      [
+        "Toma de decisiones",
+        "C"
+      ],
+      [
+        "Crucigrama técnico",
+        "C"
+      ],
+      [
+        "Simulación de casos",
+        "P"
+      ],
+      [
+        "Clasificaciones",
+        "C"
+      ],
+      [
+        "Cuestionario con retroalimentación",
+        "P"
+      ],
+      [
+        "Estudio de caso",
+        "C"
+      ],
+      [
+        "Tarea",
+        "P"
+      ],
+      [
+        "Taller aplicado",
+        "P"
+      ],
+      [
+        "Laboratorio virtual",
+        "P"
+      ],
+      [
+        "Foros estructurados",
+        "P"
+      ]
+    ],
+    "esp": [
+      [
+        "Elaboración de guías de sensibilización",
+        "P",
+        "Desarrollar habilidades para diseñar orientaciones pedagógicas que promuevan la sensibilización, la convivencia pacífica, la participación ciudadana y el respeto por los derechos humanos en contextos comunitarios."
+      ],
+      [
+        "Diagnóstico de una comunidad",
+        "P",
+        "Fortalecer la capacidad de identificar y analizar necesidades educativas, problemáticas sociales y características socioculturales de una comunidad para fundamentar intervenciones pedagógicas contextualizadas."
+      ],
+      [
+        "Diseño de una sección educativa",
+        "P",
+        "Desarrollar competencias para estructurar actividades educativas mediante la definición de objetivos, contenidos, estrategias didácticas y recursos pertinentes a las necesidades de aprendizaje de diferentes grupos comunitarios."
+      ],
+      [
+        "Planeación de una clase simulada",
+        "P",
+        "Fortalecer la planificación pedagógica mediante la organización de objetivos de aprendizaje, contenidos, metodologías y estrategias de evaluación aplicables a escenarios educativos y comunitarios simulados."
+      ],
+      [
+        "Análisis de casos pedagógicos",
+        "P",
+        "Desarrollar el pensamiento crítico y la capacidad de resolución de problemas educativos mediante el análisis de situaciones pedagógicas contextualizadas y la formulación de alternativas de intervención fundamentadas."
+      ],
+      [
+        "Registro de observación",
+        "P",
+        "Fortalecer las habilidades de observación sistemática y documentación de situaciones educativas y comunitarias mediante la identificación, organización e interpretación de información relevante para el análisis pedagógico."
+      ],
+      [
+        "Diseño de material educativo",
+        "P",
+        "Desarrollar habilidades para crear recursos didácticos contextualizados que faciliten la comprensión de contenidos, promuevan la participación activa y respondan a las características de diferentes poblaciones comunitarias."
+      ],
+      [
+        "Juego de roles",
+        "P",
+        "Fortalecer las habilidades de comunicación, empatía y mediación pedagógica mediante la representación de situaciones educativas y comunitarias que favorezcan la resolución pacífica de conflictos y la convivencia ciudadana."
+      ],
+      [
+        "Mapa de actores locales",
+        "P",
+        "Desarrollar capacidades para identificar y analizar actores comunitarios, sus funciones, relaciones e influencia territorial, facilitando la articulación de iniciativas educativas y de participación ciudadana."
+      ],
+      [
+        "Elaboración de esquemas conceptuales",
+        "P",
+        "Fortalecer la comprensión y organización del conocimiento pedagógico mediante la representación visual de conceptos, enfoques y relaciones teóricas relevantes."
+      ],
+      [
+        "Elaboración de fichas de lectura",
+        "P",
+        "Desarrollar habilidades de lectura crítica, análisis y síntesis de textos académicos mediante la identificación de conceptos, argumentos y aportes teóricos que fundamenten la práctica."
+      ],
+      [
+        "Evaluación de una estrategia educativa-comunitaria",
+        "P",
+        "Fortalecer la capacidad de valorar la pertinencia, implementación y resultados de estrategias educativas comunitarias mediante el análisis de indicadores, evidencias y oportunidades de mejora."
+      ],
+      [
+        "Ordenar etapas del proceso disciplinar",
+        "P",
+        "Fortalecer la comprensión de la secuencia del procedimiento disciplinario mediante la identificación y organización de sus etapas, actuaciones y garantías, de acuerdo con la normativa vigente y el debido proceso."
+      ],
+      [
+        "Clasificación de faltas",
+        "P",
+        "Desarrollar habilidades para identificar y clasificar faltas disciplinarias mediante el análisis de conductas, criterios normativos y situaciones contextualizadas, promoviendo la actuación ética y el respeto por el debido proceso."
+      ]
+    ],
+    "met": [
+      [
+        "Aprendizaje Basado en Evidencias",
+        "P"
+      ],
+      [
+        "Aprendizaje Basado en Problemas (ABP)",
+        "P"
+      ],
+      [
+        "Aprendizaje Basado en Juegos (Gamificación-Ludificación)",
+        "C"
+      ],
+      [
+        "Aprendizaje Basado en Estudios de Caso (ABC)",
+        "P"
+      ],
+      [
+        "Aprendizaje por Observación",
+        "P"
+      ],
+      [
+        "Método de Casos",
+        "P"
+      ],
+      [
+        "Aprendizaje Adaptativo",
+        "P"
+      ],
+      [
+        "Aprendizaje Basado en Pensamiento",
+        "P"
+      ],
+      [
+        "Aprendizaje Basado en Proyectos",
+        "P"
+      ],
+      [
+        "Aprendizaje Basado en Retos",
+        "P"
+      ],
+      [
+        "Aprendizaje Colaborativo",
+        "C"
+      ],
+      [
+        "Aprendizaje por Descubrimiento",
+        "P"
+      ],
+      [
+        "Aprendizaje por Simulación",
+        "P"
+      ],
+      [
+        "Aula Invertida",
+        "P"
+      ],
+      [
+        "Pensamiento de Diseño en el Aprendizaje",
+        "P"
+      ],
+      [
+        "Aprendizaje Colaborativo Internacional en Línea",
+        "C"
+      ],
+      [
+        "Aprendizaje Experimental",
+        "P"
+      ]
+    ]
+  },
+  "Especialización": {
+    "red": [
+      [
+        "Representación y organización visual",
+        "Infografías estáticas",
+        "C"
+      ],
+      [
+        "Representación y organización visual",
+        "Infografías interactivas",
+        "C"
+      ],
+      [
+        "Representación y organización visual",
+        "Diagramas de flujo",
+        "P"
+      ],
+      [
+        "Representación y organización visual",
+        "Mapas conceptuales interactivos",
+        "C"
+      ],
+      [
+        "Representación y organización visual",
+        "Matriz comparativa",
+        "P"
+      ],
+      [
+        "Representación y organización visual",
+        "Esquema gráfico",
+        "P"
+      ],
+      [
+        "Representación y organización visual",
+        "Análisis de los 5 porqués",
+        "P"
+      ],
+      [
+        "Recursos audiovisuales y sonoros",
+        "Videos académicos estructurados",
+        "P"
+      ],
+      [
+        "Recursos audiovisuales y sonoros",
+        "Videos explicativos con audio",
+        "P"
+      ],
+      [
+        "Recursos audiovisuales y sonoros",
+        "Videos de micro-learning",
+        "C"
+      ],
+      [
+        "Recursos audiovisuales y sonoros",
+        "Podcasts",
+        "P"
+      ],
+      [
+        "Recursos de lectura y profundización académica",
+        "Manuales y protocolos",
+        "P"
+      ],
+      [
+        "Recursos de lectura y profundización académica",
+        "Casos de estudio",
+        "P"
+      ],
+      [
+        "Recursos de lectura y profundización académica",
+        "Lecturas fundamentales diagramadas",
+        "C"
+      ],
+      [
+        "Experiencias multimedia interactivas",
+        "Presentaciones multimedia interactivas",
+        "P"
+      ],
+      [
+        "Experiencias multimedia interactivas",
+        "Acordeones",
+        "C"
+      ],
+      [
+        "Experiencias multimedia interactivas",
+        "Galerías",
+        "C"
+      ],
+      [
+        "Experiencias multimedia interactivas",
+        "Árbol de decisiones",
+        "P"
+      ],
+      [
+        "Experiencias multimedia interactivas",
+        "Expedientes digitales simulados",
+        "P"
+      ],
+      [
+        "Experiencias multimedia interactivas",
+        "Micro-lecciones",
+        "P"
+      ],
+      [
+        "Secuenciación y organización temporal",
+        "Líneas de tiempo dinámicas",
+        "C"
+      ]
+    ],
+    "act": [
+      [
+        "Toma de decisiones",
+        "P"
+      ],
+      [
+        "Simulaciones de caso",
+        "P"
+      ],
+      [
+        "Clasificaciones",
+        "C"
+      ],
+      [
+        "Cuestionarios con retroalimentación",
+        "C"
+      ],
+      [
+        "Estudio de caso",
+        "P"
+      ],
+      [
+        "Tarea",
+        "P"
+      ],
+      [
+        "Taller aplicado",
+        "P"
+      ],
+      [
+        "Laboratorio virtual",
+        "P"
+      ],
+      [
+        "Foros estructurados",
+        "P"
+      ]
+    ],
+    "esp": [
+      [
+        "Casos ramificados de una gestión de una emergencia",
+        "P",
+        "Analizar escenarios ramificados de emergencia para seleccionar y justificar decisiones de respuesta, considerando la evolución del evento, los protocolos aplicables, la coordinación operativa y las consecuencias de cada actuación."
+      ],
+      [
+        "Cuestionario sobre normas de tránsito",
+        "P",
+        "Interpretar y aplicar la normativa de tránsito en situaciones contextualizadas, identificando obligaciones, infracciones y criterios legales relevantes para el análisis técnico de hechos viales."
+      ],
+      [
+        "Reconocimiento de huellas",
+        "P",
+        "Identificar y diferenciar huellas a partir de evidencias visuales y criterios técnico-científicos, estableciendo su posible origen, características y relevancia para la reconstrucción de los hechos."
+      ],
+      [
+        "Completar un informe de accidente",
+        "P",
+        "Integrar información técnica y documental en un informe de accidente, completando sus apartados con precisión, coherencia, sustento en evidencias y observancia de los procedimientos aplicables."
+      ],
+      [
+        "Análisis de una escena",
+        "P",
+        "Examinar de manera sistemática una escena, identificando indicios, relaciones espaciales y condiciones del entorno para formular interpretaciones preliminares sustentadas en evidencias y protocolos de actuación."
+      ],
+      [
+        "Identificación de elementos probatorios",
+        "P",
+        "Reconocer y valorar elementos materiales probatorios y evidencia física en situaciones simuladas, considerando su pertinencia investigativa, documentación, preservación y cadena de custodia."
+      ],
+      [
+        "Plan de mitigación",
+        "P",
+        "Diseñar medidas de mitigación a partir de la identificación y valoración de riesgos, priorizando controles, responsables e indicadores para reducir la probabilidad o gravedad de consecuencias operacionales."
+      ],
+      [
+        "Simulación de toma de decisiones bajo presión",
+        "P",
+        "Evaluar alternativas y adoptar decisiones justificadas en escenarios críticos simulados, integrando información disponible, prioridades de seguridad, presión temporal y efectos de las actuaciones."
+      ],
+      [
+        "Desarrollo de plan de contingencia",
+        "P",
+        "Estructurar un plan de contingencia para escenarios de riesgo identificados, definiendo procedimientos de respuesta, recursos, responsables, canales de coordinación y criterios de recuperación."
+      ],
+      [
+        "Análisis de la causa-raíz (Los 5 porqués)",
+        "P",
+        "Aplicar la técnica de los cinco porqués para examinar incidentes, accidentes o fallas, distinguir causas inmediatas y subyacentes y proponer acciones correctivas fundamentadas en hallazgos verificables."
+      ],
+      [
+        "Clasificación de riesgo según su nivel de gravedad",
+        "P",
+        "Clasificar riesgos de acuerdo con criterios de probabilidad, impacto y gravedad, justificando su nivel de criticidad para priorizar medidas de prevención, respuesta y control."
+      ],
+      [
+        "Elaboración de informes",
+        "P",
+        "Elaborar informes técnicos especializados mediante la organización crítica de datos, evidencias, análisis, conclusiones y recomendaciones, asegurando rigor, claridad y trazabilidad documental."
+      ],
+      [
+        "Análisis de protocolos de atención a emergencias",
+        "P",
+        "Evaluar protocolos de atención a emergencias frente a escenarios operacionales concretos, verificando secuencias de actuación, responsabilidades, criterios de seguridad y oportunidades de mejora."
+      ]
+    ],
+    "met": [
+      [
+        "Aprendizaje Basado en Evidencias",
+        "P"
+      ],
+      [
+        "Aprendizaje Basado en Problemas (ABP)",
+        "P"
+      ],
+      [
+        "Aprendizaje Basado en Estudios de Caso (ABC)",
+        "P"
+      ],
+      [
+        "Aprendizaje por Observación",
+        "C"
+      ],
+      [
+        "Método de Casos",
+        "P"
+      ],
+      [
+        "Aprendizaje Adaptativo",
+        "C"
+      ],
+      [
+        "Aprendizaje Basado en Pensamiento",
+        "C"
+      ],
+      [
+        "Aprendizaje Basado en Proyectos",
+        "P"
+      ],
+      [
+        "Aprendizaje Basado en Retos",
+        "P"
+      ],
+      [
+        "Aprendizaje Colaborativo",
+        "C"
+      ],
+      [
+        "Aprendizaje por Descubrimiento",
+        "C"
+      ],
+      [
+        "Aprendizaje por Simulación",
+        "P"
+      ],
+      [
+        "Aula Invertida",
+        "P"
+      ],
+      [
+        "Pensamiento de Diseño en el Aprendizaje",
+        "P"
+      ],
+      [
+        "Aprendizaje Colaborativo Internacional en Línea",
+        "C"
+      ],
+      [
+        "Aprendizaje Experimental",
+        "C"
+      ]
+    ]
+  },
+  "Doctorado": {
+    "red": [
+      [
+        "Representación y organización visual",
+        "Infografías estáticas",
+        "C"
+      ],
+      [
+        "Representación y organización visual",
+        "Infografías interactivas",
+        "C"
+      ],
+      [
+        "Representación y organización visual",
+        "Cuaderno interactivo de análisis de datos",
+        "P"
+      ],
+      [
+        "Representación y organización visual",
+        "Poster científicos digitales interactivos",
+        "P"
+      ],
+      [
+        "Representación y organización visual",
+        "Diagramas de flujo",
+        "C"
+      ],
+      [
+        "Representación y organización visual",
+        "Secuencias ilustradas de fases de un diseño",
+        "P"
+      ],
+      [
+        "Representación y organización visual",
+        "Mapas conceptuales interactivos",
+        "P"
+      ],
+      [
+        "Recursos audiovisuales y sonoros",
+        "Mapas del delito y zonas críticas",
+        "P"
+      ],
+      [
+        "Recursos audiovisuales y sonoros",
+        "Mapas de actores y factores de riesgo",
+        "P"
+      ],
+      [
+        "Recursos audiovisuales y sonoros",
+        "Ciclo visual",
+        "P"
+      ],
+      [
+        "Recursos audiovisuales y sonoros",
+        "Videos académicos estructurados",
+        "P"
+      ],
+      [
+        "Recursos audiovisuales y sonoros",
+        "Videos explicativos con audio",
+        "P"
+      ],
+      [
+        "Recursos audiovisuales y sonoros",
+        "Podcasts",
+        "P"
+      ],
+      [
+        "Experiencias multimedia interactivas",
+        "Escenarios de toma de decisiones",
+        "P"
+      ],
+      [
+        "Experiencias multimedia interactivas",
+        "Presentaciones multimedia interactivas",
+        "P"
+      ],
+      [
+        "Experiencias multimedia interactivas",
+        "Acordeones",
+        "C"
+      ],
+      [
+        "Recursos de lectura y profundización académica",
+        "Matriz de revisión literaria",
+        "P"
+      ],
+      [
+        "Recursos de lectura y profundización académica",
+        "Resumenes gráficos",
+        "P"
+      ],
+      [
+        "Recursos de lectura y profundización académica",
+        "Lecturas fundamentales diagramadas",
+        "P"
+      ],
+      [
+        "Secuenciación y organización temporal",
+        "Líneas de tiempo dinámicas",
+        "C"
+      ]
+    ],
+    "act": [
+      [
+        "Toma de decisiones",
+        "P"
+      ],
+      [
+        "Simulaciones de casos",
+        "P"
+      ],
+      [
+        "Foros estructurados",
+        "P"
+      ],
+      [
+        "Tarea",
+        "P"
+      ],
+      [
+        "Taller aplicado",
+        "P"
+      ]
+    ],
+    "esp": [
+      [
+        "Investigación sobre las causas de la inseguridad en diferentes territorios",
+        "P",
+        "Desarrollar capacidades de investigación crítica sobre los factores estructurales, sociales, institucionales y territoriales que explican la inseguridad, mediante el análisis de evidencia científica y la formulación de interpretaciones que contribuyan a generar conocimiento original."
+      ],
+      [
+        "Investigación comparativa entre territorios",
+        "P",
+        "Desarrollar capacidades de investigación crítica sobre los factores estructurales, sociales, institucionales y territoriales que explican la inseguridad, mediante el análisis de evidencia científica y la formulación de interpretaciones que contribuyan a generar conocimiento original."
+      ],
+      [
+        "Formulación de un problema de investigación",
+        "P",
+        "Desarrollar capacidades para identificar, delimitar y problematizar fenómenos complejos de seguridad y convivencia ciudadana mediante el análisis crítico de antecedentes, vacíos de conocimiento y fundamentos epistemológicos que sustenten investigaciones doctorales pertinentes."
+      ],
+      [
+        "Elaboración de artículos",
+        "P",
+        "Fortalecer la producción y comunicación científica mediante la elaboración de artículos académicos que integren argumentación rigurosa, fundamentos teóricos, metodologías pertinentes y resultados originales relacionados con la seguridad y la convivencia ciudadana."
+      ],
+      [
+        "Matriz de estado del arte",
+        "P",
+        "Desarrollar capacidades de sistematización y análisis crítico de la producción científica mediante la organización y comparación de enfoques teóricos, metodologías y hallazgos, identificando tendencias, controversias y vacíos de conocimiento relevantes para la investigación doctoral."
+      ],
+      [
+        "Revisión sistemática guiada",
+        "P",
+        "Fortalecer el rigor científico mediante la búsqueda, selección, evaluación crítica y síntesis sistemática de investigaciones sobre seguridad y convivencia ciudadana, aplicando criterios metodológicos explícitos que permitan identificar evidencias, limitaciones y nuevas oportunidades de investigación."
+      ],
+      [
+        "Operacionalización de variables",
+        "P",
+        "Desarrollar capacidades para transformar constructos teóricos relacionados con la seguridad y la convivencia ciudadana en dimensiones, variables e indicadores observables, garantizando coherencia conceptual, pertinencia metodológica y posibilidades de análisis científico."
+      ],
+      [
+        "Validación de instrumentos",
+        "P",
+        "Fortalecer el rigor metodológico mediante la evaluación de la validez, confiabilidad y pertinencia de instrumentos de investigación, considerando criterios científicos y contextuales que garanticen la calidad de los datos sobre seguridad y convivencia ciudadana."
+      ],
+      [
+        "Reseña crítica de artículos",
+        "P",
+        "Desarrollar pensamiento científico crítico mediante el examen de fundamentos epistemológicos, enfoques teóricos, diseños metodológicos y resultados de artículos especializados, identificando fortalezas, limitaciones y aportes para la construcción de conocimiento doctoral."
+      ],
+      [
+        "Diario de investigación",
+        "P",
+        "Promover la reflexión epistemológica y metodológica mediante el registro sistemático de decisiones, observaciones, hallazgos y dificultades del proceso investigativo, fortaleciendo la reflexividad, la trazabilidad y el rigor científico en estudios de seguridad y convivencia ciudadana."
+      ],
+      [
+        "Elaboración de ensayos especializados",
+        "P",
+        "Fortalecer la argumentación académica avanzada mediante la construcción de análisis críticos sobre teorías, políticas y problemáticas de seguridad y convivencia ciudadana, integrando perspectivas interdisciplinarias, evidencia científica y posicionamientos teóricos fundamentados."
+      ],
+      [
+        "Evaluación de programa de prevención de delitos",
+        "P",
+        "Desarrollar capacidades de evaluación científica de programas de prevención del delito mediante el análisis de su diseño, implementación, resultados e impacto, utilizando evidencia empírica y criterios metodológicos que fundamenten recomendaciones para mejorar las intervenciones públicas."
+      ],
+      [
+        "Elaboración de plan de mejoramiento",
+        "P",
+        "Fortalecer la formulación de propuestas de transformación institucional y territorial mediante el análisis crítico de diagnósticos, resultados de investigación e indicadores de desempeño, diseñando acciones de mejoramiento sustentadas en evidencia científica para la seguridad y la convivencia ciudadana."
+      ]
+    ],
+    "met": [
+      [
+        "Aprendizaje Basado en Evidencias",
+        "P"
+      ],
+      [
+        "Aprendizaje Basado en Problemas (ABP)",
+        "P"
+      ],
+      [
+        "Aprendizaje Basado en Estudios de Caso (ABC)",
+        "P"
+      ],
+      [
+        "Aprendizaje por Observación",
+        "C"
+      ],
+      [
+        "Método de Casos",
+        "P"
+      ],
+      [
+        "Aprendizaje Basado en Pensamiento",
+        "C"
+      ],
+      [
+        "Aprendizaje Basado en Proyectos",
+        "P"
+      ],
+      [
+        "Aprendizaje Basado en Retos",
+        "P"
+      ],
+      [
+        "Aprendizaje por Descubrimiento",
+        "C"
+      ],
+      [
+        "Aprendizaje por Simulación",
+        "P"
+      ],
+      [
+        "Aula Invertida",
+        "P"
+      ],
+      [
+        "Pensamiento de Diseño en el Aprendizaje",
+        "P"
+      ],
+      [
+        "Aprendizaje Colaborativo Internacional en Línea",
+        "C"
+      ],
+      [
+        "Aprendizaje Experimental",
+        "C"
+      ]
+    ]
+  },
+  "Tecnológico": {
+    "red": [
+      [
+        "Representación y organización visual",
+        "Infografías estáticas",
+        "P"
+      ],
+      [
+        "Representación y organización visual",
+        "Infografías interactivas",
+        "P"
+      ],
+      [
+        "Representación y organización visual",
+        "Diagramas de flujo",
+        "P"
+      ],
+      [
+        "Representación y organización visual",
+        "Mapas conceptuales interactivos",
+        "C"
+      ],
+      [
+        "Representación y organización visual",
+        "Ficha técnicas interactivas",
+        "P"
+      ],
+      [
+        "Recursos audiovisuales y sonoros",
+        "Videos académicos estructurados",
+        "P"
+      ],
+      [
+        "Recursos audiovisuales y sonoros",
+        "Videos explicativos con audio",
+        "P"
+      ],
+      [
+        "Recursos audiovisuales y sonoros",
+        "Videos de micro-learning",
+        "P"
+      ],
+      [
+        "Recursos audiovisuales y sonoros",
+        "Podcasts",
+        "C"
+      ],
+      [
+        "Experiencias multimedia interactivas",
+        "Presentaciones multimedia interactivas",
+        "P"
+      ],
+      [
+        "Experiencias multimedia interactivas",
+        "Acordeones",
+        "P"
+      ],
+      [
+        "Experiencias multimedia interactivas",
+        "Galerías",
+        "P"
+      ],
+      [
+        "Experiencias multimedia interactivas",
+        "Simulador de procesos técnicos",
+        "P"
+      ],
+      [
+        "Experiencias multimedia interactivas",
+        "Modelos 3D",
+        "P"
+      ],
+      [
+        "Recursos de lectura y profundización académica",
+        "Lecturas fundamentales diagramadas",
+        "C"
+      ],
+      [
+        "Recursos de lectura y profundización académica",
+        "Boletines técnicos especializados",
+        "P"
+      ],
+      [
+        "Secuenciación y organización temporal",
+        "Líneas de tiempo dinámicas",
+        "C"
+      ],
+      [
+        "Secuenciación y organización temporal",
+        "Procedimiento paso a paso",
+        "P"
+      ]
+    ],
+    "act": [
+      [
+        "Emparejamiento",
+        "P"
+      ],
+      [
+        "Toma de decisiones",
+        "P"
+      ],
+      [
+        "Arrastre y suelte",
+        "P"
+      ],
+      [
+        "Simulaciones de caso",
+        "P"
+      ],
+      [
+        "Clasificaciones",
+        "P"
+      ],
+      [
+        "Cuestionarios con retroalimentación",
+        "C"
+      ],
+      [
+        "Estudio de caso",
+        "C"
+      ],
+      [
+        "Tarea",
+        "P"
+      ],
+      [
+        "Taller aplicado",
+        "P"
+      ],
+      [
+        "Laboratorio virtual",
+        "P"
+      ],
+      [
+        "Foros estructurados",
+        "C"
+      ]
+    ],
+    "esp": [
+      [
+        "Análisis de incidentes",
+        "P",
+        "Fortalecer la capacidad de analizar incidentes relacionados con la seguridad y la convivencia, identificando causas, actores, riesgos y posibles actuaciones policiales con enfoque de derechos humanos."
+      ],
+      [
+        "Lectura del mapa del delito",
+        "P",
+        "Desarrollar habilidades para interpretar información geográfica y patrones delictivos, identificando zonas de riesgo y oportunidades de prevención que orienten la gestión del servicio de Policía."
+      ],
+      [
+        "Emparejar normas con situaciones",
+        "P",
+        "Fortalecer la comprensión y aplicación de disposiciones normativas mediante la asociación de normas con situaciones propias del servicio policial, la convivencia ciudadana y la protección de los derechos humanos."
+      ],
+      [
+        "Elaboración de mapas de intervención",
+        "P",
+        "Desarrollar habilidades para representar territorialmente problemáticas de seguridad y convivencia, identificando actores, recursos y acciones que orienten intervenciones policiales y comunitarias."
+      ],
+      [
+        "Actuación ante escenarios críticos",
+        "P",
+        "Fortalecer la capacidad de seleccionar, justificar y ajustar alternativas de actuación ante escenarios policiales y comunitarios, valorando sus consecuencias y aplicando criterios normativos, éticos, de proporcionalidad y respeto por los derechos humanos."
+      ],
+      [
+        "Clasificación de conducta",
+        "P",
+        "Desarrollar habilidades para reconocer y clasificar conductas relacionadas con la convivencia y la seguridad ciudadana, aplicando criterios normativos que permitan diferenciar situaciones y orientar actuaciones pertinentes."
+      ],
+      [
+        "Construcción de propuestas preventivas",
+        "P",
+        "Fortalecer la capacidad de formular acciones preventivas frente a problemáticas de seguridad, convivencia y vulneración de derechos, considerando el contexto territorial, la participación comunitaria y los recursos disponibles."
+      ],
+      [
+        "Completar espacios",
+        "P",
+        "Reforzar la comprensión y apropiación de conceptos, normas, procedimientos y principios relacionados con el servicio policial y los derechos humanos mediante la identificación de información faltante en enunciados contextualizados."
+      ],
+      [
+        "Portafolio de evidencias",
+        "P",
+        "Promover la recopilación, organización y reflexión sobre evidencias de aprendizaje que demuestren la aplicación de conocimientos, procedimientos y competencias relacionadas con la gestión policial y comunitaria."
+      ],
+      [
+        "Elaboración de informes",
+        "P",
+        "Desarrollar habilidades para registrar, organizar y comunicar información sobre situaciones operativas, comunitarias o de convivencia mediante informes claros, objetivos y fundamentados en evidencias."
+      ],
+      [
+        "Verdadero o falso",
+        "P",
+        "Fortalecer la comprensión de conceptos, principios y disposiciones normativas mediante la valoración de afirmaciones relacionadas con la actuación policial, la convivencia ciudadana y la protección de los derechos humanos."
+      ],
+      [
+        "Análisis de una noticia",
+        "P",
+        "Desarrollar el pensamiento crítico mediante el análisis de noticias relacionadas con seguridad, convivencia y derechos humanos, diferenciando hechos, opiniones, fuentes y posibles implicaciones para la gestión policial y comunitaria."
+      ],
+      [
+        "Identificación de conceptos",
+        "P",
+        "Fortalecer el reconocimiento y la comprensión de conceptos fundamentales de la gestión policial, la convivencia ciudadana, los derechos humanos y la intervención comunitaria mediante su identificación en situaciones contextualizadas."
+      ]
+    ],
+    "met": [
+      [
+        "Aprendizaje Basado en Evidencias",
+        "C"
+      ],
+      [
+        "Aprendizaje Basado en Problemas (ABP)",
+        "P"
+      ],
+      [
+        "Aprendizaje Basado en Juegos (Gamificación-Ludificación)",
+        "P"
+      ],
+      [
+        "Aprendizaje Basado en Estudios de Caso (ABC)",
+        "P"
+      ],
+      [
+        "Aprendizaje por Observación",
+        "P"
+      ],
+      [
+        "Método de Casos",
+        "C"
+      ],
+      [
+        "Aprendizaje Adaptativo",
+        "P"
+      ],
+      [
+        "Aprendizaje Basado en Pensamiento",
+        "P"
+      ],
+      [
+        "Aprendizaje Basado en Proyectos",
+        "P"
+      ],
+      [
+        "Aprendizaje Basado en Retos",
+        "P"
+      ],
+      [
+        "Aprendizaje Colaborativo",
+        "C"
+      ],
+      [
+        "Aprendizaje por Descubrimiento",
+        "P"
+      ],
+      [
+        "Aprendizaje por Simulación",
+        "P"
+      ],
+      [
+        "Aula Invertida",
+        "C"
+      ],
+      [
+        "Pensamiento de Diseño en el Aprendizaje",
+        "C"
+      ],
+      [
+        "Aprendizaje Experimental",
+        "P"
+      ]
+    ]
+  }
+}

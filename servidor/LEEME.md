@@ -73,3 +73,36 @@ Al iniciar sesión, si en ese navegador había syllabus guardados antes (Indexed
 - `src/seguridad.js`: claves, sesión, permisos, anti-CSRF.
 - `src/enlaces.js`: extrae los enlaces de un syllabus.
 - `test/seguridad.test.js`: pruebas contra PostgreSQL real.
+
+## Bibliografía (src/bibliografia)
+
+Lee la bibliografía de un syllabus: busca cada fuente (DOI, página web o PDF), descarga el archivo, guarda **todo el texto página por página** y arma la cita y la referencia en **APA 7**. Sin IA: solo lectura de archivos, metadatos y reglas.
+
+**Base de datos** (`sql/002_bibliografia.sql`): `bib_trabajos` (una corrida por syllabus) → `bib_fuentes` (una por referencia, con metadatos y cita APA) → `bib_autores` · `bib_documentos` (PDF/HTML/DOCX con huella sha256) → `bib_paginas` (texto por página, con búsqueda de texto completo). Cada fila tiene `propietario_id` y la misma política de filas que `proyectos`.
+
+**Orden en que se resuelve cada fuente** (`orquestador.js`): texto del syllabus → Crossref (si hay DOI) → página o archivo → PDF que enlaza la página → texto a la base → cita. Los metadatos se funden por prioridad: Crossref > página web > metadatos del PDF > lo escrito en el syllabus.
+
+**Seguridad:** las direcciones que escribe una persona pasan por `red.js`: solo http/https, puertos 80/443, nunca direcciones privadas o locales, cada redirección se revalida, tope de 40 MB y de tiempo.
+
+**API** (`/api/bibliografia`, requiere sesión y permiso `proyectos.crear`):
+
+| Método y ruta | Qué hace |
+| --- | --- |
+| `POST /trabajos` | Crea un trabajo con `{texto}`, `{entradas:[...]}` o `{syllabusUrl}` (Google Doc). Responde 202 y sigue en segundo plano. |
+| `GET /trabajos/:id` | Avance, fuentes, autores y documentos. |
+| `GET /trabajos/:id/referencias` | Bibliografía APA 7 ordenada, con la cita en el texto de cada fuente. |
+| `GET /trabajos/:id/buscar?q=` | Búsqueda en todo el texto leído; cada resultado trae su cita con la página. |
+| `GET /documentos/:id/paginas?desde=&hasta=` | Texto completo por páginas. |
+| `GET /fuentes/:id/cita?pagina=12` | Cita en el texto con página, por ejemplo `(Pérez y Gómez, 2020, p. 12)`. |
+
+**Aplicar la migración** (es idempotente): `DATABASE_URL_DUENO=postgres://postgres:CLAVE@localhost:5432/ova npm run db:migrar`. Pruebas: `npm test`.
+
+**Límites conocidos:** los PDF escaneados (imágenes) se registran sin texto: no hay OCR. Páginas que exigen sesión o captcha quedan como `sin_acceso`. Las páginas web se numeran por bloques de ~3000 caracteres («bloque N»).
+
+## Lectura de PDF escaneados (OCR)
+
+Si un PDF no tiene texto seleccionable (es un escaneo), cada página sin texto se dibuja y se lee con Tesseract (español e inglés),
+todo dentro de este servidor y sin servicios externos. Los idiomas vienen en las dependencias `@tesseract.js-data/*` y se copian
+solos a `servidor/data/ocr` la primera vez. Variables opcionales: `OCR=0` lo apaga, `OCR_MAX_PAGINAS` (60 por defecto) limita las
+páginas leídas por documento y `OCR_ESCALA` (2) la resolución. El texto leído así puede traer errores; la lectura queda con la nota
+«Leído por OCR».

@@ -103,6 +103,88 @@ export const Q = Object.freeze({
     SELECT tipo, unidad, nombre, url, creado FROM enlaces
      WHERE propietario_id = $1 AND proyecto_id = $2 ORDER BY tipo, unidad NULLS FIRST, id`,
 
+  // ---- bibliografía (cada consulta filtra por propietario y además actúa la política de filas)
+  bibTrabajoCrear: `
+    INSERT INTO bib_trabajos (propietario_id, proyecto_id, estado, total) VALUES ($1, $2, 'pendiente', $3) RETURNING id`,
+  bibTrabajoActualizar: `
+    UPDATE bib_trabajos SET estado = $3, resueltas = $4, fallidas = $5, detalle = $6, actualizado = now()
+     WHERE id = $1 AND propietario_id = $2`,
+  bibTrabajoObtener: `
+    SELECT id, proyecto_id, estado, total, resueltas, fallidas, detalle, creado, actualizado FROM bib_trabajos WHERE id = $1`,
+  // Panel de bibliografía (coordinación/administración): cada lectura con quién la hizo y a qué syllabus quedó vinculada
+  // (el syllabus guarda en datos->bibliografiaId el trabajo que se leyó). Lectura de lo ajeno: la política de filas (ver_todos).
+  bibResumenTodos: `
+    SELECT t.id, t.estado, t.total, t.resueltas, t.fallidas, t.detalle, t.creado, u.nombre AS responsable, u.correo,
+           p.id AS proyecto_id, p.curso, p.programa, p.creado AS syllabus_creado,
+           (SELECT count(*) FROM bib_fuentes f WHERE f.trabajo_id = t.id AND f.estado = 'resuelta')::int AS leidas,
+           (SELECT count(*) FROM bib_fuentes f WHERE f.trabajo_id = t.id AND f.estado = 'parcial')::int AS parciales,
+           (SELECT count(*) FROM bib_fuentes f WHERE f.trabajo_id = t.id AND f.estado IN ('sin_acceso','error')
+              AND NOT (coalesce(f.estado_detalle, '') LIKE 'Omitida a mano%' OR (coalesce(f.url, '') = '' AND coalesce(f.doi, '') = '')))::int AS sin_acceso,
+           (SELECT count(*) FROM bib_fuentes f WHERE f.trabajo_id = t.id AND f.estado <> 'resuelta'
+              AND (coalesce(f.estado_detalle, '') LIKE 'Omitida a mano%' OR (coalesce(f.url, '') = '' AND coalesce(f.doi, '') = '')))::int AS omitidas
+      FROM bib_trabajos t
+      JOIN usuarios u ON u.id = t.propietario_id
+      LEFT JOIN proyectos p ON p.propietario_id = t.propietario_id AND p.datos->>'bibliografiaId' = t.id::text
+     ORDER BY t.creado DESC
+     LIMIT 300`,
+  bibTrabajosListar: `
+    SELECT id, proyecto_id, estado, total, resueltas, fallidas, creado FROM bib_trabajos
+     WHERE propietario_id = $1 AND ($2::text IS NULL OR proyecto_id = $2) ORDER BY creado DESC LIMIT 100`,
+  bibFuenteInsertar: `
+    INSERT INTO bib_fuentes (trabajo_id, propietario_id, orden, entrada_cruda, url, doi, unidad, categoria) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+  bibFuenteGuardar: `
+    UPDATE bib_fuentes SET tipo = $3, estado = $4, estado_detalle = $5, titulo = $6, anio = $7, editorial = $8, publicacion = $9,
+           volumen = $10, numero = $11, paginas = $12, edicion = $13, idioma = $14, url_final = $15, fuente_datos = $16, doi = $17,
+           fecha_consulta = CURRENT_DATE, actualizado = now()
+     WHERE id = $1 AND propietario_id = $2`,
+  bibFuenteCitas: `
+    UPDATE bib_fuentes SET referencia_apa = $3, cita_apa = $4 WHERE id = $1 AND propietario_id = $2`,
+  bibFuentesDelTrabajo: `
+    SELECT id, orden, entrada_cruda, unidad, categoria, url, doi, tipo, estado, estado_detalle, titulo, anio, editorial, publicacion, volumen, numero,
+           paginas, edicion, idioma, url_final, fuente_datos, fecha_consulta, referencia_apa, cita_apa
+      FROM bib_fuentes WHERE trabajo_id = $1 ORDER BY orden`,
+  bibFuenteObtener: `
+    SELECT id, trabajo_id, orden, entrada_cruda, unidad, categoria, url, doi, tipo, estado, estado_detalle, titulo, anio, editorial, publicacion, volumen,
+           numero, paginas, edicion, idioma, url_final, fuente_datos, fecha_consulta, referencia_apa, cita_apa
+      FROM bib_fuentes WHERE id = $1`,
+  bibPaginasDeFuente: `
+    SELECT p.numero, left(p.texto, $3) AS texto FROM bib_paginas p
+     WHERE p.documento_id = (SELECT id FROM bib_documentos WHERE fuente_id = $1 AND estado = 'extraido' AND rol = 'texto' ORDER BY num_caracteres DESC NULLS LAST LIMIT 1)
+       AND length(p.texto) > 40
+     ORDER BY p.numero LIMIT $2`,
+  bibFuenteMia: `SELECT id, trabajo_id, estado FROM bib_fuentes WHERE id = $1 AND propietario_id = $2`,
+  bibFuenteEstado: `UPDATE bib_fuentes SET estado = $3, estado_detalle = $4, actualizado = now() WHERE id = $1 AND propietario_id = $2`,
+  bibAutoresBorrar: `DELETE FROM bib_autores WHERE fuente_id = $1 AND propietario_id = $2`,
+  bibAutorInsertar: `
+    INSERT INTO bib_autores (fuente_id, propietario_id, orden, apellido, nombres, institucional) VALUES ($1, $2, $3, $4, $5, $6)`,
+  bibAutoresDelTrabajo: `
+    SELECT a.fuente_id, a.orden, a.apellido, a.nombres, a.institucional
+      FROM bib_autores a JOIN bib_fuentes f ON f.id = a.fuente_id WHERE f.trabajo_id = $1 ORDER BY a.fuente_id, a.orden`,
+  bibDocumentoGuardar: `
+    INSERT INTO bib_documentos (fuente_id, propietario_id, url, formato, rol, estado, error, bytes, sha256, num_paginas, num_caracteres)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+    ON CONFLICT (fuente_id, url) DO UPDATE SET formato = EXCLUDED.formato, rol = EXCLUDED.rol, estado = EXCLUDED.estado, error = EXCLUDED.error,
+           bytes = EXCLUDED.bytes, sha256 = EXCLUDED.sha256, num_paginas = EXCLUDED.num_paginas, num_caracteres = EXCLUDED.num_caracteres
+    RETURNING id`,
+  bibPaginasGuardar: `
+    INSERT INTO bib_paginas (documento_id, propietario_id, numero, texto)
+    SELECT $1, $2, x.n, x.t FROM unnest($3::int[], $4::text[]) AS x(n, t)
+    ON CONFLICT (documento_id, numero) DO UPDATE SET texto = EXCLUDED.texto`,
+  bibPaginasBorrar: `DELETE FROM bib_paginas WHERE documento_id = $1 AND propietario_id = $2`,
+  bibDocumentosDeFuente: `
+    SELECT id, url, formato, rol, estado, error, bytes, sha256, num_paginas, num_caracteres FROM bib_documentos WHERE fuente_id = $1 ORDER BY creado`,
+  bibPaginasDeDocumento: `
+    SELECT numero, texto FROM bib_paginas WHERE documento_id = $1 AND numero BETWEEN $2 AND $3 ORDER BY numero`,
+  bibBuscar: `
+    SELECT f.id AS fuente_id, f.cita_apa, f.referencia_apa, d.id AS documento_id, d.formato, p.numero,
+           ts_headline('spanish', p.texto, websearch_to_tsquery('spanish', $2), 'MaxFragments=2,MaxWords=30,MinWords=10') AS fragmento,
+           ts_rank(p.busqueda, websearch_to_tsquery('spanish', $2)) AS relevancia
+      FROM bib_paginas p
+      JOIN bib_documentos d ON d.id = p.documento_id
+      JOIN bib_fuentes f ON f.id = d.fuente_id
+     WHERE f.trabajo_id = $1 AND p.busqueda @@ websearch_to_tsquery('spanish', $2)
+     ORDER BY relevancia DESC LIMIT 30`,
+
   // ---- auditoría
   auditoriaRegistrar: `
     INSERT INTO auditoria (usuario_id, accion, entidad, entidad_id, ip) VALUES ($1, $2, $3, $4, $5)`,

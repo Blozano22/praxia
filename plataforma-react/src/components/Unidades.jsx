@@ -193,7 +193,7 @@ export function Recursos({ s, sel, setSel, onCambio, onEditar, aviso }) {
 }
 
 // Dentro de una unidad: se crean sus guiones, se aprueban y de ahí salen los recursos.
-export function UnidadVista({ s, unidad, onCambio, onVolver, onCargar, onCrearDeGuiones }) {
+export function UnidadVista({ s, unidad, onCambio, onVolver, onCrearDeGuiones }) {
   const doc = s.syllabus.documentos.find((d) => d.unidad === unidad)
   const enUnidad = s.recursos.filter((r) => r.unidad === unidad)
   const temas = temasDe(s, unidad)
@@ -206,9 +206,7 @@ export function UnidadVista({ s, unidad, onCambio, onVolver, onCargar, onCrearDe
           <p className="help" style={{ margin: '2px 0 0' }}>{enUnidad.length} recursos · {temas.length} {temas.length === 1 ? 'tema' : 'temas'}</p>
         </div>
         <div className="row">
-          {doc && doc.url && <a className="btn sec sm" style={{ textDecoration: 'none' }} href={doc.url} target="_blank" rel="noopener noreferrer">Ver documento de la unidad</a>}
-          <button className="btn sec sm" onClick={onCargar}>Cargar un guion (Word) a mano</button>
-        </div>
+          {doc && doc.url && <a className="btn sec sm" style={{ textDecoration: 'none' }} href={doc.url} target="_blank" rel="noopener noreferrer">Ver documento de la unidad</a>}        </div>
       </div>
       <Guiones s={s} unidad={unidad} doc={doc} onCambio={onCambio} onCrear={(a) => onCrearDeGuiones(unidad, a)} />
     </div>

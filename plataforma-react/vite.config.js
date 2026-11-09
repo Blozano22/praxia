@@ -16,6 +16,6 @@ export default defineConfig({
   base: './',
   plugins: [react(), escapaScript, viteSingleFile()],
   // En desarrollo, /api se reenvía al servidor Node para que la cookie de sesión sea del mismo origen.
-  server: { fs: { allow: ['..'] }, proxy: { '/api': { target: 'http://127.0.0.1:3001', changeOrigin: false } } },
+  server: { fs: { allow: ['..'] }, proxy: { '/api': { target: 'http://127.0.0.1:3002', changeOrigin: false } } },
   build: { target: 'es2020' }
 })

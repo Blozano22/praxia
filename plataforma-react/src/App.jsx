@@ -6,15 +6,29 @@ import Editor from './components/Editor.jsx'
 import EntradaManual from './components/EntradaManual.jsx'
 import Login from './components/Login.jsx'
 import { LEMA, Praxia } from './components/Marca.jsx'
+import Bibliografia from './components/Bibliografia.jsx'
 import Plantillas from './components/Plantillas.jsx'
 import Seguimiento from './components/Seguimiento.jsx'
 import Usuarios from './components/Usuarios.jsx'
+import Conexiones from './components/Conexiones.jsx'
 import { api } from './lib/api.js'
 import { borrar, borrarLocal, guardar, locales, todos } from './lib/store.js'
 import { uid } from './lib/util.js'
 
+// Opción del menú lateral: icono + texto; con el menú contraído solo se ve el icono y el texto queda como etiqueta.
+function ItemMenu({ on, icono, texto, onClick }) {
+  return (
+    <button className={on ? 'on' : ''} onClick={onClick} title={texto} aria-label={texto} aria-current={on ? 'page' : undefined}>
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={icono} /></svg>
+      <span>{texto}</span>
+    </button>
+  )
+}
+
 export default function App() {
   const [yo, setYo] = useState(undefined) // undefined = comprobando · null = sin sesión · objeto = con sesión
+  const [menuMin, setMenuMin] = useState(() => { try { return localStorage.getItem('praxia-menu') === 'min' } catch { return false } })
+  const alternarMenu = () => setMenuMin((m) => { const n = !m; try { localStorage.setItem('praxia-menu', n ? 'min' : 'abierto') } catch { /* sin almacenamiento */ } return n })
   const [pendientesLocales, setPendientesLocales] = useState([])
   const [lista, setLista] = useState([])
   const [cargado, setCargado] = useState(false)
@@ -29,6 +43,36 @@ export default function App() {
   const [entrada, setEntrada] = useState('syllabus') // syllabus | avance
   const ref = useRef([])
   ref.current = lista
+
+  const [restaurado, setRestaurado] = useState(false)
+
+  // La pantalla en que está se guarda en la dirección (#/...): al actualizar la página se queda donde estaba.
+  //   #/dashboard · #/nuevo · #/seguimiento · #/plantillas · #/bibliografia · #/usuarios
+  //   #/syllabus/<id>/<paso>[/<unidad>] · #/editor/<id>/<recurso>
+  useEffect(() => {
+    if (!yo || !cargado || restaurado) return
+    const p = location.hash.replace(/^#\/?/, '').split('/').map((x) => { try { return decodeURIComponent(x) } catch { return x } })
+    const perm = (c) => yo.permisos.includes(c)
+    const proy = ref.current.find((x) => x.id === p[1])
+    if (p[0] === 'syllabus' && proy) {
+      setActualId(proy.id); setTab(['syllabus', 'docs', 'unidades', 'recursos'].includes(p[2]) ? p[2] : 'syllabus'); setUnidadSel(p[3] ? (Number(p[3]) || null) : null); setVista('workspace')
+    } else if (p[0] === 'editor' && proy && proy.recursos.some((r) => r.id === p[2])) {
+      setActualId(proy.id); setRecId(p[2]); setVista('editor')
+    } else if (['dashboard', 'nuevo', 'plantillas'].includes(p[0]) && perm('proyectos.ver_propios')) setVista(p[0])
+    else if (p[0] === 'seguimiento' && perm('proyectos.ver_todos')) setVista('seguimiento')
+    else if (p[0] === 'bibliografia' && perm('usuarios.gestionar')) setVista('bibliografia')
+    else if (p[0] === 'usuarios' && perm('usuarios.gestionar')) setVista('usuarios')
+    else if (p[0] === 'conexion' && perm('usuarios.gestionar')) setVista('conexion')
+    setRestaurado(true)
+  }, [yo, cargado, restaurado])
+
+  useEffect(() => {
+    if (!restaurado || location.hash === '#config') return
+    let h = '#/' + vista
+    if (vista === 'workspace' && actualId) h = '#/syllabus/' + actualId + '/' + tab + (unidadSel != null ? '/' + unidadSel : '')
+    else if (vista === 'editor' && actualId && recId) h = '#/editor/' + actualId + '/' + recId
+    if (location.hash !== h) history.replaceState(null, '', h)
+  }, [restaurado, vista, actualId, tab, unidadSel, recId])
 
   useEffect(() => { api('GET', '/auth/yo').then(setYo).catch(() => setYo(null)) }, [])
 
@@ -68,6 +112,7 @@ export default function App() {
     const s = {
       id: uid(), programa: d.programa || 'Sin programa', curso: d.curso || 'Syllabus sin nombre (' + new Date().toLocaleDateString() + ')',
       syllabusUrl: d.syllabusUrl, carpetaUrl: d.carpetaUrl, creado: Date.now(),
+      bibliografiaId: d.bibliografiaId || '', // lectura de la bibliografía de este syllabus: de ahí salen las fuentes de los guiones
       syllabus: { estado: d.estado, documentos: d.documentos, mensaje: d.mensaje }, recursos: [], guiones: [], info: {}
     }
     actualizar(s)
@@ -89,7 +134,7 @@ export default function App() {
     setUnidadSel(destino === 'guiones' && cola && cola.length ? cola[0].unidad : null)
     ir('workspace')
   }
-  const abrir = (id) => { setActualId(id); setTab('syllabus'); setUnidadSel(null); setRecSel({ u: null }); ir('workspace') }
+  const abrir = (id, paso = 'syllabus') => { setActualId(id); setTab(paso); setUnidadSel(null); setRecSel({ u: null }); ir('workspace') }
 
   if (yo === undefined) return null
   if (yo === null) return <Login onEntro={() => api('GET', '/auth/yo').then(setYo).catch(() => setYo(null))} />
@@ -107,17 +152,24 @@ export default function App() {
         <button className="btn sec sm" onClick={salir}>Salir</button>
       </div>
 
-      <div className="shell">
+      <div className={'shell' + (menuMin ? ' min' : '')}>
       <nav className="rail" aria-label="Menú principal">
-        <h4>Menú</h4>
-        {puedeVer && <button className={['dashboard', 'nuevo', 'workspace', 'editor'].includes(vista) ? 'on' : ''} onClick={() => ir('dashboard')}>Dashboard</button>}
-        {veTodos && <button className={vista === 'seguimiento' ? 'on' : ''} onClick={() => ir('seguimiento')}>Seguimiento</button>}
-        <button className={vista === 'plantillas' ? 'on' : ''} onClick={() => ir('plantillas')}>Plantillas HTML</button>
-        {esAdmin && <button className={vista === 'usuarios' ? 'on' : ''} onClick={() => ir('usuarios')}>Usuarios</button>}
+        <button className="rail-tog" aria-label={menuMin ? 'Expandir el menú' : 'Contraer el menú'} aria-expanded={!menuMin} onClick={alternarMenu}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={menuMin ? 'M9 6l6 6-6 6' : 'M15 6l-6 6 6 6'} /></svg>
+          <span>Menú</span>
+        </button>
+        {puedeVer && <ItemMenu on={['dashboard', 'nuevo', 'workspace', 'editor'].includes(vista)} icono="M3 11l9-8 9 8M5 10v10h14V10" texto="Dashboard" onClick={() => ir('dashboard')} />}
+        {veTodos && <ItemMenu on={vista === 'seguimiento'} icono="M4 19V9M10 19V5M16 19v-7M22 19H2" texto="Seguimiento" onClick={() => ir('seguimiento')} />}
+        {esAdmin && <ItemMenu on={vista === 'bibliografia'} icono="M5 4h11a3 3 0 013 3v13H8a3 3 0 01-3-3V4z" texto="Bibliografía" onClick={() => ir('bibliografia')} />}
+        <ItemMenu on={vista === 'plantillas'} icono="M8 7l-5 5 5 5M16 7l5 5-5 5" texto="Plantillas HTML" onClick={() => ir('plantillas')} />
+        {esAdmin && <ItemMenu on={vista === 'conexion'} icono="M9 7V3M15 7V3M7 7h10v4a5 5 0 01-10 0V7zM12 16v5" texto="Conexión n8n" onClick={() => ir('conexion')} />}
+        {esAdmin && <ItemMenu on={vista === 'usuarios'} icono="M16 20v-1a4 4 0 00-4-4H8a4 4 0 00-4 4v1M10 11a3 3 0 100-6 3 3 0 000 6" texto="Usuarios" onClick={() => ir('usuarios')} />}
       </nav>
       <div className="shellmain">
       {vista === 'plantillas' && <Plantillas />}
+      {vista === 'bibliografia' && esAdmin && <Bibliografia lista={lista} />}
       {vista === 'usuarios' && esAdmin && <Usuarios yo={yo} aviso={aviso} />}
+      {vista === 'conexion' && esAdmin && <Conexiones aviso={aviso} />}
       {vista === 'seguimiento' && veTodos && <Seguimiento />}
       {vista === 'dashboard' && cargado && pendientesLocales.length > 0 && (
         <div className="wrapx" style={{ paddingBottom: 0 }}>
@@ -137,15 +189,9 @@ export default function App() {
         <div className="wrapx fade">
           <div className="crumbs"><button className="lnk" onClick={() => ir('dashboard')}>Dashboard</button> › <b>Crear unidades</b></div>
           <h1>Crear unidades desde el syllabus</h1>
-          <p className="lead">Empiece por donde va: puede generar las unidades desde el syllabus, o entrar directo con las unidades o los guiones que ya tiene.</p>
-          <div className="stepper2" role="tablist" style={{ marginBottom: 18 }}>
-            {[['syllabus', '1', 'Empezar desde cero', 'Solo tengo el syllabus'], ['avance', '2', 'Cargar trabajo adelantado', 'Ya tengo unidades o guiones']].map(([k, n, t, sub]) => (
-              <button key={k} role="tab" className={entrada === k ? 'on' : ''} onClick={() => setEntrada(k)}><i>{n}</i><span><b>{t}</b><small>{sub}</small></span></button>
-            ))}
-          </div>
-          {entrada === 'syllabus'
-            ? <PortalSyllabus onResultado={crearSyllabus} onNombrar={nombrar} onAbrir={abrir} />
-            : <EntradaManual onCrear={crearManual} />}
+          <p className="lead">Pegue el enlace del syllabus: primero se lee toda su bibliografía y, cuando esté completa, se continúa.</p>
+          {/* «Cargar trabajo adelantado» (EntradaManual) está oculto por ahora: se vuelve a activar mostrando el selector. */}
+          <PortalSyllabus onResultado={crearSyllabus} onNombrar={nombrar} onAbrir={abrir} />
         </div>
       )}
       {vista === 'workspace' && actual && (

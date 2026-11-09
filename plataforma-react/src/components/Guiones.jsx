@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { api } from '../lib/api.js'
+import EnlaceDoc from './EnlaceDoc.jsx'
 import { generarGuiones, mensajeDeError } from '../lib/syllabus.js'
 import { guionAPendiente } from '../lib/guionJson.js'
 
@@ -26,12 +28,15 @@ function Guion({ a, activo, onVisto, onAprobar, onDesaprobar }) {
   const bloqueado = !a.aprobado && !activo
   const resumen = (() => { try { return guionAPendiente(a).recursos.length } catch (e) { return 0 } })()
   return (
-    <article className={'card doc' + (a.aprobado ? ' aprobado' : '') + (activo ? ' activo' : '') + (bloqueado ? ' bloq' : '')}>
-      <div className="row" style={{ justifyContent: 'space-between' }}>
+    <article className={'card doc dr' + (a.aprobado ? ' aprobado' : '') + (activo ? ' activo' : '') + (bloqueado ? ' bloq' : '')}>
+      <span className="dr-n" aria-hidden="true">{a.aprobado ? '✓' : (a.tema != null ? a.tema : '•')}</span>
+      <div className="dr-cuerpo">
+      <div className="dr-cab">
         <b>{a.nombre_tema ? a.nombre_tema : (a.tema != null ? 'Tema ' + a.tema : a.nombre)}</b>
         {a.aprobado ? <span className="pill ok">✔ Aprobado</span> : activo ? <span className="pill warn">En revisión</span> : <span className="pill">Pendiente</span>}
       </div>
       <div className="row"><span className="pill">{a.nombre}</span><span className="pill">{resumen} recursos</span></div>
+      {a.url && <EnlaceDoc compacto titulo={'Guion ' + (a.tema != null ? 'del tema ' + a.tema : a.nombre)} url={a.url} onVisto={activo ? onVisto : undefined} />}
       {a.advertencias.length > 0 && (
         <details className="dt">
           <summary>Notas del generador ({a.advertencias.length}) · solo informativas</summary>
@@ -46,16 +51,24 @@ function Guion({ a, activo, onVisto, onAprobar, onDesaprobar }) {
         </details>
       )}
       {activo && (
-        <div className="paso-rev">
-          <p><b>1.</b> Revise el contenido del guion{a.url ? ' (también puede abrirlo en Drive)' : ''}.</p>
-          <div className="row">{a.url && <a className="btn sec sm" style={{ textDecoration: 'none' }} href={a.url} target="_blank" rel="noopener noreferrer" onClick={onVisto}>Abrir en Drive</a>}</div>
-          <p style={{ marginTop: 10 }}><b>2.</b> Si está bien, apruébelo para pasar al siguiente.</p>
-          <button className="btn gold sm" disabled={!a.visto} onClick={onAprobar}>Aprobar este guion</button>
-          {!a.visto && <p className="help">Se habilita después de abrir el contenido o el documento.</p>}
+        <div className="paso-rev dr-rev">
+          <div>
+            <p><b>1. Revíselo.</b> Abra la vista previa o el documento en Drive, o despliegue «Ver el contenido del guion».</p>
+          </div>
+          <div>
+            <p><b>2. Apruébelo.</b> Si está bien, apruébelo para pasar al siguiente.</p>
+            <button className="btn gold" disabled={!a.visto} onClick={onAprobar}>Aprobar este guion</button>
+            {!a.visto && <p className="help">Se habilita después de abrir el contenido o el documento.</p>}
+          </div>
         </div>
       )}
-      {a.aprobado && <div className="row"><button className="btn sec sm" onClick={onDesaprobar}>Quitar aprobación</button></div>}
-      {bloqueado && <p className="help">Se habilita cuando apruebe el guion anterior.</p>}
+      {(a.aprobado || bloqueado) && (
+        <div className="dr-pie">
+          {a.aprobado && <button className="btn sec sm" onClick={onDesaprobar}>Quitar aprobación</button>}
+          {bloqueado && <span className="help">Se habilita cuando apruebe el guion anterior.</span>}
+        </div>
+      )}
+      </div>
     </article>
   )
 }
@@ -74,14 +87,27 @@ export default function Guiones({ s, unidad, doc, onCambio, onCrear }) {
   const poner = (nuevos) => onCambio({ ...s, guionesUnidad: { ...(s.guionesUnidad || {}), [unidad]: { ...(data || {}), fecha: (data && data.fecha) || Date.now(), archivos: nuevos } } })
   const cambiar = (i, c) => poner(archivos.map((a, k) => (k === i ? { ...a, ...c } : a)))
 
-  const generar = async () => {
-    if (data && archivos.length && !confirm('Ya hay guiones generados para esta unidad. ¿Generar de nuevo? Se perderán las aprobaciones.')) return
-    setCargando(true); setError('')
+  // Syllabus creados antes de guardar su lectura de bibliografía: se elige aquí cuál es (sin volver a crear las unidades).
+  const [lecturas, setLecturas] = useState(null)
+  const proponerLecturas = async () => {
     try {
-      const nuevos = await generarGuiones({ unidadUrl: doc.url, syllabusUrl: s.syllabusUrl })
-      onCambio({ ...s, guionesUnidad: { ...(s.guionesUnidad || {}), [unidad]: { fecha: Date.now(), archivos: nuevos.map((a) => ({ ...a, aprobado: false, visto: false })) } } })
+      const l = (await api('GET', '/bibliografia/trabajos')).filter((x) => x.estado === 'listo')
+      const cerca = (x) => Math.abs(new Date(x.creado).getTime() - (s.creado || 0))
+      const mejor = l.slice().sort((a, b) => cerca(a) - cerca(b))[0]
+      setLecturas(l.map((x) => ({ ...x, sugerida: mejor && x.id === mejor.id })))
+    } catch (e) { setError(e.message || 'No se pudieron cargar las lecturas de bibliografía.') }
+  }
+
+  const generar = async (bibId) => {
+    const idBib = typeof bibId === 'string' ? bibId : s.bibliografiaId
+    if (data && archivos.length && !confirm('Ya hay guiones generados para esta unidad. ¿Generar de nuevo? Se perderán las aprobaciones.')) return
+    setCargando(true); setError(''); setLecturas(null)
+    try {
+      const nuevos = await generarGuiones({ unidadUrl: doc.url, syllabusUrl: s.syllabusUrl, bibliografiaId: idBib, unidad: doc.unidad || unidad })
+      onCambio({ ...s, bibliografiaId: idBib || s.bibliografiaId || '', guionesUnidad: { ...(s.guionesUnidad || {}), [unidad]: { fecha: Date.now(), archivos: nuevos.map((a) => ({ ...a, aprobado: false, visto: false })) } } })
     } catch (e) {
-      setError(e.code === 'SIN_GUIONES' ? 'El flujo terminó, pero no devolvió guiones. Revise el documento de la unidad (que tenga temas) y la carpeta de Drive.' : mensajeDeError(e))
+      if (e.code === 'SIN_BIBLIOGRAFIA' && !idBib) { await proponerLecturas() }
+      else setError(e.code === 'SIN_GUIONES' ? 'El flujo terminó, pero no devolvió guiones. Revise el documento de la unidad (que tenga temas) y la carpeta de Drive.' : mensajeDeError(e))
     }
     setCargando(false)
   }
@@ -92,7 +118,7 @@ export default function Guiones({ s, unidad, doc, onCambio, onCrear }) {
         <div>
           <span className="tipo">Paso 1 de la unidad</span>
           <h3 style={{ margin: '2px 0' }}>Creemos los guiones</h3>
-          <p className="help" style={{ margin: 0 }}>n8n lee el documento de la unidad y escribe un guion por cada tema. Los revisa y los aprueba uno por uno; al terminar se habilita «Crear los recursos».</p>
+          <p className="help" style={{ margin: 0 }}>n8n lee el documento de la unidad y escribe un guion por cada tema. Los revisa y los aprueba uno por uno.</p>
         </div>
         {archivos.length > 0 && <div style={{ minWidth: 170 }}><b>{aprobados} de {archivos.length} aprobados</b><div className="bar" style={{ marginTop: 6 }}><i style={{ width: (aprobados / archivos.length * 100) + '%' }} /></div></div>}
       </div>
@@ -104,7 +130,22 @@ export default function Guiones({ s, unidad, doc, onCambio, onCrear }) {
         </div>
       )}
       {cargando && <div className="msg info" style={{ marginTop: 10 }}><b>Escribiendo los guiones… </b>n8n está leyendo la unidad y generando un guion por tema. Puede tardar varios minutos; no cierre esta página.</div>}
-      {error && <div className="msg warn" style={{ marginTop: 10 }}>{error} <button className="btn sec sm" onClick={generar}>Reintentar</button></div>}
+      {error && <div className="msg warn" style={{ marginTop: 10 }}>{error} <button className="btn sec sm" onClick={() => generar()}>Reintentar</button></div>}
+      {lecturas && (
+        <div className="msg warn gv-vincular" style={{ marginTop: 10 }} role="status">
+          <b>Falta enlazar la bibliografía de este syllabus.</b>
+          <p style={{ margin: '4px 0 10px' }}>Este syllabus se creó antes de guardar qué lectura de bibliografía le corresponde. Elija la suya: los guiones se escribirán con las fuentes de esa lectura. No se vuelven a crear las unidades.</p>
+          {lecturas.length === 0 && <p>No hay lecturas de bibliografía completas. Léala primero en «Bibliografía».</p>}
+          <ul>
+            {lecturas.map((l) => (
+              <li key={l.id}>
+                <span><b>{new Date(l.creado).toLocaleString()}</b> · {l.total} fuentes{l.sugerida && <em className="gv-sug">Sugerida: la más cercana a la creación de este syllabus</em>}</span>
+                <button className="btn sm" onClick={() => { onCambio({ ...s, bibliografiaId: l.id }); generar(l.id) }}>Usar esta lectura</button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {sinContenido > 0 && (
         <div className="msg warn" style={{ marginTop: 10 }}>
@@ -124,8 +165,8 @@ export default function Guiones({ s, unidad, doc, onCambio, onCrear }) {
             ))}
           </div>
           <div className="row" style={{ marginTop: 14 }}>
-            <button className="btn gold" disabled={!todos} onClick={() => onCrear(archivos)}>Crear los recursos →</button>
             {!todos && sinContenido === 0 && <span className="help">Faltan {archivos.length - aprobados} guion{archivos.length - aprobados === 1 ? '' : 'es'} por aprobar.</span>}
+            {todos && <span className="pill ok">✔ Todos los guiones de la unidad están aprobados</span>}
             <button className="btn sec sm" disabled={cargando} onClick={generar}>Generar de nuevo</button>
           </div>
         </>

@@ -8,8 +8,17 @@ const ESTADOS = {
   sin: ['', 'Sin syllabus generado']
 }
 
+// Avance de un syllabus en tres pasos: enviado, documentos por unidad generados, recursos creados.
+const PASOS = ['Syllabus enviado', 'Documentos generados', 'Recursos creados']
+const avance = (s) => {
+  const n = 1 + (s.syllabus.estado === 'listo' && s.syllabus.documentos.length ? 1 : 0) + (s.recursos.length ? 1 : 0)
+  return n
+}
+
 export default function Dashboard({ lista, onNuevo, onAbrir, onEliminar }) {
   const [prog, setProg] = useState('todos')
+  const [q, setQ] = useState('')
+  const [seguro, setSeguro] = useState('') // id del syllabus que espera la segunda pulsación para eliminarse
   const [conf, setConf] = useState(false)
   const [url, setUrl] = useState(leerWebhook())
   const [urlG, setUrlG] = useState(leerWebhookGuiones())
@@ -19,88 +28,103 @@ export default function Dashboard({ lista, onNuevo, onAbrir, onEliminar }) {
     lista.forEach((s) => m.set(s.programa, (m.get(s.programa) || 0) + 1))
     return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]))
   }, [lista])
-  const visibles = lista.filter((s) => prog === 'todos' || s.programa === prog)
-  const grupos = useMemo(() => {
-    const m = new Map()
-    visibles.forEach((s) => { if (!m.has(s.programa)) m.set(s.programa, []); m.get(s.programa).push(s) })
-    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]))
-  }, [visibles])
+  const busca = q.trim().toLowerCase()
+  const visibles = lista.filter((s) => (prog === 'todos' || s.programa === prog) && (!busca || (s.curso + ' ' + s.programa).toLowerCase().includes(busca)))
+  const porRevisar = lista.find((s) => s.syllabus.estado === 'error' || s.syllabus.estado === 'pendiente')
 
   const tot = (f) => visibles.reduce((a, s) => a + f(s), 0)
-  const stats = [
-    ['Programas', new Set(visibles.map((s) => s.programa)).size],
-    ['Syllabus', visibles.length],
-    ['Documentos por unidad', tot((s) => s.syllabus.documentos.length)],
-    ['Recursos creados', tot((s) => s.recursos.length)]
-  ]
+  const resumen = [
+    visibles.length + (visibles.length === 1 ? ' syllabus' : ' syllabus'),
+    new Set(visibles.map((s) => s.programa)).size + ' programas',
+    tot((s) => s.syllabus.documentos.length) + ' documentos por unidad',
+    tot((s) => s.recursos.length) + ' recursos creados'
+  ].join(' · ')
+
+  const eliminar = (s) => {
+    if (seguro !== s.id) { setSeguro(s.id); setTimeout(() => setSeguro((v) => (v === s.id ? '' : v)), 3000); return }
+    setSeguro('')
+    onEliminar(s)
+  }
 
   return (
-    <div className="dash fade">
-      <aside className="side">
-        <button className="btn gold" style={{ width: '100%' }} onClick={onNuevo}>＋ Crear unidades</button>
-        <h4>Programas</h4>
-        <button className={'sd' + (prog === 'todos' ? ' on' : '')} onClick={() => setProg('todos')}><span>Todos</span><b>{lista.length}</b></button>
-        {programas.map(([p, n]) => (
-          <button key={p} className={'sd' + (prog === p ? ' on' : '')} onClick={() => setProg(p)}><span>{p}</span><b>{n}</b></button>
-        ))}
-        {location.hash === '#config' && <div style={{ marginTop: 22 }}>
-          <button className="btn sec sm" style={{ width: '100%' }} onClick={() => setConf(!conf)}>Conexión con n8n</button>
-          {conf && (
-            <div className="card" style={{ marginTop: 8, padding: 12 }}>
-              <label className="l" style={{ marginTop: 0 }}>Dirección (webhook) que genera los documentos</label>
-              <input type="text" value={url} onChange={(e) => setUrl(e.target.value)} />
-              <label className="l">Dirección (webhook) que crea los guiones de una unidad</label>
-              <input type="text" value={urlG} onChange={(e) => setUrlG(e.target.value)} />
-              <div className="row" style={{ marginTop: 8 }}>
-                <button className="btn sm" onClick={() => {
-                  guardarWebhook(url.trim() === WEBHOOK_POR_DEFECTO ? '' : url.trim())
-                  guardarWebhookGuiones(urlG.trim() === WEBHOOK_GUIONES_POR_DEFECTO ? '' : urlG.trim())
-                  setConf(false)
-                }}>Guardar</button>
-                <button className="btn sec sm" onClick={() => { setUrl(WEBHOOK_POR_DEFECTO); setUrlG(WEBHOOK_GUIONES_POR_DEFECTO); guardarWebhook(''); guardarWebhookGuiones('') }}>Valores originales</button>
-              </div>
-            </div>
-          )}
-        </div>}
-      </aside>
-      <main className="dmain">
-        <h1>{prog === 'todos' ? 'Todos los syllabus' : prog}</h1>
-        <p className="lead">Cada syllabus tiene su propio espacio de trabajo: primero se generan sus documentos por unidad y, dentro de él, se crean sus recursos.</p>
-        <div className="stats">
-          {stats.map(([n, v]) => <div className="card st" key={n}><b>{v}</b><span>{n}</span></div>)}
+    <div className="wrapx fade">
+      <div className="db2-cab">
+        <div>
+          <h1>{prog === 'todos' ? 'Mis syllabus' : prog}</h1>
+          <p className="lead">{resumen}</p>
         </div>
-        {lista.length === 0 && (
-          <div className="drop" style={{ marginTop: 18 }}>
-            <h2>Aún no hay unidades</h2>
-            <p>Pegue el enlace del syllabus y la carpeta de Drive: la plataforma genera los documentos de cada unidad.</p>
-            <div className="row center" style={{ marginTop: 10 }}><button className="btn" onClick={onNuevo}>＋ Crear unidades desde el syllabus</button></div>
+        <label className="pl2-busca">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></svg>
+          <input aria-label="Buscar un syllabus" placeholder="Buscar un syllabus" value={q} onChange={(e) => setQ(e.target.value)} />
+        </label>
+        <button className="btn gold db2-nuevo" onClick={onNuevo}>＋ Crear unidades</button>
+      </div>
+
+      {porRevisar && (
+        <div className="db2-aviso">
+          <span><b>Le falta un paso:</b> «{porRevisar.curso}» {porRevisar.syllabus.estado === 'error' ? 'terminó con error al generar.' : 'está pendiente de generar.'}</span>
+          <button className="btn sm" onClick={() => onAbrir(porRevisar.id)}>Continuar donde quedó</button>
+        </div>
+      )}
+
+      <div className="db2-progs">
+        <button className={prog === 'todos' ? 'on' : ''} onClick={() => setProg('todos')}>Todos <span>· {lista.length}</span></button>
+        {programas.map(([p, n]) => <button key={p} className={prog === p ? 'on' : ''} onClick={() => setProg(p)}>{p} <span>· {n}</span></button>)}
+        {location.hash === '#config' && <button className="btn sec sm" style={{ marginLeft: 'auto' }} onClick={() => setConf(!conf)}>Conexión con n8n</button>}
+      </div>
+
+      {location.hash === '#config' && conf && (
+        <div className="card" style={{ marginBottom: 14, padding: 14, maxWidth: 560 }}>
+          <label className="l" style={{ marginTop: 0 }}>Dirección (webhook) que genera los documentos</label>
+          <input type="text" value={url} onChange={(e) => setUrl(e.target.value)} />
+          <label className="l">Dirección (webhook) que crea los guiones de una unidad</label>
+          <input type="text" value={urlG} onChange={(e) => setUrlG(e.target.value)} />
+          <div className="row" style={{ marginTop: 8 }}>
+            <button className="btn sm" onClick={() => {
+              guardarWebhook(url.trim() === WEBHOOK_POR_DEFECTO ? '' : url.trim())
+              guardarWebhookGuiones(urlG.trim() === WEBHOOK_GUIONES_POR_DEFECTO ? '' : urlG.trim())
+              setConf(false)
+            }}>Guardar</button>
+            <button className="btn sec sm" onClick={() => { setUrl(WEBHOOK_POR_DEFECTO); setUrlG(WEBHOOK_GUIONES_POR_DEFECTO); guardarWebhook(''); guardarWebhookGuiones('') }}>Valores originales</button>
           </div>
-        )}
-        {grupos.map(([programa, items]) => (
-          <section key={programa}>
-            <h2>{programa} <span className="pill">{items.length}</span></h2>
-            <div className="grid">
-              {items.map((s) => {
-                const [cls, txt] = ESTADOS[s.syllabus.estado] || ESTADOS.sin
-                return (
-                  <div className="card sy" key={s.id}>
-                    <h3>{s.curso}</h3>
-                    <p className="help" style={{ margin: 0 }}>{programa} · {new Date(s.creado).toLocaleDateString()}</p>
-                    <div className="row" style={{ margin: '8px 0' }}>
-                      <span className={'pill ' + cls}>{txt}{s.syllabus.documentos.length ? ' · ' + s.syllabus.documentos.length + ' unidades' : ''}</span>
-                      <span className="pill">{s.recursos.length} recursos</span>
-                    </div>
-                    <div className="row" style={{ marginTop: 'auto' }}>
-                      <button className="btn sm" onClick={() => onAbrir(s.id)}>Abrir</button>
-                      <button className="btn danger sm" onClick={() => { if (confirm('¿Eliminar el syllabus «' + s.curso + '» con todo lo que contiene?')) onEliminar(s) }}>Eliminar</button>
-                    </div>
+        </div>
+      )}
+
+      {lista.length === 0 && (
+        <div className="drop" style={{ marginTop: 18 }}>
+          <h2>Aún no hay unidades</h2>
+          <p>Pegue el enlace del syllabus y la carpeta de Drive: la plataforma genera los documentos de cada unidad.</p>
+          <div className="row center" style={{ marginTop: 10 }}><button className="btn" onClick={onNuevo}>＋ Crear unidades desde el syllabus</button></div>
+        </div>
+      )}
+
+      {lista.length > 0 && (
+        <div className="db2-tabla">
+          <div className="db2-scroll"><div className="db2-min">
+            <div className="db2-fila db2-cabt"><span>Syllabus</span><span>Avance</span><span>Estado</span><span>Acciones</span></div>
+            {visibles.map((s) => {
+              const [cls, txt] = ESTADOS[s.syllabus.estado] || ESTADOS.sin
+              const n = avance(s)
+              const listo = n === 3
+              return (
+                <div className="db2-fila" key={s.id}>
+                  <div className="db2-nom"><b>{s.curso}</b><small>{s.programa} · {new Date(s.creado).toLocaleDateString()}</small></div>
+                  <div className="db2-av">
+                    <div className="db2-seg">{PASOS.map((p, i) => <i key={p} className={i < n ? 'on' : ''} />)}</div>
+                    <small>{listo ? 'Todo listo' : `Paso ${n} de 3 · ${PASOS[n - 1]}`}{s.syllabus.documentos.length ? ` · ${s.syllabus.documentos.length} unidades` : ''}</small>
                   </div>
-                )
-              })}
-            </div>
-          </section>
-        ))}
-      </main>
+                  <span><span className={'pill ' + cls}>{txt}</span></span>
+                  <div className="db2-acc">
+                    <button className="btn sm" onClick={() => onAbrir(s.id)}>{listo ? 'Abrir' : 'Continuar'}</button>
+                    <button className={'btn danger sm' + (seguro === s.id ? ' sure' : '')} aria-label={'Eliminar ' + s.curso} onClick={() => eliminar(s)}>{seguro === s.id ? '¿Seguro?' : 'Eliminar'}</button>
+                  </div>
+                </div>
+              )
+            })}
+            {visibles.length === 0 && <div className="db2-vacio">No hay syllabus con esa búsqueda. Pruebe con otra palabra o elija «Todos».</div>}
+          </div></div>
+        </div>
+      )}
     </div>
   )
 }
