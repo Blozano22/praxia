@@ -19,7 +19,8 @@ export function crearApp() {
         scriptSrc: ["'self'", "'unsafe-inline'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
-        frameSrc: ["'self'", 'blob:', 'data:'],
+        // Vista previa de los documentos y carpetas de Google (solo esos dos sitios).
+        frameSrc: ["'self'", 'blob:', 'data:', 'https://docs.google.com', 'https://drive.google.com'],
         connectSrc: ["'self'", 'https://n8n.americana.edu.co'],
         objectSrc: ["'none'"],
         baseUri: ["'self'"],
