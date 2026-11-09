@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { api } from '../lib/api.js'
+import { api, RUTA_API } from '../lib/api.js'
 
 const ESTADO = {
   resuelta: ['ok', 'Leída completa'],
@@ -159,7 +159,7 @@ export default function Bibliografia({ lista = [], fijo = null, onEstado }) {
     if (!archivo) return
     setError(''); setAviso(''); setSubiendo(f.id)
     try {
-      const r = await fetch('/api/bibliografia/fuentes/' + f.id + '/archivo', { method: 'POST', credentials: 'same-origin', headers: { 'x-ova': '1', 'x-nombre': encodeURIComponent(archivo.name), 'content-type': 'application/octet-stream' }, body: archivo })
+      const r = await fetch(RUTA_API + '/bibliografia/fuentes/' + f.id + '/archivo', { method: 'POST', credentials: 'same-origin', headers: { 'x-ova': '1', 'x-nombre': encodeURIComponent(archivo.name), 'content-type': 'application/octet-stream' }, body: archivo })
       const j = await r.json().catch(() => ({}))
       if (!r.ok) throw new Error(j.error || 'No se pudo leer el archivo')
       setAviso('Leído: ' + j.paginas + (j.formato === 'pdf' ? ' páginas' : ' bloques') + ' de «' + archivo.name + '».')

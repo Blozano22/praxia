@@ -17,5 +17,7 @@ export const config = {
   horasSesion: Number(process.env.HORAS_SESION || 8),
   cookieSegura: process.env.COOKIE_SEGURA === 'true',
   origenPermitido: process.env.ORIGEN_PERMITIDO || '',
-  carpetaWeb: process.env.CARPETA_WEB || ''
+  carpetaWeb: process.env.CARPETA_WEB || '',
+  // Si la plataforma se publica en una subcarpeta (p. ej. /praxia), la cookie de sesión se limita a ella.
+  rutaBase: process.env.RUTA_BASE || '/'
 }

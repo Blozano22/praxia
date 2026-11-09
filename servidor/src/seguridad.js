@@ -20,7 +20,7 @@ export function claveValida(clave) {
 export function emitirSesion(res, usuario, version) {
   const token = jwt.sign({ sub: usuario.id, v: version }, config.secretoJwt, { algorithm: 'HS256', expiresIn: config.horasSesion + 'h' })
   res.cookie(COOKIE, token, {
-    httpOnly: true, sameSite: 'strict', secure: config.cookieSegura, maxAge: config.horasSesion * 3600 * 1000, path: '/'
+    httpOnly: true, sameSite: 'strict', secure: config.cookieSegura, maxAge: config.horasSesion * 3600 * 1000, path: config.rutaBase
   })
 }
 

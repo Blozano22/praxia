@@ -3,6 +3,7 @@ import rateLimit from 'express-rate-limit'
 import { z } from 'zod'
 import { conUsuario, conTransaccion, sinUsuario } from './db.js'
 import { Q } from './consultas.js'
+import { config } from './config.js'
 import { extraerEnlaces } from './enlaces.js'
 import { COOKIE, claveValida, compararClave, emitirSesion, exigirPermiso, exigirSesion, hashClave } from './seguridad.js'
 
@@ -51,7 +52,7 @@ rutas.post('/auth/login', limiteLogin,
 rutas.post('/auth/logout', exigirSesion, async (req, res, next) => {
   try {
     await sinUsuario(Q.cerrarSesiones, [req.usuario.id])
-    res.clearCookie(COOKIE, { path: '/' })
+    res.clearCookie(COOKIE, { path: config.rutaBase })
     await auditar(req.usuario.id, 'logout', 'usuario', req.usuario.id, req)
     res.json({ ok: true })
   } catch (e) { next(e) }

@@ -9,3 +9,6 @@ dist/
 
 # Idiomas del OCR (se generan solos al primer uso)
 servidor/data/
+
+# Claves del servidor (nunca a Git)
+CREDENCIALES-*.txt

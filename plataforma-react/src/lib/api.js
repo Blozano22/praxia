@@ -1,3 +1,6 @@
+// La plataforma puede estar en la raíz del sitio o en una subcarpeta (p. ej. /praxia/): la API siempre cuelga de la misma carpeta que la página.
+export const RUTA_API = location.pathname.replace(/\/[^/]*$/, '') + '/api'
+
 // Cliente de la API. La sesión viaja en una cookie httpOnly (el código de la página nunca ve el token).
 export class ErrorApi extends Error {
   constructor(estado, mensaje) {
@@ -7,7 +10,7 @@ export class ErrorApi extends Error {
 }
 
 export async function api(metodo, ruta, cuerpo) {
-  const r = await fetch('/api' + ruta, {
+  const r = await fetch(RUTA_API + ruta, {
     method: metodo,
     credentials: 'same-origin',
     headers: { 'x-ova': '1', ...(cuerpo !== undefined ? { 'content-type': 'application/json' } : {}) },
@@ -21,7 +24,7 @@ export async function api(metodo, ruta, cuerpo) {
 
 // Descarga un archivo (p. ej. un Google Doc convertido a Word por el servidor) y devuelve su contenido binario.
 export async function apiArchivo(ruta, cuerpo) {
-  const r = await fetch('/api' + ruta, {
+  const r = await fetch(RUTA_API + ruta, {
     method: 'POST', credentials: 'same-origin',
     headers: { 'x-ova': '1', 'content-type': 'application/json' },
     body: JSON.stringify(cuerpo)
