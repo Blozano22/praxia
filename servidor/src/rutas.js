@@ -182,13 +182,18 @@ rutas.patch('/usuarios/:id/roles', ...admin, validar(z.object({ id: IdUsuario })
       if (!sobreOtro(req, res)) return
       const n = await conTransaccion(async (c) => {
         await c.query(Q.rolesDelUsuarioBorrar, [req.paramsOk.id])
-        await c.query(Q.rolDelUsuarioAsignar, [req.paramsOk.id, req.bodyOk.roles])
+        const asignados = (await c.query(Q.rolDelUsuarioAsignar, [req.paramsOk.id, req.bodyOk.roles])).rowCount
+        // Si algún rol no existe en la base (migración pendiente) no se guarda nada: antes se «guardaba» sin asignarlo.
+        if (asignados !== req.bodyOk.roles.length) throw Object.assign(new Error('rol inexistente'), { rolInexistente: true })
         return (await c.query(Q.usuarioSubirVersion, [req.paramsOk.id])).rowCount
       })
       if (!n) return res.status(404).json({ error: 'No encontrado' })
       await auditar(req.usuario.id, 'usuario_rol', 'usuario', req.paramsOk.id, req)
       res.json({ ok: true })
-    } catch (e) { next(e) }
+    } catch (e) {
+      if (e.rolInexistente) return res.status(409).json({ error: 'Alguno de esos roles no existe en la base de datos. Falta aplicar la migración (npm run db:migrar).' })
+      next(e)
+    }
   })
 
 // Nombre y correo (también en la propia cuenta: la sesión va por id, no por correo).
@@ -226,6 +231,29 @@ rutas.patch('/usuarios/:id/clave', ...admin, validar(z.object({ id: IdUsuario })
       const n = (await sinUsuario(Q.usuarioCambiarClave, [req.paramsOk.id, await hashClave(req.bodyOk.clave)])).rowCount
       if (!n) return res.status(404).json({ error: 'No encontrado' })
       await auditar(req.usuario.id, 'usuario_clave', 'usuario', req.paramsOk.id, req)
+      res.json({ ok: true })
+    } catch (e) { next(e) }
+  })
+
+// ------------------------------------------------------------------ direcciones de n8n (compartidas por todas las personas)
+const CLAVES_N8N = { syllabus: 'n8n.syllabus', guiones: 'n8n.guiones' }
+rutas.get('/config/n8n', exigirSesion, async (req, res, next) => {
+  try {
+    const f = (await sinUsuario(Q.configLeer, [Object.values(CLAVES_N8N)])).rows
+    const v = (c) => (f.find((x) => x.clave === c) || {}).valor || ''
+    res.json({ syllabus: v(CLAVES_N8N.syllabus), guiones: v(CLAVES_N8N.guiones) }) // '' = la dirección original
+  } catch (e) { next(e) }
+})
+const UrlN8n = z.union([z.literal(''), z.string().trim().max(500).regex(/^https:\/\/\S+$/)])
+rutas.put('/config/n8n', ...admin, validar(z.object({ syllabus: UrlN8n.optional(), guiones: UrlN8n.optional() }).strict(), 'body'),
+  async (req, res, next) => {
+    try {
+      for (const [campo, clave] of Object.entries(CLAVES_N8N)) {
+        const u = req.bodyOk[campo]
+        if (u === undefined) continue
+        if (u === '') await sinUsuario(Q.configBorrar, [clave]); else await sinUsuario(Q.configGuardar, [clave, u])
+      }
+      await auditar(req.usuario.id, 'config_n8n', 'configuracion', null, req)
       res.json({ ok: true })
     } catch (e) { next(e) }
   })

@@ -107,6 +107,14 @@ CREATE TABLE IF NOT EXISTS auditoria (
 );
 CREATE INDEX IF NOT EXISTS auditoria_usuario_ix ON auditoria (usuario_id, creado DESC);
 
+-- ---------------------------------------------------------------- configuración compartida (direcciones de n8n)
+-- Una sola configuración para toda la plataforma: la cambia el administrador y la usan todas las personas.
+CREATE TABLE IF NOT EXISTS configuracion (
+  clave       text PRIMARY KEY CHECK (char_length(clave) <= 60),
+  valor       text NOT NULL CHECK (char_length(valor) <= 600),
+  actualizado timestamptz NOT NULL DEFAULT now()
+);
+
 -- ---------------------------------------------------------------- seguridad por fila (RLS)
 -- Aunque una consulta de la aplicación olvidara el filtro por propietario, la base de datos
 -- solo entrega y solo deja escribir las filas del usuario de la sesión (app.usuario_id).
@@ -150,6 +158,7 @@ BEGIN
     GRANT UPDATE (nombre, correo, clave_hash, activo, intentos_fallidos, bloqueado_hasta, version_token, ultimo_acceso) ON usuarios TO ova_app;
     GRANT SELECT, INSERT, UPDATE, DELETE ON proyectos, enlaces TO ova_app;
     GRANT SELECT, INSERT ON auditoria TO ova_app;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON configuracion TO ova_app;
     GRANT USAGE, SELECT ON SEQUENCE enlaces_id_seq, auditoria_id_seq TO ova_app;
   END IF;
 END $$;

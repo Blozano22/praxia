@@ -274,6 +274,19 @@ test('el administrador edita nombre y correo; no se repite un correo y los demá
   assert.equal((await admin.api('PATCH', '/usuarios/' + dani.id + '/datos', { nombre: 'Dani', correo: 'dani@u.co' })).status, 200)
 })
 
+test('las direcciones de n8n son una sola para todos: las cambia solo el administrador y las lee cualquiera', async () => {
+  const admin = await entrar('admin@u.co')
+  const ana = await entrar('ana@u.co')
+  assert.deepEqual(await (await ana.api('GET', '/config/n8n')).json(), { syllabus: '', guiones: '' })
+  assert.equal((await ana.api('PUT', '/config/n8n', { guiones: 'https://n8n.u.co/webhook/x' })).status, 403)
+  assert.equal((await admin.api('PUT', '/config/n8n', { guiones: 'http://n8n.u.co/webhook/x' })).status, 400)
+  assert.equal((await admin.api('PUT', '/config/n8n', { guiones: 'https://n8n.u.co/webhook/x', otro: 1 })).status, 400)
+  assert.equal((await admin.api('PUT', '/config/n8n', { guiones: 'https://n8n.u.co/webhook/x' })).status, 200)
+  assert.deepEqual(await (await ana.api('GET', '/config/n8n')).json(), { syllabus: '', guiones: 'https://n8n.u.co/webhook/x' })
+  assert.equal((await admin.api('PUT', '/config/n8n', { guiones: '' })).status, 200)
+  assert.deepEqual(await (await ana.api('GET', '/config/n8n')).json(), { syllabus: '', guiones: '' })
+})
+
 test('ninguna consulta se arma concatenando texto', () => {
   const codigo = fs.readFileSync(path.join(aqui, '..', 'src', 'consultas.js'), 'utf8')
   assert.ok(!codigo.includes('${'), 'consultas.js no debe interpolar valores')

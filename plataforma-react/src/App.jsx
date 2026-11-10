@@ -11,6 +11,7 @@ import Plantillas from './components/Plantillas.jsx'
 import Seguimiento from './components/Seguimiento.jsx'
 import Usuarios from './components/Usuarios.jsx'
 import { fijarAnfitrion } from './lib/trabajosGuiones.js'
+import { olvidarConfigN8n } from './lib/syllabus.js'
 import Conexiones from './components/Conexiones.jsx'
 import Titulo from './components/Titulo.jsx'
 import { api } from './lib/api.js'
@@ -95,7 +96,7 @@ export default function App() {
     setPendientesLocales([])
     aviso('Syllabus importados a tu cuenta')
   }
-  const salir = async () => { try { await api('POST', '/auth/logout') } catch { /* la sesión ya no existía */ } setLista([]); setYo(null); setVista('dashboard') }
+  const salir = async () => { try { await api('POST', '/auth/logout') } catch { /* la sesión ya no existía */ } setLista([]); olvidarConfigN8n(); setYo(null); setVista('dashboard') }
 
   const aviso = useCallback((t) => { setToast(t); setTimeout(() => setToast(''), 2400) }, [])
   const ir = (v) => { if (v !== 'workspace' && v !== 'editor') setPendInicial(null); setVista(v); window.scrollTo(0, 0) }

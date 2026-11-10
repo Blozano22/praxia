@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import Titulo from './Titulo.jsx'
-import { guardarWebhook, guardarWebhookGuiones, leerWebhook, leerWebhookGuiones, WEBHOOK_GUIONES_POR_DEFECTO, WEBHOOK_POR_DEFECTO } from '../lib/syllabus.js'
 
 const ESTADOS = {
   listo: ['ok', 'Documentos generados'],
@@ -20,9 +19,6 @@ export default function Dashboard({ lista, onNuevo, onAbrir, onEliminar }) {
   const [prog, setProg] = useState('todos')
   const [q, setQ] = useState('')
   const [seguro, setSeguro] = useState('') // id del syllabus que espera la segunda pulsación para eliminarse
-  const [conf, setConf] = useState(false)
-  const [url, setUrl] = useState(leerWebhook())
-  const [urlG, setUrlG] = useState(leerWebhookGuiones())
 
   const programas = useMemo(() => {
     const m = new Map()
@@ -71,25 +67,8 @@ export default function Dashboard({ lista, onNuevo, onAbrir, onEliminar }) {
       <div className="db2-progs">
         <button className={prog === 'todos' ? 'on' : ''} onClick={() => setProg('todos')}>Todos <span>· {lista.length}</span></button>
         {programas.map(([p, n]) => <button key={p} className={prog === p ? 'on' : ''} onClick={() => setProg(p)}>{p} <span>· {n}</span></button>)}
-        {location.hash === '#config' && <button className="btn sec sm" style={{ marginLeft: 'auto' }} onClick={() => setConf(!conf)}>Conexión con n8n</button>}
       </div>
 
-      {location.hash === '#config' && conf && (
-        <div className="card" style={{ marginBottom: 14, padding: 14, maxWidth: 560 }}>
-          <label className="l" style={{ marginTop: 0 }}>Dirección (webhook) que genera los documentos</label>
-          <input type="text" value={url} onChange={(e) => setUrl(e.target.value)} />
-          <label className="l">Dirección (webhook) que crea los guiones de una unidad</label>
-          <input type="text" value={urlG} onChange={(e) => setUrlG(e.target.value)} />
-          <div className="row" style={{ marginTop: 8 }}>
-            <button className="btn sm" onClick={() => {
-              guardarWebhook(url.trim() === WEBHOOK_POR_DEFECTO ? '' : url.trim())
-              guardarWebhookGuiones(urlG.trim() === WEBHOOK_GUIONES_POR_DEFECTO ? '' : urlG.trim())
-              setConf(false)
-            }}>Guardar</button>
-            <button className="btn sec sm" onClick={() => { setUrl(WEBHOOK_POR_DEFECTO); setUrlG(WEBHOOK_GUIONES_POR_DEFECTO); guardarWebhook(''); guardarWebhookGuiones('') }}>Valores originales</button>
-          </div>
-        </div>
-      )}
 
       {lista.length === 0 && (
         <div className="drop" style={{ marginTop: 18 }}>

@@ -3,16 +3,24 @@ import { api } from "./api.js"
 // y misma lectura de la respuesta que el portal original (que no se modifica).
 // Flujo que trabaja con la bibliografía leída por la plataforma (copia «con bibliografía, sin IA»). El flujo original es /syllabus-a-plantilla.
 export const WEBHOOK_POR_DEFECTO = 'https://n8n.americana.edu.co/webhook/syllabus-a-plantilla-bibliografia-v2'
-// Direcciones de versiones anteriores del flujo (ya no están activas en n8n): si quedaron guardadas en el navegador, se reemplazan.
+// Direcciones de versiones anteriores del flujo (ya no están activas en n8n): si quedaron guardadas, se reemplazan.
 const WEBHOOKS_ANTERIORES = ['https://n8n.americana.edu.co/webhook/syllabus-a-plantilla', 'https://n8n.americana.edu.co/webhook/syllabus-a-plantilla-bibliografia']
-const CLAVE_WEBHOOK = 'ova-webhook'
 
-export const leerWebhook = () => {
-  try { const g = localStorage.getItem(CLAVE_WEBHOOK); return !g || WEBHOOKS_ANTERIORES.includes(g) ? WEBHOOK_POR_DEFECTO : g } catch (e) { return WEBHOOK_POR_DEFECTO }
+// Las direcciones de n8n son UNA para toda la plataforma: las guarda el administrador en el servidor y todas las personas las leen de allí.
+// '' = la dirección original (la del código).
+let config = { syllabus: '', guiones: '' }
+let cargaEnCurso = null
+export const cargarConfigN8n = (forzar = false) => {
+  if (!cargaEnCurso || forzar) {
+    cargaEnCurso = api('GET', '/config/n8n').then((c) => { config = { syllabus: (c && c.syllabus) || '', guiones: (c && c.guiones) || '' } }).catch(() => { cargaEnCurso = null })
+  }
+  return cargaEnCurso
 }
-export const guardarWebhook = (u) => {
-  try { u ? localStorage.setItem(CLAVE_WEBHOOK, u) : localStorage.removeItem(CLAVE_WEBHOOK) } catch (e) { /* sin almacenamiento */ }
-}
+export const olvidarConfigN8n = () => { config = { syllabus: '', guiones: '' }; cargaEnCurso = null }
+const guardarConfig = (campo, u) => api('PUT', '/config/n8n', { [campo]: u }).then(() => { config = { ...config, [campo]: u } })
+
+export const leerWebhook = () => (!config.syllabus || WEBHOOKS_ANTERIORES.includes(config.syllabus) ? WEBHOOK_POR_DEFECTO : config.syllabus)
+export const guardarWebhook = (u) => guardarConfig('syllabus', u) // devuelve una promesa; falla si no es administrador
 
 export const RE_DOC = /^https:\/\/docs\.google\.com\/document\/d\/[A-Za-z0-9_-]+/
 export const RE_CARPETA = /^https:\/\/drive\.google\.com\/drive\/(?:u\/\d+\/)?folders\/[A-Za-z0-9_-]+/
@@ -80,6 +88,7 @@ function buscarTexto(payload, claves) {
 // Envía el syllabus a n8n. Devuelve {documentos, programa, curso}. Si n8n termina sin lista de enlaces,
 // lanza un error con code 'NO_DOCUMENT_LIST' (el portal original lo muestra como «El flujo terminó. Revisa tu carpeta»).
 export async function generarDocumentos({ syllabusUrl, carpetaUrl, bibliografia }) {
+  await cargarConfigN8n()
   const response = await fetch(leerWebhook(), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -105,14 +114,9 @@ export async function generarDocumentos({ syllabusUrl, carpetaUrl, bibliografia 
 // Copia «con bibliografía»: escribe los guiones con las fuentes leídas de la unidad. El flujo original es /unidad-a-guiones.
 export const WEBHOOK_GUIONES_POR_DEFECTO = 'https://n8n.americana.edu.co/webhook/unidad-a-guiones-bibliografia'
 const WEBHOOK_GUIONES_ANTERIOR = 'https://n8n.americana.edu.co/webhook/unidad-a-guiones'
-const CLAVE_GUIONES = 'ova-webhook-guiones'
 // Se usa la dirección guardada en «Conexión n8n»; si no hay (o es la del flujo anterior) se usa la de la copia con bibliografía.
-export const leerWebhookGuiones = () => {
-  try { const g = localStorage.getItem(CLAVE_GUIONES); return !g || g === WEBHOOK_GUIONES_ANTERIOR ? WEBHOOK_GUIONES_POR_DEFECTO : g } catch (e) { return WEBHOOK_GUIONES_POR_DEFECTO }
-}
-export const guardarWebhookGuiones = (u) => {
-  try { u ? localStorage.setItem(CLAVE_GUIONES, u) : localStorage.removeItem(CLAVE_GUIONES) } catch (e) { /* sin almacenamiento */ }
-}
+export const leerWebhookGuiones = () => (!config.guiones || config.guiones === WEBHOOK_GUIONES_ANTERIOR ? WEBHOOK_GUIONES_POR_DEFECTO : config.guiones)
+export const guardarWebhookGuiones = (u) => guardarConfig('guiones', u)
 
 function buscarArchivos(payload) {
   const pend = [payload]
@@ -147,6 +151,7 @@ export async function generarGuiones({ unidadUrl, syllabusUrl, bibliografiaId, u
     e.code = 'SIN_BIBLIOGRAFIA'
     throw e
   }
+  await cargarConfigN8n()
   const response = await fetch(leerWebhookGuiones(), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
