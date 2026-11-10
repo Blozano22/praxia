@@ -8,6 +8,7 @@ import './usuarios.css'
 import './marco.css'
 import './lineagrafica.css'
 import './bibliografia.css'
+import './guiones.css'
 import App from './App.jsx'
 
 createRoot(document.getElementById('root')).render(

@@ -71,3 +71,12 @@
 .crumbs b{color:var(--nav)}
 .crumbs .lnk{color:var(--brand);font-weight:600}
 .pj{margin-top:0!important}
+
+/* ---------- Generación de guiones en curso ---------- */
+.gv-spin{flex:none;display:inline-block;width:16px;height:16px;border-radius:50%;border:2.5px solid color-mix(in srgb,var(--brand) 25%,#fff);border-top-color:var(--brand);animation:gv-gira .8s linear infinite}
+.gv-generando{display:flex;gap:12px;align-items:flex-start}
+.gv-generando .gv-spin{margin-top:3px}
+.gv-pill{gap:7px}
+.gv-pill .gv-spin{width:11px;height:11px;border-width:2px}
+@keyframes gv-gira{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.gv-spin{animation-duration:2.4s}}

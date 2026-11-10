@@ -10,6 +10,7 @@ import Bibliografia from './components/Bibliografia.jsx'
 import Plantillas from './components/Plantillas.jsx'
 import Seguimiento from './components/Seguimiento.jsx'
 import Usuarios from './components/Usuarios.jsx'
+import { fijarAnfitrion } from './lib/trabajosGuiones.js'
 import Conexiones from './components/Conexiones.jsx'
 import Titulo from './components/Titulo.jsx'
 import { api } from './lib/api.js'
@@ -106,6 +107,9 @@ export default function App() {
     setLista(l)
     guardar(s).catch((e) => { if (e.estado === 401) setYo(null); else aviso('No se pudo guardar: ' + e.message) })
   }, [aviso])
+
+  // Las generaciones de guiones en curso guardan su resultado aquí aunque ya se haya salido de la unidad.
+  useEffect(() => { fijarAnfitrion({ obtener: (id) => ref.current.find((x) => x.id === id) || null, guardar: actualizar }) }, [actualizar])
 
   const actual = lista.find((s) => s.id === actualId)
   const programas = [...new Set(lista.map((s) => s.programa))].filter((p) => p !== 'Sin programa')

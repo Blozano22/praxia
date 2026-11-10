@@ -25,8 +25,8 @@
 .bib-todo>summary{display:flex;align-items:center;gap:10px;padding:14px 18px;background:color-mix(in srgb,var(--nav) 4%,#fff);color:var(--nav);font-weight:700;font-size:.95rem;cursor:pointer;list-style:none;transition:background-color .15s}
 .bib-todo>summary::-webkit-details-marker{display:none}
 .bib-todo>summary:hover{background:color-mix(in srgb,var(--nav) 8%,#fff)}
-.bib-todo>summary::before{content:"";flex:none;width:9px;height:9px;border-right:2.4px solid var(--brand);border-bottom:2.4px solid var(--brand);transform:rotate(-45deg);margin:0 4px 0 2px;transition:transform .2s}
-.bib-todo[open]>summary::before{transform:rotate(45deg) translate(-2px,-2px)}
+.bib-todo>summary::before{content:"";flex:none;box-sizing:border-box;width:26px;height:26px;border-radius:50%;background:color-mix(in srgb,var(--brand) 12%,#fff) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%230a6b5c' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 5l7 7-7 7'/%3E%3C/svg%3E") center/14px no-repeat;transition:transform .2s}
+.bib-todo[open]>summary::before{transform:rotate(90deg)}
 .bib-todo[open]>summary{border-bottom:1px solid var(--line)}
 .bib-todo>.row,.bib-todo>.card,.bib-todo>section{margin-left:18px;margin-right:18px}
 .bib-todo>.bib-tabla-caja{margin:0 18px 16px}
@@ -58,6 +58,26 @@
 .bib-tabla td .btn.sm{margin-top:6px;min-height:38px;padding:0 16px}
 .bib-tabla .pill{font-size:.72rem}
 .bib-tabla .pill.bad{background:var(--badbg);color:#8a2b24}
+
+/* Filas de recursos: número y unidad apilados, acciones en línea, estado y lectura ordenados */
+.bib-tabla td{vertical-align:top}
+.bib-tabla td:first-child{white-space:nowrap}
+.bib-tabla td:first-child .bib-n{display:grid}
+.bib-tabla small.bib-u:empty{display:none}
+.bib-tabla small.bib-u{display:block;width:max-content;margin-top:8px}
+.bib-acc{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;margin-top:10px;font-size:.8rem;color:var(--muted)}
+.bib-cita{flex-basis:100%;font-size:.8rem;color:var(--muted)}
+.bib-acc .lnk{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:99px;background:color-mix(in srgb,var(--brand) 9%,#fff);color:var(--brand);font-weight:700;font-size:.78rem;text-decoration:none}
+.bib-acc .lnk:hover{background:color-mix(in srgb,var(--brand) 16%,#fff)}
+.bib-det-bt::after{content:"";width:6px;height:6px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg) translateY(-2px);transition:transform .2s}
+.bib-det-bt[aria-expanded="true"]::after{transform:rotate(-135deg)}
+.bib-tabla .pill{white-space:nowrap}
+.bib-pags{display:block;margin-bottom:8px;color:var(--muted);font-size:.84rem}
+.bib-pags b{color:var(--nav);font-size:.95rem}
+.bib-tabla td .btn.sm{margin-top:0;width:100%;justify-content:center}
+.bib-sube{margin-top:8px}
+.bib-sube .btn{width:100%;justify-content:center;margin:0}
+.bib-det{margin-top:12px;padding:14px 16px;border-radius:12px;background:color-mix(in srgb,var(--nav) 3%,#fff);border:1px solid var(--line)}
 
 /* Tarjetas de «descargue y suba» */
 .bib-resumen>div{border-radius:16px}

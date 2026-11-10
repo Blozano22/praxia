@@ -380,7 +380,7 @@ export default function Bibliografia({ lista = [], fijo = null, onEstado }) {
           )}
 
           <div className="card bib-tabla-caja" style={{ padding: 0, overflowX: 'auto' }}>
-            <table className="sg-tabla bib-tabla"><colgroup><col style={{ width: 84 }} /><col /><col style={{ width: 104 }} /><col style={{ width: 128 }} /><col style={{ width: 168 }} /></colgroup>
+            <table className="sg-tabla bib-tabla"><colgroup><col style={{ width: 118 }} /><col /><col style={{ width: 96 }} /><col style={{ width: 132 }} /><col style={{ width: 168 }} /></colgroup>
               <thead><tr><th>#</th><th>Referencia (APA 7)</th><th>Tipo</th><th>Estado</th><th>Texto leído</th></tr></thead>
               <tbody>
                 {fuentes.map((f) => {
@@ -391,11 +391,11 @@ export default function Bibliografia({ lista = [], fijo = null, onEstado }) {
                       <td><span className="bib-n">{f.orden}</span><small className="bib-u">{f.unidad ? 'U' + f.unidad : ''}{f.categoria ? (f.categoria === 'basica' ? ' · básica' : ' · compl.') : ''}</small></td>
                       <td>
                         {f.referencia_apa ? <Apa t={f.referencia_apa} /> : <span className="help">{f.entrada_cruda}</span>}
-                        <br />
-                        <small>{f.cita_apa}{' '}
-                          {f.cita_apa && <button className="lnk" onClick={() => copiarCita(f)}>copiar cita</button>}
-                          {' · '}<button className="lnk" onClick={() => setAbierta(abierta === f.id ? null : f.id)}>{abierta === f.id ? 'ocultar detalle' : 'ver detalle'}</button>
-                        </small>
+                        <div className="bib-acc">
+                          {f.cita_apa && <span className="bib-cita">{f.cita_apa}</span>}
+                          {f.cita_apa && <button className="lnk" onClick={() => copiarCita(f)}>Copiar cita</button>}
+                          <button className="lnk bib-det-bt" aria-expanded={abierta === f.id} onClick={() => setAbierta(abierta === f.id ? null : f.id)}>{abierta === f.id ? 'Ocultar detalle' : 'Ver detalle'}</button>
+                        </div>
                         {abierta === f.id && (
                           <div className="bib-det">
                             <div className="bib-comp">
@@ -423,9 +423,9 @@ export default function Bibliografia({ lista = [], fijo = null, onEstado }) {
                       </td>
                       <td>{TIPO[f.tipo] || f.tipo}</td>
                       <td><span className={'pill ' + cl}>{tx}</span></td>
-                      <td>{pag ? <>{pag} págs./bloques<br /><button className="btn sm" onClick={() => { const dd = f.documentos.filter((x) => x.estado === 'extraido' && x.num_caracteres > 0).sort((a, b) => (b.formato === 'pdf') - (a.formato === 'pdf') || b.num_caracteres - a.num_caracteres)[0]; if (dd) setLector({ doc: dd, fuente: f }) }}>Leer el texto</button></> : '—'}
+                      <td>{pag ? <><span className="bib-pags"><b>{pag}</b> págs./bloques</span><button className="btn sm" onClick={() => { const dd = f.documentos.filter((x) => x.estado === 'extraido' && x.num_caracteres > 0).sort((a, b) => (b.formato === 'pdf') - (a.formato === 'pdf') || b.num_caracteres - a.num_caracteres)[0]; if (dd) setLector({ doc: dd, fuente: f }) }}>Leer el texto</button></> : '—'}
                         {f.estado !== 'resuelta' && (
-                          <div style={{ marginTop: 6 }}>
+                          <div className="bib-sube">
                             <label className="btn sec sm" style={{ cursor: 'pointer' }}>{subiendo === f.id ? 'Leyendo…' : 'Subir archivo'}
                               <input type="file" accept=".pdf,.docx,.html,.htm,application/pdf" hidden disabled={subiendo === f.id} onChange={(e) => { subir(f, e.target.files[0]); e.target.value = '' }} />
                             </label>

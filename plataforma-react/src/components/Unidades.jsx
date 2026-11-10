@@ -4,6 +4,7 @@ import { etiquetaTema } from '../lib/ubicar.js'
 import { clone, uid } from '../lib/util.js'
 import { Tarjeta } from './Galeria.jsx'
 import Guiones from './Guiones.jsx'
+import { useUnidadesGenerando } from '../lib/trabajosGuiones.js'
 
 // Un tema existe si tiene recursos, si se guardó con nombre/información o si n8n lo devolvió dentro de la unidad.
 export function temasDe(s, unidad) {
@@ -18,6 +19,7 @@ export function temasDe(s, unidad) {
 // Una tarjeta por cada unidad que devolvió n8n.
 export function Unidades({ s, onAbrir }) {
   const docs = s.syllabus.documentos.slice().sort((a, b) => a.unidad - b.unidad)
+  const generando = useUnidadesGenerando(s.id)
   return (
     <div>
       <div className="pj">
@@ -39,6 +41,7 @@ export function Unidades({ s, onAbrir }) {
                 <span className={'pill ' + (d.aprobado ? 'ok' : 'warn')}>{d.aprobado ? '✔ Documento aprobado' : 'Documento sin aprobar'}</span>
                 <span className="pill">{temas.length} {temas.length === 1 ? 'tema' : 'temas'}</span>
                 <span className="pill">{rs.length} recursos</span>
+                {generando.includes(d.unidad) && <span className="pill warn gv-pill"><span className="gv-spin" aria-hidden="true" />Generando guiones…</span>}
               </div>
               {temas.length > 0 && <p className="help" style={{ margin: 0 }}>{temas.map((t) => 'Tema ' + t).join(' · ')}</p>}
               <div className="row" style={{ marginTop: 'auto', paddingTop: 10 }}>
