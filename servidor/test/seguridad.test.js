@@ -287,6 +287,22 @@ test('las direcciones de n8n son una sola para todos: las cambia solo el adminis
   assert.deepEqual(await (await ana.api('GET', '/config/n8n')).json(), { syllabus: '', guiones: '' })
 })
 
+test('el administrador elimina una cuenta con todo lo suyo; no la propia ni siendo otro rol', async () => {
+  const admin = await entrar('admin@u.co')
+  const creada = await admin.api('POST', '/usuarios', { nombre: 'Temporal', correo: 'temporal@u.co', clave: CLAVE, roles: ['docente'] })
+  assert.equal(creada.status, 201)
+  const { id } = await creada.json()
+  const temporal = await entrar('temporal@u.co')
+  assert.equal((await temporal.api('PUT', '/proyectos/t-1', proyecto('t-1'))).status, 200)
+  assert.equal((await temporal.api('DELETE', '/usuarios/' + id)).status, 403) // un docente no elimina
+  const yoAdmin = (await (await admin.api('GET', '/usuarios')).json()).find((u) => u.correo === 'admin@u.co')
+  assert.equal((await admin.api('DELETE', '/usuarios/' + yoAdmin.id)).status, 400) // ni su propia cuenta
+  assert.equal((await admin.api('DELETE', '/usuarios/' + id)).status, 200)
+  assert.equal((await admin.api('DELETE', '/usuarios/' + id)).status, 404)
+  assert.equal((await temporal.api('GET', '/proyectos')).status, 401) // su sesión deja de valer
+  assert.equal((await entrar('temporal@u.co')).estado, 401)
+})
+
 test('ninguna consulta se arma concatenando texto', () => {
   const codigo = fs.readFileSync(path.join(aqui, '..', 'src', 'consultas.js'), 'utf8')
   assert.ok(!codigo.includes('${'), 'consultas.js no debe interpolar valores')

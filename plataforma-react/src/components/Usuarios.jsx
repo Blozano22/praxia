@@ -170,6 +170,10 @@ export default function Usuarios({ yo, aviso, onYo }) {
   const cambiar = async (ruta, cuerpo, ok) => {
     try { await api('PATCH', ruta, cuerpo); aviso(ok); cargar() } catch (err) { aviso(err.message) }
   }
+  const eliminar = async (u) => {
+    if (!window.confirm('¿Eliminar a ' + u.nombre + ' (' + u.correo + ')?\n\nSe borrará la cuenta y también todos sus syllabus, enlaces y lecturas de bibliografía. Esta acción NO se puede deshacer.\n\nSi solo quiere quitarle el acceso, use «Desactivar».')) return
+    try { await api('DELETE', '/usuarios/' + u.id); aviso('Usuario eliminado'); setMenu(null); cargar() } catch (err) { aviso(err.message) }
+  }
   const nuevaClave = (u) => {
     const clave = window.prompt('Nueva clave para ' + u.correo + ' (10 o más caracteres, con mayúscula, minúscula y número):')
     if (clave) cambiar('/usuarios/' + u.id + '/clave', { clave }, 'Clave actualizada')
@@ -286,6 +290,9 @@ export default function Usuarios({ yo, aviso, onYo }) {
                           desactivado={yoMismo} motivo={MOTIVO_PROPIA}
                           onClick={() => cambiar('/usuarios/' + u.id + '/activo', { activo: !u.activo }, u.activo ? 'Usuario desactivado' : 'Usuario activado')}>
                           <Svg size={17} sw={1.9}>{u.activo ? <path d="M12 3v8M6.5 6.5a8 8 0 1011 0" /> : <path d="M5 12.5l4.5 4.5L19 7" />}</Svg>
+                        </BotonIcono>
+                        <BotonIcono texto="Eliminar usuario" etiqueta={'Eliminar a ' + u.nombre} tipo="peligro" desactivado={yoMismo} motivo={MOTIVO_PROPIA} onClick={() => eliminar(u)}>
+                          <Svg size={17} sw={1.9}><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M9 7V4h6v3" /></Svg>
                         </BotonIcono>
                       </div>
                     </td>

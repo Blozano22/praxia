@@ -64,6 +64,7 @@ export const Q = Object.freeze({
   configLeer: `SELECT clave, valor FROM configuracion WHERE clave = ANY($1::text[])`,
   configGuardar: `INSERT INTO configuracion (clave, valor) VALUES ($1, $2) ON CONFLICT (clave) DO UPDATE SET valor = EXCLUDED.valor, actualizado = now()`,
   configBorrar: `DELETE FROM configuracion WHERE clave = $1`,
+  usuarioBorrar: `DELETE FROM usuarios WHERE id = $1 RETURNING id, correo`,
   usuarioSubirVersion: `UPDATE usuarios SET version_token = version_token + 1 WHERE id = $1 RETURNING id`,
   rolesListar: `SELECT nombre FROM roles ORDER BY id`,
 

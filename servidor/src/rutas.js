@@ -224,6 +224,18 @@ rutas.patch('/usuarios/:id/activo', ...admin, validar(z.object({ id: IdUsuario }
     } catch (e) { next(e) }
   })
 
+// Elimina la cuenta y, en cascada, todo lo suyo (syllabus, enlaces y bibliografía). No se puede deshacer; para solo quitar el acceso existe «desactivar».
+rutas.delete('/usuarios/:id', ...admin, validar(z.object({ id: IdUsuario }), 'params'),
+  async (req, res, next) => {
+    try {
+      if (!sobreOtro(req, res)) return
+      const f = (await sinUsuario(Q.usuarioBorrar, [req.paramsOk.id])).rows[0]
+      if (!f) return res.status(404).json({ error: 'No encontrado' })
+      await auditar(req.usuario.id, 'usuario_eliminar', 'usuario', req.paramsOk.id, req)
+      res.json({ ok: true })
+    } catch (e) { next(e) }
+  })
+
 rutas.patch('/usuarios/:id/clave', ...admin, validar(z.object({ id: IdUsuario }), 'params'), validar(z.object({ clave: z.string() }).strict(), 'body'),
   async (req, res, next) => {
     try {
