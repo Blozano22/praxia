@@ -38,7 +38,7 @@ before(async () => {
   const { Q } = await import('../src/consultas.js')
   pool = db.pool
 
-  for (const [nombre, correo, rol] of [['Admin', 'admin@u.co', 'admin'], ['Ana', 'ana@u.co', 'docente'], ['Beto', 'beto@u.co', 'docente'], ['Coco', 'coco@u.co', 'coordinador'], ['Cora', 'cora@u.co', 'coordinador']]) {
+  for (const [nombre, correo, rol] of [['Admin', 'admin@u.co', 'admin'], ['Ana', 'ana@u.co', 'docente'], ['Beto', 'beto@u.co', 'docente'], ['Coco', 'coco@u.co', 'coordinador'], ['Cora', 'cora@u.co', 'coordinador'], ['Dani', 'dani@u.co', 'disenador']]) {
     await pool.query(Q.usuarioCrear, [nombre, correo, await hashClave(CLAVE), [rol]])
   }
   servidor = crearApp().listen(0)
@@ -245,6 +245,17 @@ test('el coordinador ve el avance de todos los cursos (solo cifras, solo lectura
   assert.equal((await coco.api('DELETE', '/proyectos/seg-ana')).status, 404)
 
   assert.equal((await ana.api('GET', '/seguimiento')).status, 403, 'el docente no tiene seguimiento')
+})
+
+test('el diseñador solo puede ver las plantillas: sin syllabus, seguimiento ni usuarios', async () => {
+  const dani = await entrar('dani@u.co')
+  const yo = await (await dani.api('GET', '/auth/yo')).json()
+  assert.deepEqual(yo.roles, ['disenador'])
+  assert.deepEqual(yo.permisos, ['plantillas.ver'])
+  assert.equal((await dani.api('GET', '/proyectos')).status, 403)
+  assert.equal((await dani.api('PUT', '/proyectos/dis-1', proyecto('dis-1'))).status, 403)
+  assert.equal((await dani.api('GET', '/seguimiento')).status, 403)
+  assert.equal((await dani.api('GET', '/usuarios')).status, 403)
 })
 
 test('ninguna consulta se arma concatenando texto', () => {

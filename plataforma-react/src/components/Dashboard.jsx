@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import Titulo from './Titulo.jsx'
 import { guardarWebhook, guardarWebhookGuiones, leerWebhook, leerWebhookGuiones, WEBHOOK_GUIONES_POR_DEFECTO, WEBHOOK_POR_DEFECTO } from '../lib/syllabus.js'
 
 const ESTADOS = {
@@ -49,15 +50,15 @@ export default function Dashboard({ lista, onNuevo, onAbrir, onEliminar }) {
   return (
     <div className="wrapx fade">
       <div className="db2-cab">
-        <div>
+        <Titulo icono="inicio">
           <h1>{prog === 'todos' ? 'Mis syllabus' : prog}</h1>
           <p className="lead">{resumen}</p>
-        </div>
+        </Titulo>
         <label className="pl2-busca">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></svg>
           <input aria-label="Buscar un syllabus" placeholder="Buscar un syllabus" value={q} onChange={(e) => setQ(e.target.value)} />
         </label>
-        <button className="btn gold db2-nuevo" onClick={onNuevo}>＋ Crear unidades</button>
+        <button className="btn gold db2-nuevo" onClick={onNuevo}>＋ Nuevo curso</button>
       </div>
 
       {porRevisar && (
@@ -92,9 +93,8 @@ export default function Dashboard({ lista, onNuevo, onAbrir, onEliminar }) {
 
       {lista.length === 0 && (
         <div className="drop" style={{ marginTop: 18 }}>
-          <h2>Aún no hay unidades</h2>
-          <p>Pegue el enlace del syllabus y la carpeta de Drive: la plataforma genera los documentos de cada unidad.</p>
-          <div className="row center" style={{ marginTop: 10 }}><button className="btn" onClick={onNuevo}>＋ Crear unidades desde el syllabus</button></div>
+          <h2>Aún no hay cursos</h2>
+          <p>Pulse «Nuevo curso» para empezar: puede crear las unidades desde el syllabus o continuar con unidades que ya existen.</p>
         </div>
       )}
 

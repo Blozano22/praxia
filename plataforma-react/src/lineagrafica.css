@@ -1,0 +1,73 @@
+/* Línea gráfica común a todas las pantallas (la de Usuarios): encabezados con icono, tarjetas redondeadas con sombra suave,
+   tablas con cabecera en banda, etiquetas en píldora, buscadores y pestañas. Solo usa la paleta existente. */
+
+/* ---------- Encabezado de pantalla ---------- */
+.tit{display:flex;gap:16px;align-items:flex-start;min-width:0}
+.tit-ico{flex:none;width:52px;height:52px;border-radius:15px;background:#d9f3e8;color:var(--brand);display:flex;align-items:center;justify-content:center}
+.tit-tx{min-width:0;flex:1}
+.tit-tx h1{margin:0;line-height:1.1}
+.tit-tx .lead{margin:6px 0 0;max-width:780px}
+@media(max-width:560px){.tit-ico{width:44px;height:44px;border-radius:13px}.tit-ico svg{width:23px;height:23px}}
+
+/* ---------- Superficies ---------- */
+.card{border-radius:18px;border-color:var(--line);box-shadow:0 10px 28px rgba(var(--sombra),.06)}
+.stats .card{box-shadow:none;border-radius:0}
+.tema-card,.doc,.sy,.ud,.rc,.item,.sg2-resumen,.db2-aviso,.login-card{border-radius:16px}
+.tema-card,.sg2-resumen{box-shadow:0 8px 22px rgba(var(--sombra),.05)}
+.msg{border-radius:12px}
+.msg.info{background:color-mix(in srgb,var(--brand) 5%,#fff)}
+.toast-app{border-radius:12px}
+
+/* ---------- Botones ---------- */
+.btn{border-radius:11px}
+.btn:not(.sec):not(.danger):not(.gold):not(:disabled){box-shadow:0 6px 14px rgba(10,107,92,.22)}
+.btn.sm{border-radius:9px}
+.btn.gold{box-shadow:0 6px 14px rgba(var(--sombra),.12)}
+
+/* ---------- Etiquetas ---------- */
+.pill{display:inline-flex;align-items:center;border-radius:99px;padding:3px 11px;font-weight:700}
+.pill.ok{background:var(--okbg);color:#1b6a43}
+.pill.warn{background:var(--warnbg);color:#76590a}
+
+/* ---------- Tablas ---------- */
+.tabla{border-collapse:separate;border-spacing:0}
+.tabla th{background:color-mix(in srgb,var(--nav) 6%,#fff);border-bottom:0;white-space:nowrap}
+.tabla th:first-child{border-radius:12px 0 0 12px}
+.tabla th:last-child{border-radius:0 12px 12px 0}
+.tabla tbody tr:hover td{background:color-mix(in srgb,var(--nav) 2.5%,#fff)}
+.db2-tabla{border-radius:18px;box-shadow:0 10px 28px rgba(var(--sombra),.06)}
+.db2-cabt{background:color-mix(in srgb,var(--nav) 6%,#fff);border-radius:0;margin:0;padding:14px 18px}
+.db2-fila:hover:not(.db2-cabt){background:color-mix(in srgb,var(--nav) 3%,#fff)}
+
+/* ---------- Buscadores y pestañas ---------- */
+.pl2-busca{min-height:44px;border-radius:12px;border-width:1.5px;background:#fff}
+.pl2-busca:focus-within{border-color:var(--brand);box-shadow:0 0 0 4px rgba(10,107,92,.15)}
+.pl2-busca svg{color:color-mix(in srgb,var(--nav) 52%,#fff)}
+.pl2-tabs button{border:1.5px solid var(--line2);background:#fff}
+.pl2-tabs button:hover{background:color-mix(in srgb,var(--nav) 5%,#fff);border-color:color-mix(in srgb,var(--nav) 38%,#fff)}
+.pl2-tabs button.on{background:var(--nav);border-color:var(--nav);color:#fff}
+.sg2-f{border-radius:12px}
+
+/* ---------- Panel lateral del dashboard (programas) ---------- */
+.side{background:#fff;border-right:1px solid var(--line)}
+.sd{border-radius:12px}
+.sd.on{background:color-mix(in srgb,var(--brand) 8%,#fff);box-shadow:inset 4px 0 0 var(--brand)}
+
+/* ---------- Pasos y pestañas del espacio de trabajo ---------- */
+.stepper2 button.on i{background:var(--brand);border-color:var(--brand);color:#fff}
+.stepper2 button.on{border-bottom-color:var(--brand)}
+.tabs button.on{border-bottom-color:var(--brand);color:var(--brand)}
+.tema-n{background:var(--brand);color:#fff}
+.tipo{border-radius:99px}
+
+/* ---------- Inicio de sesión ---------- */
+.login-card{border-radius:20px;box-shadow:0 24px 60px rgba(var(--sombra),.12)}
+.login-card input{height:48px;border-width:1.5px;border-radius:12px;background:color-mix(in srgb,var(--nav) 3%,#fff)}
+.login-card input:focus{background:#fff}
+.login-card .btn{min-height:46px;width:100%}
+
+/* ---------- Migas de pan (Dashboard › Nuevo curso): separadas del título ---------- */
+.crumbs{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:0 0 22px;font-size:.84rem;color:var(--muted)}
+.crumbs b{color:var(--nav)}
+.crumbs .lnk{color:var(--brand);font-weight:600}
+.pj{margin-top:0!important}

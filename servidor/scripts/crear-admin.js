@@ -7,8 +7,8 @@ import { claveValida, hashClave } from '../src/seguridad.js'
 
 const { ADMIN_CORREO: correo, ADMIN_NOMBRE: nombre, ADMIN_CLAVE: clave } = process.env
 const roles = (process.env.ADMIN_ROLES || 'admin').split(',').map((r) => r.trim()).filter(Boolean)
-if (!roles.length || roles.some((r) => !['admin', 'coordinador', 'docente'].includes(r))) {
-  console.error('ADMIN_ROLES solo admite: admin, coordinador, docente (separados por coma).')
+if (!roles.length || roles.some((r) => !['admin', 'coordinador', 'docente', 'disenador'].includes(r))) {
+  console.error('ADMIN_ROLES solo admite: admin, coordinador, docente, disenador (separados por coma).')
   process.exit(1)
 }
 if (!correo || !nombre || !claveValida(clave)) {

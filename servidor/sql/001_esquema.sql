@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS rol_permisos (
   PRIMARY KEY (rol_id, permiso_id)
 );
 
-INSERT INTO roles (id, nombre) VALUES (1,'admin'), (2,'coordinador'), (3,'docente')
+INSERT INTO roles (id, nombre) VALUES (1,'admin'), (2,'coordinador'), (3,'docente'), (4,'disenador')
   ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO permisos (id, codigo, detalle) VALUES
@@ -33,15 +33,18 @@ INSERT INTO permisos (id, codigo, detalle) VALUES
   (4, 'proyectos.eliminar',    'Eliminar los syllabus que el usuario creó'),
   (5, 'proyectos.ver_todos',   'Ver el avance de los cursos de todos los usuarios (solo lectura: nadie edita lo ajeno)'),
   (6, 'usuarios.gestionar',    'Crear usuarios, cambiar su rol, activarlos o desactivarlos'),
-  (7, 'auditoria.ver',         'Consultar el registro de actividad')
+  (7, 'auditoria.ver',         'Consultar el registro de actividad'),
+  (8, 'plantillas.ver',        'Ver la galería de plantillas HTML de los recursos (solo lectura)')
   ON CONFLICT (id) DO UPDATE SET detalle = EXCLUDED.detalle;
 
 -- admin: administra usuarios y auditoría (no ve el contenido de otros por defecto)
+-- diseñador: solo ve las plantillas HTML de los recursos (sin acceso a syllabus ni a usuarios)
 -- coordinador y docente: trabajan solo con lo propio; el coordinador además VE el avance de todos (solo lectura)
 INSERT INTO rol_permisos (rol_id, permiso_id) VALUES
   (1,6), (1,7),
   (2,1), (2,2), (2,3), (2,4), (2,5),
-  (3,1), (3,2), (3,3), (3,4)
+  (3,1), (3,2), (3,3), (3,4),
+  (1,8), (2,8), (3,8), (4,8)
   ON CONFLICT DO NOTHING;
 
 -- ---------------------------------------------------------------- usuarios

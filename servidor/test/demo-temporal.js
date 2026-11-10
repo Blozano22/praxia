@@ -9,7 +9,7 @@ import EmbeddedPostgres from 'embedded-postgres'
 import pg from 'pg'
 
 const aqui = path.dirname(fileURLToPath(import.meta.url))
-const PUERTO_PG = 54330
+const PUERTO_PG = Number(process.env.PG_PORT) || 54330
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ova-demo-'))
 const motor = new EmbeddedPostgres({ databaseDir: dir, user: 'postgres', password: 'duenio', port: PUERTO_PG, persistent: false })
 await motor.initialise()
@@ -19,7 +19,7 @@ await motor.createDatabase('ova')
 const duenio = new pg.Client({ connectionString: `postgres://postgres:duenio@localhost:${PUERTO_PG}/ova` })
 await duenio.connect()
 await duenio.query("CREATE ROLE ova_app LOGIN PASSWORD 'appclave' NOSUPERUSER NOBYPASSRLS")
-await duenio.query(fs.readFileSync(path.join(aqui, '..', 'sql', '001_esquema.sql'), 'utf8'))
+for (const f of ['001_esquema.sql', '002_bibliografia.sql']) await duenio.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
 await duenio.end()
 
 process.env.DATABASE_URL = `postgres://ova_app:appclave@localhost:${PUERTO_PG}/ova`
@@ -29,7 +29,7 @@ const { pool } = await import('../src/db.js')
 const { hashClave } = await import('../src/seguridad.js')
 const { Q } = await import('../src/consultas.js')
 const clave = 'ClaveDemo2026'
-for (const [n, c, r] of [['Administradora', 'admin@demo.co', 'admin'], ['Ana Docente', 'ana@demo.co', 'docente'], ['Beto Coordinador', 'beto@demo.co', 'coordinador']]) {
+for (const [n, c, r] of [['Administradora', 'admin@demo.co', 'admin'], ['Ana Docente', 'ana@demo.co', 'docente'], ['Beto Coordinador', 'beto@demo.co', 'coordinador'], ['Dani Diseñador', 'dani@demo.co', 'disenador']]) {
   await pool.query(Q.usuarioCrear, [n, c, await hashClave(clave), [r]])
 }
 const { crearApp } = await import('../src/app.js')

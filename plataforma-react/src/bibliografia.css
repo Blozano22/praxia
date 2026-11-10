@@ -1,0 +1,66 @@
+/* Bibliografía: lectura en curso, barra de herramientas y tabla de referencias con la línea gráfica de Praxia. */
+
+/* ---------- Tarjetas de paso (Nuevo curso) ---------- */
+.portal.ps-portal .card.ps-paso,.ps-paso{border:1.5px solid var(--line);border-radius:18px;box-shadow:0 10px 28px rgba(var(--sombra),.06);padding:22px 24px}
+.portal.ps-portal .ps-paso.activo,.ps-paso.activo{border-color:color-mix(in srgb,var(--brand) 55%,#fff);box-shadow:0 12px 32px rgba(var(--sombra),.1),0 0 0 4px rgba(10,107,92,.08)}
+.portal.ps-portal .ps-paso.hecho,.ps-paso.hecho{border-color:#bfe0d6;background:linear-gradient(180deg,#fff,color-mix(in srgb,var(--brand) 3%,#fff))}
+.ps-bola{width:36px;height:36px;font-size:.95rem}
+.ps-bola.act{background:var(--nav);color:var(--lime)}
+.ps-cab{gap:14px}
+.ps-tit small{margin-top:2px}
+
+/* ---------- Lectura en curso ---------- */
+.bib-leyendo{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:6px 14px;margin:16px 0;padding:16px 18px;border:1.5px solid #cfe7df;border-radius:16px;background:color-mix(in srgb,var(--brand) 5%,#fff)}
+.bib-spin{width:34px;height:34px;border-radius:50%;border:4px solid color-mix(in srgb,var(--brand) 18%,#fff);border-top-color:var(--brand);animation:bib-gira .9s linear infinite}
+@keyframes bib-gira{to{transform:rotate(360deg)}}
+.bib-ley-tx b{display:block;color:var(--nav);font-size:1rem;line-height:1.25}
+.bib-ley-tx small{color:var(--muted);font-size:.82rem}
+.bib-ley-pct{font-weight:800;font-size:1.5rem;letter-spacing:-.02em;color:var(--brand)}
+.bib-ley-bar{grid-column:1/-1;height:10px;border-radius:99px;background:color-mix(in srgb,var(--brand) 14%,#fff);overflow:hidden}
+.bib-ley-bar>i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--brand),#7fbf2a);transition:width .5s cubic-bezier(.23,1,.32,1)}
+@media (prefers-reduced-motion:reduce){.bib-spin{animation-duration:2.4s}}
+
+/* ---------- Ver todo lo extraído ---------- */
+.bib-todo{margin-top:18px;border:1px solid var(--line);border-radius:16px;background:#fff;padding:0 0 4px;overflow:hidden}
+.bib-todo>summary{display:flex;align-items:center;gap:10px;padding:14px 18px;background:color-mix(in srgb,var(--nav) 4%,#fff);color:var(--nav);font-weight:700;font-size:.95rem;cursor:pointer;list-style:none;transition:background-color .15s}
+.bib-todo>summary::-webkit-details-marker{display:none}
+.bib-todo>summary:hover{background:color-mix(in srgb,var(--nav) 8%,#fff)}
+.bib-todo>summary::before{content:"";flex:none;width:9px;height:9px;border-right:2.4px solid var(--brand);border-bottom:2.4px solid var(--brand);transform:rotate(-45deg);margin:0 4px 0 2px;transition:transform .2s}
+.bib-todo[open]>summary::before{transform:rotate(45deg) translate(-2px,-2px)}
+.bib-todo[open]>summary{border-bottom:1px solid var(--line)}
+.bib-todo>.row,.bib-todo>.card,.bib-todo>section{margin-left:18px;margin-right:18px}
+.bib-todo>.bib-tabla-caja{margin:0 18px 16px}
+
+/* Barra de herramientas */
+.bib-todo>.row{gap:12px;flex-wrap:wrap}
+.bib-todo .seg{background:color-mix(in srgb,var(--nav) 6%,#fff);border-radius:12px;padding:4px;gap:2px;margin:0;flex-wrap:nowrap}
+.bib-todo .seg button{border:0;background:transparent;border-radius:9px;padding:8px 16px;font-weight:600;font-size:.86rem;color:var(--nav);box-shadow:none}
+.bib-todo .seg button:hover:not(.on){background:rgba(255,255,255,.7)}
+.bib-todo .seg button.on{background:var(--nav);color:#fff;box-shadow:0 2px 6px rgba(var(--sombra),.25)}
+.bib-q{position:relative;display:block;width:280px;max-width:100%}
+.bib-q>svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:color-mix(in srgb,var(--nav) 52%,#fff);pointer-events:none}
+.bib-q input{height:44px;padding:0 14px 0 40px;border-width:1.5px;border-radius:12px}
+
+/* ---------- Tabla de referencias ---------- */
+.bib-tabla-caja{border-radius:16px;box-shadow:none;border:1px solid var(--line)}
+.bib-tabla{border-collapse:separate;border-spacing:0}
+.bib-tabla th{background:color-mix(in srgb,var(--nav) 6%,#fff);padding:12px 16px;border-bottom:0;font-size:.7rem;letter-spacing:.1em;color:var(--muted)}
+.bib-tabla th:first-child{border-radius:12px 0 0 12px}
+.bib-tabla th:last-child{border-radius:0 12px 12px 0}
+.bib-tabla td{padding:16px;border-bottom:1px solid var(--line);color:var(--ink);font-size:.9rem;line-height:1.55}
+.bib-tabla tbody tr:hover td{background:color-mix(in srgb,var(--nav) 2.5%,#fff)}
+.bib-tabla tbody tr:last-child td{border-bottom:0}
+.bib-n{display:inline-grid;place-items:center;min-width:32px;height:32px;padding:0 8px;border-radius:10px;background:var(--nav);color:#fff;font-weight:800;font-size:.85rem}
+.bib-tabla small.bib-u{display:inline-block;margin-top:8px;padding:2px 9px;border-radius:99px;background:var(--tint);color:var(--muted);font-weight:700;font-size:.7rem;letter-spacing:.02em;white-space:nowrap}
+.bib-tabla td:nth-child(2){color:color-mix(in srgb,var(--nav) 80%,#fff)}
+.bib-tabla td:nth-child(2) small{display:block;margin-top:8px;color:var(--muted)}
+.bib-tabla td:nth-child(2) .lnk{color:var(--brand);font-weight:700}
+.bib-tabla td .btn.sm{margin-top:6px;min-height:38px;padding:0 16px}
+.bib-tabla .pill{font-size:.72rem}
+.bib-tabla .pill.bad{background:var(--badbg);color:#8a2b24}
+
+/* Tarjetas de «descargue y suba» */
+.bib-resumen>div{border-radius:16px}
+.bib-tarjeta{border-radius:16px;box-shadow:0 6px 18px rgba(var(--sombra),.05)}
+.bib-num{border-radius:11px;width:36px;height:36px;background:var(--nav)}
+.bib-paso i{background:color-mix(in srgb,var(--brand) 14%,#fff);color:var(--brand)}
