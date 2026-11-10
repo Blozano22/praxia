@@ -34,7 +34,8 @@ INSERT INTO permisos (id, codigo, detalle) VALUES
   (5, 'proyectos.ver_todos',   'Ver el avance de los cursos de todos los usuarios (solo lectura: nadie edita lo ajeno)'),
   (6, 'usuarios.gestionar',    'Crear usuarios, cambiar su rol, activarlos o desactivarlos'),
   (7, 'auditoria.ver',         'Consultar el registro de actividad'),
-  (8, 'plantillas.ver',        'Ver la galería de plantillas HTML de los recursos (solo lectura)')
+  (8, 'plantillas.ver',        'Ver la galería de plantillas HTML de los recursos (solo lectura)'),
+  (9, 'plantillas.revisar',    'Aprobar, rechazar o mandar a revisión una plantilla HTML, con su observación y el documento de cambios')
   ON CONFLICT (id) DO UPDATE SET detalle = EXCLUDED.detalle;
 
 -- admin: administra usuarios y auditoría (no ve el contenido de otros por defecto)
@@ -44,7 +45,8 @@ INSERT INTO rol_permisos (rol_id, permiso_id) VALUES
   (1,6), (1,7),
   (2,1), (2,2), (2,3), (2,4), (2,5),
   (3,1), (3,2), (3,3), (3,4),
-  (1,8), (2,8), (3,8), (4,8)
+  (1,8), (2,8), (3,8), (4,8),
+  (1,9), (4,9)
   ON CONFLICT DO NOTHING;
 
 -- ---------------------------------------------------------------- usuarios
@@ -115,6 +117,20 @@ CREATE TABLE IF NOT EXISTS configuracion (
   actualizado timestamptz NOT NULL DEFAULT now()
 );
 
+-- ---------------------------------------------------------------- revisión de plantillas HTML
+-- Cada decisión sobre una plantilla (aprobar, rechazar, mandar a revisión) queda registrada; la última es la vigente.
+CREATE TABLE IF NOT EXISTS plantilla_revisiones (
+  id             bigserial PRIMARY KEY,
+  plantilla      text NOT NULL CHECK (plantilla ~ '^[a-z0-9-]{1,80}$'),
+  estado         text NOT NULL CHECK (estado IN ('aprobada','rechazada','revision')),
+  observacion    text NOT NULL DEFAULT '' CHECK (char_length(observacion) <= 2000),
+  doc_url        text CHECK (doc_url IS NULL OR char_length(doc_url) <= 500),
+  usuario_id     uuid REFERENCES usuarios(id) ON DELETE SET NULL,
+  usuario_nombre text NOT NULL CHECK (char_length(usuario_nombre) <= 120),
+  creado         timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS plantilla_revisiones_ix ON plantilla_revisiones (plantilla, creado DESC);
+
 -- ---------------------------------------------------------------- seguridad por fila (RLS)
 -- Aunque una consulta de la aplicación olvidara el filtro por propietario, la base de datos
 -- solo entrega y solo deja escribir las filas del usuario de la sesión (app.usuario_id).
@@ -159,6 +175,8 @@ BEGIN
     GRANT SELECT, INSERT, UPDATE, DELETE ON proyectos, enlaces TO ova_app;
     GRANT SELECT, INSERT ON auditoria TO ova_app;
     GRANT SELECT, INSERT, UPDATE, DELETE ON configuracion TO ova_app;
+    GRANT SELECT, INSERT ON plantilla_revisiones TO ova_app;
+    GRANT USAGE, SELECT ON SEQUENCE plantilla_revisiones_id_seq TO ova_app;
     GRANT USAGE, SELECT ON SEQUENCE enlaces_id_seq, auditoria_id_seq TO ova_app;
   END IF;
 END $$;

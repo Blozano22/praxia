@@ -251,7 +251,7 @@ test('el diseñador solo puede ver las plantillas: sin syllabus, seguimiento ni 
   const dani = await entrar('dani@u.co')
   const yo = await (await dani.api('GET', '/auth/yo')).json()
   assert.deepEqual(yo.roles, ['disenador'])
-  assert.deepEqual(yo.permisos, ['plantillas.ver'])
+  assert.deepEqual([...yo.permisos].sort(), ['plantillas.revisar', 'plantillas.ver'])
   assert.equal((await dani.api('GET', '/proyectos')).status, 403)
   assert.equal((await dani.api('PUT', '/proyectos/dis-1', proyecto('dis-1'))).status, 403)
   assert.equal((await dani.api('GET', '/seguimiento')).status, 403)
@@ -301,6 +301,27 @@ test('el administrador elimina una cuenta con todo lo suyo; no la propia ni sien
   assert.equal((await admin.api('DELETE', '/usuarios/' + id)).status, 404)
   assert.equal((await temporal.api('GET', '/proyectos')).status, 401) // su sesión deja de valer
   assert.equal((await entrar('temporal@u.co')).estado, 401)
+})
+
+test('el diseñador y el administrador deciden sobre las plantillas; los demás solo ven', async () => {
+  const dani = await entrar('dani@u.co')
+  const ana = await entrar('ana@u.co')
+  const doc = 'https://docs.google.com/document/d/abc_123-XYZ/edit'
+  const nueva = (c) => dani.api('POST', '/plantillas/revisiones', c)
+  assert.equal((await nueva({ plantilla: 'acordeon', estado: 'aprobada', observacion: '' })).status, 201)
+  assert.equal((await nueva({ plantilla: 'acordeon', estado: 'rechazada', observacion: '' })).status, 400) // rechazar exige observación
+  assert.equal((await nueva({ plantilla: 'acordeon', estado: 'revision', observacion: 'Cambiar colores' })).status, 400) // revisión exige el documento
+  assert.equal((await nueva({ plantilla: 'acordeon', estado: 'revision', observacion: 'Cambiar colores', docUrl: 'https://ejemplo.com/x' })).status, 400) // y que sea de Google Docs
+  assert.equal((await nueva({ plantilla: 'Mala Clave', estado: 'aprobada', observacion: '' })).status, 400)
+  const r = await nueva({ plantilla: 'acordeon', estado: 'revision', observacion: 'Cambiar los colores del título', docUrl: doc })
+  assert.equal(r.status, 201)
+  const f = await r.json()
+  assert.equal(f.estado, 'revision'); assert.equal(f.docUrl, doc); assert.equal(f.usuario, 'Dani')
+  assert.equal((await ana.api('POST', '/plantillas/revisiones', { plantilla: 'acordeon', estado: 'aprobada', observacion: '' })).status, 403) // un docente no decide
+  const lista = await (await ana.api('GET', '/plantillas/revisiones')).json() // pero sí ve el estado
+  assert.equal(lista[0].estado, 'revision'); assert.equal(lista.length, 2)
+  const admin = await entrar('admin@u.co')
+  assert.equal((await admin.api('POST', '/plantillas/revisiones', { plantilla: 'crucigrama', estado: 'aprobada', observacion: 'Listo' })).status, 201)
 })
 
 test('ninguna consulta se arma concatenando texto', () => {

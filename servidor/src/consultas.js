@@ -65,6 +65,13 @@ export const Q = Object.freeze({
   configGuardar: `INSERT INTO configuracion (clave, valor) VALUES ($1, $2) ON CONFLICT (clave) DO UPDATE SET valor = EXCLUDED.valor, actualizado = now()`,
   configBorrar: `DELETE FROM configuracion WHERE clave = $1`,
   usuarioBorrar: `DELETE FROM usuarios WHERE id = $1 RETURNING id, correo`,
+  revisionesListar: `
+    SELECT id, plantilla, estado, observacion, doc_url AS "docUrl", usuario_nombre AS usuario, creado
+      FROM plantilla_revisiones ORDER BY creado DESC, id DESC LIMIT 1000`,
+  revisionCrear: `
+    INSERT INTO plantilla_revisiones (plantilla, estado, observacion, doc_url, usuario_id, usuario_nombre)
+    VALUES ($1, $2, $3, $4, $5, $6)
+    RETURNING id, plantilla, estado, observacion, doc_url AS "docUrl", usuario_nombre AS usuario, creado`,
   usuarioSubirVersion: `UPDATE usuarios SET version_token = version_token + 1 WHERE id = $1 RETURNING id`,
   rolesListar: `SELECT nombre FROM roles ORDER BY id`,
 

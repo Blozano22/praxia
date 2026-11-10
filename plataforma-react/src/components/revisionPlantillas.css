@@ -1,0 +1,61 @@
+/* Revisión de plantillas HTML: estado, tres botones de decisión y formulario de observación. */
+.pill.bad{background:var(--badbg,#fbe4e1);color:#8d2a20}
+.rv-estado{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;margin:2px 0 8px}
+.rv-estado small{color:var(--muted);font-size:.78rem}
+.rv-obs{margin:0 0 8px;padding:10px 12px;border-radius:10px;background:color-mix(in srgb,var(--nav) 4%,#fff);font-size:.88rem;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere}
+.rv-doc{display:inline-block;margin-bottom:10px;font-weight:700;font-size:.88rem;color:var(--brand)}
+.rv-acciones{display:grid;gap:8px;margin-top:6px}
+.rv-b{display:flex;align-items:center;justify-content:center;gap:8px;width:100%}
+.rv-b.aprobada{border-color:color-mix(in srgb,var(--brand) 45%,#fff);color:var(--brand)}
+.rv-b.aprobada:hover{background:color-mix(in srgb,var(--brand) 8%,#fff)}
+.rv-b.rechazada{border-color:#e2a49c;color:#a32f24}
+.rv-b.rechazada:hover{background:#fbe4e1}
+.rv-b.revision{border-color:#e5cf8e;color:#76590a}
+.rv-b.revision:hover{background:var(--warnbg,#fbf1cf)}
+.rv-form{margin-top:8px;display:flex;flex-direction:column}
+.rv-form textarea{resize:vertical;min-height:92px}
+.rv-tit{font-size:1rem}
+.rv-tit.aprobada{color:var(--brand)}
+.rv-tit.rechazada{color:#a32f24}
+.rv-tit.revision{color:#76590a}
+.rv-pie{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.rv-hist{margin-top:12px;font-size:.86rem}
+.rv-hist summary{cursor:pointer;font-weight:700;color:var(--nav)}
+.rv-hist ul{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:10px}
+.rv-hist li p{margin:4px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.rv-hist li small{color:var(--muted)}
+.rv-hist li a{font-weight:700;color:var(--brand)}
+.pl2-lista .rv-mini{margin-left:auto;flex:none;padding:2px 8px;font-size:.68rem}
+
+/* ---------- Tarjeta de aprobación (bajo la vista previa) ---------- */
+.rv{display:block;--rv:var(--nav);--rv-bg:color-mix(in srgb,var(--nav) 6%,#fff);margin-top:18px;padding:0;overflow:hidden;border-width:1.5px;border-color:color-mix(in srgb,var(--rv) 30%,#fff)}
+.rv-aprobada{--rv:#1b6a43;--rv-bg:var(--okbg)}
+.rv-rechazada{--rv:#a32f24;--rv-bg:var(--badbg,#fbe4e1)}
+.rv-revision{--rv:#76590a;--rv-bg:var(--warnbg,#fbf1cf)}
+.rv-cab{display:flex;align-items:center;gap:14px;padding:18px 22px;background:linear-gradient(90deg,var(--rv-bg),#fff 85%);border-bottom:1px solid var(--line)}
+.rv-ico{flex:none;display:grid;place-items:center;width:46px;height:46px;border-radius:14px;background:var(--rv);color:#fff}
+.rv-cab-tx{flex:1;min-width:0}
+.rv-cab-tx h4{margin:0;font-size:1.15rem;letter-spacing:0;text-transform:none;color:var(--nav);font-weight:800}
+.rv-cab-tx p{margin:3px 0 0;font-size:.86rem;color:var(--muted)}
+.rv-estado-pill{flex:none;padding:8px 18px;border-radius:99px;background:var(--rv);color:#fff;font-weight:800;font-size:.88rem}
+.rv-cuerpo{display:grid;gap:18px;padding:20px 22px}
+.rv-cuerpo.con-acc{grid-template-columns:minmax(0,1fr) auto;align-items:center}
+.rv-info{min-width:0}
+.rv-info>*:last-child{margin-bottom:0}
+.rv-quien{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;margin:0 0 10px;color:var(--nav);font-size:.92rem}
+.rv-quien span{color:var(--muted);font-size:.82rem}
+.rv-vacio{margin:0;color:var(--muted);font-size:.92rem;line-height:1.5}
+.rv-obs{margin:0 0 10px;padding:12px 14px;border-radius:12px;border-left:4px solid var(--rv);background:var(--rv-bg);color:var(--ink)}
+.rv-acciones{display:flex;flex-wrap:wrap;gap:10px;margin:0}
+.rv-b{display:inline-flex;align-items:center;justify-content:center;gap:8px;width:auto;min-height:46px;padding:0 20px;border:1.5px solid transparent;border-radius:12px;font:inherit;font-weight:700;font-size:.92rem;cursor:pointer;transition:background-color .15s,border-color .15s,transform .15s,box-shadow .15s}
+.rv-b:active{transform:scale(.97)}
+.rv-b.aprobada{background:#2da56a;border-color:#2da56a;color:#fff;box-shadow:0 6px 14px rgba(45,165,106,.28)}
+.rv-b.aprobada:hover{background:#25925d;border-color:#25925d}
+.rv-b.rechazada{background:#fff;border-color:#e2a49c;color:#a32f24}
+.rv-b.rechazada:hover{background:#fbe4e1;border-color:#cf6f64}
+.rv-b.revision{background:#fff;border-color:#e0c46a;color:#76590a}
+.rv-b.revision:hover{background:var(--warnbg,#fbf1cf)}
+.rv .rv-form{margin:0;padding:0 22px 22px}
+.rv .rv-pie{margin-top:14px}
+.rv .rv-hist{margin:0;padding:14px 22px;border-top:1px solid var(--line);background:color-mix(in srgb,var(--nav) 2.5%,#fff)}
+@media(max-width:760px){.rv-cuerpo.con-acc{grid-template-columns:1fr}.rv-cab{flex-wrap:wrap}.rv-acciones .rv-b{flex:1 1 100%}}

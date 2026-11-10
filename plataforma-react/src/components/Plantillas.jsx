@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Titulo from './Titulo.jsx'
+import RevisionPlantilla, { ESTADO } from './RevisionPlantilla.jsx'
+import { api } from '../lib/api.js'
 
 // Plantillas HTML (carpeta /ejemplos): se cargan solo al abrirlas para no pesar al inicio.
 // Los recursos usan la misma paleta DIEPO; los que empiezan por «o-» son HTML hechos a mano, tal cual, repartidos en sus familias.
@@ -44,7 +46,7 @@ const CATALOGO = (() => {
 })()
 const CARGA = { ...ARCHIVOS, ...ORIGINALES }
 
-export default function Plantillas() {
+export default function Plantillas({ puedeRevisar = false, aviso }) {
   const grupos = useMemo(() => GRUPOS.map(([g, l]) => [g, l.filter(([k]) => CATALOGO[k])]).filter(([, l]) => l.length), [])
   const [tipo, setTipo] = useState(grupos[0][1][0][0])
   const [q, setQ] = useState('')
@@ -53,6 +55,9 @@ export default function Plantillas() {
   const [error, setError] = useState('')
   const [esc, setEsc] = useState(0.6)
   const caja = useRef(null)
+  const [revisiones, setRevisiones] = useState([]) // de la más nueva a la más antigua
+  useEffect(() => { api('GET', '/plantillas/revisiones').then(setRevisiones).catch(() => {}) }, [])
+  const deTipo = (k) => revisiones.filter((r) => r.plantilla === k)
 
   const ruta = CATALOGO[tipo] && Object.values(CATALOGO[tipo])[0]
 
@@ -132,6 +137,7 @@ export default function Plantillas() {
             {html && <iframe sandbox="allow-scripts" title={'Plantilla ' + titulo} srcDoc={html} style={{ width: 1280, height: 720, transform: `scale(${esc})` }} />}
           </div>
           {!full && <p className="help pl2-pie">Se ve a 1280 × 720, sin barras de desplazamiento, con la paleta de la institución.</p>}
+          {!full && <RevisionPlantilla key={tipo} plantilla={tipo} titulo={titulo} historial={deTipo(tipo)} puedeRevisar={puedeRevisar} aviso={aviso} onNueva={(r) => setRevisiones((l) => [r, ...l])} />}
         </section>
 
         <aside className="pl2-lado">
@@ -142,6 +148,7 @@ export default function Plantillas() {
               <button key={t.k} className={t.k === tipo ? 'on' : ''} onClick={() => elegir(t.k)}>
                 <span className="pl2-n">{res ? '•' : i + 1}</span>
                 <span><b>{t.n}</b>{res && <small>{t.g}</small>}</span>
+                {deTipo(t.k)[0] && <span className={'pill rv-mini ' + ESTADO[deTipo(t.k)[0].estado].clase}>{ESTADO[deTipo(t.k)[0].estado].texto}</span>}
               </button>
             ))}
             {res && res.length === 0 && <p className="help">No hay plantillas con esa palabra. Pruebe con «acordeón» o «tiempo».</p>}

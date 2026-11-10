@@ -270,6 +270,31 @@ rutas.put('/config/n8n', ...admin, validar(z.object({ syllabus: UrlN8n.optional(
     } catch (e) { next(e) }
   })
 
+// ------------------------------------------------------------------ revisión de plantillas HTML
+// Ver las decisiones: quien ve las plantillas. Decidir (aprobar, rechazar, mandar a revisión): diseñador y administrador.
+const RE_DOC_GOOGLE = /^https:\/\/docs\.google\.com\/document\/d\/[A-Za-z0-9_-]+/
+rutas.get('/plantillas/revisiones', exigirSesion, exigirPermiso('plantillas.ver'), async (req, res, next) => {
+  try { res.json((await sinUsuario(Q.revisionesListar, [])).rows) } catch (e) { next(e) }
+})
+const NuevaRevision = z.object({
+  plantilla: z.string().regex(/^[a-z0-9-]{1,80}$/),
+  estado: z.enum(['aprobada', 'rechazada', 'revision']),
+  observacion: z.string().trim().max(2000),
+  docUrl: z.string().trim().max(500).optional()
+}).strict()
+rutas.post('/plantillas/revisiones', exigirSesion, exigirPermiso('plantillas.revisar'), validar(NuevaRevision, 'body'), async (req, res, next) => {
+  try {
+    const { plantilla, estado, observacion } = req.bodyOk
+    const docUrl = req.bodyOk.docUrl || ''
+    if (estado !== 'aprobada' && observacion.length < 3) return res.status(400).json({ error: 'Escriba la observación: qué hay que cambiar o por qué se rechaza.' })
+    if (estado === 'revision' && !RE_DOC_GOOGLE.test(docUrl)) return res.status(400).json({ error: 'Para mandarla a revisión pegue el enlace del documento de Google Docs con los cambios que desea.' })
+    if (docUrl && !RE_DOC_GOOGLE.test(docUrl)) return res.status(400).json({ error: 'El enlace debe ser de un documento de Google Docs.' })
+    const f = (await sinUsuario(Q.revisionCrear, [plantilla, estado, observacion, docUrl || null, req.usuario.id, req.usuario.nombre])).rows[0]
+    await auditar(req.usuario.id, 'plantilla_' + estado, 'plantilla', plantilla, req)
+    res.status(201).json(f)
+  } catch (e) { next(e) }
+})
+
 rutas.get('/auditoria', exigirSesion, exigirPermiso('auditoria.ver'), async (req, res, next) => {
   try { res.json((await sinUsuario(Q.auditoriaListar, [])).rows) } catch (e) { next(e) }
 })
