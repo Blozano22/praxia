@@ -147,7 +147,7 @@ BEGIN
     GRANT SELECT ON roles, permisos, rol_permisos TO ova_app;
     GRANT SELECT, INSERT, DELETE ON usuario_roles TO ova_app;
     GRANT SELECT, INSERT ON usuarios TO ova_app;
-    GRANT UPDATE (nombre, clave_hash, activo, intentos_fallidos, bloqueado_hasta, version_token, ultimo_acceso) ON usuarios TO ova_app;
+    GRANT UPDATE (nombre, correo, clave_hash, activo, intentos_fallidos, bloqueado_hasta, version_token, ultimo_acceso) ON usuarios TO ova_app;
     GRANT SELECT, INSERT, UPDATE, DELETE ON proyectos, enlaces TO ova_app;
     GRANT SELECT, INSERT ON auditoria TO ova_app;
     GRANT USAGE, SELECT ON SEQUENCE enlaces_id_seq, auditoria_id_seq TO ova_app;

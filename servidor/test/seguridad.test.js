@@ -258,6 +258,22 @@ test('el diseñador solo puede ver las plantillas: sin syllabus, seguimiento ni 
   assert.equal((await dani.api('GET', '/usuarios')).status, 403)
 })
 
+test('el administrador edita nombre y correo; no se repite un correo y los demás roles no pueden', async () => {
+  const admin = await entrar('admin@u.co')
+  const lista = await (await admin.api('GET', '/usuarios')).json()
+  const dani = lista.find((u) => u.correo === 'dani@u.co')
+  const ana = lista.find((u) => u.correo === 'ana@u.co')
+  const ok = await admin.api('PATCH', '/usuarios/' + dani.id + '/datos', { nombre: 'Daniela D.', correo: 'Daniela@U.co' })
+  assert.equal(ok.status, 200)
+  assert.deepEqual(await ok.json(), { id: dani.id, nombre: 'Daniela D.', correo: 'daniela@u.co' })
+  assert.equal((await admin.api('PATCH', '/usuarios/' + dani.id + '/datos', { nombre: 'Daniela D.', correo: 'ana@u.co' })).status, 409)
+  assert.equal((await admin.api('PATCH', '/usuarios/' + dani.id + '/datos', { nombre: 'x', correo: 'no-es-correo' })).status, 400)
+  assert.equal((await admin.api('PATCH', '/usuarios/' + dani.id + '/datos', { nombre: 'Dani', correo: 'dani@u.co', rol: 'admin' })).status, 400)
+  const beto = await entrar('beto@u.co')
+  assert.equal((await beto.api('PATCH', '/usuarios/' + ana.id + '/datos', { nombre: 'Otra', correo: 'otra@u.co' })).status, 403)
+  assert.equal((await admin.api('PATCH', '/usuarios/' + dani.id + '/datos', { nombre: 'Dani', correo: 'dani@u.co' })).status, 200)
+})
+
 test('ninguna consulta se arma concatenando texto', () => {
   const codigo = fs.readFileSync(path.join(aqui, '..', 'src', 'consultas.js'), 'utf8')
   assert.ok(!codigo.includes('${'), 'consultas.js no debe interpolar valores')

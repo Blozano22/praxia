@@ -75,6 +75,53 @@ function MenuRoles({ u, ancla, onCambio, onCerrar }) {
   )
 }
 
+// Ventana para editar nombre y correo de una persona.
+function EditarDatos({ u, onGuardado, onCerrar }) {
+  const [f, setF] = useState({ nombre: u.nombre, correo: u.correo })
+  const [error, setError] = useState('')
+  const [ocupado, setOcupado] = useState(false)
+  const nom = useRef(null)
+  useEffect(() => {
+    nom.current && nom.current.focus()
+    const tecla = (e) => { if (e.key === 'Escape') onCerrar() }
+    document.addEventListener('keydown', tecla)
+    return () => document.removeEventListener('keydown', tecla)
+  }, [onCerrar])
+  const sinCambios = f.nombre.trim() === u.nombre && f.correo.trim().toLowerCase() === u.correo.toLowerCase()
+  const guardar = async (e) => {
+    e.preventDefault()
+    setError(''); setOcupado(true)
+    try { await api('PATCH', '/usuarios/' + u.id + '/datos', { nombre: f.nombre.trim(), correo: f.correo.trim() }); onGuardado() } catch (err) { setError(err.message); setOcupado(false) }
+  }
+  return (
+    <div className="us-modal-fondo" onMouseDown={(e) => { if (e.target === e.currentTarget) onCerrar() }}>
+      <form className="us-card us-modal" role="dialog" aria-modal="true" aria-labelledby="us-ed-t" onSubmit={guardar} noValidate>
+        <div className="us-mod-cab">
+          <span className="us-ico sm"><Svg size={22}><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4" /></Svg></span>
+          <div className="us-mod-tx">
+            <h2 id="us-ed-t">Editar datos</h2>
+            <p>Cambia el nombre y el correo con el que {u.nombre.split(' ')[0]} inicia sesión.</p>
+          </div>
+          <button type="button" className="us-mod-x" aria-label="Cerrar" onClick={onCerrar}><Svg size={18}><path d="M6 6l12 12M18 6L6 18" /></Svg></button>
+        </div>
+        <div className="us-campos us-una">
+          <Campo id="ed-nombre" etiqueta="Nombre" icono={<><circle cx="12" cy="8" r="4" /><path d="M4 21v-1a6 6 0 016-6h4a6 6 0 016 6v1" /></>}>
+            <input id="ed-nombre" ref={nom} type="text" autoComplete="off" value={f.nombre} onChange={(e) => setF({ ...f, nombre: e.target.value })} />
+          </Campo>
+          <Campo id="ed-correo" etiqueta="Correo" icono={<><rect x="3" y="5" width="18" height="14" rx="2.5" /><path d="M3.5 7l8.5 6 8.5-6" /></>}>
+            <input id="ed-correo" type="text" inputMode="email" autoComplete="off" value={f.correo} onChange={(e) => setF({ ...f, correo: e.target.value })} />
+          </Campo>
+        </div>
+        {error && <div className="msg bad" role="alert" style={{ marginTop: 14 }}>{error}</div>}
+        <div className="us-acciones us-mod-pie">
+          <button className="btn sec" type="button" onClick={onCerrar}>Cancelar</button>
+          <button className="btn" type="submit" disabled={ocupado || sinCambios || f.nombre.trim().length < 2 || !f.correo.trim()}>{ocupado ? 'Guardando…' : 'Guardar cambios'}</button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
 const MOTIVO_PROPIA = 'No puedes hacerlo en tu propia cuenta'
 
 // Botón solo con icono: el nombre va como etiqueta de accesibilidad y como aviso al pasar el cursor.
@@ -95,7 +142,7 @@ const Campo = ({ id, etiqueta, icono, children, nota }) => (
   </div>
 )
 
-export default function Usuarios({ yo, aviso }) {
+export default function Usuarios({ yo, aviso, onYo }) {
   const [lista, setLista] = useState([])
   const [form, setForm] = useState({ nombre: '', correo: '', clave: '', roles: ['docente'] })
   const [verClave, setVerClave] = useState(false)
@@ -103,6 +150,7 @@ export default function Usuarios({ yo, aviso }) {
   const [q, setQ] = useState('')
   const [filtro, setFiltro] = useState('todos')
   const [menu, setMenu] = useState(null) // { id, ancla }
+  const [editando, setEditando] = useState(null) // id de la persona cuyo nombre/correo se edita
   const cerrarMenu = useCallback(() => setMenu(null), [])
 
   const cargar = useCallback(() => api('GET', '/usuarios').then(setLista).catch(() => setError('No se pudo cargar la lista')), [])
@@ -201,7 +249,7 @@ export default function Usuarios({ yo, aviso }) {
             <thead><tr><th>Nombre</th><th>Correo</th><th>Roles</th><th>Estado</th><th>Acciones</th></tr></thead>
             <tbody>
               {visibles.map((u) => {
-                const yoMismo = u.correo === yo.correo
+                const yoMismo = yo.id ? u.id === yo.id : u.correo === yo.correo
                 return (
                   <tr key={u.id} className={u.activo ? '' : 'inactivo'}>
                     <td>
@@ -223,6 +271,9 @@ export default function Usuarios({ yo, aviso }) {
                     <td><span className={'us-chip estado ' + (u.activo ? 'on' : 'off')}>{u.activo ? 'Activo' : 'Desactivado'}</span></td>
                     <td>
                       <div className="us-acc">
+                        <BotonIcono texto="Editar nombre y correo" etiqueta={'Editar el nombre y el correo de ' + u.nombre} onClick={() => { setMenu(null); setEditando(u.id) }}>
+                          <Svg size={17} sw={1.9}><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20v-1a5 5 0 015-5h2M14 21l1-4 5.5-5.5a1.4 1.4 0 012 2L17 19l-3 2z" /></Svg>
+                        </BotonIcono>
                         <BotonIcono texto="Editar roles" desactivado={yoMismo} motivo={MOTIVO_PROPIA} abierto={menu?.id === u.id}
                           etiqueta={'Editar los roles de ' + u.nombre}
                           onClick={(e) => setMenu(menu?.id === u.id ? null : { id: u.id, ancla: e.currentTarget })}>
@@ -247,6 +298,10 @@ export default function Usuarios({ yo, aviso }) {
         </div>
       </section>
 
+      {editando && lista.find((u) => u.id === editando) && (
+        <EditarDatos key={editando} u={lista.find((u) => u.id === editando)} onCerrar={() => setEditando(null)}
+          onGuardado={() => { const propio = editando === yo.id; setEditando(null); aviso('Datos actualizados'); cargar(); if (propio && onYo) onYo() }} />
+      )}
       {menu && usuarioMenu && <MenuRoles u={usuarioMenu} ancla={menu.ancla} onCambio={(n) => cambiarRoles(usuarioMenu, n)} onCerrar={cerrarMenu} />}
     </div>
   )

@@ -60,6 +60,7 @@ export const Q = Object.freeze({
   usuarioCambiarClave: `
     UPDATE usuarios SET clave_hash = $2, intentos_fallidos = 0, bloqueado_hasta = NULL, version_token = version_token + 1
      WHERE id = $1 RETURNING id`,
+  usuarioCambiarDatos: `UPDATE usuarios SET nombre = $2, correo = $3 WHERE id = $1 RETURNING id, nombre, correo`,
   usuarioSubirVersion: `UPDATE usuarios SET version_token = version_token + 1 WHERE id = $1 RETURNING id`,
   rolesListar: `SELECT nombre FROM roles ORDER BY id`,
 

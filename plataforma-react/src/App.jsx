@@ -181,7 +181,7 @@ export default function App() {
       <div className="shellmain">
       {vista === 'plantillas' && verPlantillas && <Plantillas />}
       {vista === 'bibliografia' && esAdmin && <Bibliografia lista={lista} />}
-      {vista === 'usuarios' && esAdmin && <Usuarios yo={yo} aviso={aviso} />}
+      {vista === 'usuarios' && esAdmin && <Usuarios yo={yo} aviso={aviso} onYo={() => api('GET', '/auth/yo').then(setYo).catch(() => {})} />}
       {vista === 'conexion' && esAdmin && <Conexiones aviso={aviso} />}
       {vista === 'seguimiento' && veTodos && <Seguimiento />}
       {vista === 'dashboard' && cargado && pendientesLocales.length > 0 && (

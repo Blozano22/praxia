@@ -124,3 +124,25 @@
 
 /* Varios roles: se muestra el de mayor rango y un «+N» con el resto (la lista completa va en el aviso). */
 .us-mas{background:color-mix(in srgb,var(--nav) 8%,#fff);color:var(--nav);padding:4px 10px;cursor:help}
+
+/* Ventana de edición de nombre y correo */
+.us-modal-fondo{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(19,35,91,.45)}
+.us-modal{width:100%;max-width:460px;margin:0;box-shadow:0 30px 80px rgba(19,35,91,.35)}
+.us-una{grid-template-columns:1fr}
+
+/* Ventana «Editar datos» */
+.us-modal-fondo{background:rgba(19,35,91,.5);backdrop-filter:blur(3px);animation:us-fade .15s ease-out}
+.us-modal{max-width:480px;padding:0;border-radius:20px;border:0;overflow:hidden;animation:us-sube .2s cubic-bezier(.23,1,.32,1)}
+.us-mod-cab{display:flex;align-items:flex-start;gap:14px;padding:24px 24px 20px;background:linear-gradient(180deg,color-mix(in srgb,var(--brand) 7%,#fff),#fff);border-bottom:1px solid var(--line)}
+.us-mod-cab .us-ico{flex:none;width:46px;height:46px;border-radius:14px}
+.us-mod-tx{flex:1;min-width:0}
+.us-mod-tx h2{margin:0;font-size:1.3rem;color:var(--nav);line-height:1.2}
+.us-mod-tx p{margin:4px 0 0;font-size:.86rem;color:var(--muted);line-height:1.4}
+.us-mod-x{flex:none;display:grid;place-items:center;width:36px;height:36px;border:0;border-radius:10px;background:transparent;color:var(--muted);cursor:pointer;transition:background-color .15s,color .15s}
+.us-mod-x:hover{background:color-mix(in srgb,var(--nav) 7%,#fff);color:var(--nav)}
+.us-modal .us-campos{padding:22px 24px 4px;gap:18px}
+.us-modal .msg{margin:14px 24px 0!important}
+.us-mod-pie{margin:0;padding:20px 24px 24px;justify-content:flex-end}
+@keyframes us-fade{from{opacity:0}}
+@keyframes us-sube{from{opacity:0;transform:translateY(10px) scale(.98)}}
+@media(prefers-reduced-motion:reduce){.us-modal-fondo,.us-modal{animation:none}}

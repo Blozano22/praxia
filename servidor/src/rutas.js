@@ -59,8 +59,8 @@ rutas.post('/auth/logout', exigirSesion, async (req, res, next) => {
 })
 
 rutas.get('/auth/yo', exigirSesion, (req, res) => {
-  const { nombre, correo, roles, permisos } = req.usuario
-  res.json({ nombre, correo, roles, permisos: [...permisos] })
+  const { id, nombre, correo, roles, permisos } = req.usuario
+  res.json({ id, nombre, correo, roles, permisos: [...permisos] })
 })
 
 // ------------------------------------------------------------------ syllabus (solo los propios)
@@ -188,6 +188,23 @@ rutas.patch('/usuarios/:id/roles', ...admin, validar(z.object({ id: IdUsuario })
       if (!n) return res.status(404).json({ error: 'No encontrado' })
       await auditar(req.usuario.id, 'usuario_rol', 'usuario', req.paramsOk.id, req)
       res.json({ ok: true })
+    } catch (e) { next(e) }
+  })
+
+// Nombre y correo (también en la propia cuenta: la sesión va por id, no por correo).
+rutas.patch('/usuarios/:id/datos', ...admin, validar(z.object({ id: IdUsuario }), 'params'),
+  validar(z.object({ nombre: z.string().trim().min(2).max(120), correo: z.string().trim().email().max(200) }).strict(), 'body'),
+  async (req, res, next) => {
+    try {
+      const { nombre, correo } = req.bodyOk
+      let f
+      try { f = (await sinUsuario(Q.usuarioCambiarDatos, [req.paramsOk.id, nombre, correo.toLowerCase()])).rows[0] } catch (e) {
+        if (e.code === '23505') return res.status(409).json({ error: 'Ese correo ya está registrado' })
+        throw e
+      }
+      if (!f) return res.status(404).json({ error: 'No encontrado' })
+      await auditar(req.usuario.id, 'usuario_datos', 'usuario', req.paramsOk.id, req)
+      res.json(f)
     } catch (e) { next(e) }
   })
 
