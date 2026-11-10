@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Titulo from './Titulo.jsx'
 import { guardarWebhook, guardarWebhookGuiones, leerWebhook, leerWebhookGuiones, WEBHOOK_GUIONES_POR_DEFECTO, WEBHOOK_POR_DEFECTO } from '../lib/syllabus.js'
 
 // Direcciones (webhooks) de n8n que usa la plataforma. Se guardan en este navegador; vacío = la dirección original.
@@ -49,8 +50,10 @@ function Conexion({ titulo, ayuda, defecto, leer, guardar, aviso }) {
 export default function Conexiones({ aviso }) {
   return (
     <div className="wrapx fade">
-      <h1>Conexión con n8n</h1>
-      <p className="lead">Aquí se cambian las direcciones de n8n a las que la plataforma envía el trabajo. En «Crear unidades» solo se crea la estructura: un documento por unidad.</p>
+      <Titulo icono="conexion">
+        <h1>Conexión con n8n</h1>
+        <p className="lead">Aquí se cambian las direcciones de n8n a las que la plataforma envía el trabajo. En «Crear unidades» solo se crea la estructura: un documento por unidad.</p>
+      </Titulo>
       <div className="cx-lista">
         <Conexion titulo="Crear las unidades" ayuda="Recibe el syllabus, la carpeta de destino y la bibliografía leída, y crea un documento por unidad."
           defecto={WEBHOOK_POR_DEFECTO} leer={leerWebhook} guardar={guardarWebhook} aviso={aviso} />

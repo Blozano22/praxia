@@ -146,8 +146,8 @@ rutas.post('/guion-url', exigirSesion, exigirPermiso('proyectos.crear'), limiteG
   })
 
 // ------------------------------------------------------------------ usuarios (solo con usuarios.gestionar)
-const Rol = z.enum(['admin', 'coordinador', 'docente'])
-const Roles = z.array(Rol).min(1).max(3).refine((a) => new Set(a).size === a.length)
+const Rol = z.enum(['admin', 'coordinador', 'docente', 'disenador'])
+const Roles = z.array(Rol).min(1).max(4).refine((a) => new Set(a).size === a.length)
 const admin = [exigirSesion, exigirPermiso('usuarios.gestionar')]
 
 rutas.get('/usuarios', ...admin, async (req, res, next) => {

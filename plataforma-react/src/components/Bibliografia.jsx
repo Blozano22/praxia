@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, RUTA_API } from '../lib/api.js'
+import Titulo from './Titulo.jsx'
 
 const ESTADO = {
   resuelta: ['ok', 'Leída completa'],
@@ -199,10 +200,10 @@ export default function Bibliografia({ lista = [], fijo = null, onEstado }) {
 
   return (
     <div className={fijo ? 'bib-fijo' : 'wrapx fade'}>
-      {!fijo && <div className="bib-cab">
+      {!fijo && <div className="bib-cab"><Titulo icono="libro">
         <h1>Bibliografía del syllabus</h1>
         <p className="lead">Encuentra las referencias del syllabus, lee cada fuente completa (PDF o página web) y arma la cita y la bibliografía en APA 7. No usa inteligencia artificial: solo lectura de los archivos y sus metadatos.</p>
-      </div>}
+      </Titulo></div>}
 
       {!fijo && <section className="card bib-form">
         <label className="l" htmlFor="bib-url" style={{ marginTop: 0 }}>Enlace del syllabus (Google Docs)</label>
@@ -289,9 +290,11 @@ export default function Bibliografia({ lista = [], fijo = null, onEstado }) {
             <div className="card st"><b>{d.fuentes.filter((f) => f.estado === 'sin_acceso' || f.estado === 'error').length}</b><span>Sin acceso</span></div>
           </div>
           {(d.estado === 'pendiente' || d.estado === 'procesando') && (
-            <div className="card" style={{ margin: '14px 0' }}>
-              <b>Leyendo… {hecho} de {d.total}</b>
-              <div className="bar" style={{ marginTop: 8 }}><i style={{ width: (d.total ? hecho / d.total * 100 : 0) + '%' }} /></div>
+            <div className="bib-leyendo" role="status">
+              <span className="bib-spin" aria-hidden="true" />
+              <div className="bib-ley-tx"><b>Leyendo las referencias…</b><small>{hecho} de {d.total} · puede dejar esta pantalla abierta</small></div>
+              <span className="bib-ley-pct">{d.total ? Math.round(hecho / d.total * 100) : 0}%</span>
+              <div className="bar bib-ley-bar"><i style={{ width: (d.total ? hecho / d.total * 100 : 0) + '%' }} /></div>
             </div>
           )}
           {d.estado === 'error' && <div className="msg bad">El trabajo se detuvo: {d.detalle || 'error inesperado'}. Puede volver a leer la bibliografía.</div>}
@@ -357,7 +360,8 @@ export default function Bibliografia({ lista = [], fijo = null, onEstado }) {
               {[['todas', 'Todas'], ['leidas', 'Leídas'], ['otras', 'Sin texto']].map(([k, n]) => <button key={k} role="tab" aria-selected={filtro === k} className={filtro === k ? 'on' : ''} onClick={() => setFiltro(k)}>{n}</button>)}
             </div>
             <form className="row" onSubmit={buscar} style={{ marginLeft: 'auto', alignItems: 'center' }}>
-              <input type="text" aria-label="Buscar en el texto de todas las fuentes" placeholder="Buscar en el texto leído…" value={q} onChange={(e) => setQ(e.target.value)} style={{ width: 260 }} />
+              <span className="bib-q"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="M16 16l4.5 4.5" /></svg>
+                <input type="text" aria-label="Buscar en el texto de todas las fuentes" placeholder="Buscar en el texto leído…" value={q} onChange={(e) => setQ(e.target.value)} /></span>
               <button className="btn sec sm" type="submit">Buscar</button>
             </form>
           </div>
@@ -375,7 +379,7 @@ export default function Bibliografia({ lista = [], fijo = null, onEstado }) {
             </section>
           )}
 
-          <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
+          <div className="card bib-tabla-caja" style={{ padding: 0, overflowX: 'auto' }}>
             <table className="sg-tabla bib-tabla"><colgroup><col style={{ width: 84 }} /><col /><col style={{ width: 104 }} /><col style={{ width: 128 }} /><col style={{ width: 168 }} /></colgroup>
               <thead><tr><th>#</th><th>Referencia (APA 7)</th><th>Tipo</th><th>Estado</th><th>Texto leído</th></tr></thead>
               <tbody>
@@ -384,7 +388,7 @@ export default function Bibliografia({ lista = [], fijo = null, onEstado }) {
                   const pag = f.documentos.filter((x) => x.estado === 'extraido').reduce((a, x) => a + (x.num_paginas || 0), 0)
                   return (
                     <tr key={f.id}>
-                      <td>{f.orden}<br /><small>{f.unidad ? 'U' + f.unidad : ''}{f.categoria ? (f.categoria === 'basica' ? ' · básica' : ' · compl.') : ''}</small></td>
+                      <td><span className="bib-n">{f.orden}</span><small className="bib-u">{f.unidad ? 'U' + f.unidad : ''}{f.categoria ? (f.categoria === 'basica' ? ' · básica' : ' · compl.') : ''}</small></td>
                       <td>
                         {f.referencia_apa ? <Apa t={f.referencia_apa} /> : <span className="help">{f.entrada_cruda}</span>}
                         <br />

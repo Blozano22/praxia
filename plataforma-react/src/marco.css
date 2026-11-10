@@ -1,0 +1,55 @@
+/* Marco de la plataforma: encabezado y menú lateral con el diseño de la pantalla de Usuarios. */
+:root{--alto-top:68px}
+
+/* ---------- Encabezado ---------- */
+.top{position:sticky;overflow:hidden;min-height:var(--alto-top);padding:0 28px;border-bottom:1px solid rgba(255,255,255,.12);gap:18px}
+.top .brand .px-logo{height:36px}
+.top .brand small{border-left-color:rgba(255,255,255,.25);color:#dbe3ff;opacity:1}
+.top{flex-wrap:nowrap}
+.top .brand{flex:0 1 auto;min-width:0}
+.top .brand small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.top .sp{flex:1 1 0;min-width:0}
+.top .btn.sec.sm:not(.salir){flex:0 1 auto;min-width:0;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.top .btn.salir,.quien{flex:none}
+.top-curva{position:absolute;right:340px;top:0;pointer-events:none}
+.top.con-curso .top-curva{display:none}
+@media(max-width:1100px){.top .brand small{display:none}}
+.top>*:not(.top-curva){position:relative}
+.quien{flex-direction:row;align-items:center;gap:12px;padding:0 4px;color:#fff}
+.quien-av{flex:none;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center}
+.quien-tx{display:flex;flex-direction:column;line-height:1.25;font-size:.9rem;font-weight:700;text-align:left}
+.quien-tx small{font-size:.76rem;font-weight:500;opacity:1;color:#b9c4ee;letter-spacing:0}
+.top .btn.salir{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 16px;border-radius:11px;border:1.5px solid rgba(255,255,255,.4);font-size:.88rem}
+
+/* ---------- Menú lateral ---------- */
+.shell{grid-template-columns:238px 1fr;min-height:calc(100vh - var(--alto-top))}
+.shell.min{grid-template-columns:68px 1fr}
+.rail{top:var(--alto-top);height:calc(100vh - var(--alto-top));padding:22px 14px;gap:2px;border-right:1px solid rgba(255,255,255,.1)}
+.rail-ola{position:absolute;left:0;bottom:0;width:100%;height:190px;pointer-events:none}
+.rail>*:not(.rail-ola){position:relative}
+.rail .rail-tog{padding:0 14px 14px;min-height:0;margin-bottom:10px;border-radius:0;border-bottom:1px solid rgba(255,255,255,.14);color:#9fb0e6;font-size:.7rem;letter-spacing:.14em}
+.rail .rail-tog:hover{background:transparent;color:#fff}
+.rail button:not(.rail-tog){border-radius:12px;padding:12px 14px;color:#dbe3ff}
+.rail button:not(.rail-tog):not(.on)::after{content:"";position:absolute;left:14px;right:14px;bottom:-1px;height:1px;background:rgba(255,255,255,.09)}
+.rail button:not(.rail-tog):hover{background:rgba(255,255,255,.08)}
+.rail button.on{background:rgba(255,255,255,.14);color:#fff;box-shadow:inset 4px 0 0 var(--lime)}
+.shell.min .rail{padding:22px 10px}
+.shell.min .rail .rail-tog{padding:0 0 14px;min-height:0;margin-bottom:10px}
+.shell.min .rail button:not(.rail-tog)::after{left:10px;right:10px}
+.shell.min .rail-ola{width:238px}
+
+@media(max-width:860px){
+  .shell,.shell.min{grid-template-columns:1fr}
+  .rail{height:auto;padding:8px 12px}
+  .rail-ola,.rail button:not(.rail-tog)::after{display:none}
+  .rail .rail-tog{border-bottom:0;margin:0}
+  .rail button.on{box-shadow:inset 0 -3px 0 var(--lime)}
+}
+@media(max-width:720px){
+  .top{padding:0 14px;gap:10px}
+  .top-curva,.quien-tx{display:none}
+}
+
+/* Encabezado: rol de mayor rango y «+N» si tiene más */
+.quien-tx small{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.quien-mas{font-style:normal;font-weight:700;font-size:.68rem;line-height:1;padding:2px 6px;border-radius:99px;background:rgba(255,255,255,.16);color:#fff}

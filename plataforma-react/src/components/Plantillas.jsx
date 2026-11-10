@@ -1,33 +1,31 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import Titulo from './Titulo.jsx'
 
 // Plantillas HTML (carpeta /ejemplos): se cargan solo al abrirlas para no pesar al inicio.
-// Todos los recursos usan la misma paleta DIEPO; «originales» son los HTML hechos a mano, tal cual.
+// Los recursos usan la misma paleta DIEPO; los que empiezan por «o-» son HTML hechos a mano, tal cual, repartidos en sus familias.
 const ARCHIVOS = import.meta.glob('../../../ejemplos/*.html', { query: '?raw', import: 'default' })
 const ORIGINALES = import.meta.glob('../../../ejemplos/originales/*.html', { query: '?raw', import: 'default' })
 
 // Familias del menú: [título, [[clave, nombre]...]]
 const GRUPOS = [
   ['Contenido', [['presentacion', 'Presentación'], ['lectura', 'Lectura diagramada'], ['estudio-casos', 'Estudio de casos']]],
-  ['Acordeones', [['acordeon', 'Diseño 1'], ['acordeon-v2', 'Diseño 2'], ['acordeon-v3', 'Diseño 3']]],
+  ['Acordeones', [['acordeon', 'Diseño 1'], ['acordeon-v2', 'Diseño 2'], ['acordeon-v3', 'Diseño 3'], ['o-infografia-v2', 'Diseño 4']]],
   ['Actividades (van en cualquier recurso)', [['acordeon-clasificacion', 'Clasificación'], ['acordeon-cuestionario', 'Cuestionario'], ['acordeon-emparejamiento', 'Emparejamiento'], ['acordeon-laboratorio', 'Laboratorio'], ['acordeon-tarea', 'Tarea']]],
-  ['Líneas de tiempo', [['linea-tiempo', 'Diseño 1'], ['linea-tiempo-v2', 'Diseño 2'], ['linea-tiempo-v3', 'Diseño 3']]],
+  ['Líneas de tiempo', [['o-linea-de-tiempo-v1', 'Diseño 1'], ['linea-tiempo-v2', 'Diseño 2'], ['o-linea-de-tiempo-v3', 'Diseño 3'], ['o-linea-de-tiempo-anterior-carrusel', 'Diseño 4']]],
   ['Crucigramas', [['crucigrama', 'Diseño 1'], ['crucigrama-v2', 'Diseño 2'], ['crucigrama-v3', 'Diseño 3']]],
-  ['Infografías', [['infografia-hex', 'Hexagonal'], ['infografia-pines', 'Con pines'], ['infografia-radial', 'Radial']]],
-  ['Esquemas', [['diagrama-flujo', 'Diagrama de flujo'], ['mapa-conceptual', 'Mapa conceptual']]],
-  ['Mis HTML originales', [['o-linea-de-tiempo-v1', 'Línea de tiempo · v1'], ['o-linea-de-tiempo-v3', 'Línea de tiempo · v3'], ['o-infografia-v1', 'Infografía · v1'], ['o-infografia-v2', 'Infografía · v2'],
-    ['o-linea-de-tiempo-anterior-carrusel', 'Línea de tiempo · anterior (carrusel)'], ['o-linea-de-tiempo-anterior-original', 'Línea de tiempo · anterior (original)'], ['o-linea-de-tiempo-anterior-por-formacion', 'Línea de tiempo · anterior (por formación)']]]
+  ['Infografías', [['infografia-hex', 'Hexagonal'], ['infografia-pines', 'Con pines'], ['infografia-radial', 'Radial'], ['o-infografia-v1', 'Diseño 4']]],
+  ['Esquemas', [['diagrama-flujo', 'Diagrama de flujo'], ['mapa-conceptual', 'Mapa conceptual']]]
 ]
 
 // Nota breve de cada familia (se muestra sobre la lista de diseños).
 const NOTAS = {
   Contenido: 'Para presentar el tema de la unidad.',
-  Acordeones: 'Tres diseños para desplegar contenido por secciones.',
+  Acordeones: 'Cuatro diseños para desplegar contenido por secciones.',
   Actividades: 'Van en cualquier recurso: se insertan dentro de la presentación, la lectura u otro.',
-  'Líneas de tiempo': 'Tres diseños para ordenar hechos o etapas.',
+  'Líneas de tiempo': 'Cuatro diseños para ordenar hechos o etapas.',
   Crucigramas: 'Tres diseños de crucigrama.',
-  Infografías: 'Para resumir ideas de forma visual.',
+  Infografías: 'Cuatro diseños para resumir ideas de forma visual.',
   Esquemas: 'Para mostrar procesos y relaciones.',
-  'Mis HTML originales': 'Archivos hechos a mano, sin cambios.'
 }
 const corto = (g) => g.replace(/ \(.*\)$/, '')
 
@@ -101,10 +99,10 @@ export default function Plantillas() {
   return (
     <div className="wrapx fade">
       <div className="pl2-cab">
-        <div>
+        <Titulo icono="codigo">
           <h1>Plantillas HTML</h1>
           <p className="lead">Así se ven los recursos que genera la plataforma. Elija el tipo y el diseño; puede abrirlo en una pestaña o descargarlo. «Mis HTML originales» son los archivos hechos a mano, sin cambios.</p>
-        </div>
+        </Titulo>
         <label className="pl2-busca">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></svg>
           <input aria-label="Buscar una plantilla" placeholder="Buscar una plantilla" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -155,7 +153,7 @@ export default function Plantillas() {
             <ul>
               <li>Cabe en 1280 × 720 sin desplazamiento</li>
               <li>Compatible con SCORM 1.2</li>
-              <li>{corto(grupoNombre) === 'Actividades' ? 'Va en cualquier recurso' : (corto(grupoNombre) === 'Mis HTML originales' ? 'Archivo original, sin cambios' : 'Misma paleta de la institución')}</li>
+              <li>{corto(grupoNombre) === 'Actividades' ? 'Va en cualquier recurso' : (tipo.startsWith('o-') ? 'Archivo original, sin cambios' : 'Misma paleta de la institución')}</li>
             </ul>
           </div>
         </aside>

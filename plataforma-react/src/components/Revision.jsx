@@ -3,6 +3,7 @@ import { E } from '../lib/engine.js'
 import { NOMBRES, UNIDAD, temaBase } from '../lib/render.js'
 import { ubicar } from '../lib/ubicar.js'
 import { uid } from '../lib/util.js'
+import Titulo from './Titulo.jsx'
 
 function Resumen({ r, info }) {
   const d = E.datosDe(r, info)
@@ -48,8 +49,10 @@ export default function Revision({ pend, destino, unidades = [], unidadPorDefect
 
   return (
     <div className="wrapx fade">
-      <h1>Esto fue lo que encontramos en el guion</h1>
-      {destino && <p className="lead">Los recursos se agregarán a «{destino}»; cada uno se ubica en su tema según su código.</p>}
+      <Titulo icono="revision">
+        <h1>Esto fue lo que encontramos en el guion</h1>
+        {destino && <p className="lead">Los recursos se agregarán a «{destino}»; cada uno se ubica en su tema según su código.</p>}
+      </Titulo>
       <div className="msg info">La plataforma solo usa texto que está en el guion. Revise a qué tema va cada recurso: se deduce del código (por ejemplo U2-T1-OVA1 es el Tema 1 de la Unidad 2) y puede cambiarlo.</div>
       <div className="card">
         <h3 style={{ marginTop: 0 }}>Información general del guion</h3>

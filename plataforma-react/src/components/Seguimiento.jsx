@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../lib/api.js'
+import Titulo from './Titulo.jsx'
 
 // Etapa más avanzada que alcanzó el curso: syllabus → unidades → guiones → recursos.
 const ETAPAS = [
@@ -70,8 +71,10 @@ export default function Seguimiento() {
 
   return (
     <div className="wrapx fade">
-      <h1>Seguimiento de cursos</h1>
-      <p className="lead">En qué etapa va cada curso de la facultad. Es de consulta: para trabajar un curso hay que ser quien lo creó.</p>
+      <Titulo icono="seguimiento">
+        <h1>Seguimiento de cursos</h1>
+        <p className="lead">En qué etapa va cada curso de la facultad. Es de consulta: para trabajar un curso hay que ser quien lo creó.</p>
+      </Titulo>
       {error && <div className="msg bad" role="alert">{error}</div>}
       {!filas && !error && <p className="help">Cargando…</p>}
       {filas && (
