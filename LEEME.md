@@ -65,6 +65,27 @@ El nodo «Responder enlaces de plantillas» (Respond to Webhook) debe ir despué
 
 Al aprobar los documentos se habilita **Unidades y recursos**: una tarjeta por cada unidad que devolvió n8n. Al abrir una unidad se ven sus **temas** (con los recursos de cada uno) y la «Introducción de la unidad». El guion se carga **dentro de cada unidad**; cada recurso se ubica solo en su tema según su código: `U2-T1-OVA1` → Unidad 2, Tema 1; `U2-PRES` → Unidad 2, introducción. En la revisión se puede cambiar la unidad y el tema de cada recurso. Los temas se pueden nombrar y agregar a mano; si n8n devuelve los temas dentro de cada unidad (campo `temas`), aparecen solos.
 
+## Plantillas públicas para n8n
+
+En cada `npm run build` de `plataforma-react/` se arman solas las plantillas HTML de los recursos y quedan en `dist/plantillas-html/`, junto con `plantillas.json` (lista de archivos). Cada archivo ya trae los estilos, el código común, el tema (paleta DIEPO) y la fuente; solo quedan sin reemplazar **dos marcas**:
+
+- `{{TITULO}}`: el título del recurso (texto; escape `& < > "`).
+- `/*CONTENIDO*/`: el JSON del recurso (con `</` escrito como `</`, igual que hace la plataforma).
+
+El servidor las sirve públicas y de solo lectura (sin sesión ni cabecera `x-ova`; CORS abierto solo para GET):
+
+```
+https://proyectos.americana.edu.co/praxia/plantillas-html/lectura.html
+https://proyectos.americana.edu.co/praxia/plantillas-html/plantillas.json
+```
+
+(En un servidor sin subcarpeta: `/plantillas-html/<nombre>.html`.) Un flujo de n8n descarga la plantilla que necesite, reemplaza las dos marcas y obtiene el mismo HTML que genera la plataforma para ese contenido.
+
+- **Se regeneran solas** con cada build y no se versionan en git (`dist/` está en `.gitignore`). Una plantilla nueva en `src/plataforma/plantillas/` aparece sola en el siguiente build, sin tocar el script. Si una plantilla no tiene exactamente una marca de cada tipo, el build falla.
+- A mano: `node scripts/armar-plantillas.mjs [carpeta]` (dentro de `plataforma-react/`).
+- El armado (tema, paleta y reemplazos) está en `plataforma-react/src/lib/armado.js`; lo usan `render.js` y el script, así no se duplica.
+- Las plantillas no llevan datos de usuarios, claves ni direcciones internas; lo único externo es la hoja de la fuente Montserrat (Google Fonts). Abiertas directamente en el navegador desde la plataforma, su política de seguridad bloquea esa fuente; no afecta al recurso final.
+
 ## «Creemos los guiones» (dentro de cada unidad)
 
 En la unidad hay un bloque **Creemos los guiones**: envía el enlace del documento de la unidad al segundo flujo de n8n

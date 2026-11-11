@@ -25,10 +25,14 @@ import crucigrama3 from '../../../src/plataforma/plantillas/crucigrama-3.html?ra
 import acordeon2 from '../../../src/plataforma/plantillas/acordeon-2.html?raw'
 import acordeon3 from '../../../src/plataforma/plantillas/acordeon-3.html?raw'
 import { E } from './engine.js'
+import { aplicarTema, cssTema, esc, FUENTE_DIEPO, incrustar, temaBase } from './armado.js'
+
+// El tema, la paleta y los reemplazos viven en armado.js (también los usa el build de las plantillas públicas).
+export { cssTema, temaBase }
 
 const css = baseCss + '\n' + tecCss
 const lib = libJs + '\n' + libExtra
-const arma = (t) => t.replace('/*CSS*/', () => css).replace('/*LIB*/', () => lib)
+const arma = (t) => incrustar(t, css, lib)
 
 export const PLANTILLAS = {
   presentacion: arma(presentacion),
@@ -77,39 +81,8 @@ export const PRESETS = [
 ]
 export function presetPorNivel() { return 'diepo' }
 export const FUENTES = {
-  diepo: "'Century Gothic','CenturyGothic','Apple Gothic','Futura','Avenir Next','Trebuchet MS','Segoe UI',system-ui,sans-serif"
+  diepo: FUENTE_DIEPO
 }
-
-export const temaBase = () => ({
-  brand: '#00665F', accent: '#CBFF01', bg: '#FFFFFF', nav: '#142749', preset: 'diepo',
-  fuente: 'diepo', tam: 'n', esq: 'suave', hero: 'lisa', logo: '', bloqueo: true,
-  layout: { imgLado: 'izq', orientacion: 'horizontal' }
-})
-
-const rgb = (c) => {
-  c = c.replace('#', '')
-  return [0, 2, 4].map((i) => parseInt(c.slice(i, i + 2), 16))
-}
-const mix = (a, b, t) => {
-  const A = rgb(a), B = rgb(b)
-  return '#' + A.map((v, i) => Math.round(v * (1 - t) + B[i] * t).toString(16).padStart(2, '0')).join('')
-}
-// Variables que usan todas las plantillas. Nombres históricos (--nav, --brand…) apuntan a la paleta DIEPO:
-//  --nav azul noche #142749 · --brand verde azulado #00665F · --brand2 azul marino #22335D · --mid azul #1C45B4
-//  --cyan cian #08A6CB (texto encima: #151B3B) · --lime lima #CBFF01 (solo detalles pequeños, texto encima: #142749)
-export function cssTema() {
-  const v = {
-    '--nav': '#142749', '--ink': '#142749', '--brand': '#00665F', '--brand2': '#22335D', '--mid': '#1C45B4',
-    '--cyan': '#08A6CB', '--cyan-ink': '#151B3B', '--cyan2': '#14A4C9', '--black': '#161616',
-    '--tint': mix('#00665F', '#ffffff', 0.9), '--tint2': mix('#08A6CB', '#ffffff', 0.9),
-    '--line': '#C8C8C8', '--line2': '#C8C8C8', '--bg': '#FFFFFF', '--muted': 'rgba(20,39,73,.72)',
-    '--tit': '#142749', '--prop-bg': mix('#00665F', '#ffffff', 0.9), '--prop-ink': '#00665F', '--prop-tx': '#142749',
-    '--lime': '#CBFF01', '--ins': '#CBFF01', '--accent': '#CBFF01', '--accent-light': '#CBFF01', '--accent-dark': '#CBFF01', '--accent-soft': mix('#00665F', '#ffffff', 0.92),
-    '--radius': '14px', '--fs': '17px', '--font': FUENTES.diepo, '--ease': 'cubic-bezier(.22,.9,.3,1)'
-  }
-  return ':root{' + Object.keys(v).map((k) => k + ':' + v[k]).join(';') + '}'
-}
-const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
 
 const ROTULOS = { acordeon: 'Exploración por secciones', lineatiempo: 'Secuencia progresiva', flujo: 'Ruta de decisión', mapa: 'Exploración entre conceptos', casos: 'Observación y análisis', presentacion: 'Presentación multimedia' }
 
@@ -134,13 +107,9 @@ export function construirHtml(r, libre) {
   const tpl = PLANTILLAS[clave] || PLANTILLAS.lectura
   const tema = Object.assign(temaBase(), r.tema || {})
   const safe = (s) => s.replace(/<\//g, '<\\/')
-  return tpl
+  return aplicarTema(tpl, tema, libre)
     .replace('{{TITULO}}', () => esc(r.datos.titulo || 'Recurso'))
     .replace('/*CONTENIDO*/', () => safe(JSON.stringify(armar(r))))
-    .replace('/*TEMAJS*/', () => 'window.__LIBRE=' + (libre ? 'true' : 'false') + ';window.__TEMA=' + safe(JSON.stringify(tema)) + ';')
-    .replace('/*TEMA*/', () => cssTema(tema))
-    .replace('</head>', () => '<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet"></head>')
-    .replace('<header class="hero">', '<header class="hero' + (tema.hero === 'lisa' ? ' lisa' : '') + '">')
 }
 
 export const slug = (s) => E.norm(s).replace(/ /g, '-').slice(0, 50) || 'recurso'
