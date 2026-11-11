@@ -39,7 +39,8 @@
 .rv-cab-tx p{margin:3px 0 0;font-size:.86rem;color:var(--muted)}
 .rv-estado-pill{flex:none;padding:8px 18px;border-radius:99px;background:var(--rv);color:#fff;font-weight:800;font-size:.88rem}
 .rv-cuerpo{display:grid;gap:18px;padding:20px 22px}
-.rv-cuerpo.con-acc{grid-template-columns:minmax(0,1fr) auto;align-items:center}
+/* Los botones van debajo de la información (con 5 botones una segunda columna aplastaba el texto): en una sola columna */
+.rv-cuerpo.con-acc{grid-template-columns:minmax(0,1fr);gap:14px}
 .rv-info{min-width:0}
 .rv-info>*:last-child{margin-bottom:0}
 .rv-quien{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;margin:0 0 10px;color:var(--nav);font-size:.92rem}
@@ -91,3 +92,6 @@
 .rv-pt-cab .rv-editada{flex:1 1 100%;margin:2px 0 0}
 .rv-sig{margin:8px 0 0;font-size:.86rem;color:var(--muted);line-height:1.45}
 .rv-alerta{margin:2px 0 12px;line-height:1.45}
+.rv-acciones{align-items:center}
+.rv-acciones .rv-b{flex:0 1 auto}
+.rv-quien em{flex:none}
