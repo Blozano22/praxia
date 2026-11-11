@@ -84,3 +84,7 @@
 .bib-tarjeta{border-radius:16px;box-shadow:0 6px 18px rgba(var(--sombra),.05)}
 .bib-num{border-radius:11px;width:36px;height:36px;background:var(--nav)}
 .bib-paso i{background:color-mix(in srgb,var(--brand) 14%,#fff);color:var(--brand)}
+
+/* El botón «Subir archivo» es un label: su texto debe ser blanco sobre el verde */
+label.btn:not(.sec):not(.ghost),.bib-fila label.btn:not(.sec){color:#fff}
+label.btn:not(.sec):not(.ghost) input{display:none}

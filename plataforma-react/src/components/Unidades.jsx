@@ -16,6 +16,18 @@ export function temasDe(s, unidad) {
   return [...n].sort((a, b) => a - b)
 }
 
+// Estado de una unidad según sus guiones: completa (todos los temas con recursos), en curso (algunos o generando) o pendiente.
+function estadoUnidad(s, d, generando) {
+  const rs = s.recursos.filter((r) => r.unidad === d.unidad)
+  const temas = temasDe(s, d.unidad)
+  const cubiertos = temas.filter((t) => rs.some((r) => r.numTema === t)).length
+  const gen = generando.includes(d.unidad)
+  const pct = temas.length ? Math.round((cubiertos / temas.length) * 100) : rs.length ? 100 : 0
+  const ok = !gen && rs.length > 0 && cubiertos >= temas.length
+  const k = ok ? 'ok' : gen || rs.length > 0 ? 'en' : 'pe'
+  return { k, texto: ok ? 'Guiones listos' : k === 'en' ? 'En curso' : 'Pendiente', temas: temas.length, recursos: rs.length, cubiertos, pct, generando: gen }
+}
+
 // Una tarjeta por cada unidad que devolvió n8n.
 export function Unidades({ s, onAbrir }) {
   const docs = s.syllabus.documentos.slice().sort((a, b) => a.unidad - b.unidad)
@@ -29,24 +41,39 @@ export function Unidades({ s, onAbrir }) {
         </div>
       </div>
       {docs.length === 0 && <div className="msg warn" style={{ marginTop: 14 }}>Este syllabus no tiene unidades. Vuelva al paso 2 (Unidades) y genere o agregue los documentos por unidad.</div>}
-      <div className="grid" style={{ marginTop: 14 }}>
+      {docs.length > 0 && (() => {
+        const est = docs.map((d) => estadoUnidad(s, d, generando))
+        const listas = est.filter((e) => e.k === 'ok').length
+        return (
+          <div className="ud-resumen">
+            <div className="ud-res-tx"><b>Avance de guiones</b><span>{listas} de {docs.length} unidades listas</span></div>
+            <div className="ud-res-seg" aria-hidden="true">{est.map((e, i) => <i key={i} className={e.k} style={e.k === 'en' ? { '--p': e.pct + '%' } : undefined} />)}</div>
+            <ul className="ud-leyenda"><li className="ok">Completa</li><li className="en">En curso</li><li className="pe">Pendiente</li></ul>
+          </div>
+        )
+      })()}
+      <div className="grid ud-grid" style={{ marginTop: 14 }}>
         {docs.map((d) => {
-          const rs = s.recursos.filter((r) => r.unidad === d.unidad)
-          const temas = temasDe(s, d.unidad)
+          const e = estadoUnidad(s, d, generando)
           return (
-            <div className="card ud fade" key={d.unidad}>
-              <span className="tipo">Unidad {d.unidad}</span>
-              <h3>{d.nombre}</h3>
-              <div className="row" style={{ margin: '6px 0' }}>
-                <span className={'pill ' + (d.aprobado ? 'ok' : 'warn')}>{d.aprobado ? '✔ Documento aprobado' : 'Documento sin aprobar'}</span>
-                <span className="pill">{temas.length} {temas.length === 1 ? 'tema' : 'temas'}</span>
-                <span className="pill">{rs.length} recursos</span>
-                {generando.includes(d.unidad) && <span className="pill warn gv-pill"><span className="gv-spin" aria-hidden="true" />Generando guiones…</span>}
+            <div className={'card ud ud-' + e.k + ' fade'} key={d.unidad}>
+              <div className="ud-cab">
+                <span className="ud-num" aria-hidden="true">{e.k === 'ok' ? <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7" /></svg> : d.unidad}</span>
+                <div className="ud-tt"><h3>Unidad {d.unidad}</h3><span className="ud-sub">{d.nombre}{d.aprobado ? '' : ' · documento sin aprobar'}</span></div>
+                <span className={'ud-est ' + e.k}>{e.texto}</span>
               </div>
-              {temas.length > 0 && <p className="help" style={{ margin: 0 }}>{temas.map((t) => 'Tema ' + t).join(' · ')}</p>}
-              <div className="row" style={{ marginTop: 'auto', paddingTop: 10 }}>
-                <button className="btn sm" onClick={() => onAbrir(d.unidad)}>Abrir unidad</button>
-                {d.url && <a className="btn sec sm" style={{ textDecoration: 'none' }} href={d.url} target="_blank" rel="noopener noreferrer">Ver documento</a>}
+              <div className="ud-cifras">
+                <div><b>{e.temas}</b><span>{e.temas === 1 ? 'tema' : 'temas'}</span></div>
+                <div><b>{e.recursos}</b><span>recursos</span></div>
+                <div className="g"><b>{e.cubiertos}/{e.temas}</b><span>con guion</span></div>
+              </div>
+              <div className="ud-prog">
+                <div className="ud-prog-tx"><span>{e.k === 'ok' ? 'Todos los temas tienen guion' : e.k === 'en' && e.generando ? 'Generando guiones…' : e.k === 'en' ? 'Faltan ' + (e.temas - e.cubiertos) + ' temas' : 'Sin guiones todavía'}</span><b>{e.pct}%</b></div>
+                <div className="ud-bar"><i style={{ width: e.pct + '%' }} /></div>
+              </div>
+              <div className="ud-acc">
+                <button className={'btn ud-main ' + e.k} onClick={() => onAbrir(d.unidad)}>{e.k === 'ok' ? 'Revisar guiones' : e.k === 'en' ? 'Continuar' : 'Empezar unidad'}{e.k !== 'ok' && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>}</button>
+                {d.url && <a className="btn sec" style={{ textDecoration: 'none' }} href={d.url} target="_blank" rel="noopener noreferrer">Ver documento</a>}
               </div>
             </div>
           )

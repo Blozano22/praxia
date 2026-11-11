@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import Documentos from './Documentos.jsx'
 import PortalSyllabus from './PortalSyllabus.jsx'
 import EnlaceDoc from './EnlaceDoc.jsx'
@@ -29,6 +29,11 @@ export default function Workspace({ s, tab, setTab, unidadSel, setUnidadSel, rec
     // El paso «Recursos» queda fuera por ahora: el flujo llega hasta los guiones.
   ]
   if (faltan && (tab === 'unidades' || tab === 'recursos')) setTimeout(() => setTab('docs'), 0)
+  // Al cambiar de paso el contenido se desliza: entra por la derecha al avanzar y por la izquierda al volver.
+  const ORDEN = ['syllabus', 'docs', 'unidades', 'recursos']
+  const previo = useRef(tab)
+  const dir = useRef('der')
+  if (previo.current !== tab) { dir.current = ORDEN.indexOf(tab) >= ORDEN.indexOf(previo.current) ? 'der' : 'izq'; previo.current = tab }
   const irA = (k) => { setTab(k); setModo('lista'); if (k !== 'unidades') setUnidadSel(null); if (k === 'recursos') setRecSel({ u: null }) }
   const unidadesLista = docs.map((d) => ({ unidad: d.unidad, nombre: d.nombre }))
 
@@ -90,14 +95,15 @@ export default function Workspace({ s, tab, setTab, unidadSel, setUnidadSel, rec
 
       <div className="stepper2" role="tablist">
         {pasos.map(([k, n, t, sub]) => (
-          <button key={k} role="tab" className={tab === k ? 'on' : ''} disabled={k === 'integracion' || ((k === 'unidades' || k === 'recursos') && faltan)}
+          <button key={k} role="tab" className={(tab === k ? 'on' : '') + (ORDEN.indexOf(k) < ORDEN.indexOf(tab) ? ' hecho' : '')} disabled={k === 'integracion' || ((k === 'unidades' || k === 'recursos') && faltan)}
             title={k === 'integracion' ? 'La integración con el syllabus se habilitará más adelante' : ((k === 'unidades' || k === 'recursos') && faltan ? 'Apruebe todas las unidades para habilitar este paso' : '')}
             onClick={() => irA(k)}>
-            <i>{n}</i><span><b>{t}</b><small>{sub}</small></span>
+            <i>{ORDEN.indexOf(k) < ORDEN.indexOf(tab) ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" /></svg> : n}</i><span><b>{t}</b><small>{sub}</small></span>
           </button>
         ))}
       </div>
 
+      <div key={tab} className={'ws-paso ws-' + dir.current}>
       {tab === 'syllabus' && (
         <div>
           <h2>Syllabus</h2>
@@ -159,6 +165,7 @@ export default function Workspace({ s, tab, setTab, unidadSel, setUnidadSel, rec
       )}
 
       {tab === 'recursos' && <Recursos s={s} sel={recSel} setSel={setRecSel} onCambio={onCambio} onEditar={onEditar} aviso={aviso} />}
+      </div>
     </div>
   )
 }
