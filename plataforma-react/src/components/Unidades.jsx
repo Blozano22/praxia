@@ -16,16 +16,18 @@ export function temasDe(s, unidad) {
   return [...n].sort((a, b) => a - b)
 }
 
-// Estado de una unidad según sus guiones: completa (todos los temas con recursos), en curso (algunos o generando) o pendiente.
+// Estado de una unidad según sus guiones (los que generó n8n y se aprueban uno por uno):
+// completa (todos aprobados), en curso (generando, o generados con aprobaciones pendientes) o pendiente (aún sin generar).
 function estadoUnidad(s, d, generando) {
-  const rs = s.recursos.filter((r) => r.unidad === d.unidad)
-  const temas = temasDe(s, d.unidad)
-  const cubiertos = temas.filter((t) => rs.some((r) => r.numTema === t)).length
+  const archivos = ((s.guionesUnidad || {})[d.unidad] || {}).archivos || []
+  const aprob = archivos.filter((a) => a.aprobado).length
   const gen = generando.includes(d.unidad)
-  const pct = temas.length ? Math.round((cubiertos / temas.length) * 100) : rs.length ? 100 : 0
-  const ok = !gen && rs.length > 0 && cubiertos >= temas.length
-  const k = ok ? 'ok' : gen || rs.length > 0 ? 'en' : 'pe'
-  return { k, texto: ok ? 'Guiones listos' : k === 'en' ? 'En curso' : 'Pendiente', temas: temas.length, recursos: rs.length, cubiertos, pct, generando: gen }
+  const recursos = s.recursos.filter((r) => r.unidad === d.unidad).length
+  const pct = archivos.length ? Math.round((aprob / archivos.length) * 100) : 0
+  const ok = !gen && archivos.length > 0 && aprob === archivos.length
+  const k = ok ? 'ok' : gen || archivos.length > 0 ? 'en' : 'pe'
+  const texto = ok ? 'Guiones aprobados' : gen ? 'Generando…' : k === 'en' ? 'Por aprobar' : 'Pendiente'
+  return { k, texto, total: archivos.length, aprob, recursos, pct, generando: gen }
 }
 
 // Una tarjeta por cada unidad que devolvió n8n.
@@ -63,16 +65,16 @@ export function Unidades({ s, onAbrir }) {
                 <span className={'ud-est ' + e.k}>{e.texto}</span>
               </div>
               <div className="ud-cifras">
-                <div><b>{e.temas}</b><span>{e.temas === 1 ? 'tema' : 'temas'}</span></div>
+                <div><b>{e.total}</b><span>{e.total === 1 ? 'guion generado' : 'guiones generados'}</span></div>
+                <div className="g"><b>{e.aprob}/{e.total}</b><span>aprobados</span></div>
                 <div><b>{e.recursos}</b><span>recursos</span></div>
-                <div className="g"><b>{e.cubiertos}/{e.temas}</b><span>con guion</span></div>
               </div>
               <div className="ud-prog">
-                <div className="ud-prog-tx"><span>{e.k === 'ok' ? 'Todos los temas tienen guion' : e.k === 'en' && e.generando ? 'Generando guiones…' : e.k === 'en' ? 'Faltan ' + (e.temas - e.cubiertos) + ' temas' : 'Sin guiones todavía'}</span><b>{e.pct}%</b></div>
+                <div className="ud-prog-tx"><span>{e.k === 'ok' ? 'Todos los guiones están aprobados' : e.generando ? 'Generando los guiones…' : e.k === 'en' ? (e.total - e.aprob) + (e.total - e.aprob === 1 ? ' guion por aprobar' : ' guiones por aprobar') : 'Sin guiones todavía'}</span><b>{e.pct}%</b></div>
                 <div className="ud-bar"><i style={{ width: e.pct + '%' }} /></div>
               </div>
               <div className="ud-acc">
-                <button className={'btn ud-main ' + e.k} onClick={() => onAbrir(d.unidad)}>{e.k === 'ok' ? 'Revisar guiones' : e.k === 'en' ? 'Continuar' : 'Empezar unidad'}{e.k !== 'ok' && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>}</button>
+                <button className={'btn ud-main ' + e.k} onClick={() => onAbrir(d.unidad)}>{e.k === 'ok' ? 'Ver guiones' : e.generando ? 'Ver avance' : e.k === 'en' ? 'Revisar y aprobar' : 'Empezar unidad'}{e.k !== 'ok' && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>}</button>
                 {d.url && <a className="btn sec" style={{ textDecoration: 'none' }} href={d.url} target="_blank" rel="noopener noreferrer">Ver documento</a>}
               </div>
             </div>
