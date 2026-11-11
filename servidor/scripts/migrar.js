@@ -12,6 +12,8 @@ if (!url) {
 }
 const carpeta = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'sql')
 const cliente = new pg.Client({ connectionString: url })
+// Los avisos propios de la migración (p. ej. una tabla de otro dueño) se muestran; el ruido de «ya existe, se omite» no.
+cliente.on('notice', (n) => { if (/^(Sin permiso|No se creó)/.test(n.message)) console.log('  aviso:', n.message) })
 await cliente.connect()
 for (const f of fs.readdirSync(carpeta).filter((x) => x.endsWith('.sql')).sort()) {
   await cliente.query(fs.readFileSync(path.join(carpeta, f), 'utf8'))

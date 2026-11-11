@@ -129,7 +129,14 @@ CREATE TABLE IF NOT EXISTS plantilla_revisiones (
   usuario_nombre text NOT NULL CHECK (char_length(usuario_nombre) <= 120),
   creado         timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS plantilla_revisiones_ix ON plantilla_revisiones (plantilla, creado DESC);
+-- Si la tabla la creó otro usuario (p. ej. el administrador de PostgreSQL con psql), quien migra no es su dueño y no puede crear el
+-- índice; no es indispensable (la tabla es pequeña), así que no se detiene la migración.
+DO $$
+BEGIN
+  CREATE INDEX IF NOT EXISTS plantilla_revisiones_ix ON plantilla_revisiones (plantilla, creado DESC);
+EXCEPTION WHEN insufficient_privilege THEN
+  RAISE NOTICE 'No se creó el índice plantilla_revisiones_ix: la tabla es de otro usuario (no es indispensable).';
+END $$;
 
 -- ---------------------------------------------------------------- generación de guiones (trabajos de n8n)
 -- La llamada a n8n la hace el servidor y se anota aquí con un identificador: así, aunque la persona cierre la página o se le
@@ -191,10 +198,24 @@ BEGIN
     GRANT UPDATE (nombre, correo, clave_hash, activo, intentos_fallidos, bloqueado_hasta, version_token, ultimo_acceso) ON usuarios TO ova_app;
     GRANT SELECT, INSERT, UPDATE, DELETE ON proyectos, enlaces TO ova_app;
     GRANT SELECT, INSERT ON auditoria TO ova_app;
-    GRANT SELECT, INSERT, UPDATE, DELETE ON configuracion TO ova_app;
-    GRANT SELECT, INSERT ON plantilla_revisiones TO ova_app;
     GRANT SELECT, INSERT, UPDATE, DELETE ON guiones_trabajos TO ova_app;
-    GRANT USAGE, SELECT ON SEQUENCE plantilla_revisiones_id_seq TO ova_app;
+    -- Estas dos tablas (y la secuencia) pudo crearlas otro usuario con psql: si quien migra no es su dueño no puede dar permisos,
+    -- pero entonces ya los tienen de cuando se crearon. Se avisa y se sigue en vez de detener toda la migración.
+    BEGIN
+      GRANT SELECT, INSERT, UPDATE, DELETE ON configuracion TO ova_app;
+    EXCEPTION WHEN insufficient_privilege THEN
+      RAISE NOTICE 'Sin permiso para dar permisos sobre configuracion (es de otro usuario); se dejan como están.';
+    END;
+    BEGIN
+      GRANT SELECT, INSERT ON plantilla_revisiones TO ova_app;
+    EXCEPTION WHEN insufficient_privilege THEN
+      RAISE NOTICE 'Sin permiso para dar permisos sobre plantilla_revisiones (es de otro usuario); se dejan como están.';
+    END;
+    BEGIN
+      GRANT USAGE, SELECT ON SEQUENCE plantilla_revisiones_id_seq TO ova_app;
+    EXCEPTION WHEN insufficient_privilege THEN
+      RAISE NOTICE 'Sin permiso para dar permisos sobre plantilla_revisiones_id_seq (es de otro usuario); se dejan como están.';
+    END;
     GRANT USAGE, SELECT ON SEQUENCE enlaces_id_seq, auditoria_id_seq TO ova_app;
   END IF;
 END $$;
