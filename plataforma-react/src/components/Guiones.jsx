@@ -145,7 +145,7 @@ export default function Guiones({ s, unidad, doc, onCambio, onCrear }) {
     const idBib = typeof bibId === 'string' ? bibId : s.bibliografiaId
     if (data && archivos.length && !confirm('Ya hay guiones generados para esta unidad. ¿Generar de nuevo? Se perderán las aprobaciones.')) return
     setError(''); setLecturas(null)
-    iniciarGuiones({ id: s.id, unidad, bibliografiaId: idBib, params: { unidadUrl: doc.url, syllabusUrl: s.syllabusUrl, bibliografiaId: idBib, unidad: doc.unidad || unidad } })
+    iniciarGuiones({ id: s.id, unidad, params: { unidadUrl: doc.url, syllabusUrl: s.syllabusUrl, bibliografiaId: idBib, unidad: doc.unidad || unidad } })
   }
 
   const [abierto, setAbierto] = useState(null)

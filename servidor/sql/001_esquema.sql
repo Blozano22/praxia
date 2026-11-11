@@ -131,6 +131,23 @@ CREATE TABLE IF NOT EXISTS plantilla_revisiones (
 );
 CREATE INDEX IF NOT EXISTS plantilla_revisiones_ix ON plantilla_revisiones (plantilla, creado DESC);
 
+-- ---------------------------------------------------------------- generación de guiones (trabajos de n8n)
+-- La llamada a n8n la hace el servidor y se anota aquí con un identificador: así, aunque la persona cierre la página o se le
+-- venza la sesión, la generación sigue, se sabe si terminó y el resultado espera hasta que vuelva. Una sola en curso por unidad.
+CREATE TABLE IF NOT EXISTS guiones_trabajos (
+  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  propietario_id uuid NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  proyecto_id    text NOT NULL CHECK (char_length(proyecto_id) <= 80),
+  unidad         integer NOT NULL CHECK (unidad BETWEEN 0 AND 99),
+  estado         text NOT NULL CHECK (estado IN ('en_curso','listo','error')),
+  respuesta      text,
+  error          text CHECK (error IS NULL OR char_length(error) <= 600),
+  creado         timestamptz NOT NULL DEFAULT now(),
+  terminado      timestamptz
+);
+CREATE UNIQUE INDEX IF NOT EXISTS guiones_trabajos_uno_en_curso ON guiones_trabajos (propietario_id, proyecto_id, unidad) WHERE estado = 'en_curso';
+CREATE INDEX IF NOT EXISTS guiones_trabajos_propietario_ix ON guiones_trabajos (propietario_id, creado DESC);
+
 -- ---------------------------------------------------------------- seguridad por fila (RLS)
 -- Aunque una consulta de la aplicación olvidara el filtro por propietario, la base de datos
 -- solo entrega y solo deja escribir las filas del usuario de la sesión (app.usuario_id).
@@ -176,6 +193,7 @@ BEGIN
     GRANT SELECT, INSERT ON auditoria TO ova_app;
     GRANT SELECT, INSERT, UPDATE, DELETE ON configuracion TO ova_app;
     GRANT SELECT, INSERT ON plantilla_revisiones TO ova_app;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON guiones_trabajos TO ova_app;
     GRANT USAGE, SELECT ON SEQUENCE plantilla_revisiones_id_seq TO ova_app;
     GRANT USAGE, SELECT ON SEQUENCE enlaces_id_seq, auditoria_id_seq TO ova_app;
   END IF;

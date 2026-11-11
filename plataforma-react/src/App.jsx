@@ -10,7 +10,7 @@ import Bibliografia from './components/Bibliografia.jsx'
 import Plantillas from './components/Plantillas.jsx'
 import Seguimiento from './components/Seguimiento.jsx'
 import Usuarios from './components/Usuarios.jsx'
-import { fijarAnfitrion } from './lib/trabajosGuiones.js'
+import { arrancarSondeo, detenerSondeo, fijarAnfitrion } from './lib/trabajosGuiones.js'
 import { olvidarConfigN8n } from './lib/syllabus.js'
 import Conexiones from './components/Conexiones.jsx'
 import Titulo from './components/Titulo.jsx'
@@ -111,6 +111,11 @@ export default function App() {
 
   // Las generaciones de guiones en curso guardan su resultado aquí aunque ya se haya salido de la unidad.
   useEffect(() => { fijarAnfitrion({ obtener: (id) => ref.current.find((x) => x.id === id) || null, guardar: actualizar }) }, [actualizar])
+
+  // Las generaciones de guiones viven en el servidor: con la sesión iniciada y los syllabus cargados, se consulta cuáles siguen en curso,
+  // cuáles terminaron (se guardan solas en su syllabus) y cuáles fallaron.
+  const sondea = !!yo && cargado && yo.permisos.includes('proyectos.ver_propios')
+  useEffect(() => { if (!sondea) return undefined; arrancarSondeo(); return () => detenerSondeo() }, [sondea])
 
   const actual = lista.find((s) => s.id === actualId)
   const programas = [...new Set(lista.map((s) => s.programa))].filter((p) => p !== 'Sin programa')

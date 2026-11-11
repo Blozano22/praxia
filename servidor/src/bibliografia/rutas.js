@@ -153,9 +153,17 @@ rutasBibliografia.get('/documentos/:id/paginas', limiteLeer, validar(z.object({ 
 rutasBibliografia.get('/trabajos/:id/paquete', limiteLeer, validar(z.object({ id: Id }), 'params'),
   validar(z.object({ maxPaginas: z.coerce.number().int().min(1).max(400).default(150), maxCaracteres: z.coerce.number().int().min(200).max(6000).default(2500), unidad: z.coerce.number().int().min(0).max(99).optional() }).strict(), 'query'), async (req, res, next) => {
     try {
-      const { id } = req.paramsOk
-      const { maxPaginas, maxCaracteres, unidad } = req.queryOk
-      const r = await conUsuario(req.usuario, async (cx) => {
+      const r = await armarPaquete(req.usuario, req.paramsOk.id, req.queryOk)
+      res.status(r.codigo).json(r.cuerpo)
+    } catch (e) { next(e) }
+  })
+
+// Arma el paquete de una lectura de bibliografía para el flujo de n8n. Devuelve { codigo, cuerpo } (200, 404 o 409).
+// Lo usan la ruta de arriba y el servidor al lanzar la generación de guiones.
+export async function armarPaquete(usuario, id, { maxPaginas = 150, maxCaracteres = 2500, unidad } = {}) {
+  {
+    {
+      const r = await conUsuario(usuario, async (cx) => {
         const t = (await cx.query(Q.bibTrabajoObtener, [id])).rows[0]
         if (!t) return null
         const fuentes = conAutores((await cx.query(Q.bibFuentesDelTrabajo, [id])).rows, (await cx.query(Q.bibAutoresDelTrabajo, [id])).rows)
@@ -172,7 +180,7 @@ rutasBibliografia.get('/trabajos/:id/paquete', limiteLeer, validar(z.object({ id
         }
         return { trabajo: t, fuentes: salida }
       })
-      if (!r) return res.status(404).json({ error: 'No encontrado' })
+      if (!r) return { codigo: 404, cuerpo: { error: 'No encontrado' } }
       // Se omite (no bloquea ni viaja a n8n) toda referencia sin leer que la persona marcó como imposible de descargar
       // (sitios de pago o con inicio de sesión) o que no trae enlace ni DOI y por tanto no se puede conseguir.
       const omitida = (f) => f.estado !== 'resuelta' && (f.manual || (!f.url && !f.doi))
@@ -180,10 +188,11 @@ rutasBibliografia.get('/trabajos/:id/paquete', limiteLeer, validar(z.object({ id
       // Con ?unidad=N solo viajan las fuentes de esa unidad (y las que no declaran unidad): los guiones se escriben por unidad.
       const fuentes = r.fuentes.filter((f) => !omitida(f) && (unidad === undefined || !f.unidad || f.unidad === unidad))
       const faltan = fuentes.filter((f) => f.estado !== 'resuelta').length
-      if (r.trabajo.estado !== 'listo' || faltan) return res.status(409).json({ error: 'La bibliografía aún no está completa: faltan ' + faltan + ' fuente(s) por leer.' })
-      res.json({ norma: 'APA 7.ª edición', total: fuentes.length, omitidas, fuentes })
-    } catch (e) { next(e) }
-  })
+      if (r.trabajo.estado !== 'listo' || faltan) return { codigo: 409, cuerpo: { error: 'La bibliografía aún no está completa: faltan ' + faltan + ' fuente(s) por leer.' } }
+      return { codigo: 200, cuerpo: { norma: 'APA 7.ª edición', total: fuentes.length, omitidas, fuentes } }
+    }
+  }
+}
 
 // Omite (o vuelve a incluir) a mano una referencia que no se puede descargar. Solo las que siguen sin leer.
 rutasBibliografia.put('/fuentes/:id/omitir', exigirPermiso('proyectos.crear'), limiteLeer, validar(z.object({ id: Id }), 'params'),

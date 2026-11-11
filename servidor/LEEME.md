@@ -99,6 +99,25 @@ Lee la bibliografía de un syllabus: busca cada fuente (DOI, página web o PDF),
 
 **Límites conocidos:** los PDF escaneados (imágenes) se registran sin texto: no hay OCR. Páginas que exigen sesión o captcha quedan como `sin_acceso`. Las páginas web se numeran por bloques de ~3000 caracteres («bloque N»).
 
+## Sesión y generación de guiones con n8n
+
+**Sesión.** Se renueva sola mientras se usa la plataforma: vence tras `SESION_DIAS_INACTIVIDAD` días sin actividad (7 por defecto) y, en todo caso, a los `SESION_DIAS_MAXIMO` días de haber iniciado (30). Una sesión también termina al cerrar sesión, desactivar a la persona, cambiarle la clave o los roles. `HORAS_SESION` (de versiones anteriores) ya no se usa: si está en el `.env`, se puede borrar.
+
+**Guiones con identificador.** La llamada al flujo de n8n que escribe los guiones la hace el **servidor**, no el navegador (`src/guiones/rutas.js`, tabla `guiones_trabajos`). Cada generación es un *trabajo* con identificador:
+
+| Ruta (`/api/guiones`) | Qué hace |
+| --- | --- |
+| `POST /trabajos` | Lanza la generación de una unidad. Responde 202 con el id y sigue en segundo plano. Si ya hay una en curso para esa unidad, responde 409 con `ya: true` y el id de la que corre. |
+| `GET /trabajos` | Los trabajos de la persona: `en_curso`, `listo` o `error`. |
+| `GET /trabajos/:id/respuesta` | La respuesta de n8n de un trabajo `listo`. |
+| `DELETE /trabajos/:id` | Lo quita (la página lo hace al guardar los guiones en el syllabus). |
+
+Así, aunque se cierre la página o venza la sesión, la generación sigue; al volver, la plataforma sabe que está en curso (o ya terminó) y no deja lanzarla otra vez. Una sola por syllabus y unidad (índice único en la base). Si n8n falla o no responde en `N8N_MINUTOS_MAXIMO` (45), el trabajo queda con error; si el servidor se reinicia, lo que estaba en curso se marca como fallido al arrancar.
+
+**Para el flujo de n8n:** el cuerpo que recibe trae ahora además `trabajo_id` (el identificador del trabajo). No hace falta usarlo; sirve para registrarlo o relacionar la ejecución. La dirección del flujo es la que guarda el administrador en «Conexión n8n» (o `N8N_GUIONES_URL`, por defecto la de siempre).
+
+**Aplicar el cambio de esquema** (idempotente; crea `guiones_trabajos`): `sudo -u postgres psql -d ova -f servidor/sql/001_esquema.sql`.
+
 ## Lectura de PDF escaneados (OCR)
 
 Si un PDF no tiene texto seleccionable (es un escaneo), cada página sin texto se dibuja y se lee con Tesseract (español e inglés),

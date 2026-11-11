@@ -72,6 +72,24 @@ export const Q = Object.freeze({
     INSERT INTO plantilla_revisiones (plantilla, estado, observacion, doc_url, usuario_id, usuario_nombre)
     VALUES ($1, $2, $3, $4, $5, $6)
     RETURNING id, plantilla, estado, observacion, doc_url AS "docUrl", usuario_nombre AS usuario, creado`,
+  // ---- trabajos de guiones (la llamada a n8n la hace el servidor). Todo va filtrado por propietario.
+  guionTrabajoCrear: `
+    INSERT INTO guiones_trabajos (propietario_id, proyecto_id, unidad, estado) VALUES ($1, $2, $3, 'en_curso')
+    ON CONFLICT (propietario_id, proyecto_id, unidad) WHERE estado = 'en_curso' DO NOTHING
+    RETURNING id, creado`,
+  guionTrabajoEnCurso: `SELECT id, creado FROM guiones_trabajos WHERE propietario_id = $1 AND proyecto_id = $2 AND unidad = $3 AND estado = 'en_curso'`,
+  guionTrabajoListo: `UPDATE guiones_trabajos SET estado = 'listo', respuesta = $2, terminado = now() WHERE id = $1 AND estado = 'en_curso'`,
+  guionTrabajoFallo: `UPDATE guiones_trabajos SET estado = 'error', error = $2, terminado = now() WHERE id = $1 AND estado = 'en_curso'`,
+  guionTrabajosListar: `
+    SELECT id, proyecto_id AS proyecto, unidad, estado, creado, terminado, error
+      FROM guiones_trabajos WHERE propietario_id = $1 ORDER BY creado DESC LIMIT 200`,
+  guionTrabajoRespuesta: `SELECT respuesta FROM guiones_trabajos WHERE id = $1 AND propietario_id = $2 AND estado = 'listo'`,
+  guionTrabajoBorrar: `DELETE FROM guiones_trabajos WHERE id = $1 AND propietario_id = $2 AND estado <> 'en_curso' RETURNING id`,
+  // Mantenimiento: lo que quedó «en curso» demasiado tiempo (el servidor se reinició o n8n no respondió) se da por fallido; lo terminado hace más de 7 días se borra.
+  guionTrabajosCaducar: `
+    UPDATE guiones_trabajos SET estado = 'error', error = $1, terminado = now()
+     WHERE estado = 'en_curso' AND creado < now() - ($2::int * interval '1 minute')`,
+  guionTrabajosLimpiar: `DELETE FROM guiones_trabajos WHERE estado <> 'en_curso' AND coalesce(terminado, creado) < now() - interval '7 days'`,
   usuarioSubirVersion: `UPDATE usuarios SET version_token = version_token + 1 WHERE id = $1 RETURNING id`,
   rolesListar: `SELECT nombre FROM roles ORDER BY id`,
 

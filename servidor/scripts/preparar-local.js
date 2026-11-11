@@ -48,7 +48,8 @@ await admin.end()
 if (!fs.existsSync(archivoEnv)) {
   const host = url.host
   fs.writeFileSync(archivoEnv,
-    `DATABASE_URL=postgres://ova_app:${claveFinal}@${host}/${BASE}\nJWT_SECRET=${crypto.randomBytes(48).toString('hex')}\nPORT=3001\nHORAS_SESION=8\nCOOKIE_SEGURA=false\nCARPETA_WEB=../plataforma-react/dist\n`)
+    `DATABASE_URL=postgres://ova_app:${claveFinal}@${host}/${BASE}\nJWT_SECRET=${crypto.randomBytes(48).toString('hex')}\nPORT=3001\nSESION_DIAS_INACTIVIDAD=7
+SESION_DIAS_MAXIMO=30\nCOOKIE_SEGURA=false\nCARPETA_WEB=../plataforma-react/dist\n`)
   console.log('Escribí servidor/.env (no se sube a ningún repositorio).')
 } else {
   console.log('servidor/.env ya existía: no lo modifiqué.')

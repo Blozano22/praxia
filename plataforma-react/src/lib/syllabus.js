@@ -132,33 +132,9 @@ function buscarArchivos(payload) {
   return []
 }
 
-// Los guiones se escriben con la bibliografía ya leída de ESA unidad (texto por página y cita APA 7), no con lo que el modelo conozca.
-// Sin esa bibliografía no se envía nada: antes que inventar, se pide completarla.
-export async function generarGuiones({ unidadUrl, syllabusUrl, bibliografiaId, unidad }) {
-  if (!bibliografiaId) {
-    const e = new Error('Este syllabus no tiene la bibliografía leída guardada. Vuelva a generar los documentos desde el paso «Syllabus» (se lee la bibliografía y luego se crean las unidades) y después cree los guiones.')
-    e.code = 'SIN_BIBLIOGRAFIA'
-    throw e
-  }
-  let bibliografia
-  try { bibliografia = await api('GET', '/bibliografia/trabajos/' + bibliografiaId + '/paquete' + (unidad ? '?unidad=' + encodeURIComponent(unidad) : '')) } catch (err) {
-    const e = new Error('No se pudo leer la bibliografía guardada de este syllabus: ' + (err.message || 'error'))
-    e.code = 'SIN_BIBLIOGRAFIA'
-    throw e
-  }
-  if (!bibliografia.fuentes || !bibliografia.fuentes.length) {
-    const e = new Error('La bibliografía de la unidad ' + (unidad || '') + ' no tiene fuentes leídas: los guiones no se pueden respaldar. Revise la bibliografía de esa unidad.')
-    e.code = 'SIN_BIBLIOGRAFIA'
-    throw e
-  }
-  await cargarConfigN8n()
-  const response = await fetch(leerWebhookGuiones(), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ unidad_url: unidadUrl, ...(syllabusUrl ? { syllabus_url: syllabusUrl } : {}), unidad, bibliografia })
-  })
-  const raw = await response.text()
-  if (!response.ok) throw new Error(responseErrorText(raw) || 'n8n respondió con HTTP ' + response.status)
+// La llamada a n8n la hace el servidor (ver trabajosGuiones.js): aquí solo se interpreta su respuesta ya terminada.
+// Devuelve un guion por tema. Falla con code SIN_GUIONES si el flujo terminó sin devolverlos.
+export function interpretarRespuestaGuiones(raw) {
   const crudos = buscarArchivos(parseJsonLayers(raw))
   if (!crudos.length) {
     const e = new Error('El flujo terminó sin devolver guiones.')

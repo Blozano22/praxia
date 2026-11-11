@@ -17,10 +17,13 @@ export function claveValida(clave) {
     /[a-z]/.test(clave) && /[A-Z]/.test(clave) && /\d/.test(clave)
 }
 
-export function emitirSesion(res, usuario, version) {
-  const token = jwt.sign({ sub: usuario.id, v: version }, config.secretoJwt, { algorithm: 'HS256', expiresIn: config.horasSesion + 'h' })
+const DIA = 24 * 3600
+// `ini` es el instante (en segundos) en que la persona inició sesión: se conserva al renovar para poder aplicar el tope máximo.
+export function emitirSesion(res, usuario, version, ini = Math.floor(Date.now() / 1000)) {
+  const segundos = Math.max(60, Math.min(config.diasInactividad * DIA, ini + config.diasSesionMaximo * DIA - Math.floor(Date.now() / 1000)))
+  const token = jwt.sign({ sub: usuario.id, v: version, ini }, config.secretoJwt, { algorithm: 'HS256', expiresIn: segundos })
   res.cookie(COOKIE, token, {
-    httpOnly: true, sameSite: 'strict', secure: config.cookieSegura, maxAge: config.horasSesion * 3600 * 1000, path: config.rutaBase
+    httpOnly: true, sameSite: 'strict', secure: config.cookieSegura, maxAge: segundos * 1000, path: config.rutaBase
   })
 }
 
@@ -36,6 +39,11 @@ export async function exigirSesion(req, res, next) {
     if (!f || !f.activo || f.version_token !== datos.v) return res.status(401).json({ error: 'Sesión vencida' })
     const permisos = new Set((await sinUsuario(Q.permisosDelUsuario, [f.id])).rows.map((x) => x.codigo))
     req.usuario = { id: f.id, nombre: f.nombre, correo: f.correo, roles: f.roles, permisos }
+    // Sesión deslizante: al usarla se renueva (cuando ya pasó la mitad de su vigencia), sin pasar del tope desde el inicio de sesión.
+    const ahora = Math.floor(Date.now() / 1000)
+    const ini = datos.ini || datos.iat || ahora
+    if (ahora > ini + config.diasSesionMaximo * DIA) return res.status(401).json({ error: 'Sesión vencida' })
+    if (datos.exp - ahora < (config.diasInactividad * DIA) / 2 && ini + config.diasSesionMaximo * DIA - ahora > 60) emitirSesion(res, f, f.version_token, ini)
     next()
   } catch (e) { next(e) }
 }
