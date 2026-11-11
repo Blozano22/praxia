@@ -9,7 +9,7 @@
 import http from 'node:http'
 import https from 'node:https'
 import { Router } from 'express'
-import rateLimit from 'express-rate-limit'
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit'
 import { z } from 'zod'
 import { config } from '../config.js'
 import { sinUsuario } from '../db.js'
@@ -23,8 +23,10 @@ rutasGuiones.use(exigirSesion)
 const RE_DOC = /^https:\/\/docs\.google\.com\/document\/d\/[A-Za-z0-9_-]+/
 const ANTERIOR = 'https://n8n.americana.edu.co/webhook/unidad-a-guiones' // flujo antiguo: ya no está activo
 const MAX_RESPUESTA = 40 * 1024 * 1024
-const limiteCrear = rateLimit({ windowMs: 60 * 1000, limit: 12, standardHeaders: true, legacyHeaders: false })
-const limiteLeer = rateLimit({ windowMs: 60 * 1000, limit: 240, standardHeaders: true, legacyHeaders: false })
+// Cupo por persona (tras iniciar sesión); sin sesión, por dirección IP. Así varios gestores en la misma red no se gastan el cupo entre sí.
+const porPersona = (req) => (req.usuario ? 'u:' + req.usuario.id : ipKeyGenerator(req.ip))
+const limiteCrear = rateLimit({ windowMs: 60 * 1000, limit: 12, keyGenerator: porPersona, standardHeaders: true, legacyHeaders: false })
+const limiteLeer = rateLimit({ windowMs: 60 * 1000, limit: 240, keyGenerator: porPersona, standardHeaders: true, legacyHeaders: false })
 
 const validar = (esquema, origen) => (req, res, next) => {
   const r = esquema.safeParse(req[origen])

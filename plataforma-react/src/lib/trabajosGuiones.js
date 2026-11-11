@@ -55,7 +55,10 @@ async function aplicar(j) {
     const s = anfitrion.obtener(j.proyecto) // el syllabus más reciente; si ya no existe, no hay dónde guardar
     if (s) {
       const nuevos = interpretarRespuestaGuiones(respuesta)
-      anfitrion.guardar({ ...s, guionesUnidad: { ...(s.guionesUnidad || {}), [j.unidad]: { fecha: Date.now(), archivos: nuevos.map((a) => ({ ...a, aprobado: false, visto: false })) } } })
+      const guardado = await anfitrion.guardar({ ...s, guionesUnidad: { ...(s.guionesUnidad || {}), [j.unidad]: { fecha: Date.now(), archivos: nuevos.map((a) => ({ ...a, aprobado: false, visto: false })) } } })
+      // Solo se borra el trabajo del servidor cuando el guardado quedó confirmado: si falló (red, sesión…), la respuesta de n8n sigue
+      // allí y se vuelve a intentar en el siguiente ciclo, en vez de perderse.
+      if (guardado === false) { trabajos.delete(k); return }
     }
     borrarEnServidor(j.id)
     trabajos.delete(k)

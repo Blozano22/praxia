@@ -59,6 +59,12 @@ export default function Workspace({ s, tab, setTab, unidadSel, setUnidadSel, rec
 
   // Con los guiones aprobados se crean los recursos de la unidad, cada uno en su tema, y se muestra la vista de recursos.
   const crearDeGuiones = (unidad, archivos) => {
+    try { crearRecursosDeGuiones(unidad, archivos) } catch (e) {
+      console.error('[recursos]', e)
+      aviso('No se pudieron crear los recursos de esta unidad: ' + ((e && e.message) || 'error inesperado') + '. Avise a quien administra la plataforma.')
+    }
+  }
+  const crearRecursosDeGuiones = (unidad, archivos) => {
     let recursos = []
     const t = { ...(s.temas || {}) }
     let info = s.info || {}

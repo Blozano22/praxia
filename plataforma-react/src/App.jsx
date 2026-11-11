@@ -43,6 +43,7 @@ export default function App() {
   const [unidadSel, setUnidadSel] = useState(null)
   const [recSel, setRecSel] = useState({ u: null })
   const [toast, setToast] = useState('')
+  const [fallos, setFallos] = useState({}) // syllabus cuyo último guardado falló: id -> motivo
   const [pendInicial, setPendInicial] = useState(null)
   const [entrada, setEntrada] = useState('syllabus') // syllabus | avance
   const ref = useRef([])
@@ -102,12 +103,23 @@ export default function App() {
   const ir = (v) => { if (v !== 'workspace' && v !== 'editor') setPendInicial(null); setVista(v); window.scrollTo(0, 0) }
 
   // Guarda un syllabus (y todo lo que contiene) en pantalla y en el navegador.
+  // Devuelve una promesa que dice si el servidor confirmó el guardado (quien necesite estar seguro, como el que recoge los guiones
+  // de n8n, espera ese resultado). Si falla, queda un aviso fijo en pantalla hasta que se guarde bien.
   const actualizar = useCallback((s) => {
     const l = ref.current.some((x) => x.id === s.id) ? ref.current.map((x) => (x.id === s.id ? s : x)) : [s, ...ref.current]
     ref.current = l
     setLista(l)
-    guardar(s).catch((e) => { if (e.estado === 401) setYo(null); else aviso('No se pudo guardar: ' + e.message) })
+    return guardar(s).then(() => {
+      setFallos((f) => { if (!(s.id in f)) return f; const n = { ...f }; delete n[s.id]; return n })
+      return true
+    }).catch((e) => {
+      if (e.estado === 401) setYo(null)
+      else { setFallos((f) => ({ ...f, [s.id]: e.message })); aviso('No se pudo guardar: ' + e.message) }
+      return false
+    })
   }, [aviso])
+  const idFallo = Object.keys(fallos)[0]
+  const proyFallo = idFallo ? lista.find((x) => x.id === idFallo) : null
 
   // Las generaciones de guiones en curso guardan su resultado aquí aunque ya se haya salido de la unidad.
   useEffect(() => { fijarAnfitrion({ obtener: (id) => ref.current.find((x) => x.id === id) || null, guardar: actualizar }) }, [actualizar])
@@ -240,6 +252,13 @@ export default function App() {
       </div>
       </div>
       {toast && <div className="toast-app">{toast}</div>}
+      {idFallo && (
+        <div className="guardado-error" role="alert">
+          <b>No se pudieron guardar los últimos cambios{proyFallo ? ' de «' + proyFallo.curso + '»' : ''}.</b>
+          <span>{fallos[idFallo]}. No cierre esta página: hasta que se guarden solo están en su pantalla.</span>
+          <button className="btn sm" onClick={() => { const p = ref.current.find((x) => x.id === idFallo); if (p) actualizar(p); else setFallos((f) => { const n = { ...f }; delete n[idFallo]; return n }) }}>Reintentar</button>
+        </div>
+      )}
     </>
   )
 }

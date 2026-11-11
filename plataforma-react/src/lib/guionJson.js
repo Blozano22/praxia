@@ -5,7 +5,8 @@ import { ubicar } from './ubicar.js'
 import { presetPorNivel } from './render.js'
 
 const lim = (s) => String(s == null ? '' : s).replace(/\s+/g, ' ').trim()
-const lista = (v) => (Array.isArray(v) ? v : v ? [v] : [])
+// Lista tolerante: un valor suelto pasa a lista de uno y los vacíos (null) que a veces trae el flujo se descartan.
+const lista = (v) => (Array.isArray(v) ? v : v ? [v] : []).filter((x) => x != null)
 
 function lineasActividad(act) {
   if (!act) return []

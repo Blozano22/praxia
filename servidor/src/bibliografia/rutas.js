@@ -1,7 +1,7 @@
 // API de la bibliografía. Se monta en /api/bibliografia. Todo exige sesión y el permiso de crear/editar syllabus;
 // la lectura de lo ajeno la decide la política de filas de la base (proyectos.ver_todos).
 import { Router } from 'express'
-import rateLimit from 'express-rate-limit'
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit'
 import { z } from 'zod'
 import { conUsuario } from '../db.js'
 import { Q } from '../consultas.js'
@@ -18,8 +18,10 @@ const Id = z.string().uuid()
 // Marca (en estado_detalle) de una referencia que la persona decidió omitir porque no se puede descargar. Sin cambios de esquema.
 export const MARCA_OMITIDA = 'Omitida a mano: no se pudo descargar'
 const MAX_ENTRADAS = 300
-const limiteCrear = rateLimit({ windowMs: 60 * 1000, limit: 6, standardHeaders: true, legacyHeaders: false })
-const limiteLeer = rateLimit({ windowMs: 60 * 1000, limit: 240, standardHeaders: true, legacyHeaders: false })
+// Cupo por persona (tras iniciar sesión); sin sesión, por dirección IP. Así varios gestores en la misma red no se gastan el cupo entre sí.
+const porPersona = (req) => (req.usuario ? 'u:' + req.usuario.id : ipKeyGenerator(req.ip))
+const limiteCrear = rateLimit({ windowMs: 60 * 1000, limit: 6, keyGenerator: porPersona, standardHeaders: true, legacyHeaders: false })
+const limiteLeer = rateLimit({ windowMs: 60 * 1000, limit: 240, keyGenerator: porPersona, standardHeaders: true, legacyHeaders: false })
 
 const validar = (esquema, origen) => (req, res, next) => {
   const r = esquema.safeParse(req[origen])
@@ -210,7 +212,7 @@ rutasBibliografia.put('/fuentes/:id/omitir', exigirPermiso('proyectos.crear'), l
   })
 
 // Sube el documento de una fuente (PDF, Word o página guardada). El cuerpo es el archivo; el nombre va en el encabezado x-nombre.
-const limiteSubir = rateLimit({ windowMs: 60 * 1000, limit: 20, standardHeaders: true, legacyHeaders: false })
+const limiteSubir = rateLimit({ windowMs: 60 * 1000, limit: 20, keyGenerator: porPersona, standardHeaders: true, legacyHeaders: false })
 const cuerpoArchivo = express.raw({ type: () => true, limit: '40mb' })
 rutasBibliografia.post('/fuentes/:id/archivo', exigirPermiso('proyectos.crear'), limiteSubir, validar(z.object({ id: Id }), 'params'), cuerpoArchivo, async (req, res, next) => {
   try {
