@@ -35,6 +35,14 @@ export function crearApp() {
   app.use('/api', (req, res) => res.status(404).json({ error: 'No encontrado' }))
 
   if (config.carpetaWeb && fs.existsSync(config.carpetaWeb)) {
+    // Plantillas HTML de los recursos, ya armadas en el build (dist/plantillas-html): públicas y de solo lectura.
+    // Las descarga un flujo de n8n sin sesión ni cabecera x-ova; no contienen datos de nadie. CORS abierto solo para leer (GET).
+    app.use('/plantillas-html', (req, res, next) => {
+      if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return res.status(405).set('Allow', 'GET, HEAD, OPTIONS').end()
+      res.set({ 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS', 'Cross-Origin-Resource-Policy': 'cross-origin', 'Cache-Control': 'no-cache' })
+      if (req.method === 'OPTIONS') return res.status(204).end()
+      next()
+    })
     app.use(express.static(config.carpetaWeb, { index: 'index.html' }))
   }
 
