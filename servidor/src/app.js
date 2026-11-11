@@ -7,6 +7,7 @@ import { exigirCabecera } from './seguridad.js'
 import { rutas } from './rutas.js'
 import { rutasBibliografia } from './bibliografia/rutas.js'
 import { rutasGuiones } from './guiones/rutas.js'
+import { rutasUnidades } from './unidades/rutas.js'
 
 export function crearApp() {
   const app = express()
@@ -33,6 +34,7 @@ export function crearApp() {
   app.use(cookieParser())
   app.use('/api/bibliografia', exigirCabecera, rutasBibliografia)
   app.use('/api/guiones', exigirCabecera, rutasGuiones)
+  app.use('/api/unidades', exigirCabecera, rutasUnidades)
   app.use('/api', exigirCabecera, rutas)
   app.use('/api', (req, res) => res.status(404).json({ error: 'No encontrado' }))
 

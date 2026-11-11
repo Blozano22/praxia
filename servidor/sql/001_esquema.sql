@@ -84,6 +84,10 @@ CREATE TABLE IF NOT EXISTS proyectos (
   PRIMARY KEY (propietario_id, id)
 );
 
+-- Número de versión del syllabus: sube con cada guardado. Quien guarda envía la versión que tenía; si ya cambió en otra pestaña o equipo,
+-- el servidor lo rechaza (409) en vez de pisar lo guardado por el otro.
+ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS version integer NOT NULL DEFAULT 1;
+
 CREATE TABLE IF NOT EXISTS enlaces (
   id             bigserial PRIMARY KEY,
   propietario_id uuid NOT NULL,
@@ -155,6 +159,27 @@ CREATE TABLE IF NOT EXISTS guiones_trabajos (
 CREATE UNIQUE INDEX IF NOT EXISTS guiones_trabajos_uno_en_curso ON guiones_trabajos (propietario_id, proyecto_id, unidad) WHERE estado = 'en_curso';
 CREATE INDEX IF NOT EXISTS guiones_trabajos_propietario_ix ON guiones_trabajos (propietario_id, creado DESC);
 
+-- ---------------------------------------------------------------- creación de las unidades (trabajos de n8n)
+-- Igual que los guiones: la llamada a n8n que crea un documento por unidad la hace el servidor y queda anotada con un identificador.
+-- Sigue aunque se cierre la página; una sola en curso por syllabus; el resultado espera a la persona.
+CREATE TABLE IF NOT EXISTS unidades_trabajos (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  propietario_id  uuid NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  syllabus_doc    text NOT NULL CHECK (char_length(syllabus_doc) <= 120),
+  syllabus_url    text NOT NULL CHECK (char_length(syllabus_url) <= 500),
+  carpeta_url     text NOT NULL CHECK (char_length(carpeta_url) <= 500),
+  curso           text NOT NULL DEFAULT '' CHECK (char_length(curso) <= 300),
+  proyecto_id     text CHECK (proyecto_id IS NULL OR char_length(proyecto_id) <= 64),
+  bibliografia_id uuid,
+  estado          text NOT NULL CHECK (estado IN ('en_curso','listo','error')),
+  respuesta       text,
+  error           text CHECK (error IS NULL OR char_length(error) <= 600),
+  creado          timestamptz NOT NULL DEFAULT now(),
+  terminado       timestamptz
+);
+CREATE UNIQUE INDEX IF NOT EXISTS unidades_trabajos_uno_en_curso ON unidades_trabajos (propietario_id, syllabus_doc) WHERE estado = 'en_curso';
+CREATE INDEX IF NOT EXISTS unidades_trabajos_propietario_ix ON unidades_trabajos (propietario_id, creado DESC);
+
 -- ---------------------------------------------------------------- seguridad por fila (RLS)
 -- Aunque una consulta de la aplicación olvidara el filtro por propietario, la base de datos
 -- solo entrega y solo deja escribir las filas del usuario de la sesión (app.usuario_id).
@@ -199,6 +224,7 @@ BEGIN
     GRANT SELECT, INSERT, UPDATE, DELETE ON proyectos, enlaces TO ova_app;
     GRANT SELECT, INSERT ON auditoria TO ova_app;
     GRANT SELECT, INSERT, UPDATE, DELETE ON guiones_trabajos TO ova_app;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON unidades_trabajos TO ova_app;
     -- Estas dos tablas (y la secuencia) pudo crearlas otro usuario con psql: si quien migra no es su dueño no puede dar permisos,
     -- pero entonces ya los tienen de cuando se crearon. Se avisa y se sigue en vez de detener toda la migración.
     BEGIN

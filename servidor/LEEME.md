@@ -118,6 +118,31 @@ Así, aunque se cierre la página o venza la sesión, la generación sigue; al v
 
 **Aplicar el cambio de esquema** (idempotente; crea `guiones_trabajos`): `sudo -u postgres psql -d ova -f servidor/sql/001_esquema.sql`.
 
+### Crear las unidades también corre en el servidor
+
+«Crear las unidades» (el flujo de n8n que genera un documento por unidad a partir del syllabus) usa el mismo esquema que los guiones: es un *trabajo* con identificador (`src/unidades/rutas.js`, tabla `unidades_trabajos`) y sigue aunque se cierre la página.
+
+| Ruta (`/api/unidades`) | Qué hace |
+| --- | --- |
+| `POST /trabajos` | Lanza la creación con `{syllabusUrl, carpetaUrl, bibliografiaId, curso?, proyecto?}`. Responde 202 con el id; 409 con `ya: true` si ya hay una en curso para ese syllabus. `proyecto` solo se envía al volver a generar los documentos de un syllabus que ya existe. |
+| `GET /trabajos` · `GET /trabajos/:id/respuesta` · `DELETE /trabajos/:id` | Igual que en los guiones. |
+
+Cuando el trabajo termina, la página crea el syllabus con ese resultado (o actualiza el existente), aunque la persona estuviera en otra pantalla o haya vuelto a iniciar sesión. El identificador del syllabus nuevo sale del trabajo, así que reintentar no lo duplica. A n8n le llega además `trabajo_id`. La dirección es la que guarda el administrador en «Conexión n8n» (o `N8N_UNIDADES_URL`).
+
+**Bibliografía recuperable.** Cada lectura guarda el documento de Google del que salió (`bib_trabajos.syllabus_doc`). `GET /api/bibliografia/trabajos/por-syllabus?url=` devuelve la lectura más reciente (de los últimos 14 días) de esa persona para ese enlace: así se retoma desde otra pestaña, tras cerrar la página o desde otro equipo (antes dependía de `sessionStorage`, que es por pestaña).
+
+### Versión del syllabus (el último en guardar ya no pisa)
+
+Cada syllabus guarda un número de versión (`proyectos.version`) que sube con cada guardado. `GET /api/proyectos` lo devuelve como `_v`; quien guarda (`PUT /api/proyectos/:id`) envía el `_v` que tenía. Si en el servidor ya es otro (alguien lo cambió en otra pestaña o equipo), responde **409** con `conflicto: true`, la versión vigente y el syllabus actual, y no escribe nada; la página lo muestra con dos opciones («Ver la versión más reciente» o «Guardar lo mío de todos modos»). Una página antigua que no envía `_v` sigue guardando como antes. Los guardados de un mismo syllabus se atienden de uno en uno.
+
+### Bloqueo de cuenta e intentos de acceso
+
+- A los **10 intentos fallidos seguidos** esa cuenta (solo esa) se bloquea **5 minutos**; pasado el bloqueo cuenta de cero. Un acceso correcto reinicia el contador.
+- El límite por IP (`LIMITE_LOGIN`, 300 fallos cada 15 minutos) es solo un tope de seguridad contra quien pruebe muchas cuentas desde un mismo sitio; los accesos correctos no cuentan, así que varias personas en la misma red no se bloquean entre sí.
+- Los demás límites de velocidad (bibliografía, guiones, unidades) son **por persona**, no por IP.
+
+**Aplicar el cambio de esquema** (idempotente; crea `unidades_trabajos` y añade las columnas `proyectos.version` y `bib_trabajos.syllabus_doc`): `npm run db:migrar`.
+
 ## Lectura de PDF escaneados (OCR)
 
 Si un PDF no tiene texto seleccionable (es un escaneo), cada página sin texto se dibuja y se lee con Tesseract (español e inglés),

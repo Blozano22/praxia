@@ -26,7 +26,7 @@ const IdUsuario = z.string().uuid()
 const MENSAJE_CLAVE = 'La clave debe tener 10 o más caracteres, con mayúscula, minúscula y número'
 
 // ------------------------------------------------------------------ acceso
-const limiteLogin = rateLimit({ windowMs: 15 * 60 * 1000, limit: Number(process.env.LIMITE_LOGIN || 20), skipSuccessfulRequests: true, standardHeaders: true, legacyHeaders: false, message: { error: 'Demasiados intentos. Espera unos minutos.' } })
+const limiteLogin = rateLimit({ windowMs: 15 * 60 * 1000, limit: Number(process.env.LIMITE_LOGIN || 300), skipSuccessfulRequests: true, standardHeaders: true, legacyHeaders: false, message: { error: 'Demasiados intentos. Espera unos minutos.' } })
 
 rutas.post('/auth/login', limiteLogin,
   validar(z.object({ correo: z.string().email().max(200), clave: z.string().min(1).max(100) }).strict(), 'body'),
@@ -39,7 +39,7 @@ rutas.post('/auth/login', limiteLogin,
       if (!u || !coincide || !u.activo || bloqueado) {
         if (u && !bloqueado) await sinUsuario(Q.registrarFallo, [u.id])
         await auditar(u ? u.id : null, 'login_fallido', 'usuario', u ? u.id : null, req)
-        return res.status(401).json({ error: 'Correo o clave incorrectos' }) // mismo mensaje en todos los casos
+        return res.status(401).json({ error: 'Correo o clave incorrectos. Tras 10 intentos fallidos la cuenta se bloquea 5 minutos.' }) // mismo mensaje en todos los casos
       }
       await sinUsuario(Q.registrarAcceso, [u.id])
       const v = (await sinUsuario(Q.usuarioParaSesion, [u.id])).rows[0].version_token
@@ -68,13 +68,14 @@ const Proyecto = z.object({
   id: IdProyecto,
   programa: z.string().max(300),
   curso: z.string().max(300),
-  creado: z.number().optional()
+  creado: z.number().optional(),
+  _v: z.number().int().min(1).optional() // versión que la página tenía al abrir el syllabus (no se guarda dentro del syllabus)
 }).passthrough()
 
 rutas.get('/proyectos', exigirSesion, exigirPermiso('proyectos.ver_propios'), async (req, res, next) => {
   try {
     const filas = await conUsuario(req.usuario, async (c) => (await c.query(Q.proyectosListar, [req.usuario.id])).rows)
-    res.json(filas.map((f) => f.datos))
+    res.json(filas.map((f) => ({ ...f.datos, _v: f.version })))
   } catch (e) { next(e) }
 })
 
@@ -100,19 +101,24 @@ rutas.put('/proyectos/:id', exigirSesion,
     try {
       const p = Proyecto.safeParse(req.body)
       if (!p.success || p.data.id !== req.paramsOk.id) return res.status(400).json({ error: 'Datos no válidos' })
-      const datos = p.data
+      const { _v: versionBase, ...datos } = p.data
       const resultado = await conUsuario(req.usuario, async (c) => {
-        const existe = (await c.query(Q.proyectoObtener, [req.usuario.id, datos.id])).rowCount > 0
+        const previo = (await c.query(Q.proyectoObtener, [req.usuario.id, datos.id])).rows[0]
+        const existe = Boolean(previo)
         // crear exige proyectos.crear; modificar exige proyectos.editar
         if (!req.usuario.permisos.has(existe ? 'proyectos.editar' : 'proyectos.crear')) return null
-        await c.query(Q.proyectoGuardar, [req.usuario.id, datos.id, datos.programa, datos.curso, JSON.stringify(datos)])
+        // Si quien guarda partió de una versión que ya no es la vigente, alguien lo cambió en otra pestaña o equipo: no se pisa.
+        // (Una página antigua que no envía versión sigue guardando como antes.)
+        if (existe && versionBase !== undefined && versionBase !== previo.version) return { conflicto: { version: previo.version, actual: { ...previo.datos, _v: previo.version } } }
+        const g = (await c.query(Q.proyectoGuardar, [req.usuario.id, datos.id, datos.programa, datos.curso, JSON.stringify(datos)])).rows[0]
         await c.query(Q.enlacesBorrarDelProyecto, [req.usuario.id, datos.id])
         for (const e of extraerEnlaces(datos)) await c.query(Q.enlaceInsertar, [req.usuario.id, datos.id, e.tipo, e.unidad, e.nombre, e.url])
-        return existe ? 'actualizado' : 'creado'
+        return { estado: existe ? 'actualizado' : 'creado', version: g.version }
       })
       if (!resultado) return res.status(403).json({ error: 'No tienes permiso para esto' })
-      if (resultado === 'creado') await auditar(req.usuario.id, 'proyecto_crear', 'proyecto', datos.id, req)
-      res.json({ ok: true })
+      if (resultado.conflicto) return res.status(409).json({ error: 'Este syllabus cambió en otra pestaña o equipo desde que lo abrió.', conflicto: true, ...resultado.conflicto })
+      if (resultado.estado === 'creado') await auditar(req.usuario.id, 'proyecto_crear', 'proyecto', datos.id, req)
+      res.json({ ok: true, version: resultado.version })
     } catch (e) { next(e) }
   })
 

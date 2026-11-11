@@ -130,7 +130,7 @@ test('orquestador: página web → PDF enlazado → texto completo por página, 
   }
   const ana = usuarios.Ana
   const trabajo = await conUsuario(ana, async (cx) => {
-    const t = (await cx.query(Q.bibTrabajoCrear, [ana.id, 'p1', 1])).rows[0].id
+    const t = (await cx.query(Q.bibTrabajoCrear, [ana.id, 'p1', 1, null])).rows[0].id
     await cx.query(Q.bibFuenteInsertar, [t, ana.id, 1, 'Pérez, J. (2020). Teorías criminológicas. Revista de Criminología. https://ejemplo.org/articulo', 'https://ejemplo.org/articulo', '10.1234/abc', 1, 'basica'])
     return t
   })

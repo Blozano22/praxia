@@ -116,8 +116,7 @@ export default function Workspace({ s, tab, setTab, unidadSel, setUnidadSel, rec
           <h2>Syllabus</h2>
           {regenerar ? (
             <div>
-              <PortalSyllabus modo="regenerar" inicial={{ syllabusUrl: s.syllabusUrl, carpetaUrl: s.carpetaUrl }}
-                onResultado={(d) => { onCambio({ ...s, syllabusUrl: d.syllabusUrl, carpetaUrl: d.carpetaUrl, bibliografiaId: d.bibliografiaId || s.bibliografiaId || '', syllabus: { estado: d.estado, documentos: d.documentos.length ? d.documentos : s.syllabus.documentos, mensaje: d.mensaje } }); aviso('Resultado guardado en el syllabus'); return s.id }} />
+              <PortalSyllabus modo="regenerar" proyectoId={s.id} inicial={{ syllabusUrl: s.syllabusUrl, carpetaUrl: s.carpetaUrl }} />
               <div className="row" style={{ marginTop: 12 }}><button className="btn sec" onClick={() => setRegenerar(false)}>Volver al syllabus</button></div>
             </div>
           ) : (

@@ -23,6 +23,8 @@ export const config = {
   carpetaWeb: process.env.CARPETA_WEB || '',
   // Flujo de n8n que escribe los guiones de una unidad (lo llama el servidor). Si el administrador guarda otra dirección en «Conexión n8n», se usa esa.
   n8nGuionesDefecto: process.env.N8N_GUIONES_URL || 'https://n8n.americana.edu.co/webhook/unidad-a-guiones-bibliografia',
+  // Flujo de n8n que crea un documento por unidad a partir del syllabus (lo llama el servidor). Si el administrador guarda otra dirección en «Conexión n8n», se usa esa.
+  n8nUnidadesDefecto: process.env.N8N_UNIDADES_URL || 'https://n8n.americana.edu.co/webhook/syllabus-a-plantilla-bibliografia-v2',
   // Minutos máximos que se espera la respuesta de n8n antes de darla por fallida.
   n8nMinutosMaximo: Number(process.env.N8N_MINUTOS_MAXIMO || 45),
   // Si la plataforma se publica en una subcarpeta (p. ej. /praxia), la cookie de sesión se limita a ella.

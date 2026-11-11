@@ -218,9 +218,12 @@ test('las escrituras sin el encabezado de seguridad se rechazan', async () => {
   assert.equal(r.status, 400)
 })
 
-test('tras 5 fallos la cuenta se bloquea aunque luego llegue la clave correcta', async () => {
-  for (let i = 0; i < 5; i++) await entrar('coco@u.co', 'mala' + i)
-  assert.equal((await entrar('coco@u.co')).estado, 401)
+test('tras 10 fallos esa cuenta se bloquea aunque luego llegue la clave correcta, y las demás siguen entrando', async () => {
+  for (let i = 0; i < 9; i++) await entrar('coco@u.co', 'mala' + i)
+  assert.equal((await entrar('coco@u.co')).estado, 200) // con 9 fallos todavía no está bloqueada (y un acceso correcto reinicia la cuenta)
+  for (let i = 0; i < 10; i++) await entrar('coco@u.co', 'mala' + i)
+  assert.equal((await entrar('coco@u.co')).estado, 401) // bloqueada: ni con la clave correcta
+  assert.equal((await entrar('cora@u.co')).estado, 200) // el bloqueo es solo de esa cuenta, desde la misma red
 })
 
 test('el coordinador ve el avance de todos los cursos (solo cifras, solo lectura) y el docente no', async () => {

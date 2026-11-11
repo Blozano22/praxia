@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import Bibliografia from './Bibliografia.jsx'
 import { api } from '../lib/api.js'
-import { RE_CARPETA, RE_DOC } from '../lib/syllabus.js'
+import { bibliografiaDeSyllabus, RE_CARPETA, RE_DOC } from '../lib/syllabus.js'
 import './portal.css'
 
 const VACIA = { nombre: '', url: '' }
@@ -39,7 +39,7 @@ export default function PortalUnidades({ onCrear }) {
     setBiblioOk(false)
   }
 
-  function montar() {
+  async function montar() {
     setError('')
     const docs = []
     for (let i = 0; i < unidades.length; i++) {
@@ -50,8 +50,7 @@ export default function PortalUnidades({ onCrear }) {
       docs.push({ unidad: docs.length + 1, nombre: u.nombre.trim() || 'Unidad ' + (docs.length + 1), url: u.url.trim(), aprobado: true, visto: true })
     }
     if (!docs.length) return setError('Agregue al menos una unidad con el enlace de su documento.')
-    let bibliografiaId = ''
-    try { bibliografiaId = sessionStorage.getItem('bib:' + biblio.syllabusUrl) || '' } catch { /* sin almacenamiento */ }
+    const bibliografiaId = await bibliografiaDeSyllabus(biblio.syllabusUrl) // la lectura de este syllabus, guardada en el servidor
     onCrear({ programa: '', curso: nombreDoc.current || 'Curso sin nombre (' + new Date().toLocaleDateString() + ')', syllabusUrl: biblio.syllabusUrl, carpetaUrl: carpeta.trim(), documentos: docs, bibliografiaId }, 'unidades')
   }
 

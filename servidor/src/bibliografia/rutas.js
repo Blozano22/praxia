@@ -15,6 +15,8 @@ export const rutasBibliografia = Router()
 rutasBibliografia.use(exigirSesion)
 
 const Id = z.string().uuid()
+// Identificador del documento de Google dentro de su enlace.
+export const idDoc = (url) => (/\/document\/d\/([A-Za-z0-9_-]+)/.exec(url) || [])[1] || null
 // Marca (en estado_detalle) de una referencia que la persona decidió omitir porque no se puede descargar. Sin cambios de esquema.
 export const MARCA_OMITIDA = 'Omitida a mano: no se pudo descargar'
 const MAX_ENTRADAS = 300
@@ -74,7 +76,7 @@ rutasBibliografia.post('/trabajos', exigirPermiso('proyectos.crear'), limiteCrea
     if (!entradas.length) return res.status(422).json({ error: 'No encontré referencias en el texto. Revisa que el syllabus tenga una sección de bibliografía.' })
     const uid = req.usuario.id
     const id = await conUsuario(req.usuario, async (cx) => {
-      const t = (await cx.query(Q.bibTrabajoCrear, [uid, d.proyectoId || null, entradas.length])).rows[0].id
+      const t = (await cx.query(Q.bibTrabajoCrear, [uid, d.proyectoId || null, entradas.length, d.syllabusUrl ? idDoc(d.syllabusUrl) : null])).rows[0].id
       for (const [i, e] of entradas.entries()) await cx.query(Q.bibFuenteInsertar, [t, uid, i + 1, e.entrada_cruda, e.url || null, e.doi || null, e.unidad || null, e.categoria || null])
       return t
     })
@@ -104,6 +106,16 @@ rutasBibliografia.get('/trabajos', limiteLeer, validar(z.object({ proyectoId: z.
 })
 
 // Estado y fuentes del trabajo, con autores y documentos de cada una.
+// Retoma la lectura más reciente de un syllabus por su enlace (desde cualquier pestaña o equipo): { id, estado, creado } o 404.
+const QueryPorSyllabus = z.object({ url: z.string().max(500).regex(/^https:\/\/docs\.google\.com\/document\/d\/[A-Za-z0-9_-]{10,100}(?:[/?#].*)?$/) }).strict()
+rutasBibliografia.get('/trabajos/por-syllabus', limiteLeer, validar(QueryPorSyllabus, 'query'), async (req, res, next) => {
+  try {
+    const f = await conUsuario(req.usuario, async (cx) => (await cx.query(Q.bibTrabajoPorDoc, [req.usuario.id, idDoc(req.queryOk.url)])).rows[0])
+    if (!f) return res.status(404).json({ error: 'No encontrado' })
+    res.json(f)
+  } catch (e) { next(e) }
+})
+
 rutasBibliografia.get('/trabajos/:id', limiteLeer, validar(z.object({ id: Id }), 'params'), async (req, res, next) => {
   try {
     const { id } = req.paramsOk

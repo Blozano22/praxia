@@ -24,10 +24,14 @@ export const Q = Object.freeze({
       JOIN rol_permisos rp ON rp.rol_id = ur.rol_id
       JOIN permisos p ON p.id = rp.permiso_id
      WHERE ur.usuario_id = $1`,
+  // Bloqueo solo de esa cuenta: a los 10 fallos seguidos, 5 minutos. Pasado el bloqueo la cuenta cuenta de cero (antes, un solo fallo más la volvía a bloquear).
   registrarFallo: `
-    UPDATE usuarios
-       SET intentos_fallidos = intentos_fallidos + 1,
-           bloqueado_hasta = CASE WHEN intentos_fallidos + 1 >= 5 THEN now() + interval '15 minutes' ELSE bloqueado_hasta END
+    UPDATE usuarios SET
+           intentos_fallidos = CASE WHEN bloqueado_hasta IS NOT NULL AND bloqueado_hasta <= now() THEN 1 ELSE intentos_fallidos + 1 END,
+           bloqueado_hasta = CASE
+             WHEN (CASE WHEN bloqueado_hasta IS NOT NULL AND bloqueado_hasta <= now() THEN 1 ELSE intentos_fallidos + 1 END) >= 10 THEN now() + interval '5 minutes'
+             WHEN bloqueado_hasta IS NOT NULL AND bloqueado_hasta <= now() THEN NULL
+             ELSE bloqueado_hasta END
      WHERE id = $1`,
   registrarAcceso: `
     UPDATE usuarios SET intentos_fallidos = 0, bloqueado_hasta = NULL, ultimo_acceso = now() WHERE id = $1`,
@@ -90,12 +94,31 @@ export const Q = Object.freeze({
     UPDATE guiones_trabajos SET estado = 'error', error = $1, terminado = now()
      WHERE estado = 'en_curso' AND creado < now() - ($2::int * interval '1 minute')`,
   guionTrabajosLimpiar: `DELETE FROM guiones_trabajos WHERE estado <> 'en_curso' AND coalesce(terminado, creado) < now() - interval '7 days'`,
+  // ---- trabajos de creación de unidades (la llamada a n8n la hace el servidor). Todo va filtrado por propietario.
+  unidadTrabajoCrear: `
+    INSERT INTO unidades_trabajos (propietario_id, syllabus_doc, syllabus_url, carpeta_url, curso, proyecto_id, bibliografia_id, estado)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, 'en_curso')
+    ON CONFLICT (propietario_id, syllabus_doc) WHERE estado = 'en_curso' DO NOTHING
+    RETURNING id, creado`,
+  unidadTrabajoEnCurso: `SELECT id, creado FROM unidades_trabajos WHERE propietario_id = $1 AND syllabus_doc = $2 AND estado = 'en_curso'`,
+  unidadTrabajoListo: `UPDATE unidades_trabajos SET estado = 'listo', respuesta = $2, terminado = now() WHERE id = $1 AND estado = 'en_curso'`,
+  unidadTrabajoFallo: `UPDATE unidades_trabajos SET estado = 'error', error = $2, terminado = now() WHERE id = $1 AND estado = 'en_curso'`,
+  unidadTrabajosListar: `
+    SELECT id, syllabus_doc AS "syllabusDoc", syllabus_url AS "syllabusUrl", carpeta_url AS "carpetaUrl", curso, proyecto_id AS proyecto,
+           bibliografia_id AS "bibliografiaId", estado, creado, terminado, error
+      FROM unidades_trabajos WHERE propietario_id = $1 ORDER BY creado DESC LIMIT 200`,
+  unidadTrabajoRespuesta: `SELECT respuesta FROM unidades_trabajos WHERE id = $1 AND propietario_id = $2 AND estado = 'listo'`,
+  unidadTrabajoBorrar: `DELETE FROM unidades_trabajos WHERE id = $1 AND propietario_id = $2 AND estado <> 'en_curso' RETURNING id`,
+  unidadTrabajosCaducar: `
+    UPDATE unidades_trabajos SET estado = 'error', error = $1, terminado = now()
+     WHERE estado = 'en_curso' AND creado < now() - ($2::int * interval '1 minute')`,
+  unidadTrabajosLimpiar: `DELETE FROM unidades_trabajos WHERE estado <> 'en_curso' AND coalesce(terminado, creado) < now() - interval '7 days'`,
   usuarioSubirVersion: `UPDATE usuarios SET version_token = version_token + 1 WHERE id = $1 RETURNING id`,
   rolesListar: `SELECT nombre FROM roles ORDER BY id`,
 
   // ---- syllabus (proyectos): siempre del usuario de la sesión
   proyectosListar: `
-    SELECT datos FROM proyectos WHERE propietario_id = $1 ORDER BY creado DESC LIMIT 1000`,
+    SELECT datos, version FROM proyectos WHERE propietario_id = $1 ORDER BY creado DESC LIMIT 1000`,
   // Seguimiento (coordinación): solo cifras de avance de TODOS los cursos, nunca el contenido. Lectura: la política
   // proyectos_leer deja ver filas ajenas únicamente a quien tiene proyectos.ver_todos; escribir sigue siendo solo lo propio.
   seguimientoListar: `
@@ -112,14 +135,15 @@ export const Q = Object.freeze({
       JOIN usuarios u ON u.id = p.propietario_id
      ORDER BY p.actualizado DESC
      LIMIT 2000`,
+  // Con FOR UPDATE: dos guardados a la vez del mismo syllabus se atienden uno tras otro y el segundo ve la versión nueva.
   proyectoObtener: `
-    SELECT datos FROM proyectos WHERE propietario_id = $1 AND id = $2`,
+    SELECT datos, version FROM proyectos WHERE propietario_id = $1 AND id = $2 FOR UPDATE`,
   proyectoGuardar: `
     INSERT INTO proyectos (propietario_id, id, programa, curso, datos)
     VALUES ($1, $2, $3, $4, $5::jsonb)
     ON CONFLICT (propietario_id, id)
-    DO UPDATE SET programa = EXCLUDED.programa, curso = EXCLUDED.curso, datos = EXCLUDED.datos, actualizado = now()
-    RETURNING id`,
+    DO UPDATE SET programa = EXCLUDED.programa, curso = EXCLUDED.curso, datos = EXCLUDED.datos, actualizado = now(), version = proyectos.version + 1
+    RETURNING id, version`,
   proyectoEliminar: `
     DELETE FROM proyectos WHERE propietario_id = $1 AND id = $2 RETURNING id`,
 
@@ -135,7 +159,12 @@ export const Q = Object.freeze({
 
   // ---- bibliografía (cada consulta filtra por propietario y además actúa la política de filas)
   bibTrabajoCrear: `
-    INSERT INTO bib_trabajos (propietario_id, proyecto_id, estado, total) VALUES ($1, $2, 'pendiente', $3) RETURNING id`,
+    INSERT INTO bib_trabajos (propietario_id, proyecto_id, estado, total, syllabus_doc) VALUES ($1, $2, 'pendiente', $3, $4) RETURNING id`,
+  // La lectura más reciente de ese documento (de los últimos 14 días) para retomarla desde cualquier pestaña o equipo.
+  bibTrabajoPorDoc: `
+    SELECT id, estado, creado FROM bib_trabajos
+     WHERE propietario_id = $1 AND syllabus_doc = $2 AND creado > now() - interval '14 days'
+     ORDER BY creado DESC LIMIT 1`,
   bibTrabajoActualizar: `
     UPDATE bib_trabajos SET estado = $3, resueltas = $4, fallidas = $5, detalle = $6, actualizado = now()
      WHERE id = $1 AND propietario_id = $2`,

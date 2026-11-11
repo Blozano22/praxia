@@ -85,17 +85,10 @@ function buscarTexto(payload, claves) {
   return ''
 }
 
-// Envía el syllabus a n8n. Devuelve {documentos, programa, curso}. Si n8n termina sin lista de enlaces,
-// lanza un error con code 'NO_DOCUMENT_LIST' (el portal original lo muestra como «El flujo terminó. Revisa tu carpeta»).
-export async function generarDocumentos({ syllabusUrl, carpetaUrl, bibliografia }) {
-  await cargarConfigN8n()
-  const response = await fetch(leerWebhook(), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ syllabus_url: syllabusUrl, carpeta_destino_url: carpetaUrl, ...(bibliografia ? { bibliografia } : {}) })
-  })
-  const raw = await response.text()
-  if (!response.ok) throw new Error(responseErrorText(raw) || 'n8n respondió con HTTP ' + response.status)
+// La llamada a n8n la hace el servidor (ver trabajosUnidades.js): aquí solo se interpreta su respuesta ya terminada.
+// Devuelve {documentos, programa, curso}. Si n8n terminó sin lista de enlaces, lanza un error con code 'NO_DOCUMENT_LIST'
+// (el portal original lo muestra como «El flujo terminó. Revisa tu carpeta»).
+export function interpretarRespuestaDocumentos(raw) {
   const payload = parseJsonLayers(raw)
   const documentos = extractDocuments(payload).map(normalizeDocument).sort((a, b) => a.unidad - b.unidad)
   const programa = buscarTexto(payload, ['programa', 'nombre_programa', 'program'])
@@ -108,6 +101,18 @@ export async function generarDocumentos({ syllabusUrl, carpetaUrl, bibliografia 
     throw error
   }
   return { documentos, programa, curso }
+}
+
+// Identificador del documento de Google dentro de su enlace ('' si no es un enlace de documento).
+export const idDocumento = (url) => (/\/document\/d\/([A-Za-z0-9_-]+)/.exec(String(url || '')) || [])[1] || ''
+
+// La lectura de bibliografía más reciente (y completa) de ese syllabus, guardada en el servidor: se encuentra desde cualquier
+// pestaña o equipo. Devuelve su identificador o '' si no hay una lista.
+export async function bibliografiaDeSyllabus(syllabusUrl) {
+  try {
+    const r = await api('GET', '/bibliografia/trabajos/por-syllabus?url=' + encodeURIComponent(syllabusUrl))
+    return r && r.estado === 'listo' ? r.id : ''
+  } catch { return '' }
 }
 
 // ---- Segundo flujo: «unidad-a-guiones». Recibe el documento de la unidad y devuelve un guion por tema. ----

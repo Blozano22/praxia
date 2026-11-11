@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react'
 import Bibliografia from './Bibliografia.jsx'
 import { api } from '../lib/api.js'
-import { generarDocumentos, mensajeDeError, RE_CARPETA, RE_DOC } from '../lib/syllabus.js'
+import { bibliografiaDeSyllabus, mensajeDeError, RE_CARPETA, RE_DOC } from '../lib/syllabus.js'
+import { iniciarUnidades, olvidarTerminado, useTrabajoUnidades } from '../lib/trabajosUnidades.js'
 import './portal.css'
 
 const Icono = ({ d }) => <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d={d} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -37,15 +38,22 @@ function Resultado({ doc }) {
   )
 }
 
+// Mensaje según lo que devolvió n8n (la plataforma ya guardó el syllabus con ese resultado).
+function estadoDeResultado(t, modo) {
+  if (t.sinLista) return { state: 'success', title: 'El flujo terminó', message: 'Revisa tu carpeta.' }
+  const conEnlace = t.documentos.filter((d) => d.url).length
+  if (!conEnlace) return { state: 'error', title: 'n8n terminó, pero no devolvió enlaces', message: 'Se recibieron datos de las unidades, pero no una URL válida para abrir los documentos. Revisa el campo documento_generado.url en el nodo “Responder enlaces de plantillas”.' }
+  if (conEnlace < t.documentos.length) return { state: 'error', title: 'Faltan algunos enlaces', message: `${conEnlace} de ${t.documentos.length} unidades recibieron una URL válida. Las unidades sin enlace aparecen en la lista.` }
+  return { state: 'success', title: '¡Documentos listos!', message: `${conEnlace} documento${conEnlace === 1 ? '' : 's'} generado${conEnlace === 1 ? '' : 's'}, uno por unidad. ${modo === 'nuevo' ? 'Abriendo el syllabus…' : 'Selecciona una unidad para abrir su documento.'}` }
+}
+
 // Igual que el portal «syllabus-portal.html»: dos enlaces, «Generar documentos» y el resultado por unidad.
-// La plataforma solo guarda el resultado (onResultado) y permite verlo después.
-export default function PortalSyllabus({ inicial, modo = 'nuevo', onResultado, onNombrar, onAbrir }) {
+// El servidor crea las unidades con n8n; la plataforma guarda el resultado en el syllabus y permite verlo después.
+export default function PortalSyllabus({ inicial, modo = 'nuevo', proyectoId = null, onAbrir }) {
   const [url, setUrl] = useState((inicial && inicial.syllabusUrl) || '')
   const [carpeta, setCarpeta] = useState((inicial && inicial.carpetaUrl) || '')
-  const [ocupado, setOcupado] = useState(false)
-  const [estado, setEstado] = useState(null) // {state,title,message}
-  const [docs, setDocs] = useState([])
-  const [guardado, setGuardado] = useState(null) // id del syllabus guardado
+  const [lanzando, setLanzando] = useState(false) // enviando la orden al servidor
+  const [local, setLocal] = useState(null) // aviso propio de este formulario {state,title,message} (p. ej. falta leer la bibliografía)
   const nombreDoc = useRef('') // nombre del documento de Google: es el nombre del syllabus
   const [aviso, setAviso] = useState({ doc: '', carpeta: '' })
   const [biblio, setBiblio] = useState(null) // {syllabusUrl, folderUrl, vez}: lectura de la bibliografía en curso
@@ -68,35 +76,29 @@ export default function PortalSyllabus({ inicial, modo = 'nuevo', onResultado, o
     setBiblioOk(false)
   }
 
-  // Envío a n8n: solo se habilita cuando la bibliografía está completa (botón «Crear las unidades»).
+  // Creación de las unidades: solo se habilita cuando la bibliografía está completa (botón «Crear las unidades»).
+  // La llamada a n8n la hace el servidor: sigue aunque se cierre la página y no se puede lanzar dos veces.
   async function generar(syllabusUrl, folderUrl) {
-    setOcupado(true); setDocs([]); setGuardado(null)
-    setEstado({ state: 'busy', title: 'Procesando syllabus', message: 'n8n está generando los documentos. Las rutas aparecerán aquí cuando termine.' })
+    setLanzando(true); setLocal(null)
     try {
-      // La bibliografía leída y verificada viaja junto al syllabus: n8n trabaja con ella y no con lo que el modelo conozca.
-      let bibliografia = null
-      let bibliografiaId = ''
-      try { bibliografiaId = sessionStorage.getItem('bib:' + syllabusUrl) || ''; if (bibliografiaId) bibliografia = await api('GET', '/bibliografia/trabajos/' + bibliografiaId + '/paquete') } catch (e) { throw new Error('La bibliografía no está completa: ' + e.message) }
-      if (!bibliografia) throw new Error('Primero hay que leer la bibliografía del syllabus.')
-      const r = await generarDocumentos({ syllabusUrl, carpetaUrl: folderUrl, bibliografia })
-      setDocs(r.documentos)
-      const conEnlace = r.documentos.filter((d) => d.url).length
-      if (!conEnlace) setEstado({ state: 'error', title: 'n8n terminó, pero no devolvió enlaces', message: 'Se recibieron datos de las unidades, pero no una URL válida para abrir los documentos. Revisa el campo documento_generado.url en el nodo “Responder enlaces de plantillas”.' })
-      else if (conEnlace < r.documentos.length) setEstado({ state: 'error', title: 'Faltan algunos enlaces', message: `${conEnlace} de ${r.documentos.length} unidades recibieron una URL válida. Las unidades sin enlace aparecen en la lista.` })
-      else setEstado({ state: 'success', title: '¡Documentos listos!', message: `${conEnlace} documento${conEnlace === 1 ? '' : 's'} generado${conEnlace === 1 ? '' : 's'}, uno por unidad. ${modo === 'nuevo' ? 'Abriendo el syllabus…' : 'Selecciona una unidad para abrir su documento.'}` })
-      const id = onResultado({ syllabusUrl, carpetaUrl: folderUrl, documentos: r.documentos, estado: 'listo', mensaje: '', programa: r.programa, curso: nombreDoc.current || r.curso, bibliografiaId })
-      setGuardado(id)
-      // Con todas las unidades creadas se pasa solo a la vista del syllabus (tras un instante para ver el resultado).
-      if (modo === 'nuevo' && conEnlace === r.documentos.length && conEnlace > 0 && onAbrir) setTimeout(() => onAbrir(id, 'docs'), 1400)
+      const bibliografiaId = await bibliografiaDeSyllabus(syllabusUrl) // la lectura completa de este syllabus, guardada en el servidor
+      if (!bibliografiaId) throw new Error('Primero hay que leer la bibliografía del syllabus.')
+      await iniciarUnidades({ syllabusUrl, carpetaUrl: folderUrl, bibliografiaId, curso: nombreDoc.current, proyecto: proyectoId })
     } catch (e) {
-      if (e.code === 'NO_DOCUMENT_LIST') {
-        setEstado({ state: 'success', title: 'El flujo terminó', message: 'Revisa tu carpeta.' })
-        setGuardado(onResultado({ syllabusUrl, carpetaUrl: folderUrl, documentos: [], estado: 'listo', mensaje: 'El flujo terminó. Revisa la carpeta de destino.', programa: e.programa, curso: e.curso }))
-      } else {
-        setEstado({ state: 'error', title: 'No se pudo generar', message: mensajeDeError(e) })
-      }
-    } finally { setOcupado(false) }
+      setLocal({ state: 'error', title: 'No se pudo generar', message: mensajeDeError(e) })
+    } finally { setLanzando(false) }
   }
+
+  // El servidor es quien crea las unidades (lib/trabajosUnidades.js): aquí solo se muestra su estado, también al volver a entrar.
+  const trabajo = useTrabajoUnidades(biblio ? biblio.syllabusUrl : '')
+  const terminado = trabajo.terminado
+  const ocupado = lanzando || trabajo.generando
+  const docs = terminado ? terminado.documentos : []
+  const guardado = terminado ? terminado.proyectoId || null : null // id del syllabus guardado
+  const estado = local || (trabajo.generando
+    ? { state: 'busy', title: 'Procesando syllabus', message: 'n8n está generando los documentos. Puede salir de esta pantalla: sigue en segundo plano y el curso aparecerá solo entre sus cursos.' }
+    : trabajo.error ? { state: 'error', title: 'No se pudo generar', message: mensajeDeError(trabajo.error) }
+    : terminado ? estadoDeResultado(terminado, modo) : null)
 
   // Estado de los tres pasos: 1 enlaces · 2 bibliografía · 3 crear las unidades.
   const p1ok = !!biblio
@@ -123,7 +125,7 @@ export default function PortalSyllabus({ inicial, modo = 'nuevo', onResultado, o
               <h2 id="form-title">Enlaces del syllabus</h2>
               {p1ok && <small>Syllabus y carpeta de destino indicados</small>}
             </div>
-            {p1ok && <button className="btn sec sm" type="button" disabled={ocupado} onClick={() => { setBiblio(null); setBiblioOk(false); setEstado(null); setDocs([]); setGuardado(null) }}>Cambiar</button>}
+            {p1ok && <button className="btn sec sm" type="button" disabled={ocupado} onClick={() => { setBiblio(null); setBiblioOk(false); setLocal(null); if (biblio) olvidarTerminado(biblio.syllabusUrl) }}>Cambiar</button>}
           </div>
           {!p1ok && (
             <form onSubmit={enviar} noValidate>

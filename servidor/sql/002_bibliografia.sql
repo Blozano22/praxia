@@ -24,6 +24,10 @@ CREATE TABLE IF NOT EXISTS bib_trabajos (
   actualizado    timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS bib_trabajos_prop_ix ON bib_trabajos (propietario_id, creado DESC);
+-- Documento de Google (su identificador) del que se leyó la bibliografía: así la lectura se encuentra por el enlace del syllabus
+-- desde cualquier pestaña o equipo, sin depender de la memoria de una pestaña.
+ALTER TABLE bib_trabajos ADD COLUMN IF NOT EXISTS syllabus_doc text CHECK (syllabus_doc IS NULL OR char_length(syllabus_doc) <= 120);
+CREATE INDEX IF NOT EXISTS bib_trabajos_doc_ix ON bib_trabajos (propietario_id, syllabus_doc, creado DESC);
 
 CREATE TABLE IF NOT EXISTS bib_fuentes (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),

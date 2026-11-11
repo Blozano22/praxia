@@ -85,18 +85,17 @@ export default function Bibliografia({ lista = [], fijo = null, onEstado }) {
   const [lector, setLector] = useState(null)
   const reloj = useRef(null)
 
-  // En el flujo del syllabus la lectura arranca sola; si ya había una de este mismo enlace en esta sesión, se retoma.
+  // En el flujo del syllabus la lectura arranca sola; si ya había una reciente de este mismo enlace, se retoma.
   useEffect(() => {
     if (!fijo) return undefined
     let vivo = true
-    const clave = 'bib:' + fijo.syllabusUrl
     ;(async () => {
       let id = null
-      try { id = sessionStorage.getItem(clave) } catch { /* sin almacenamiento */ }
-      if (id) { try { await api('GET', '/bibliografia/trabajos/' + id) } catch { id = null } }
+      // Se retoma la lectura más reciente de este enlace (de los últimos 14 días), guardada en el servidor: sirve desde otra
+      // pestaña, tras cerrar la página o desde otro equipo. Si no hay ninguna (o la última falló), se lee de nuevo.
+      try { const r = await api('GET', '/bibliografia/trabajos/por-syllabus?url=' + encodeURIComponent(fijo.syllabusUrl)); if (r && r.estado !== 'error') id = r.id } catch { /* no hay lectura previa */ }
       if (!id) {
         try { id = (await api('POST', '/bibliografia/trabajos', { syllabusUrl: fijo.syllabusUrl, ...(fijo.proyectoId ? { proyectoId: fijo.proyectoId } : {}) })).id } catch (e) { if (vivo) setError(e.message); return }
-        try { sessionStorage.setItem(clave, id) } catch { /* sin almacenamiento */ }
       }
       if (vivo) setActivo(id)
     })()
@@ -107,7 +106,6 @@ export default function Bibliografia({ lista = [], fijo = null, onEstado }) {
     setError(''); setAviso(''); setD(null)
     try {
       const id = (await api('POST', '/bibliografia/trabajos', { syllabusUrl: fijo.syllabusUrl, ...(fijo.proyectoId ? { proyectoId: fijo.proyectoId } : {}) })).id
-      try { sessionStorage.setItem('bib:' + fijo.syllabusUrl, id) } catch { /* sin almacenamiento */ }
       setActivo(id)
     } catch (e) { setError(e.message) }
   }

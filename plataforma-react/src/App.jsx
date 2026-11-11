@@ -11,12 +11,14 @@ import Plantillas from './components/Plantillas.jsx'
 import Seguimiento from './components/Seguimiento.jsx'
 import Usuarios from './components/Usuarios.jsx'
 import { arrancarSondeo, detenerSondeo, fijarAnfitrion } from './lib/trabajosGuiones.js'
+import { arrancarSondeoUnidades, detenerSondeoUnidades, fijarAnfitrionUnidades } from './lib/trabajosUnidades.js'
+import UnidadesEnCurso from './components/UnidadesEnCurso.jsx'
 import { olvidarConfigN8n } from './lib/syllabus.js'
 import Conexiones from './components/Conexiones.jsx'
 import Titulo from './components/Titulo.jsx'
 import { api } from './lib/api.js'
 import { NOMBRE_ROL, resumenRoles } from './lib/roles.js'
-import { borrar, borrarLocal, guardar, locales, todos } from './lib/store.js'
+import { borrar, borrarLocal, guardar, locales, normalizar, todos } from './lib/store.js'
 import { uid } from './lib/util.js'
 
 // Opción del menú lateral: icono + texto; con el menú contraído solo se ve el icono y el texto queda como etiqueta.
@@ -43,7 +45,13 @@ export default function App() {
   const [unidadSel, setUnidadSel] = useState(null)
   const [recSel, setRecSel] = useState({ u: null })
   const [toast, setToast] = useState('')
+  const vistaRef = useRef('dashboard') // pantalla actual y función de abrir, para el trabajo de unidades que termina fuera de React
+  const abrirRef = useRef(() => {})
   const [fallos, setFallos] = useState({}) // syllabus cuyo último guardado falló: id -> motivo
+  const [conflicto, setConflicto] = useState(null) // un syllabus cambió en otra pestaña o equipo: { id, actual, version }
+  const versiones = useRef({}) // syllabus -> última versión que el servidor confirmó
+  const colas = useRef({}) // syllabus -> guardado en curso (los guardados de un mismo syllabus van de uno en uno)
+  const pendientes = useRef({}) // syllabus -> último estado por guardar mientras hay uno en curso
   const [pendInicial, setPendInicial] = useState(null)
   const [entrada, setEntrada] = useState('syllabus') // syllabus | avance
   const ref = useRef([])
@@ -87,13 +95,15 @@ export default function App() {
     if (!yo) return
     setCargado(false)
     if (!yo.permisos.includes('proyectos.ver_propios')) { setVista(yo.permisos.includes('usuarios.gestionar') ? 'usuarios' : 'plantillas'); setCargado(true); return }
-    todos().then((l) => setLista(l.sort((a, b) => b.creado - a.creado))).catch(() => {}).finally(() => setCargado(true))
+    todos().then((l) => { l.forEach((p) => { versiones.current[p.id] = p._v }); setLista(l.sort((a, b) => b.creado - a.creado)) }).catch(() => {}).finally(() => setCargado(true))
     locales().then(setPendientesLocales)
   }, [yo])
 
   const importarLocales = async () => {
     for (const p of pendientesLocales) { await guardar(p); await borrarLocal(p.id) }
-    setLista((await todos()).sort((a, b) => b.creado - a.creado))
+    const l = await todos()
+    l.forEach((p) => { versiones.current[p.id] = p._v })
+    setLista(l.sort((a, b) => b.creado - a.creado))
     setPendientesLocales([])
     aviso('Syllabus importados a tu cuenta')
   }
@@ -109,44 +119,101 @@ export default function App() {
     const l = ref.current.some((x) => x.id === s.id) ? ref.current.map((x) => (x.id === s.id ? s : x)) : [s, ...ref.current]
     ref.current = l
     setLista(l)
-    return guardar(s).then(() => {
-      setFallos((f) => { if (!(s.id in f)) return f; const n = { ...f }; delete n[s.id]; return n })
-      return true
-    }).catch((e) => {
-      if (e.estado === 401) setYo(null)
-      else { setFallos((f) => ({ ...f, [s.id]: e.message })); aviso('No se pudo guardar: ' + e.message) }
-      return false
-    })
+    // Los guardados de un mismo syllabus van de uno en uno (cada uno parte de la versión que dejó el anterior) y si llegan varios
+    // mientras uno está en curso solo se envía el último estado.
+    pendientes.current[s.id] = s
+    if (colas.current[s.id]) return colas.current[s.id]
+    colas.current[s.id] = (async () => {
+      let ok = true
+      try {
+        while (pendientes.current[s.id]) {
+          const p = pendientes.current[s.id]
+          delete pendientes.current[s.id]
+          try {
+            const r = await guardar({ ...p, _v: versiones.current[p.id] })
+            if (r && r.version) versiones.current[p.id] = r.version
+            setFallos((f) => { if (!(p.id in f)) return f; const n = { ...f }; delete n[p.id]; return n })
+            setConflicto((c) => (c && c.id === p.id ? null : c))
+            ok = true
+          } catch (e) {
+            ok = false
+            delete pendientes.current[s.id] // lo más reciente sigue en pantalla; «Reintentar» envía ese estado
+            if (e.estado === 401) setYo(null)
+            else if (e.estado === 409 && e.datos && e.datos.conflicto) setConflicto({ id: p.id, actual: e.datos.actual, version: e.datos.version })
+            else { setFallos((f) => ({ ...f, [p.id]: e.message })); aviso('No se pudo guardar: ' + e.message) }
+          }
+        }
+      } finally { delete colas.current[s.id] }
+      return ok
+    })()
+    return colas.current[s.id]
   }, [aviso])
+  const proyConflicto = conflicto ? lista.find((x) => x.id === conflicto.id) : null
+  const verVersionNueva = () => {
+    const a = normalizar(conflicto.actual)
+    versiones.current[a.id] = conflicto.version
+    const l = ref.current.map((x) => (x.id === a.id ? a : x))
+    ref.current = l
+    setLista(l)
+    setConflicto(null)
+  }
+  const guardarDeTodosModos = () => {
+    versiones.current[conflicto.id] = conflicto.version
+    const p = ref.current.find((x) => x.id === conflicto.id)
+    setConflicto(null)
+    if (p) actualizar(p)
+  }
   const idFallo = Object.keys(fallos)[0]
   const proyFallo = idFallo ? lista.find((x) => x.id === idFallo) : null
 
   // Las generaciones de guiones en curso guardan su resultado aquí aunque ya se haya salido de la unidad.
   useEffect(() => { fijarAnfitrion({ obtener: (id) => ref.current.find((x) => x.id === id) || null, guardar: actualizar }) }, [actualizar])
 
+  // La creación de las unidades también vive en el servidor: al terminar, el syllabus se crea (o se actualiza) aquí, aunque la persona
+  // ya no esté en esa pantalla. El identificador del syllabus nuevo sale del trabajo: si hay que reintentar, no se duplica.
+  useEffect(() => {
+    fijarAnfitrionUnidades({
+      crearDeUnidades: async (job, r) => {
+        const conEnlace = r.documentos.filter((d) => d.url).length
+        const mensaje = r.sinLista ? 'El flujo terminó. Revisa la carpeta de destino.' : ''
+        if (job.proyecto) { // volver a generar los documentos de un syllabus que ya existe
+          const s = ref.current.find((x) => x.id === job.proyecto)
+          if (!s) return { ok: true } // ya no existe: no hay dónde guardar
+          const ok = await actualizar({ ...s, syllabusUrl: job.syllabusUrl, carpetaUrl: job.carpetaUrl, bibliografiaId: job.bibliografiaId || s.bibliografiaId || '', syllabus: { estado: 'listo', documentos: r.documentos.length ? r.documentos : s.syllabus.documentos, mensaje } })
+          if (ok) aviso('Unidades de «' + s.curso + '» listas')
+          return { ok, id: s.id }
+        }
+        const id = 'j' + job.id.replace(/-/g, '').slice(0, 24)
+        if (ref.current.some((x) => x.id === id)) return { ok: true, id } // ya se creó en un intento anterior
+        const nuevo = {
+          id, programa: r.programa || 'Sin programa', curso: job.curso || r.curso || 'Syllabus sin nombre (' + new Date().toLocaleDateString() + ')',
+          syllabusUrl: job.syllabusUrl, carpetaUrl: job.carpetaUrl, creado: Date.now(),
+          bibliografiaId: job.bibliografiaId || '', // lectura de la bibliografía de este syllabus: de ahí salen las fuentes de los guiones
+          syllabus: { estado: 'listo', documentos: r.documentos, mensaje }, recursos: [], guiones: [], info: {}
+        }
+        const ok = await actualizar(nuevo)
+        if (ok) {
+          aviso('Unidades de «' + nuevo.curso + '» listas')
+          // Si la persona seguía esperando en «Nuevo curso» y todo salió bien, se abre el syllabus (como antes).
+          if (vistaRef.current === 'nuevo' && conEnlace === r.documentos.length && conEnlace > 0) setTimeout(() => abrirRef.current(id, 'docs'), 1400)
+        }
+        return { ok, id }
+      }
+    })
+  }, [actualizar, aviso])
+
   // Las generaciones de guiones viven en el servidor: con la sesión iniciada y los syllabus cargados, se consulta cuáles siguen en curso,
   // cuáles terminaron (se guardan solas en su syllabus) y cuáles fallaron.
   const sondea = !!yo && cargado && yo.permisos.includes('proyectos.ver_propios')
-  useEffect(() => { if (!sondea) return undefined; arrancarSondeo(); return () => detenerSondeo() }, [sondea])
+  useEffect(() => {
+    if (!sondea) return undefined
+    arrancarSondeo(); arrancarSondeoUnidades()
+    return () => { detenerSondeo(); detenerSondeoUnidades() }
+  }, [sondea])
 
   const actual = lista.find((s) => s.id === actualId)
   const programas = [...new Set(lista.map((s) => s.programa))].filter((p) => p !== 'Sin programa')
 
-  // Guarda el resultado del generador (igual al portal). Devuelve el id para poder nombrarlo después.
-  const crearSyllabus = (d) => {
-    const s = {
-      id: uid(), programa: d.programa || 'Sin programa', curso: d.curso || 'Syllabus sin nombre (' + new Date().toLocaleDateString() + ')',
-      syllabusUrl: d.syllabusUrl, carpetaUrl: d.carpetaUrl, creado: Date.now(),
-      bibliografiaId: d.bibliografiaId || '', // lectura de la bibliografía de este syllabus: de ahí salen las fuentes de los guiones
-      syllabus: { estado: d.estado, documentos: d.documentos, mensaje: d.mensaje }, recursos: [], guiones: [], info: {}
-    }
-    actualizar(s)
-    return s.id
-  }
-  const nombrar = (id, programa, curso) => {
-    const s = ref.current.find((x) => x.id === id)
-    if (s && (programa || curso)) actualizar({ ...s, programa: programa || s.programa, curso: curso || s.curso })
-  }
   // Entrada con avance: el syllabus nace con sus unidades ya aprobadas y se abre en el paso que sigue.
   const crearManual = (d, destino, cola) => {
     const s = {
@@ -160,6 +227,8 @@ export default function App() {
     ir('workspace')
   }
   const abrir = (id, paso = 'syllabus') => { setActualId(id); setTab(paso); setUnidadSel(null); setRecSel({ u: null }); ir('workspace') }
+  vistaRef.current = vista
+  abrirRef.current = abrir
 
   if (yo === undefined) return null
   if (yo === null) return <Login onEntro={() => api('GET', '/auth/yo').then(setYo).catch(() => setYo(null))} />
@@ -211,6 +280,7 @@ export default function App() {
         </div>
       )}
 
+      {(vista === 'dashboard' || vista === 'nuevo') && cargado && <div className="wrapx"><UnidadesEnCurso /></div>}
       {vista === 'dashboard' && cargado && (
         <Dashboard lista={lista} onNuevo={() => { setEntrada('syllabus'); ir('nuevo') }}
           onAbrir={(id) => { setActualId(id); setTab('syllabus'); setUnidadSel(null); setRecSel({ u: null }); ir('workspace') }}
@@ -236,7 +306,7 @@ export default function App() {
           </div>
           {entrada === 'unidades'
             ? <PortalUnidades key="unidades" onCrear={crearManual} />
-            : <PortalSyllabus key="syllabus" onResultado={crearSyllabus} onNombrar={nombrar} onAbrir={abrir} />}
+            : <PortalSyllabus key="syllabus" onAbrir={abrir} />}
         </div>
       )}
       {vista === 'workspace' && actual && (
@@ -252,7 +322,15 @@ export default function App() {
       </div>
       </div>
       {toast && <div className="toast-app">{toast}</div>}
-      {idFallo && (
+      {conflicto && (
+        <div className="guardado-error conflicto" role="alert">
+          <b>«{proyConflicto ? proyConflicto.curso : 'Este syllabus'}» cambió en otra pestaña o equipo desde que lo abrió.</b>
+          <span>Para no pisar esos cambios no se guardó lo último que hizo aquí. Puede ver la versión más reciente (se pierde lo que cambió aquí sin guardar) o guardar lo suyo de todos modos (se pierde lo que cambió el otro).</span>
+          <button className="btn sm" onClick={verVersionNueva}>Ver la versión más reciente</button>
+          <button className="btn sec sm" onClick={guardarDeTodosModos}>Guardar lo mío de todos modos</button>
+        </div>
+      )}
+      {idFallo && !conflicto && (
         <div className="guardado-error" role="alert">
           <b>No se pudieron guardar los últimos cambios{proyFallo ? ' de «' + proyFallo.curso + '»' : ''}.</b>
           <span>{fallos[idFallo]}. No cierre esta página: hasta que se guarden solo están en su pantalla.</span>
