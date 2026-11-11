@@ -69,13 +69,29 @@ export const Q = Object.freeze({
   configGuardar: `INSERT INTO configuracion (clave, valor) VALUES ($1, $2) ON CONFLICT (clave) DO UPDATE SET valor = EXCLUDED.valor, actualizado = now()`,
   configBorrar: `DELETE FROM configuracion WHERE clave = $1`,
   usuarioBorrar: `DELETE FROM usuarios WHERE id = $1 RETURNING id, correo`,
-  revisionesListar: `
-    SELECT id, plantilla, estado, observacion, doc_url AS "docUrl", usuario_nombre AS usuario, creado
-      FROM plantilla_revisiones ORDER BY creado DESC, id DESC LIMIT 1000`,
-  revisionCrear: `
-    INSERT INTO plantilla_revisiones (plantilla, estado, observacion, doc_url, usuario_id, usuario_nombre)
-    VALUES ($1, $2, $3, $4, $5, $6)
-    RETURNING id, plantilla, estado, observacion, doc_url AS "docUrl", usuario_nombre AS usuario, creado`,
+  historialListar: `
+    SELECT id, plantilla, estado, observacion, doc_url AS "docUrl", usuario_id AS "usuarioId", usuario_nombre AS usuario, rol, referencia,
+           creado, editado_en AS "editadoEn", editado_por AS "editadoPor"
+      FROM plantilla_historial ORDER BY creado DESC, id DESC LIMIT 2000`,
+  // Un paso a la vez por plantilla: dos personas decidiendo a la vez se atienden una tras otra.
+  historialBloquear: `SELECT pg_advisory_xact_lock(hashtext($1))`,
+  historialUltimo: `
+    SELECT id, plantilla, estado, observacion, doc_url AS "docUrl", usuario_id AS "usuarioId", usuario_nombre AS usuario, rol, referencia,
+           creado, editado_en AS "editadoEn", editado_por AS "editadoPor"
+      FROM plantilla_historial WHERE plantilla = $1 ORDER BY creado DESC, id DESC LIMIT 1`,
+  historialObtener: `
+    SELECT id, plantilla, estado, observacion, doc_url AS "docUrl", usuario_id AS "usuarioId", usuario_nombre AS usuario, rol, referencia,
+           creado, editado_en AS "editadoEn", editado_por AS "editadoPor"
+      FROM plantilla_historial WHERE id = $1`,
+  historialCrear: `
+    INSERT INTO plantilla_historial (plantilla, estado, observacion, doc_url, usuario_id, usuario_nombre, rol, referencia)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    RETURNING id, plantilla, estado, observacion, doc_url AS "docUrl", usuario_id AS "usuarioId", usuario_nombre AS usuario, rol, referencia,
+              creado, editado_en AS "editadoEn", editado_por AS "editadoPor"`,
+  historialEditar: `
+    UPDATE plantilla_historial SET observacion = $2, doc_url = $3, editado_en = now(), editado_por = $4 WHERE id = $1
+    RETURNING id, plantilla, estado, observacion, doc_url AS "docUrl", usuario_id AS "usuarioId", usuario_nombre AS usuario, rol, referencia,
+              creado, editado_en AS "editadoEn", editado_por AS "editadoPor"`,
   // ---- trabajos de guiones (la llamada a n8n la hace el servidor). Todo va filtrado por propietario.
   guionTrabajoCrear: `
     INSERT INTO guiones_trabajos (propietario_id, proyecto_id, unidad, estado) VALUES ($1, $2, $3, 'en_curso')

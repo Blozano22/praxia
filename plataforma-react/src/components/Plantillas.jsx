@@ -46,7 +46,7 @@ const CATALOGO = (() => {
 })()
 const CARGA = { ...ARCHIVOS, ...ORIGINALES }
 
-export default function Plantillas({ puedeRevisar = false, aviso }) {
+export default function Plantillas({ puedeRevisar = false, puedeCorregir = false, yo = null, aviso }) {
   const grupos = useMemo(() => GRUPOS.map(([g, l]) => [g, l.filter(([k]) => CATALOGO[k])]).filter(([, l]) => l.length), [])
   const [tipo, setTipo] = useState(grupos[0][1][0][0])
   const [q, setQ] = useState('')
@@ -137,7 +137,7 @@ export default function Plantillas({ puedeRevisar = false, aviso }) {
             {html && <iframe sandbox="allow-scripts" title={'Plantilla ' + titulo} srcDoc={html} style={{ width: 1280, height: 720, transform: `scale(${esc})` }} />}
           </div>
           {!full && <p className="help pl2-pie">Se ve a 1280 × 720, sin barras de desplazamiento, con la paleta de la institución.</p>}
-          {!full && <RevisionPlantilla key={tipo} plantilla={tipo} titulo={titulo} historial={deTipo(tipo)} puedeRevisar={puedeRevisar} aviso={aviso} onNueva={(r) => setRevisiones((l) => [r, ...l])} />}
+          {!full && <RevisionPlantilla key={tipo} plantilla={tipo} titulo={titulo} historial={deTipo(tipo)} puedeRevisar={puedeRevisar} puedeCorregir={puedeCorregir} yo={yo} aviso={aviso} onNueva={(r) => setRevisiones((l) => [r, ...l])} onEditada={(r) => setRevisiones((l) => l.map((x) => (x.id === r.id ? r : x)))} />}
         </section>
 
         <aside className="pl2-lado">

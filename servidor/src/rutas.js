@@ -278,28 +278,84 @@ rutas.put('/config/n8n', ...admin, validar(z.object({ syllabus: UrlN8n.optional(
     } catch (e) { next(e) }
   })
 
-// ------------------------------------------------------------------ revisión de plantillas HTML
-// Ver las decisiones: quien ve las plantillas. Decidir (aprobar, rechazar, mandar a revisión): diseñador y administrador.
+// ------------------------------------------------------------------ revisión de plantillas HTML (ciclo diseñador ↔ administrador)
+// Estados: revision (el diseñador pide cambios) → corregida (el administrador dice que ya están) → aprobada / rechazada / revision otra vez
+// (el diseñador verifica), hasta que el diseñador la aprueba. Ver el estado: quien ve las plantillas. Decidir: diseñador y administrador
+// (el administrador puede aprobar o rechazar, pero tiene que confirmar que es algo del diseñador y queda registrado en calidad de qué actuó).
+// Marcar como corregida: solo quien tiene plantillas.corregir (administrador). Cambiar un estado ya aprobado o rechazado exige confirmarlo.
 const RE_DOC_GOOGLE = /^https:\/\/docs\.google\.com\/document\/d\/[A-Za-z0-9_-]+/
+const enCalidadDe = (u) => (u.roles.includes('disenador') ? 'disenador' : 'administrador')
 rutas.get('/plantillas/revisiones', exigirSesion, exigirPermiso('plantillas.ver'), async (req, res, next) => {
-  try { res.json((await sinUsuario(Q.revisionesListar, [])).rows) } catch (e) { next(e) }
+  try { res.json((await sinUsuario(Q.historialListar, [])).rows) } catch (e) { next(e) }
 })
+
+// Lo que se exige de la observación y el enlace según el estado (devuelve el mensaje de error o null).
+function revisarContenido(estado, observacion, docUrl) {
+  if (estado === 'revision') {
+    if (observacion.length < 3) return 'Escriba la observación: qué hay que cambiar.'
+    if (!RE_DOC_GOOGLE.test(docUrl)) return 'Para mandarla a revisión pegue el enlace del documento de Google Docs con los cambios que desea.'
+  } else if (estado === 'rechazada' && observacion.length < 3) return 'Escriba por qué se rechaza la plantilla.'
+  if (docUrl && !RE_DOC_GOOGLE.test(docUrl)) return 'El enlace debe ser de un documento de Google Docs.'
+  return null
+}
+
 const NuevaRevision = z.object({
   plantilla: z.string().regex(/^[a-z0-9-]{1,80}$/),
-  estado: z.enum(['aprobada', 'rechazada', 'revision']),
+  estado: z.enum(['aprobada', 'rechazada', 'revision', 'corregida']),
   observacion: z.string().trim().max(2000),
-  docUrl: z.string().trim().max(500).optional()
+  docUrl: z.string().trim().max(500).optional(),
+  confirmadoAdmin: z.boolean().optional(), // el administrador reconoce que aprobar, rechazar o pedir cambios es algo del diseñador
+  confirmadoCambio: z.boolean().optional() // reconoce que cambia un estado ya aprobado o rechazado
 }).strict()
-rutas.post('/plantillas/revisiones', exigirSesion, exigirPermiso('plantillas.revisar'), validar(NuevaRevision, 'body'), async (req, res, next) => {
+rutas.post('/plantillas/revisiones', exigirSesion, validar(NuevaRevision, 'body'), async (req, res, next) => {
   try {
-    const { plantilla, estado, observacion } = req.bodyOk
-    const docUrl = req.bodyOk.docUrl || ''
-    if (estado !== 'aprobada' && observacion.length < 3) return res.status(400).json({ error: 'Escriba la observación: qué hay que cambiar o por qué se rechaza.' })
-    if (estado === 'revision' && !RE_DOC_GOOGLE.test(docUrl)) return res.status(400).json({ error: 'Para mandarla a revisión pegue el enlace del documento de Google Docs con los cambios que desea.' })
-    if (docUrl && !RE_DOC_GOOGLE.test(docUrl)) return res.status(400).json({ error: 'El enlace debe ser de un documento de Google Docs.' })
-    const f = (await sinUsuario(Q.revisionCrear, [plantilla, estado, observacion, docUrl || null, req.usuario.id, req.usuario.nombre])).rows[0]
-    await auditar(req.usuario.id, 'plantilla_' + estado, 'plantilla', plantilla, req)
-    res.status(201).json(f)
+    const { plantilla, estado, observacion, confirmadoAdmin, confirmadoCambio } = req.bodyOk
+    const docUrl = estado === 'revision' ? (req.bodyOk.docUrl || '') : ''
+    if (!req.usuario.permisos.has(estado === 'corregida' ? 'plantillas.corregir' : 'plantillas.revisar')) return res.status(403).json({ error: 'No tienes permiso para esto' })
+    const mal = revisarContenido(estado, observacion, docUrl)
+    if (mal) return res.status(400).json({ error: mal })
+    const rol = estado === 'corregida' ? 'administrador' : enCalidadDe(req.usuario)
+    const r = await conTransaccion(async (c) => {
+      await c.query(Q.historialBloquear, [plantilla])
+      const ultimo = (await c.query(Q.historialUltimo, [plantilla])).rows[0]
+      if (estado === 'corregida') {
+        if (!ultimo || ultimo.estado !== 'revision') return { codigo: 409, cuerpo: { error: 'No hay una solicitud de revisión pendiente para marcar como corregida.' } }
+      } else {
+        if (rol === 'administrador' && !confirmadoAdmin) return { codigo: 409, cuerpo: { requiereConfirmacion: 'admin', error: 'Aprobar, rechazar o pedir cambios en una plantilla es algo que debe hacer el diseñador. Si continúa, quedará registrado que lo hizo usted como administrador.' } }
+        if (ultimo && (ultimo.estado === 'aprobada' || ultimo.estado === 'rechazada') && !confirmadoCambio) return { codigo: 409, cuerpo: { requiereConfirmacion: 'cambio', error: 'Esta plantilla ya estaba ' + (ultimo.estado === 'aprobada' ? 'aprobada' : 'rechazada') + '. Si continúa, cambia ese estado.' } }
+      }
+      const f = (await c.query(Q.historialCrear, [plantilla, estado, observacion, docUrl || null, req.usuario.id, req.usuario.nombre, rol, estado === 'corregida' ? ultimo.id : null])).rows[0]
+      return { codigo: 201, cuerpo: f }
+    })
+    if (r.codigo === 201) await auditar(req.usuario.id, 'plantilla_' + estado, 'plantilla', plantilla, req)
+    res.status(r.codigo).json(r.cuerpo)
+  } catch (e) { next(e) }
+})
+
+// Editar una solicitud de revisión (o una corrección) ya enviada: solo quien la creó, y mientras siga siendo lo último de esa plantilla.
+// Queda marcada como editada, con quién y cuándo fue la última edición.
+const EditarRevision = z.object({ observacion: z.string().trim().max(2000), docUrl: z.string().trim().max(500).optional() }).strict()
+rutas.patch('/plantillas/revisiones/:id', exigirSesion, validar(z.object({ id: z.string().regex(/^\d{1,18}$/) }), 'params'), validar(EditarRevision, 'body'), async (req, res, next) => {
+  try {
+    const r = await conTransaccion(async (c) => {
+      const fila = (await c.query(Q.historialObtener, [req.paramsOk.id])).rows[0]
+      if (!fila) return { codigo: 404, cuerpo: { error: 'No encontrado' } }
+      await c.query(Q.historialBloquear, [fila.plantilla])
+      const ultimo = (await c.query(Q.historialUltimo, [fila.plantilla])).rows[0]
+      if (fila.usuarioId !== req.usuario.id) return { codigo: 403, cuerpo: { error: 'Solo quien la envió puede editarla.' } }
+      if (fila.estado !== 'revision' && fila.estado !== 'corregida') return { codigo: 409, cuerpo: { error: 'Solo se pueden editar las solicitudes de revisión y las correcciones.' } }
+      if (!req.usuario.permisos.has(fila.estado === 'corregida' ? 'plantillas.corregir' : 'plantillas.revisar')) return { codigo: 403, cuerpo: { error: 'No tienes permiso para esto' } }
+      if (!ultimo || ultimo.id !== fila.id) return { codigo: 409, cuerpo: { error: 'Ya hay un movimiento posterior sobre esta plantilla: esta solicitud ya no se puede editar.' } }
+      const observacion = req.bodyOk.observacion
+      const docUrl = fila.estado === 'revision' ? (req.bodyOk.docUrl || '') : ''
+      const mal = revisarContenido(fila.estado, observacion, docUrl)
+      if (mal) return { codigo: 400, cuerpo: { error: mal } }
+      if (observacion === fila.observacion && (docUrl || null) === (fila.docUrl || null)) return { codigo: 400, cuerpo: { error: 'No hay cambios que guardar.' } }
+      const f = (await c.query(Q.historialEditar, [fila.id, observacion, docUrl || null, req.usuario.nombre])).rows[0]
+      return { codigo: 200, cuerpo: f }
+    })
+    if (r.codigo === 200) await auditar(req.usuario.id, 'plantilla_editar', 'plantilla', r.cuerpo.plantilla, req)
+    res.status(r.codigo).json(r.cuerpo)
   } catch (e) { next(e) }
 })
 

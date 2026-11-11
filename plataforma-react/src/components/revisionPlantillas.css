@@ -59,3 +59,35 @@
 .rv .rv-pie{margin-top:14px}
 .rv .rv-hist{margin:0;padding:14px 22px;border-top:1px solid var(--line);background:color-mix(in srgb,var(--nav) 2.5%,#fff)}
 @media(max-width:760px){.rv-cuerpo.con-acc{grid-template-columns:1fr}.rv-cab{flex-wrap:wrap}.rv-acciones .rv-b{flex:1 1 100%}}
+
+/* ---------- Historial como línea de tiempo (de la decisión más antigua a la más reciente) ---------- */
+.rv-hist{padding:16px 24px 20px}
+.rv-hist>summary{display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:800;color:var(--nav)}
+.rv-hist>summary span{display:inline-grid;place-items:center;min-width:24px;height:24px;padding:0 7px;border-radius:99px;background:color-mix(in srgb,var(--nav) 9%,#fff);font-size:.78rem}
+.rv-hist-nota{margin:6px 0 14px;font-size:.8rem;color:var(--muted)}
+.rv-linea{list-style:none;margin:0;padding:0;position:relative}
+.rv-linea::before{content:"";position:absolute;left:13px;top:14px;bottom:14px;width:2px;background:var(--line)}
+.rv-pt{--c:#5b6783;--bg:#eef1f5;position:relative;display:flex;gap:14px;padding:0 0 14px}
+.rv-pt.aprobada{--c:#1b7a4c;--bg:#e4f5ec}.rv-pt.rechazada{--c:#b4332c;--bg:#fbe9e7}.rv-pt.revision{--c:#8a6200;--bg:#fdf3d4}
+.rv-pt-dot{flex:none;position:relative;z-index:1;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--bg);border:2px solid var(--c);color:var(--c);font-size:.75rem;font-weight:800}
+.rv-pt-card{flex:1;min-width:0;padding:12px 14px;background:#fff;border:1px solid var(--line);border-left:4px solid var(--c);border-radius:12px}
+.rv-pt-cab{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
+.rv-pt-quien{font-size:.8rem;color:var(--muted)}.rv-pt-quien b{color:var(--nav)}
+.rv-pt-obs{margin:8px 0 0;padding:8px 12px;background:var(--bg);border-radius:8px;font-size:.9rem;color:var(--ink);overflow-wrap:anywhere}
+.rv-pt-doc{display:inline-block;margin-top:8px;font-size:.85rem;font-weight:700;color:var(--brand)}
+
+/* ---------- Ciclo de revisión: «corregida», editar, marcas de autoría y alertas ---------- */
+.pill.info{background:#e3edfb;color:#1a4f9e}
+.rv-corregida{--rv:#1d5fb8;--rv-bg:#e6effb}
+.rv-pt.corregida{--c:#1d5fb8;--bg:#e6effb}
+.rv-b.corregida{background:#1d5fb8;border-color:#1d5fb8;color:#fff;box-shadow:0 6px 14px rgba(29,95,184,.28)}
+.rv-b.corregida:hover{background:#184f9b;border-color:#184f9b}
+.rv-b.editar{background:#fff;border-color:color-mix(in srgb,var(--nav) 30%,#fff);color:var(--nav)}
+.rv-b.editar:hover{background:color-mix(in srgb,var(--nav) 6%,#fff)}
+.rv-tit.corregida{color:#1d5fb8}
+.rv-rol{font-style:normal;font-weight:700;font-size:.72rem;padding:2px 9px;border-radius:99px;background:#fdf3d4;color:#7a5600;border:1px solid #e5cf8e}
+.rv-editada{display:flex;align-items:center;gap:6px;margin:-4px 0 10px;font-size:.8rem;color:#5b6783}
+.rv-editada b{color:var(--nav)}
+.rv-pt-cab .rv-editada{flex:1 1 100%;margin:2px 0 0}
+.rv-sig{margin:8px 0 0;font-size:.86rem;color:var(--muted);line-height:1.45}
+.rv-alerta{margin:2px 0 12px;line-height:1.45}

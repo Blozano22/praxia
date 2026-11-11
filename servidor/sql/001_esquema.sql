@@ -35,7 +35,8 @@ INSERT INTO permisos (id, codigo, detalle) VALUES
   (6, 'usuarios.gestionar',    'Crear usuarios, cambiar su rol, activarlos o desactivarlos'),
   (7, 'auditoria.ver',         'Consultar el registro de actividad'),
   (8, 'plantillas.ver',        'Ver la galería de plantillas HTML de los recursos (solo lectura)'),
-  (9, 'plantillas.revisar',    'Aprobar, rechazar o mandar a revisión una plantilla HTML, con su observación y el documento de cambios')
+  (9, 'plantillas.revisar',    'Aprobar, rechazar o mandar a revisión una plantilla HTML, con su observación y el documento de cambios'),
+  (10, 'plantillas.corregir',  'Marcar como corregida una solicitud de revisión de una plantilla HTML, para que el diseñador la verifique')
   ON CONFLICT (id) DO UPDATE SET detalle = EXCLUDED.detalle;
 
 -- admin: administra usuarios y auditoría (no ve el contenido de otros por defecto)
@@ -46,7 +47,8 @@ INSERT INTO rol_permisos (rol_id, permiso_id) VALUES
   (2,1), (2,2), (2,3), (2,4), (2,5),
   (3,1), (3,2), (3,3), (3,4),
   (1,8), (2,8), (3,8), (4,8),
-  (1,9), (4,9)
+  (1,9), (4,9),
+  (1,10)
   ON CONFLICT DO NOTHING;
 
 -- ---------------------------------------------------------------- usuarios
@@ -121,25 +123,37 @@ CREATE TABLE IF NOT EXISTS configuracion (
   actualizado timestamptz NOT NULL DEFAULT now()
 );
 
--- ---------------------------------------------------------------- revisión de plantillas HTML
--- Cada decisión sobre una plantilla (aprobar, rechazar, mandar a revisión) queda registrada; la última es la vigente.
-CREATE TABLE IF NOT EXISTS plantilla_revisiones (
+-- ---------------------------------------------------------------- revisión de plantillas HTML (ciclo diseñador ↔ administrador)
+-- Cada paso sobre una plantilla queda registrado; el último es el vigente. Ciclo: el diseñador pide cambios («revision») → el administrador
+-- los marca como «corregida» → el diseñador verifica y aprueba, rechaza o vuelve a pedir cambios, hasta que queda aprobada.
+-- «rol» dice en calidad de qué actuó la persona (un administrador que aprueba o rechaza lo hace como «administrador», no como diseñador).
+-- Si una solicitud o corrección se edita, se marca quién la editó y cuándo fue la última edición (editado_por, editado_en).
+CREATE TABLE IF NOT EXISTS plantilla_historial (
   id             bigserial PRIMARY KEY,
   plantilla      text NOT NULL CHECK (plantilla ~ '^[a-z0-9-]{1,80}$'),
-  estado         text NOT NULL CHECK (estado IN ('aprobada','rechazada','revision')),
+  estado         text NOT NULL CHECK (estado IN ('aprobada','rechazada','revision','corregida')),
   observacion    text NOT NULL DEFAULT '' CHECK (char_length(observacion) <= 2000),
   doc_url        text CHECK (doc_url IS NULL OR char_length(doc_url) <= 500),
   usuario_id     uuid REFERENCES usuarios(id) ON DELETE SET NULL,
   usuario_nombre text NOT NULL CHECK (char_length(usuario_nombre) <= 120),
-  creado         timestamptz NOT NULL DEFAULT now()
+  rol            text NOT NULL DEFAULT 'disenador' CHECK (rol IN ('disenador','administrador')),
+  referencia     bigint REFERENCES plantilla_historial(id) ON DELETE SET NULL, -- en «corregida»: la solicitud de revisión que atiende
+  creado         timestamptz NOT NULL DEFAULT now(),
+  editado_en     timestamptz,
+  editado_por    text CHECK (editado_por IS NULL OR char_length(editado_por) <= 120)
 );
--- Si la tabla la creó otro usuario (p. ej. el administrador de PostgreSQL con psql), quien migra no es su dueño y no puede crear el
--- índice; no es indispensable (la tabla es pequeña), así que no se detiene la migración.
+CREATE INDEX IF NOT EXISTS plantilla_historial_ix ON plantilla_historial (plantilla, creado DESC, id DESC);
+
+-- Decisiones de la primera versión (tabla plantilla_revisiones): se copian una sola vez. Si esa tabla la creó otro usuario con psql y quien
+-- migra no puede leerla, se avisa y se sigue (se pueden copiar a mano con un usuario que sí pueda).
 DO $$
 BEGIN
-  CREATE INDEX IF NOT EXISTS plantilla_revisiones_ix ON plantilla_revisiones (plantilla, creado DESC);
+  IF to_regclass('public.plantilla_revisiones') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM plantilla_historial) THEN
+    INSERT INTO plantilla_historial (plantilla, estado, observacion, doc_url, usuario_id, usuario_nombre, rol, creado)
+    SELECT plantilla, estado, observacion, doc_url, usuario_id, usuario_nombre, 'disenador', creado FROM plantilla_revisiones ORDER BY id;
+  END IF;
 EXCEPTION WHEN insufficient_privilege THEN
-  RAISE NOTICE 'No se creó el índice plantilla_revisiones_ix: la tabla es de otro usuario (no es indispensable).';
+  RAISE NOTICE 'No se copiaron las decisiones antiguas: plantilla_revisiones es de otro usuario y no se puede leer desde aquí.';
 END $$;
 
 -- ---------------------------------------------------------------- generación de guiones (trabajos de n8n)
@@ -225,23 +239,15 @@ BEGIN
     GRANT SELECT, INSERT ON auditoria TO ova_app;
     GRANT SELECT, INSERT, UPDATE, DELETE ON guiones_trabajos TO ova_app;
     GRANT SELECT, INSERT, UPDATE, DELETE ON unidades_trabajos TO ova_app;
-    -- Estas dos tablas (y la secuencia) pudo crearlas otro usuario con psql: si quien migra no es su dueño no puede dar permisos,
+    -- Esta tabla pudo crearla otro usuario con psql: si quien migra no es su dueño no puede dar permisos,
     -- pero entonces ya los tienen de cuando se crearon. Se avisa y se sigue en vez de detener toda la migración.
     BEGIN
       GRANT SELECT, INSERT, UPDATE, DELETE ON configuracion TO ova_app;
     EXCEPTION WHEN insufficient_privilege THEN
       RAISE NOTICE 'Sin permiso para dar permisos sobre configuracion (es de otro usuario); se dejan como están.';
     END;
-    BEGIN
-      GRANT SELECT, INSERT ON plantilla_revisiones TO ova_app;
-    EXCEPTION WHEN insufficient_privilege THEN
-      RAISE NOTICE 'Sin permiso para dar permisos sobre plantilla_revisiones (es de otro usuario); se dejan como están.';
-    END;
-    BEGIN
-      GRANT USAGE, SELECT ON SEQUENCE plantilla_revisiones_id_seq TO ova_app;
-    EXCEPTION WHEN insufficient_privilege THEN
-      RAISE NOTICE 'Sin permiso para dar permisos sobre plantilla_revisiones_id_seq (es de otro usuario); se dejan como están.';
-    END;
+    GRANT SELECT, INSERT, UPDATE ON plantilla_historial TO ova_app;
+    GRANT USAGE, SELECT ON SEQUENCE plantilla_historial_id_seq TO ova_app;
     GRANT USAGE, SELECT ON SEQUENCE enlaces_id_seq, auditoria_id_seq TO ova_app;
   END IF;
 END $$;
