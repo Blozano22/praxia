@@ -34,7 +34,8 @@ export default function Workspace({ s, tab, setTab, unidadSel, setUnidadSel, rec
   const previo = useRef(tab)
   const dir = useRef('der')
   if (previo.current !== tab) { dir.current = ORDEN.indexOf(tab) >= ORDEN.indexOf(previo.current) ? 'der' : 'izq'; previo.current = tab }
-  const irA = (k) => { setTab(k); setModo('lista'); if (k !== 'unidades') setUnidadSel(null); if (k === 'recursos') setRecSel({ u: null }) }
+  // Pulsar un paso siempre lleva a su lista: estando dentro de una unidad, «Guiones» vuelve a las tarjetas de las unidades.
+  const irA = (k) => { setTab(k); setModo('lista'); setUnidadSel(null); if (k === 'recursos') setRecSel({ u: null }) }
   const unidadesLista = docs.map((d) => ({ unidad: d.unidad, nombre: d.nombre }))
 
   const crearRecursos = (recursos, temas) => {

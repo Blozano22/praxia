@@ -49,7 +49,7 @@ export function Unidades({ s, onAbrir }) {
         return (
           <div className="ud-resumen">
             <div className="ud-res-tx"><b>Avance de guiones</b><span>{listas} de {docs.length} unidades listas</span></div>
-            <div className="ud-res-seg" aria-hidden="true">{est.map((e, i) => <i key={i} className={e.k} style={e.k === 'en' ? { '--p': e.pct + '%' } : undefined} />)}</div>
+            <div className="ud-res-seg" aria-hidden="true">{est.map((e, i) => <i key={i} className={e.k + (e.generando ? ' gen' : '')} style={e.k === 'en' ? { '--p': Math.max(e.pct, 12) + '%' } : undefined} />)}</div>
             <ul className="ud-leyenda"><li className="ok">Completa</li><li className="en">En curso</li><li className="pe">Pendiente</li></ul>
           </div>
         )
