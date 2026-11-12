@@ -1,3 +1,5 @@
+import fs from 'node:fs'
+import path from 'node:path'
 import { Router } from 'express'
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit'
 import { z } from 'zod'
@@ -319,6 +321,64 @@ rutas.put('/config/n8n', ...admin, validar(z.object({ syllabus: UrlN8n.optional(
       res.json({ ok: true })
     } catch (e) { next(e) }
   })
+
+// ------------------------------------------------------------------ categorías de las plantillas HTML (para n8n)
+// Una categoría (ID del catálogo + nombre) reúne las variantes de un mismo tipo de recurso. Ver: quien ve las plantillas. Cambiar: quien las revisa.
+// Las plantillas existentes son las que publica el build (plantillas-html/plantillas.json); aquí solo se les asigna categoría.
+const IdCategoria = z.string().regex(/^[A-Z]{1,4}-[0-9]{2,3}$/)
+const NombrePlantilla = z.string().regex(/^[a-z0-9-]{1,80}$/)
+const NombreCategoria = z.string().trim().min(1).max(120)
+export const nombresPlantillasPublicadas = () => {
+  try {
+    const f = path.join(config.carpetaWeb, 'plantillas-html', 'plantillas.json')
+    const j = JSON.parse(fs.readFileSync(f, 'utf8'))
+    return (j.plantillas || []).map((p) => p.nombre).filter((n) => typeof n === 'string')
+  } catch { return [] }
+}
+rutas.get('/plantillas/categorias', exigirSesion, exigirPermiso('plantillas.ver'), async (req, res, next) => {
+  try {
+    const [c, a] = await Promise.all([sinUsuario(Q.categoriasListar), sinUsuario(Q.categoriasAsignaciones)])
+    res.json({ categorias: c.rows, asignaciones: Object.fromEntries(a.rows.map((x) => [x.plantilla, x.categoria])), plantillas: nombresPlantillasPublicadas() })
+  } catch (e) { next(e) }
+})
+rutas.post('/plantillas/categorias', exigirSesion, exigirPermiso('plantillas.revisar'), validar(z.object({ id: IdCategoria, nombre: NombreCategoria }).strict(), 'body'), async (req, res, next) => {
+  try {
+    const { id, nombre } = req.bodyOk
+    const r = await sinUsuario(Q.categoriaCrear, [id, nombre])
+    if (!r.rowCount) return res.status(409).json({ error: 'Ya existe una categoría con el ID ' + id + '.' })
+    await auditar(req.usuario.id, 'plantilla_categoria_crear', 'plantilla_categoria', id, req)
+    res.status(201).json({ id, nombre })
+  } catch (e) { next(e) }
+})
+rutas.put('/plantillas/categorias/:id', exigirSesion, exigirPermiso('plantillas.revisar'), validar(z.object({ id: IdCategoria }), 'params'), validar(z.object({ nombre: NombreCategoria }).strict(), 'body'), async (req, res, next) => {
+  try {
+    const r = await sinUsuario(Q.categoriaRenombrar, [req.paramsOk.id, req.bodyOk.nombre])
+    if (!r.rowCount) return res.status(404).json({ error: 'No encontrado' })
+    await auditar(req.usuario.id, 'plantilla_categoria_renombrar', 'plantilla_categoria', req.paramsOk.id, req)
+    res.json({ ok: true })
+  } catch (e) { next(e) }
+})
+rutas.delete('/plantillas/categorias/:id', exigirSesion, exigirPermiso('plantillas.revisar'), validar(z.object({ id: IdCategoria }), 'params'), async (req, res, next) => {
+  try {
+    const r = await sinUsuario(Q.categoriaBorrar, [req.paramsOk.id]) // sus plantillas quedan sin categoría
+    if (!r.rowCount) return res.status(404).json({ error: 'No encontrado' })
+    await auditar(req.usuario.id, 'plantilla_categoria_borrar', 'plantilla_categoria', req.paramsOk.id, req)
+    res.json({ ok: true })
+  } catch (e) { next(e) }
+})
+rutas.put('/plantillas/asignacion/:plantilla', exigirSesion, exigirPermiso('plantillas.revisar'), validar(z.object({ plantilla: NombrePlantilla }), 'params'), validar(z.object({ categoria: IdCategoria.nullable() }).strict(), 'body'), async (req, res, next) => {
+  try {
+    const { plantilla } = req.paramsOk
+    const { categoria } = req.bodyOk
+    if (categoria === null) await sinUsuario(Q.categoriaQuitar, [plantilla])
+    else {
+      if (!(await sinUsuario(Q.categoriasListar)).rows.some((c) => c.id === categoria)) return res.status(404).json({ error: 'No existe esa categoría.' })
+      await sinUsuario(Q.categoriaAsignar, [plantilla, categoria])
+    }
+    await auditar(req.usuario.id, 'plantilla_categoria_asignar', 'plantilla', plantilla, req)
+    res.json({ ok: true })
+  } catch (e) { next(e) }
+})
 
 // ------------------------------------------------------------------ revisión de plantillas HTML (ciclo diseñador ↔ administrador)
 // Estados: revision (el diseñador pide cambios) → corregida (el administrador dice que ya están) → aprobada / rechazada / revision otra vez

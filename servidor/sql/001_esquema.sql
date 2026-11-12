@@ -293,6 +293,38 @@ CREATE TABLE IF NOT EXISTS pipeline_eventos (
 );
 CREATE INDEX IF NOT EXISTS pipeline_eventos_recibido_ix ON pipeline_eventos (recibido);
 
+-- ---------------------------------------------------------------- categorías de las plantillas HTML (para n8n)
+-- Una categoría es un tipo de recurso del catálogo (G-09 «Acordeón»…) y reúne las variantes (plantillas publicadas) de ese tipo.
+-- n8n lee el índice agrupado (/plantillas-html/plantillas.json) y elige entre las variantes de la categoría que necesita.
+CREATE TABLE IF NOT EXISTS plantilla_categorias (
+  id     text PRIMARY KEY CHECK (id ~ '^[A-Z]{1,4}-[0-9]{2,3}$'),
+  nombre text NOT NULL CHECK (char_length(nombre) BETWEEN 1 AND 120),
+  creado timestamptz NOT NULL DEFAULT now()
+);
+-- Qué categoría tiene cada plantilla publicada (por su nombre de archivo). Sin fila = sin categoría.
+CREATE TABLE IF NOT EXISTS plantilla_categoria (
+  plantilla text PRIMARY KEY CHECK (plantilla ~ '^[a-z0-9-]{1,80}$'),
+  categoria text NOT NULL REFERENCES plantilla_categorias(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  actualizado timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS plantilla_categoria_ix ON plantilla_categoria (categoria);
+
+-- Punto de partida (solo la primera vez, mientras no haya ninguna categoría): el catálogo de IDs que ya usa el flujo de matrices y las
+-- plantillas cuyo nombre indica sin duda su tipo. Lo demás queda sin categoría para asignarlo desde la pantalla «Plantillas HTML».
+INSERT INTO plantilla_categorias (id, nombre)
+SELECT v.id, v.nombre FROM (VALUES
+  ('G-00', 'Presentación de la asignatura'), ('G-01', 'Infografía estática'), ('G-02', 'Infografía interactiva'), ('G-03', 'Diagrama de flujo'),
+  ('G-04', 'Mapa conceptual interactivo'), ('G-05', 'Video académico'), ('G-06', 'Micro-learning'), ('G-07', 'Podcast'),
+  ('G-08', 'Presentación multimedia interactiva'), ('G-09', 'Acordeón'), ('G-10', 'Galería'), ('G-11', 'Lectura fundamental diagramada'), ('G-12', 'Línea de tiempo')
+) AS v(id, nombre)
+WHERE NOT EXISTS (SELECT 1 FROM plantilla_categorias);
+INSERT INTO plantilla_categoria (plantilla, categoria)
+SELECT v.p, v.c FROM (VALUES
+  ('acordeon', 'G-09'), ('acordeon-2', 'G-09'), ('acordeon-3', 'G-09'), ('lectura', 'G-11'), ('lineatiempo', 'G-12'), ('lineatiempo-2', 'G-12'),
+  ('lineatiempo-3', 'G-12'), ('mapa', 'G-04'), ('flujo', 'G-03'), ('presentacion', 'G-08'), ('video', 'G-05'), ('podcast', 'G-07')
+) AS v(p, c)
+WHERE NOT EXISTS (SELECT 1 FROM plantilla_categoria) AND EXISTS (SELECT 1 FROM plantilla_categorias WHERE id = v.c);
+
 -- ---------------------------------------------------------------- seguridad por fila (RLS)
 -- Aunque una consulta de la aplicación olvidara el filtro por propietario, la base de datos
 -- solo entrega y solo deja escribir las filas del usuario de la sesión (app.usuario_id).
@@ -346,6 +378,7 @@ BEGIN
       RAISE NOTICE 'Sin permiso para dar permisos sobre configuracion (es de otro usuario); se dejan como están.';
     END;
     GRANT SELECT, INSERT, UPDATE ON plantilla_historial TO ova_app;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON plantilla_categorias, plantilla_categoria TO ova_app;
     GRANT SELECT, INSERT, UPDATE, DELETE ON pipeline_origen, pipeline_ejecuciones, pipeline_matrices, pipeline_recursos, pipeline_eventos TO ova_app;
     GRANT USAGE, SELECT ON SEQUENCE plantilla_historial_id_seq TO ova_app;
     GRANT USAGE, SELECT ON SEQUENCE enlaces_id_seq, auditoria_id_seq TO ova_app;

@@ -222,3 +222,9 @@ Antes de enviar guiones o unidades, Praxia mide el paquete (bibliografía inclui
 ### Identificador de fila
 
 El «ID del recurso» de la matriz es el del catálogo (`G-11-A`…) y se repite entre temas; lo único único por fila es su `codigo` (`U1-T2-R3 · G-11-A`). Si una unidad trae ids repetidos en `matrices_fin`, Praxia guarda cada fila con su `codigo`. En los avisos `h5p_inicio` (plan) y `h5p_recurso` envíe siempre `codigo` junto con `id`: Praxia localiza la fila por `codigo` y, si no existe, por `id`.
+
+### Categorías de las plantillas HTML (para n8n)
+
+Cada tipo de recurso del catálogo (`G-09 · Acordeón`…) es una **categoría** con su ID y nombre, y reúne las **variantes** (plantillas publicadas). Se administran en la pantalla «Plantillas HTML → Categorías para n8n» (ver: quien ve las plantillas; crear, renombrar, borrar y asignar: quien las revisa). Rutas: `GET/POST /api/plantillas/categorias`, `PUT/DELETE /api/plantillas/categorias/:id`, `PUT /api/plantillas/asignacion/:plantilla` (`{categoria: "G-09" | null}`).
+
+El índice público `GET /plantillas-html/plantillas.json` (sin sesión) conserva `marcas`, `total` y `plantillas[].nombre/archivo` y añade `plantillas[].id_catalogo`, `categorias[{id, nombre, variantes[{nombre, archivo}]}]` y `sin_categoria[]`. Si la base de datos no responde, entrega el archivo del build tal cual (sin lo nuevo). La primera vez se crean las categorías G-00…G-12 y se asignan las plantillas de nombre inequívoco; lo demás queda «sin categoría». No hace falta cambiar nombres de archivo ni el historial de revisiones.

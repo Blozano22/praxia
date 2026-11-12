@@ -1,0 +1,41 @@
+/* Categorías de las plantillas HTML (para n8n) */
+.cat{margin-top:6px}
+.cat-lead{margin:0 0 14px;max-width:780px}
+.cat-nueva{margin:0 0 14px}
+.cat-form{display:grid;grid-template-columns:minmax(150px,200px) minmax(220px,1fr) auto;gap:12px 16px;align-items:start;padding:16px 18px}
+.cat-form label{display:flex;flex-direction:column;gap:6px;font-weight:700;font-size:.85rem;color:var(--nav)}
+.cat-form input{font-weight:400}
+.cat-form small{font-weight:400;font-size:.78rem;color:var(--muted)}
+.cat-form small.mal{color:#a63a32}
+.cat-form-acc{display:flex;gap:8px;align-self:end}
+@media (max-width:760px){.cat-form{grid-template-columns:1fr}}
+.cat-lista{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:14px;align-items:start}
+@media (max-width:520px){.cat-lista{grid-template-columns:1fr}}
+.cat-card{padding:0;overflow:hidden}
+.cat-card.vacia{background:#fafbfd;border-style:dashed}
+.cat-cab{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.cat-cab h3{margin:0;font-size:1rem;flex:1 1 140px;min-width:0}
+.cat-id{display:inline-grid;place-items:center;min-width:52px;height:30px;padding:0 10px;border-radius:8px;background:var(--nav);color:#fff;font-weight:800;font-size:.82rem;letter-spacing:.02em}
+.cat-id.sin{background:#e8ecf7;color:#5b6783}
+.cat-n{font-size:.8rem;color:var(--muted);white-space:nowrap}
+.cat-acc{display:flex;flex-wrap:wrap;gap:6px}
+.cat-ren{display:flex;flex-wrap:wrap;gap:8px;flex:1 1 240px}
+.cat-ren input{flex:1 1 160px;min-width:0}
+.cat-aviso{margin:0;padding:10px 16px 0}
+.cat-vacia{margin:0;padding:14px 16px}
+.cat-vars{list-style:none;margin:0;padding:8px 8px 10px;display:flex;flex-direction:column;gap:2px}
+.cat-var{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(140px,210px);gap:8px 12px;align-items:center;padding:7px 8px;border-radius:8px}
+.cat-var:hover{background:#f4f6fb}
+.cat-var-n{font-weight:700;color:var(--nav);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cat-var-ver{font-size:.82rem;font-weight:700}
+.cat-var select{min-width:0;width:100%}
+.cat-var:not(:has(select)){grid-template-columns:minmax(0,1fr) auto}
+.cat-sin.hay{border-color:#ecd9a0;background:#fffdf5}
+.cat-sin.hay .cat-cab{border-bottom-color:#f0e4bd}
+
+/* Interruptor Galería / Categorías (en la vista de plantillas) */
+.pl2-vistas{display:inline-flex;gap:4px;padding:4px;margin:4px 0 16px;background:#fff;border:1px solid var(--line);border-radius:12px}
+.pl2-vistas button{appearance:none;border:0;background:transparent;font:inherit;font-weight:700;font-size:.88rem;color:var(--muted);padding:8px 16px;border-radius:9px;cursor:pointer}
+.pl2-vistas button:hover{background:#f4f6fb}
+.pl2-vistas button.on{background:var(--nav);color:#fff}
+.pl2-vistas button:focus-visible{outline:3px solid var(--brand);outline-offset:1px}

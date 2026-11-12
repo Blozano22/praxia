@@ -1,7 +1,10 @@
 import express from 'express'
+import { Q } from './consultas.js'
+import { sinUsuario } from './db.js'
 import helmet from 'helmet'
 import cookieParser from 'cookie-parser'
 import fs from 'node:fs'
+import path from 'node:path'
 import { config } from './config.js'
 import { exigirCabecera } from './seguridad.js'
 import { rutas } from './rutas.js'
@@ -50,6 +53,19 @@ export function crearApp() {
       res.set({ 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS', 'Cross-Origin-Resource-Policy': 'cross-origin', 'Cache-Control': 'no-cache' })
       if (req.method === 'OPTIONS') return res.status(204).end()
       next()
+    })
+    // Índice de plantillas: el archivo del build + la categoría de cada una (si la base de datos no responde, se entrega el archivo tal cual).
+    // Lo de siempre (marcas, total, plantillas[].nombre/archivo) no cambia; se AÑADE id_catalogo por plantilla, «categorias» y «sin_categoria».
+    app.get('/plantillas-html/plantillas.json', async (req, res, next) => {
+      let base
+      try { base = JSON.parse(fs.readFileSync(path.join(config.carpetaWeb, 'plantillas-html', 'plantillas.json'), 'utf8')) } catch { return next() }
+      try {
+        const [c, a] = await Promise.all([sinUsuario(Q.categoriasListar), sinUsuario(Q.categoriasAsignaciones)])
+        const de = Object.fromEntries(a.rows.map((x) => [x.plantilla, x.categoria]))
+        const plantillas = (base.plantillas || []).map((p) => ({ ...p, id_catalogo: de[p.nombre] || null }))
+        const categorias = c.rows.map((k) => ({ id: k.id, nombre: k.nombre, variantes: plantillas.filter((p) => p.id_catalogo === k.id).map(({ nombre, archivo }) => ({ nombre, archivo })) }))
+        res.json({ ...base, plantillas, categorias, sin_categoria: plantillas.filter((p) => !p.id_catalogo).map(({ nombre, archivo }) => ({ nombre, archivo })) })
+      } catch { res.json(base) }
     })
     app.use(express.static(config.carpetaWeb, { index: 'index.html' }))
   }

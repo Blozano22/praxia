@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Titulo from './Titulo.jsx'
 import RevisionPlantilla, { ESTADO } from './RevisionPlantilla.jsx'
+import CategoriasPlantillas from './CategoriasPlantillas.jsx'
 import { api } from '../lib/api.js'
 
 // Plantillas HTML (carpeta /ejemplos): se cargan solo al abrirlas para no pesar al inicio.
@@ -48,6 +49,7 @@ const CARGA = { ...ARCHIVOS, ...ORIGINALES }
 
 export default function Plantillas({ puedeRevisar = false, puedeCorregir = false, yo = null, aviso }) {
   const grupos = useMemo(() => GRUPOS.map(([g, l]) => [g, l.filter(([k]) => CATALOGO[k])]).filter(([, l]) => l.length), [])
+  const [vista, setVista] = useState('galeria') // galeria | categorias (las categorías que usa n8n)
   const [tipo, setTipo] = useState(grupos[0][1][0][0])
   const [q, setQ] = useState('')
   const [full, setFull] = useState(false)
@@ -101,6 +103,24 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
   const abrir = () => { const u = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' })); window.open(u, '_blank', 'noopener'); setTimeout(() => URL.revokeObjectURL(u), 60000) }
   const bajar = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' })); a.download = nombre; document.body.append(a); a.click(); a.remove() }
 
+  const conmutador = (
+    <div className="pl2-vistas" role="tablist" aria-label="Qué ver">
+      <button role="tab" aria-selected={vista === 'galeria'} className={vista === 'galeria' ? 'on' : ''} onClick={() => setVista('galeria')}>Galería de diseños</button>
+      <button role="tab" aria-selected={vista === 'categorias'} className={vista === 'categorias' ? 'on' : ''} onClick={() => setVista('categorias')}>Categorías para n8n</button>
+    </div>
+  )
+  if (vista === 'categorias') {
+    return (
+      <div className="wrapx fade">
+        <div className="pl2-cab">
+          <Titulo icono="codigo"><h1>Plantillas HTML</h1></Titulo>
+        </div>
+        {conmutador}
+        <CategoriasPlantillas puedeCambiar={puedeRevisar} aviso={aviso} />
+      </div>
+    )
+  }
+
   return (
     <div className="wrapx fade">
       <div className="pl2-cab">
@@ -114,6 +134,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
         </label>
       </div>
 
+      {conmutador}
       <div className="pl2-tabs" role="tablist" aria-label="Tipo de plantilla">
         {grupos.map(([g, l], i) => (
           <button key={g} role="tab" aria-selected={i === gi && !res} className={i === gi && !res ? 'on' : ''} onClick={() => { setQ(''); setTipo(l[0][0]) }}>
