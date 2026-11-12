@@ -30,6 +30,14 @@ const NOTAS = {
   Infografías: 'Cuatro diseños para resumir ideas de forma visual.',
   Esquemas: 'Para mostrar procesos y relaciones.',
 }
+// Las plantillas publicadas (las que descarga n8n) se llaman casi igual que los diseños de la galería: acordeon-v2 → acordeon-2.
+const NOMBRE_PUBLICO = { 'estudio-casos': 'casos', 'diagrama-flujo': 'flujo', 'mapa-conceptual': 'mapa', 'linea-tiempo': 'lineatiempo' }
+const nombrePublico = (k) => {
+  if (k.startsWith('o-')) return '' // los HTML originales hechos a mano no se publican
+  const m = /^(.*?)(?:-v(\d+))?$/.exec(k)
+  const base = NOMBRE_PUBLICO[m[1]] || m[1]
+  return m[2] ? base + '-' + m[2] : base
+}
 const corto = (g) => g.replace(/ \(.*\)$/, '')
 // Hay dos clases de HTML: los recursos y las actividades de autoaprendizaje (el crucigrama, el cuestionario…). La galería muestra una clase a la vez.
 const esActividad = (g) => /^(Actividades|Crucigramas)/.test(g)
@@ -62,11 +70,27 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
   const [error, setError] = useState('')
   const [esc, setEsc] = useState(0.6)
   const caja = useRef(null)
+  const [cats, setCats] = useState(null) // categorías (ID del catálogo) y a cuál pertenece cada plantilla publicada
+  useEffect(() => { if (vista === 'galeria') api('GET', '/plantillas/categorias').then(setCats).catch(() => {}) }, [vista])
   const [revisiones, setRevisiones] = useState([]) // de la más nueva a la más antigua
   useEffect(() => { api('GET', '/plantillas/revisiones').then(setRevisiones).catch(() => {}) }, [])
   const deTipo = (k) => revisiones.filter((r) => r.plantilla === k)
 
   const ruta = CATALOGO[tipo] && Object.values(CATALOGO[tipo])[0]
+  // Código del recurso (ID del catálogo, p. ej. G-12) del diseño: el de su plantilla publicada o, si no se publica (un HTML original) y
+  // todos los diseños con código de su familia comparten el mismo, ese.
+  const codigoDe = (k) => {
+    if (!cats) return null
+    let id = cats.asignaciones[nombrePublico(k)]
+    if (!id) {
+      const g = gruposTodos.find(([, l]) => l.some(([x]) => x === k))
+      const ids = g ? new Set(g[1].map(([x]) => cats.asignaciones[nombrePublico(x)]).filter(Boolean)) : new Set()
+      if (ids.size === 1) id = [...ids][0]
+    }
+    return id ? (cats.categorias.find((c) => c.id === id) || { id, nombre: '', tipo: '' }) : null
+  }
+  const seaPublica = (k) => !!cats && cats.plantillas.includes(nombrePublico(k))
+  const codigoActual = codigoDe(tipo)
 
   useEffect(() => {
     if (!ruta) return
@@ -182,6 +206,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
               <button key={t.k} className={t.k === tipo ? 'on' : ''} onClick={() => elegir(t.k)}>
                 <span className="pl2-n">{res ? '•' : i + 1}</span>
                 <span><b>{t.n}</b>{res && <small>{t.g}</small>}</span>
+                {codigoDe(t.k) && <span className="pl2-cod" title={codigoDe(t.k).nombre}>{codigoDe(t.k).id}</span>}
                 {deTipo(t.k)[0] && <span className={'pill rv-mini ' + ESTADO[deTipo(t.k)[0].estado].clase}>{ESTADO[deTipo(t.k)[0].estado].texto}</span>}
               </button>
             ))}
@@ -189,6 +214,10 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
           </div>
           <div className="card pl2-uso">
             <h4>Usar esta plantilla</h4>
+            <div className={'pl2-codigo' + (codigoActual ? '' : ' sin')}>
+              <span>Código del recurso</span>
+              {codigoActual ? <><b>{codigoActual.id}</b><small>{codigoActual.nombre}</small></> : <small>{seaPublica(tipo) ? 'Sin categoría todavía (se asigna en «Categorías para n8n»)' : 'Este diseño no se publica para n8n'}</small>}
+            </div>
             <button className="btn" disabled={!html} onClick={abrir}>Abrir en pestaña</button>
             <button className="btn sec" disabled={!html} onClick={bajar}>Descargar</button>
             <ul>
