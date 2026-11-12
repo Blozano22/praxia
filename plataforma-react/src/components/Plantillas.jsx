@@ -76,19 +76,23 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
   const deTipo = (k) => revisiones.filter((r) => r.plantilla === k)
 
   const ruta = CATALOGO[tipo] && Object.values(CATALOGO[tipo])[0]
-  // Código del recurso (ID del catálogo, p. ej. G-12) del diseño: el de su plantilla publicada o, si no se publica (un HTML original) y
-  // todos los diseños con código de su familia comparten el mismo, ese.
+  // Código del recurso (ID del catálogo, p. ej. G-12) del diseño. Cuenta solo la plantilla publicada que sigue ACTIVA para n8n (existe y no está
+  // «quitada de n8n»): es la misma regla que el número de variantes de «Categorías para n8n». Si el diseño no se publica (un HTML original
+  // hecho a mano) y todos los diseños con código de su familia comparten el mismo, hereda ese.
+  const activas = useMemo(() => new Set(cats ? cats.plantillas.filter((n) => !(cats.ocultas || []).includes(n)) : []), [cats])
+  const directo = (k) => { const n = nombrePublico(k); return n && activas.has(n) ? cats.asignaciones[n] || null : null }
   const codigoDe = (k) => {
     if (!cats) return null
-    let id = cats.asignaciones[nombrePublico(k)]
+    let id = directo(k)
     if (!id) {
       const g = gruposTodos.find(([, l]) => l.some(([x]) => x === k))
-      const ids = g ? new Set(g[1].map(([x]) => cats.asignaciones[nombrePublico(x)]).filter(Boolean)) : new Set()
+      const ids = g ? new Set(g[1].map(([x]) => directo(x)).filter(Boolean)) : new Set()
       if (ids.size === 1) id = [...ids][0]
     }
     return id ? (cats.categorias.find((c) => c.id === id) || { id, nombre: '', tipo: '' }) : null
   }
-  const seaPublica = (k) => !!cats && cats.plantillas.includes(nombrePublico(k))
+  const seaPublica = (k) => !!cats && activas.has(nombrePublico(k))
+  const estaQuitada = (k) => !!cats && (cats.ocultas || []).includes(nombrePublico(k))
   const codigoActual = codigoDe(tipo)
 
   // Las pestañas son las CATEGORÍAS de «Categorías para n8n» (ID + nombre) y solo salen las que tienen diseños; los diseños que aún no tienen
@@ -102,14 +106,14 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
     const sin = { recurso: [], actividad: [] }
     gruposTodos.forEach(([g, l]) => l.forEach(([k, n]) => {
       const c = codigoDe(k)
-      if (c) { if (!porCat.has(c.id)) porCat.set(c.id, { c, items: [] }); porCat.get(c.id).items.push([k, n]) }
+      if (c) { if (!porCat.has(c.id)) porCat.set(c.id, { c, items: [] }); porCat.get(c.id).items.push([k, n, !!directo(k)]) }
       // Sin categoría no se muestra, salvo que el diseño ya tenga una revisión u observación: así no se pierde de vista.
       else if (revisiones.some((r) => r.plantilla === k)) sin[claseFija(g)].push([k, /^Diseño \d+$/.test(n) ? corto(g) + ' · ' + n : n])
     }))
     ;[...porCat.values()].sort((x, y) => x.c.id.localeCompare(y.c.id)).forEach(({ c, items }) => res[c.tipo === 'actividad' ? 'actividad' : 'recurso'].push([c.nombre || c.id, items]))
     ;['recurso', 'actividad'].forEach((t) => { if (sin[t].length) res[t].push(['Sin categoría', sin[t]]) })
     return res
-  }, [cats, gruposTodos, revisiones])
+  }, [cats, activas, gruposTodos, revisiones])
   const grupos = gruposPorClase[clase]
   // si el diseño elegido ya no está en lo que se muestra (cambió la clase o llegaron las categorías), se elige el primero
   useEffect(() => { if (grupos.length && !grupos.some(([, l]) => l.some(([k]) => k === tipo))) setTipo(grupos[0][1][0][0]) }, [grupos]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -226,10 +230,10 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
             {!res && (
               <div className={'pl2-codigo' + (codigoActual ? '' : ' sin')}>
                 <span>Código del recurso</span>
-                {codigoActual ? <><b>{codigoActual.id}</b><small>{codigoActual.nombre}</small></> : <small>{seaPublica(tipo) ? 'Sin categoría todavía (se asigna en «Categorías para n8n»)' : 'Este diseño no se publica para n8n'}</small>}
+                {codigoActual ? <><b>{codigoActual.id}</b><small>{codigoActual.nombre}</small></> : <small>{estaQuitada(tipo) ? 'Esta plantilla está quitada de n8n (se vuelve a mostrar en «Categorías para n8n»)' : seaPublica(tipo) ? 'Sin categoría todavía (se asigna en «Categorías para n8n»)' : 'Este diseño no se publica para n8n'}</small>}
               </div>
             )}
-            <p className="help">{res ? `Coinciden con «${q.trim()}».` : NOTAS[corto(grupoNombre)] || (cats && grupoNombre === 'Sin categoría' ? 'Sin categoría, pero con una revisión u observación pendiente. Se le asigna una en «Categorías para n8n».' : lista.length + (lista.length === 1 ? ' diseño' : ' diseños') + ' de esta categoría.')}</p>
+            <p className="help">{res ? `Coinciden con «${q.trim()}».` : NOTAS[corto(grupoNombre)] || (cats && grupoNombre === 'Sin categoría' ? 'Sin categoría, pero con una revisión u observación pendiente. Se le asigna una en «Categorías para n8n».' : lista.length + (lista.length === 1 ? ' diseño' : ' diseños') + ' de esta categoría' + (cats && lista.some((x) => x[2]) ? ' · ' + lista.filter((x) => x[2]).length + ' activos para n8n' + (lista.some((x) => !x[2]) ? ', ' + lista.filter((x) => !x[2]).length + ' original' + (lista.filter((x) => !x[2]).length === 1 ? '' : 'es') + ' hechos a mano (no se publican)' : '') : '') + '.')}</p>
             {(res || lista.map(([k, n]) => ({ k, n, g: '' }))).map((t, i) => (
               <button key={t.k} className={t.k === tipo ? 'on' : ''} onClick={() => elegir(t.k)}>
                 <span className="pl2-n">{res ? '•' : i + 1}</span>
