@@ -112,3 +112,5 @@
 .vp-marco{position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;border-radius:12px;background:#fff;border:1px solid var(--line)}
 .vp-marco[hidden]{display:none}
 .vp-marco iframe{position:absolute;top:0;left:0;border:0;transform-origin:0 0}
+
+.pl2-sinej{margin-left:auto;flex:none;font-size:.68rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase;padding:2px 7px;border-radius:999px;background:#fff1cf;color:#8a6200}

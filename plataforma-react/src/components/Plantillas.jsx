@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Titulo from './Titulo.jsx'
 import RevisionPlantilla, { ESTADO } from './RevisionPlantilla.jsx'
 import CategoriasPlantillas from './CategoriasPlantillas.jsx'
-import { api } from '../lib/api.js'
-import { CARGA, CATALOGO, nombrePublico } from '../lib/ejemplos.js'
+import { api, RUTA_API } from '../lib/api.js'
+import { CARGA, CATALOGO, ejemploDe, nombrePublico } from '../lib/ejemplos.js'
 
 
 // Familias del menú: [título, [[clave, nombre]...]]
@@ -87,6 +87,16 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
       // Sin categoría no se muestra, salvo que el diseño ya tenga una revisión u observación: así no se pierde de vista.
       else if (revisiones.some((r) => r.plantilla === k)) sin[claseFija(g)].push([k, /^Diseño \d+$/.test(n) ? corto(g) + ' · ' + n : n])
     }))
+    // Toda variante ACTIVA con categoría aparece, aunque la galería no la liste o no tenga un ejemplo con contenido (lineatiempo, podcast, portada…):
+    // si hay un ejemplo en /ejemplos se usa; si no, se muestra la plantilla tal cual con la etiqueta «sin ejemplo».
+    const representadas = new Set(gruposTodos.flatMap(([, l]) => l.map(([k]) => nombrePublico(k))).filter(Boolean))
+    cats.plantillas.filter((n) => activas.has(n) && cats.asignaciones[n] && !representadas.has(n)).forEach((n) => {
+      const c = cats.categorias.find((x) => x.id === cats.asignaciones[n])
+      if (!c) return
+      const ej = ejemploDe(n)
+      if (!porCat.has(c.id)) porCat.set(c.id, { c, items: [] })
+      porCat.get(c.id).items.push([ej || 'pub-' + n, n, true, !ej])
+    })
     ;[...porCat.values()].sort((x, y) => x.c.id.localeCompare(y.c.id)).forEach(({ c, items }) => res[c.tipo === 'actividad' ? 'actividad' : 'recurso'].push([c.nombre || c.id, items]))
     ;['recurso', 'actividad'].forEach((t) => { if (sin[t].length) res[t].push(['Sin categoría', sin[t]]) })
     return res
@@ -95,6 +105,17 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
   // si el diseño elegido ya no está en lo que se muestra (cambió la clase o llegaron las categorías), se elige el primero
   useEffect(() => { if (grupos.length && !grupos.some(([, l]) => l.some(([k]) => k === tipo))) setTipo(grupos[0][1][0][0]) }, [grupos]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const publica = tipo.startsWith('pub-') ? tipo.slice(4) : '' // variante activa sin ejemplo: se carga la plantilla publicada tal cual
+  useEffect(() => {
+    if (!publica) return undefined
+    let vivo = true
+    setHtml(''); setError('')
+    fetch(RUTA_API.replace(/\/api$/, '') + '/plantillas-html/' + publica + '.html')
+      .then((r) => { if (!r.ok) throw new Error('x'); return r.text() })
+      .then((t) => { if (vivo) setHtml(t.replace('{{TITULO}}', () => publica).replace('/*CONTENIDO*/', () => '{}')) })
+      .catch(() => { if (vivo) setError('No se pudo cargar la plantilla.') })
+    return () => { vivo = false }
+  }, [publica])
   useEffect(() => {
     if (!ruta) return
     let vivo = true
@@ -125,13 +146,10 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
   const gi = Math.max(0, grupos.findIndex(([, l]) => l.some(([k]) => k === tipo)))
   const [grupoNombre, lista] = grupos[gi] || ['', []]
   const pos = lista.findIndex(([k]) => k === tipo)
-  const idCategoria = lista.length ? (codigoDe(lista[0][0]) || {}).id : ''
-  const activasDeCategoria = cats && idCategoria ? cats.plantillas.filter((n) => activas.has(n) && cats.asignaciones[n] === idCategoria).length : 0
-  const sinEjemplo = Math.max(0, activasDeCategoria - lista.filter((x) => x[2]).length)
   const titulo = (lista[pos] || [])[1] || tipo
-  const nombre = tipo.replace(/^o-/, '') + '.html'
+  const nombre = (publica || tipo.replace(/^o-/, '')) + '.html'
   const mover = (d) => { if (lista.length) setTipo(lista[(pos + d + lista.length) % lista.length][0]) }
-  const todos = useMemo(() => grupos.flatMap(([g, l]) => l.map(([k, n]) => ({ k, n, g }))), [grupos])
+  const todos = useMemo(() => grupos.flatMap(([g, l]) => l.map(([k, n, , sinEj]) => ({ k, n, g, sinEj }))), [grupos])
   const busca = q.trim().toLowerCase()
   const res = busca ? todos.filter((t) => (t.n + ' ' + t.g).toLowerCase().includes(busca)) : null
   const elegir = (k) => { setTipo(k); setQ('') }
@@ -196,6 +214,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
             <button className="btn sec sm" onClick={() => setFull(!full)}>{full ? 'Cerrar pantalla completa' : 'Pantalla completa'}</button>
           </div>
           {error && <div className="msg bad" role="alert">{error}</div>}
+          {publica && html && <p className="vp-nota aviso">Esta variante <b>no tiene un ejemplo con contenido</b>: sola se ve vacía, porque n8n le pone el título y el contenido de cada recurso. Esto es la plantilla tal cual.</p>}
           <div className="pl2-caja" ref={caja} style={full ? { maxWidth: 'calc((100vh - 130px) * 16 / 9)' } : undefined}>
             {!html && !error && <p className="help" style={{ padding: 18 }}>Cargando…</p>}
             {html && <iframe sandbox="allow-scripts" title={'Plantilla ' + titulo} srcDoc={html} style={{ width: 1280, height: 720, transform: `scale(${esc})` }} />}
@@ -213,11 +232,12 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
                 {codigoActual ? <><b>{codigoActual.id}</b><small>{codigoActual.nombre}</small></> : <small>{estaQuitada(tipo) ? 'Esta plantilla está quitada de n8n (se vuelve a mostrar en «Categorías para n8n»)' : seaPublica(tipo) ? 'Sin categoría todavía (se asigna en «Categorías para n8n»)' : 'Este diseño no se publica para n8n'}</small>}
               </div>
             )}
-            <p className="help">{res ? `Coinciden con «${q.trim()}».` : NOTAS[corto(grupoNombre)] || (cats && grupoNombre === 'Sin categoría' ? 'Sin categoría, pero con una revisión u observación pendiente. Se le asigna una en «Categorías para n8n».' : lista.length + (lista.length === 1 ? ' diseño' : ' diseños') + ' de esta categoría' + (cats && lista.some((x) => x[2]) ? ' · ' + lista.filter((x) => x[2]).length + (lista.filter((x) => x[2]).length === 1 ? ' activo' : ' activos') + ' para n8n' + (lista.some((x) => !x[2]) ? ', ' + lista.filter((x) => !x[2]).length + ' original' + (lista.filter((x) => !x[2]).length === 1 ? '' : 'es') + ' hechos a mano (no se publican)' : '') : '') + '.' + (sinEjemplo > 0 ? ' Además hay ' + sinEjemplo + (sinEjemplo === 1 ? ' variante activa' : ' variantes activas') + ' para n8n sin diseño de ejemplo en la galería.' : ''))}</p>
-            {(res || lista.map(([k, n]) => ({ k, n, g: '' }))).map((t, i) => (
+            <p className="help">{res ? `Coinciden con «${q.trim()}».` : NOTAS[corto(grupoNombre)] || (cats && grupoNombre === 'Sin categoría' ? 'Sin categoría, pero con una revisión u observación pendiente. Se le asigna una en «Categorías para n8n».' : lista.length + (lista.length === 1 ? ' diseño' : ' diseños') + ' de esta categoría' + (cats && lista.some((x) => x[2]) ? ' · ' + lista.filter((x) => x[2]).length + (lista.filter((x) => x[2]).length === 1 ? ' activo' : ' activos') + ' para n8n' + (lista.some((x) => !x[2]) ? ', ' + lista.filter((x) => !x[2]).length + ' original' + (lista.filter((x) => !x[2]).length === 1 ? '' : 'es') + ' hechos a mano (no se publican)' : '') : '') + '.')}</p>
+            {(res || lista.map(([k, n, , sinEj]) => ({ k, n, g: '', sinEj }))).map((t, i) => (
               <button key={t.k} className={t.k === tipo ? 'on' : ''} onClick={() => elegir(t.k)}>
                 <span className="pl2-n">{res ? '•' : i + 1}</span>
                 <span><b>{t.n}</b>{res && <small>{t.g}</small>}</span>
+                {t.sinEj && <span className="pl2-sinej" title="No hay un diseño de ejemplo con contenido para esta plantilla">sin ejemplo</span>}
                 {deTipo(t.k)[0] && <span className={'pill rv-mini ' + ESTADO[deTipo(t.k)[0].estado].clase}>{ESTADO[deTipo(t.k)[0].estado].texto}</span>}
               </button>
             ))}

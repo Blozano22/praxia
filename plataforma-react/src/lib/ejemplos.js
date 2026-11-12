@@ -21,6 +21,7 @@ export const CARGA = { ...ARCHIVOS, ...ORIGINALES }
 // Las plantillas publicadas (las que descarga n8n) se llaman casi igual que los diseños de la galería: acordeon-v2 → acordeon-2.
 const NOMBRE_PUBLICO = { 'estudio-casos': 'casos', 'diagrama-flujo': 'flujo', 'mapa-conceptual': 'mapa', 'linea-tiempo': 'lineatiempo' }
 export const nombrePublico = (k) => {
+  if (k.startsWith('pub-')) return k.slice(4) // variante activa sin diseño de ejemplo en la galería: la clave ES su nombre publicado
   if (k.startsWith('o-')) return '' // los HTML originales hechos a mano no se publican
   const m = /^(.*?)(?:-v(\d+))?$/.exec(k)
   const base = NOMBRE_PUBLICO[m[1]] || m[1]
