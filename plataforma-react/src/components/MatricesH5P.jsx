@@ -68,19 +68,24 @@ const I_CHECK = <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stro
 const I_ALERTA = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden="true"><path d="M12 6v7M12 17.5v.5" /></svg>
 const I_RELOJ = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path d="M12 8v4l2.5 2" /></svg>
 
-// Recurso que necesita atención: con error, pendiente o en proceso.
-function Atencion({ r }) {
+// Una línea por recurso: generado (verde), por generar (círculo vacío), en proceso o con error.
+function Fila({ r }) {
   const mal = r.sinRespuesta || r.estado === 'ERROR'
-  const texto = r.sinRespuesta ? 'Sin avisos' : (RECURSO[r.estado] || ['', r.estado])[1]
-  const nota = r.estado === 'ERROR' ? r.observaciones : r.omision ? 'Se omitió: ' + motivoTexto(r.omision) : r.observaciones
+  const hecho = r.estado === 'GENERADO' && !r.sinRespuesta
+  const k = hecho ? 'ok' : mal ? 'er' : r.estado === 'EN_PROCESO' ? 'en' : 'pe'
+  const texto = hecho ? 'Generado' : r.sinRespuesta ? 'Sin avisos' : r.estado === 'ERROR' ? 'Con error' : r.estado === 'EN_PROCESO' ? 'Generando' : 'Por generar'
+  const nota = r.estado === 'ERROR' ? r.observaciones : r.omision ? 'Se omitió: ' + motivoTexto(r.omision) : hecho ? '' : r.observaciones
   return (
-    <li className={'mx2-at ' + (mal ? 'mal' : 'aviso')}>
-      <span className="mx2-pt" aria-hidden="true" />
-      <span className="mx2-cod">{r.codigo || r.id}</span>
-      <span className="mx2-tit" title={r.titulo || ''}>{r.titulo || 'Sin título'}</span>
-      <span className="mx2-est">{texto}</span>
-      {r.enlaceGuion ? <a className="mx2-lk" href={r.enlaceGuion} target="_blank" rel="noopener noreferrer">Guion ↗</a> : <span className="mx2-lk" />}
-      {nota && <p className="mx2-nota">{nota}</p>}
+    <li className={'mx4-r ' + k}>
+      <span className={'mx4-pt ' + k} aria-hidden="true">{hecho ? I_CHECK : mal ? I_ALERTA : null}</span>
+      <span className="mx4-cod">{r.codigo || r.id}</span>
+      <span className="mx4-rt" title={r.titulo || ''}>{r.titulo || 'Sin título'}</span>
+      <span className="mx4-re">{texto}</span>
+      <span className="mx4-rl">
+        {hecho && r.enlaceRecurso && <a href={r.enlaceRecurso} target="_blank" rel="noopener noreferrer">Recurso ↗</a>}
+        {r.enlaceGuion && <a href={r.enlaceGuion} target="_blank" rel="noopener noreferrer">Guion ↗</a>}
+      </span>
+      {nota && <p className="mx4-nota">{nota}</p>}
     </li>
   )
 }
@@ -97,18 +102,21 @@ function Cronometro({ desde }) {
 
 function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, enviada, desdeEnvio }) {
   const [todos, setTodos] = useState(false)
-  const [todosAt, setTodosAt] = useState(false)
+  const [filtro, setFiltro] = useState('todos')
   const [confirmar, setConfirmar] = useState(false)
   const conteo = useMemo(() => {
     const c = { total: recursos.length, PENDIENTE: 0, EN_PROCESO: 0, GENERADO: 0, ERROR: 0, h5p: 0, otros: 0 }
     recursos.forEach((r) => { c[r.estado] = (c[r.estado] || 0) + 1; if (String(r.generador || '').toUpperCase() === 'H5P') c.h5p++; else c.otros++ })
     return c
   }, [recursos])
-  const clase = !matriz ? 'sin' : matriz.estado === 'error' || matriz.sinRespuesta ? 'bad' : matriz.estado === 'generando' || conteo.EN_PROCESO ? 'en' : conteo.total && conteo.GENERADO === conteo.total ? 'ok' : 'pe'
-  const atencion = recursos.filter((r) => r.estado !== 'GENERADO' || r.sinRespuesta).sort((a, b) => (b.estado === 'ERROR') - (a.estado === 'ERROR'))
-  const generados = recursos.filter((r) => r.estado === 'GENERADO' && !r.sinRespuesta)
-  const visibles = todos ? generados : []
+  const esHecho = (r) => r.estado === 'GENERADO' && !r.sinRespuesta
+  const filas = recursos.filter((r) => (filtro === 'generados' ? esHecho(r) : filtro === 'pendientes' ? !esHecho(r) : true)).sort((a, b) => esHecho(b) - esHecho(a) || (b.estado === 'ERROR') - (a.estado === 'ERROR'))
   const porGenerar = conteo.PENDIENTE + conteo.EN_PROCESO
+  const matrizMal = !!matriz && (matriz.estado === 'error' || !!matriz.sinRespuesta)
+  const completa = conteo.total > 0 && conteo.GENERADO === conteo.total
+  const estadoU = matrizMal || conteo.ERROR > 0 ? 'bad' : completa ? 'ok' : conteo.GENERADO === 0 ? 'vacia' : 'en'
+  const chipU = matrizMal ? 'Matriz con error' : completa ? 'Completa' : conteo.total === 0 ? 'Sin recursos' : conteo.ERROR > 0 ? 'Con errores' : conteo.GENERADO === 0 ? 'Por generar' : conteo.EN_PROCESO > 0 ? 'Generando' : 'En progreso'
+  const resumenU = matrizMal ? 'Hay que reintentar la matriz' : completa ? 'Matriz y recursos listos' : conteo.total === 0 ? 'Matriz lista · sin recursos todavía' : conteo.GENERADO === 0 ? 'Matriz lista · recursos H5P sin generar' : 'Matriz lista · faltan ' + (conteo.total - conteo.GENERADO) + ' recursos'
   const generandoMat = (!!matriz && matriz.estado === 'generando' && !matriz.sinRespuesta) || (!matriz && !!enviada)
   // Sin matriz (o generándose sin recursos aún): una fila simple, sin tarjeta con datos vacíos.
   if (!matriz || (generandoMat && conteo.total === 0)) {
@@ -131,98 +139,69 @@ function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, envi
     )
   }
   return (
-    <article className={'card mx-uni mx-' + clase}>
-      <header className="mx-uni-cab">
-        <span className="mx-n">{unidad}</span>
-        <div className="mx-uni-tit">
+    <article className={'mx4-card ' + estadoU}>
+      <header className="mx4-cab">
+        <span className="mx4-n">{unidad}</span>
+        <div className="mx4-tit">
           <h3>Unidad {unidad}</h3>
-          {nombre && <small>{nombre}</small>}
+          <small>{resumenU}</small>
         </div>
-        <Pill par={matriz ? (matriz.sinRespuesta ? SIN_RESPUESTA : MATRIZ[matriz.estado]) : ['', 'Sin matriz']} />
+        <span className="mx4-chip">{completa && I_CHECK}{chipU}</span>
       </header>
 
-      {!matriz && <p className="mx-vacio">Todavía no hay una matriz registrada para esta unidad. Puede generarla desde aquí; apenas n8n avise, aparecerá en esta pantalla.</p>}
-
-      {matriz && (
-        <div className="mx2-meta">
-          {matriz.formacion && <span>{matriz.formacion}</span>}
-          {matriz.formacion && <i aria-hidden="true" />}
-          <span>Actualizada {hace(matriz.actualizadoEn)}</span>
-          {matriz.matrizUrl && <a href={matriz.matrizUrl} target="_blank" rel="noopener noreferrer" title={matriz.matrizNombre || ''}>Abrir matriz ↗</a>}
+      <div className="mx4-paso">
+        <span className={'mx4-ic ' + (matrizMal ? 'er' : 'ok')} aria-hidden="true">{matrizMal ? I_ALERTA : I_CHECK}</span>
+        <div className="mx4-paso-tx">
+          <b>{matrizMal ? 'La matriz no se generó' : 'Matriz lista'}</b>
+          <span>{matriz.formacion ? ' · ' + matriz.formacion : ''} · actualizada {hace(matriz.actualizadoEn)}</span>
         </div>
-      )}
-      {matriz && matriz.sinRespuesta && <p className="mx-detalle mal">n8n empezó a generar esta matriz {hace(matriz.actualizadoEn)} y no ha vuelto a avisar. Puede haberse interrumpido.</p>}
-      {matriz && matriz.detalle && <p className={matriz.estado === 'error' ? 'mx-detalle mal' : 'mx2-info'}>{matriz.detalle}</p>}
-
-      {puede && (!matriz || matriz.estado === 'error' || matriz.sinRespuesta) && (
-        <div className="mx-gen">
-          <button type="button" className="btn sm" disabled={ocupado} onClick={() => lanzar([unidad], false)}>{matriz ? 'Reintentar la matriz' : 'Generar matriz'}</button>
+        {matriz.matrizUrl && <a className="mx4-lk" href={matriz.matrizUrl} target="_blank" rel="noopener noreferrer" title={matriz.matrizNombre || ''}>Abrir matriz ↗</a>}
+        {puede && matrizMal && <button type="button" className="btn sm" disabled={ocupado} onClick={() => lanzar([unidad], false)}>Reintentar la matriz</button>}
+        {puede && !matrizMal && ['creada', 'omitida', 'reemplazada'].includes(matriz.estado) && !confirmar && (
+          <button type="button" className="mx4-q" disabled={ocupado} onClick={() => setConfirmar(true)} aria-label={'Volver a generar la matriz de la Unidad ' + unidad}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" /></svg>
+            Volver a generar
+          </button>
+        )}
+      </div>
+      {matriz.sinRespuesta && <p className="mx-detalle mal">n8n empezó a generar esta matriz {hace(matriz.actualizadoEn)} y no ha vuelto a avisar. Puede haberse interrumpido.</p>}
+      {matriz.detalle && matriz.estado === 'error' && <p className="mx-detalle mal">{matriz.detalle}</p>}
+      {confirmar && (
+        <div className="mx4-conf" role="alertdialog" aria-label="Confirmar nueva generación">
+          <p><b>¿Volver a generar la matriz de la Unidad {unidad}?</b> La actual irá a la papelera de Drive y se perderán los cambios hechos a mano en ella.</p>
+          <button type="button" className="btn sm danger" disabled={ocupado} onClick={() => { setConfirmar(false); lanzar([unidad], true) }}>Sí, volver a generar</button>
+          <button type="button" className="btn sec sm" onClick={() => setConfirmar(false)}>Cancelar</button>
         </div>
-      )}
-      {puede && matriz && !matriz.sinRespuesta && ['creada', 'omitida', 'reemplazada'].includes(matriz.estado) && (
-        confirmar ? (
-          <div className="mx-conf" role="alertdialog" aria-label="Confirmar nueva generación">
-            <p><b>¿Volver a generar la matriz de la Unidad {unidad}?</b> La actual irá a la papelera de Drive y se perderán los cambios hechos a mano en ella.</p>
-            <div className="mx-gen">
-              <button type="button" className="btn sm danger" disabled={ocupado} onClick={() => { setConfirmar(false); lanzar([unidad], true) }}>Sí, volver a generar</button>
-              <button type="button" className="btn sec sm" onClick={() => setConfirmar(false)}>Cancelar</button>
-            </div>
-          </div>
-        ) : (
-          <div className="mx-gen"><button type="button" className="btn sec sm" disabled={ocupado} onClick={() => setConfirmar(true)}>Volver a generar la matriz</button></div>
-        )
       )}
 
       {conteo.total > 0 && (
-        <>
-          <div className="mx2-prog">
-            <div className="mx2-grande"><b>{conteo.GENERADO}</b><span>de {conteo.total} recursos generados</span></div>
-            <div className="mx2-seg" role="img" aria-label={conteo.GENERADO + ' generados, ' + porGenerar + ' por generar, ' + conteo.ERROR + ' con error'}>
-              {conteo.GENERADO > 0 && <i className="ok" style={{ flex: conteo.GENERADO }} />}
-              {porGenerar > 0 && <i className="pe" style={{ flex: porGenerar }} />}
-              {conteo.ERROR > 0 && <i className="er" style={{ flex: conteo.ERROR }} />}
+        <div className="mx4-paso mx4-rec">
+          <div className="mx4-fila-h5p">
+            <span className={'mx4-ic ' + (completa ? 'ok' : 'n')} aria-hidden="true">2</span>
+            <div className="mx4-paso-tx">
+              <b>Recursos H5P</b>
+              <span className="mx4-cifra"><strong>{conteo.GENERADO}</strong> de {conteo.total} generados{conteo.ERROR > 0 ? ' · ' + conteo.ERROR + ' con error' : ''}</span>
             </div>
-            <ul className="mx2-ley">
-              {conteo.GENERADO > 0 && <li className="ok">{conteo.GENERADO} generados</li>}
-              {porGenerar > 0 && <li className="pe">{porGenerar} por generar</li>}
-              {conteo.ERROR > 0 && <li className="er">{conteo.ERROR} con error</li>}
-              <li className="mx2-tipo">H5P {conteo.h5p}{conteo.otros ? ' · otros ' + conteo.otros : ''}</li>
-            </ul>
+            <button type="button" className="mx4-ver" aria-expanded={todos} onClick={() => setTodos(!todos)}>
+              {todos ? 'Ocultar recursos' : 'Ver los ' + conteo.total + ' recursos'}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ transform: todos ? 'rotate(180deg)' : 'none' }}><path d="M6 9l6 6 6-6" /></svg>
+            </button>
           </div>
-
-          {atencion.length > 0 && (
-            <section aria-label="Requieren atención">
-              <h4 className="mx2-h">Requieren atención <span className="mal">{atencion.length}</span></h4>
-              {todosAt && <ul className="mx2-lista">{atencion.map((r) => <Atencion key={r.id} r={r} />)}</ul>}
-              <button type="button" className={'mx2-mas mx2-plega' + (todosAt ? ' abierto' : '')} aria-expanded={todosAt} onClick={() => setTodosAt(!todosAt)}>
-                <span>{todosAt ? 'Ocultar los recursos' : 'Haga clic para ver los ' + atencion.length + (atencion.length === 1 ? ' recurso' : ' recursos') + ' pendientes'}</span>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
-              </button>
-            </section>
-          )}
-
-          {generados.length > 0 && (
-            <section aria-label="Generados">
-              <h4 className="mx2-h">Generados <span className="bien">{generados.length}</span></h4>
-              {todos && <ul className="mx2-gen">
-                {visibles.map((r) => (
-                  <li key={r.id}>
-                    <span className="mx2-ok" aria-hidden="true">{I_CHECK}</span>
-                    <span className="mx2-cod">{r.codigo || r.id}</span>
-                    <span className="mx2-nom">{r.titulo || 'Sin título'}</span>
-                    {r.generador && <span className="mx2-chip">{r.generador}</span>}
-                    {r.enlaceGuion && <a href={r.enlaceGuion} target="_blank" rel="noopener noreferrer">Guion ↗</a>}
-                    {r.enlaceRecurso && <a href={r.enlaceRecurso} target="_blank" rel="noopener noreferrer">Recurso ↗</a>}
-                  </li>
+          <div className="mx4-barra" role="img" aria-label={conteo.GENERADO + ' generados de ' + conteo.total}>
+            <i className="ok" style={{ width: (conteo.GENERADO / conteo.total) * 100 + '%' }} />
+            {conteo.ERROR > 0 && <i className="er" style={{ width: (conteo.ERROR / conteo.total) * 100 + '%' }} />}
+          </div>
+          {todos && (
+            <div className="mx4-lista-w">
+              <div className="mx4-filtros" role="tablist" aria-label="Filtrar recursos">
+                {[['todos', 'Todos', conteo.total], ['generados', 'Generados', conteo.GENERADO], ['pendientes', 'Por generar', conteo.total - conteo.GENERADO]].map(([k, t, n]) => (
+                  <button key={k} type="button" role="tab" aria-selected={filtro === k} className={'mx4-f ' + k + (filtro === k ? ' on' : '')} onClick={() => setFiltro(k)}>{t} <b>{n}</b></button>
                 ))}
-              </ul>}
-              <button type="button" className={'mx2-mas mx2-plega' + (todos ? ' abierto' : '')} aria-expanded={todos} onClick={() => setTodos(!todos)}>
-                <span>{todos ? 'Ocultar los recursos' : 'Haga clic para ver los ' + generados.length + (generados.length === 1 ? ' recurso generado' : ' recursos generados')}</span>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
-              </button>
-            </section>
+              </div>
+              <ul className="mx4-lista">{filas.map((r) => <Fila key={r.id} r={r} />)}</ul>
+            </div>
           )}
-        </>
+        </div>
       )}
     </article>
   )
@@ -398,18 +377,25 @@ export default function MatricesH5P({ s }) {
       )}
 
       {d && fase === 2 && !(enCursoMat.length > 0 || corridaH5p || soloEnviado) && puedeH5p && listas > 0 && !todoAlDia && (
-        <section className="mx3-ahora paso" aria-label="Generar recursos H5P">
-          <div className="mx3-ahora-fila">
-            <span className="mx3-ico" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 8l-5 4 5 4M16 8l5 4-5 4M14 5l-4 14" /></svg></span>
-            <div className="mx3-ahora-tx">
-              <span className="mx3-etq">SIGUIENTE PASO</span>
-              <h3>Genere los recursos H5P</h3>
-              <p>{pendientes ? pendientes + ' recursos H5P pendientes en las matrices listas.' : 'n8n revisa las matrices listas y genera los recursos H5P que estén pendientes.'} Lo que no se pueda generar queda como «omitido», con su motivo.</p>
-            </div>
+        <section className="mx5-h5p" aria-label="Generar recursos H5P">
+          <div className="mx5-num">
+            <span className="mx5-etq">PASO 2 · RECURSOS H5P</span>
+            <div className="mx5-cifra"><b>{pendientes || '—'}</b><span>{pendientes === 1 ? 'recurso por generar' : 'recursos por generar'}</span></div>
+            <ul className="mx5-por">
+              {unidades.map((u) => {
+                const rs = d.recursos.filter((r) => r.unidad === u.unidad)
+                const hechos = rs.filter((r) => r.estado === 'GENERADO' && !r.sinRespuesta).length
+                return <li key={u.unidad}><i>U{u.unidad}</i>{hechos}/{rs.length}</li>
+              })}
+            </ul>
           </div>
-          <div className="mx3-ahora-acc">
-            {conError > 0 && <button type="button" className="btn sec" disabled={h5pOcupado} onClick={() => lanzarH5p(true)}>Reintentar los {conError} con error</button>}
-            <button type="button" className="mx3-gran" disabled={h5pOcupado} onClick={() => lanzarH5p(false)}>{lanzando ? 'Enviando…' : 'Generar H5P'}<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg></button>
+          <div className="mx5-acc">
+            <h3>Cree los recursos interactivos</h3>
+            <p>n8n toma cada guion de las matrices listas y arma su recurso H5P. Lo que no se pueda generar queda como «omitido», con su motivo.</p>
+            <div className="mx5-btns">
+              <button type="button" className="mx5-gen" disabled={h5pOcupado} onClick={() => lanzarH5p(false)}>{lanzando ? 'Enviando…' : 'Generar los recursos H5P'}<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M8 8l-5 4 5 4M16 8l5 4-5 4M14 5l-4 14" /></svg></button>
+              {conError > 0 && <button type="button" className="mx5-re" disabled={h5pOcupado} onClick={() => lanzarH5p(true)}>Reintentar los {conError} con error</button>}
+            </div>
           </div>
         </section>
       )}
