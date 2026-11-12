@@ -187,7 +187,7 @@ async function procesar(ev) {
     const o = await resolverOrigen(c, ev)
     let resultado = 'aplicado'
     let motivo = null
-    if (!o) { resultado = 'huerfano'; motivo = 'sin_trabajo' }
+    if (!o) { resultado = 'huerfano'; motivo = 'sin_trabajo'; console.warn('[avisos] huérfano: ' + ev.evento + ' sin trabajo conocido (trabajo_id ' + (ev.trabajo_id || '-') + ', origen_trabajo_id ' + (ev.origen_trabajo_id || '-') + ')') }
     else if (ev.proyecto_id && ev.proyecto_id !== o.proyecto_id) { resultado = 'rechazado'; motivo = 'proyecto_distinto' }
     const ins = await c.query(Q.pipeEventoInsertar, [ev.evento_id, ev.evento, ev.etapa, ev.trabajo_id || null, ev.origen_trabajo_id || null, ev.ejecucion_id || null,
       o ? o.propietario_id : null, o ? o.proyecto_id : null, ev.secuencia ?? null, fecha, resultado, motivo, JSON.stringify(resumir(ev))])
@@ -205,7 +205,10 @@ async function procesar(ev) {
 rutasEventosN8n.post('/eventos', limiteAvisos, async (req, res, next) => {
   try {
     if (!config.n8nEventosSecreto) return res.status(503).json({ error: 'El receptor de avisos no está configurado' })
-    if (!firmaValida(req)) return res.status(401).json({ error: 'Firma o fecha no válidas' })
+    if (!firmaValida(req)) {
+      console.warn('[avisos] rechazado 401: firma o fecha no válidas (cabecera de fecha: ' + (req.get('x-praxia-fecha') || 'ausente') + ', firma: ' + (req.get('x-praxia-firma') ? 'presente' : 'ausente') + ')')
+      return res.status(401).json({ error: 'Firma o fecha no válidas' })
+    }
     const cuerpo = req.body
     const lista = cuerpo && Array.isArray(cuerpo.eventos) ? cuerpo.eventos : cuerpo && typeof cuerpo === 'object' ? [cuerpo] : []
     if (!lista.length || lista.length > MAX_AVISOS) return res.status(400).json({ error: 'Envíe un aviso o entre 1 y ' + MAX_AVISOS + ' en «eventos»' })
@@ -214,6 +217,7 @@ rutasEventosN8n.post('/eventos', limiteAvisos, async (req, res, next) => {
       const r = Evento.safeParse(bruto)
       if (!r.success) {
         const problemas = r.error.issues.slice(0, 3).map((x) => x.path.join('.') + ': ' + x.message)
+        console.warn('[avisos] rechazado 400: aviso no válido (' + (bruto && bruto.evento) + '): ' + problemas.join(' | '))
         return res.status(400).json({ error: 'Aviso no válido', indice: i, problemas }) // contrato mal armado: no se guarda nada ni conviene reintentar
       }
       avisos.push(r.data)
