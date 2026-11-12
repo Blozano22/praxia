@@ -123,10 +123,17 @@ function FilaSin({ nombre, actual = '', compacta, categorias, puedeCambiar, ocup
               ? <><button type="button" className="btn danger sm" disabled={ocupado} onClick={() => onEliminar(nombre)}>Sí, eliminar</button><button type="button" className="cs-oc" onClick={() => setConfirmando('')}>No</button></>
               : <button type="button" className="cs-oc peligro" onClick={() => setConfirmando(nombre)}>Eliminar</button>}
           </span>
-        ) : oculta ? (
-          <button type="button" className="cs-oc" disabled={ocupado} aria-label={'Volver a mostrar ' + nombre + ' a n8n'} title="Vuelve a ofrecerse a n8n" onClick={() => onOcultar(nombre, false)}>{I_OJO}<span className="cs-tx">Mostrar</span></button>
         ) : (
-          <button type="button" className="cs-oc" disabled={ocupado} aria-label={'Ocultar ' + nombre + ' de n8n'} title="n8n deja de ver esta plantilla; no se borra y se puede volver a mostrar" onClick={() => onOcultar(nombre, true)}>{I_OJO_X}<span className="cs-tx">Ocultar</span></button>
+          <span className="cs-acc">
+            {oculta ? (
+              <button type="button" className="cs-oc" disabled={ocupado} aria-label={'Volver a mostrar ' + nombre + ' a n8n'} title="Vuelve a ofrecerse a n8n" onClick={() => onOcultar(nombre, false)}>{I_OJO}<span className="cs-tx">Mostrar</span></button>
+            ) : (
+              <button type="button" className="cs-oc" disabled={ocupado} aria-label={'Ocultar ' + nombre + ' de n8n'} title="n8n deja de ver esta plantilla; no se borra y se puede volver a mostrar" onClick={() => onOcultar(nombre, true)}>{I_OJO_X}<span className="cs-tx">Ocultar</span></button>
+            )}
+            {confirmando === nombre
+              ? <><button type="button" className="btn danger sm" disabled={ocupado} title="Sale de la pantalla y de n8n; desde aquí no se puede deshacer" onClick={() => onEliminar(nombre, true)}>Sí, eliminar</button><button type="button" className="cs-oc" onClick={() => setConfirmando('')}>No</button></>
+              : <button type="button" className="cs-oc peligro" disabled={ocupado} onClick={() => setConfirmando(nombre)}>Eliminar</button>}
+          </span>
         )
       )}
     </li>
@@ -203,7 +210,7 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
     if (html !== null) hacer(() => api('PUT', '/plantillas/subidas/' + encodeURIComponent(nombre), { html }), 'Plantilla reemplazada')
   }
   const ocultar = (nombre, oculta) => hacer(() => api('PUT', '/plantillas/ocultas/' + encodeURIComponent(nombre), { oculta }), oculta ? 'Quitada de n8n' : 'Vuelve a ofrecerse a n8n')
-  const eliminar = (nombre) => hacer(async () => { await api('DELETE', '/plantillas/subidas/' + encodeURIComponent(nombre)); setBorrarSub('') }, 'Plantilla eliminada')
+  const eliminar = (nombre, delSistema = false) => hacer(async () => { await api('DELETE', (delSistema ? '/plantillas/sistema/' : '/plantillas/subidas/') + encodeURIComponent(nombre)); setBorrarSub('') }, 'Plantilla eliminada')
 
   const idValido = nueva ? RE_ID.test(nueva.id.trim().toUpperCase()) : false
   const idRepetido = nueva && d ? d.categorias.some((c) => c.id === nueva.id.trim().toUpperCase()) : false

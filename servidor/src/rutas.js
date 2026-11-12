@@ -340,9 +340,10 @@ export const nombresPlantillasPublicadas = () => {
 rutas.get('/plantillas/categorias', exigirSesion, exigirPermiso('plantillas.ver'), async (req, res, next) => {
   try {
     const [c, a, u, o] = await Promise.all([sinUsuario(Q.categoriasListar), sinUsuario(Q.categoriasAsignaciones), sinUsuario(Q.subidasListar), sinUsuario(Q.ocultasListar)])
-    const plantillas = [...new Set([...nombresPlantillasPublicadas(), ...u.rows.map((x) => x.nombre)])].sort()
+    const eliminadas = new Set(o.rows.filter((x) => x.eliminada).map((x) => x.plantilla))
+    const plantillas = [...new Set([...nombresPlantillasPublicadas(), ...u.rows.map((x) => x.nombre)])].filter((n) => !eliminadas.has(n)).sort()
     res.json({
-      categorias: c.rows, asignaciones: Object.fromEntries(a.rows.map((x) => [x.plantilla, x.categoria])), plantillas, ocultas: o.rows.map((x) => x.plantilla),
+      categorias: c.rows, asignaciones: Object.fromEntries(a.rows.map((x) => [x.plantilla, x.categoria])), plantillas, ocultas: o.rows.filter((x) => !x.eliminada).map((x) => x.plantilla),
       subidas: Object.fromEntries(u.rows.map((x) => [x.nombre, { por: x.por, actualizado: x.actualizado }]))
     })
   } catch (e) { next(e) }
@@ -394,6 +395,18 @@ rutas.put('/plantillas/ocultas/:nombre', exigirSesion, exigirPermiso('plantillas
     if (req.bodyOk.oculta) await sinUsuario(Q.ocultaPoner, [nombre, req.usuario.nombre])
     else await sinUsuario(Q.ocultaQuitar, [nombre])
     await auditar(req.usuario.id, req.bodyOk.oculta ? 'plantilla_ocultar' : 'plantilla_mostrar', 'plantilla', nombre, req)
+    res.json({ ok: true })
+  } catch (e) { next(e) }
+})
+// Eliminar una plantilla DEL SISTEMA desde la pantalla: su archivo es del código y no se borra, pero queda quitada de n8n y ya no se ve en la pantalla.
+// Se hace a propósito sin vuelta atrás desde aquí (para volver a tenerla hay que quitar la fila de plantilla_ocultas).
+rutas.delete('/plantillas/sistema/:nombre', exigirSesion, exigirPermiso('plantillas.revisar'), validar(z.object({ nombre: z.string().regex(/^[a-z0-9-]{1,80}$/) }), 'params'), async (req, res, next) => {
+  try {
+    const { nombre } = req.paramsOk
+    if (!nombresPlantillasPublicadas().includes(nombre)) return res.status(404).json({ error: 'No es una plantilla del sistema.' })
+    await sinUsuario(Q.ocultaEliminar, [nombre, req.usuario.nombre])
+    await sinUsuario(Q.categoriaQuitar, [nombre])
+    await auditar(req.usuario.id, 'plantilla_eliminar_sistema', 'plantilla', nombre, req)
     res.json({ ok: true })
   } catch (e) { next(e) }
 })

@@ -344,6 +344,8 @@ CREATE TABLE IF NOT EXISTS plantilla_ocultas (
   oculta_por text NOT NULL DEFAULT '' CHECK (char_length(oculta_por) <= 120),
   creado     timestamptz NOT NULL DEFAULT now()
 );
+-- «Eliminar» una plantilla del sistema: queda quitada de n8n y además deja de aparecer en la pantalla (el archivo sigue en el código).
+ALTER TABLE plantilla_ocultas ADD COLUMN IF NOT EXISTS eliminada boolean NOT NULL DEFAULT false;
 
 -- ---------------------------------------------------------------- seguridad por fila (RLS)
 -- Aunque una consulta de la aplicación olvidara el filtro por propietario, la base de datos

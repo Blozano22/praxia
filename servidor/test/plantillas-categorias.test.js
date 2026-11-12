@@ -227,6 +227,21 @@ test('quitar de n8n una plantilla del sistema (y volver a mostrarla) sin tocar e
   assert.deepEqual((await (await dani('GET', '/plantillas/categorias')).json()).ocultas, [])
 })
 
+test('eliminar una plantilla del sistema: sale de la pantalla y de n8n, sin vuelta atrás desde la pantalla', async () => {
+  const dani = await entrar('dani@u.co')
+  const ana = await entrar('ana@u.co')
+  assert.equal((await ana('DELETE', '/plantillas/sistema/acordeon-3')).status, 403)
+  assert.equal((await dani('DELETE', '/plantillas/sistema/no-existe')).status, 404)
+  assert.equal((await dani('DELETE', '/plantillas/sistema/acordeon-3')).status, 200)
+  const j = await (await dani('GET', '/plantillas/categorias')).json()
+  assert.equal(j.plantillas.includes('acordeon-3'), false); assert.equal(j.ocultas.includes('acordeon-3'), false)
+  assert.equal((await indice()).plantillas.some((p) => p.nombre === 'acordeon-3'), false)
+  assert.equal((await fetch(base + '/plantillas-html/acordeon-3.html')).status, 404)
+  // «mostrar» no la trae de vuelta
+  assert.equal((await dani('PUT', '/plantillas/ocultas/acordeon-3', { oculta: false })).status, 200)
+  assert.equal((await fetch(base + '/plantillas-html/acordeon-3.html')).status, 404)
+})
+
 test('borrar una categoría deja sus plantillas sin categoría; si falla la base de datos se entrega el archivo del build tal cual', async () => {
   const dani = await entrar('dani@u.co')
   assert.equal((await dani('DELETE', '/plantillas/categorias/G-20')).status, 200)
