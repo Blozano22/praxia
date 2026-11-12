@@ -280,15 +280,17 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
             {visibles.map((c) => {
               const n = (porCategoria[c.id] || []).length
               return (
-                <section key={c.id} className={'card cat-card cat-res' + (n ? '' : ' vacia')}>
+                <section key={c.id} className={'card cat-card cat-res' + (n ? '' : ' vacia') + (edit && edit.id === c.id ? ' editando' : '')}>
                   <header className="cat-cab">
                     <span className="cat-id">{c.id}</span>
                     {edit && edit.id === c.id ? (
                       <form className="cat-ren" onSubmit={(e) => { e.preventDefault(); if (edit.nombre.trim()) guardarEdicion() }}>
                         <input aria-label="Nombre de la categoría" value={edit.nombre} onChange={(e) => setEdit({ ...edit, nombre: e.target.value })} maxLength={120} autoFocus />
-                        <Seg chico valor={edit.tipo} onChange={(tipo) => setEdit({ ...edit, tipo })} opciones={OPC_TIPO} etiqueta="Tipo" />
-                        <button className="btn sm" type="submit" disabled={ocupado || !edit.nombre.trim()}>Guardar</button>
-                        <button className="btn sec sm" type="button" onClick={() => setEdit(null)}>Cancelar</button>
+                        <div className="cat-ren-acc">
+                          <Seg chico valor={edit.tipo} onChange={(tipo) => setEdit({ ...edit, tipo })} opciones={OPC_TIPO} etiqueta="Tipo" />
+                          <button className="btn sm" type="submit" disabled={ocupado || !edit.nombre.trim()}>Guardar</button>
+                          <button className="btn sec sm" type="button" onClick={() => setEdit(null)}>Cancelar</button>
+                        </div>
                       </form>
                     ) : (
                       <h3>{c.nombre}</h3>

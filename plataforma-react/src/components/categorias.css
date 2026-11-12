@@ -203,3 +203,12 @@
 .cat-ren input{flex:1 1 100%}
 .cat-ren .cs-seg{flex:0 0 auto}
 @media (max-width:760px){.cat-form:not(.cat-subir){grid-template-columns:1fr}}
+
+/* Al editar, la tarjeta conserva su tamaño: arriba ID + nombre, debajo el tipo y los botones (como las acciones normales) */
+.cat-res.editando{border-color:var(--nav);box-shadow:0 0 0 3px rgba(19,35,91,.10)}
+.cat-res.editando .cat-cab{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:12px 12px;padding:14px 16px}
+.cat-res.editando .cat-ren{display:contents}
+.cat-res.editando .cat-ren input{grid-column:2;width:100%;min-width:0;height:40px;font-size:.92rem}
+.cat-ren-acc{grid-column:2;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.cat-ren-acc .cs-seg{flex:0 0 auto}.cat-ren-acc .cs-seg button{height:32px}
+.cat-ren-acc .btn{min-height:40px}.cat-ren-acc .btn:nth-of-type(1){margin-left:auto}
