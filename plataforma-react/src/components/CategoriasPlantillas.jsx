@@ -21,48 +21,75 @@ function sugerirNombre(variantes) {
   return base + '-' + (Math.max(1, ...nums) + 1)
 }
 
-// Una variante (plantilla) con lo que se puede hacer con ella. Las que subió una persona se reemplazan o se eliminan; las del sistema son
-// archivos del código y no se borran, pero se pueden QUITAR DE N8N (y volver a mostrar) sin tocar el código.
-function FilaVariante({ nombre, categorias, actual, puedeCambiar, ocupado, onAsignar, subida, oculta, onReemplazar, onEliminar, onOcultar, onVer, confirmando, setConfirmando }) {
-  const archivo = useRef(null)
-  return (
-    <li className={'cat-var' + (puedeCambiar ? ' con-sub' : '') + (oculta ? ' oculta' : '')}>
-      <span className="cat-var-n">{nombre}{subida && <em className="cat-sub" title={'Subida por ' + (subida.por || 'alguien')}>subida</em>}{oculta && <em className="cat-ocu" title="Quitada de n8n: no sale en el índice ni se descarga">quitada</em>}</span>
-      <button type="button" className="cat-var-ver" onClick={() => onVer(nombre)}>Ver</button>
-      {puedeCambiar && (
-        <select aria-label={'Categoría de ' + nombre} value={actual || ''} disabled={ocupado} onChange={(e) => onAsignar(nombre, e.target.value || null)}>
-          <option value="">Sin categoría</option>
-          {['recurso', 'actividad'].map((t) => (
-            <optgroup key={t} label={TIPOS[t][0]}>{categorias.filter((c) => c.tipo === t).map((c) => <option key={c.id} value={c.id}>{c.id} · {c.nombre}</option>)}</optgroup>
-          ))}
-        </select>
-      )}
-      {puedeCambiar && (
-        <span className="cat-var-sub">
-          {subida ? (
-            <>
-              <input ref={archivo} type="file" accept=".html,.htm,text/html" hidden onChange={(e) => { const f = e.target.files[0]; e.target.value = ''; if (f) onReemplazar(nombre, f) }} />
-              <button type="button" className="btn sec sm" disabled={ocupado} onClick={() => archivo.current.click()}>Reemplazar archivo</button>
-              {confirmando === nombre
-                ? <><button type="button" className="btn danger sm" disabled={ocupado} onClick={() => onEliminar(nombre)}>Sí, eliminar</button><button type="button" className="btn sec sm" onClick={() => setConfirmando('')}>No</button></>
-                : <button type="button" className="btn danger sm" onClick={() => setConfirmando(nombre)}>Eliminar</button>}
-            </>
-          ) : oculta ? (
-            <button type="button" className="btn sec sm" disabled={ocupado} onClick={() => onOcultar(nombre, false)}>Volver a mostrar</button>
-          ) : (
-            <button type="button" className="btn sec sm" disabled={ocupado} title="La plantilla es del sistema: deja de ofrecerse a n8n, sin borrarla. Se puede revertir." onClick={() => onOcultar(nombre, true)}>Quitar de n8n</button>
-          )}
-        </span>
-      )}
-    </li>
-  )
-}
-
 // Fila compacta de «Sin categoría»: nombre · Ver | categoría · Ocultar (una sola línea).
 const I_ETQ = <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z" /><circle cx="7.5" cy="7.5" r="1" /></svg>
 const I_CH = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
 const I_OJO_X = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M17.9 17.9A10.4 10.4 0 0 1 12 20c-6 0-10-8-10-8a18.5 18.5 0 0 1 5.1-5.9M9.9 4.2A9.6 9.6 0 0 1 12 4c6 0 10 8 10 8a18.6 18.6 0 0 1-2.2 3.2M1 1l22 22M14.1 14.1a3 3 0 1 1-4.2-4.2" /></svg>
 const I_OJO = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M2 12s4-8 10-8 10 8 10 8-4 8-10 8-10-8-10-8z" /><circle cx="12" cy="12" r="3" /></svg>
+
+const I_CHECK_OP = <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
+
+// Interruptor de dos o más opciones (reemplaza al «select» de tipo).
+function Seg({ valor, onChange, opciones, etiqueta, chico }) {
+  return (
+    <div className={'cs-seg' + (chico ? ' chico' : '')} role="radiogroup" aria-label={etiqueta}>
+      {opciones.map(([v, t]) => <button key={v} type="button" role="radio" aria-checked={valor === v} className={valor === v ? 'on' : ''} onClick={() => onChange(v)}>{t}</button>)}
+    </div>
+  )
+}
+
+// Lista desplegable propia para elegir una categoría: con búsqueda, grupos (Recursos / Actividades) y el ID de cada una.
+function ListaCategorias({ valor, categorias, onChange, etiqueta, vacio, conVacio, ocupado }) {
+  const [abierta, setAbierta] = useState(false)
+  const [q, setQ] = useState('')
+  const caja = useRef(null)
+  useEffect(() => {
+    if (!abierta) return undefined
+    const fuera = (e) => { if (caja.current && !caja.current.contains(e.target)) setAbierta(false) }
+    const tecla = (e) => { if (e.key === 'Escape') setAbierta(false) }
+    document.addEventListener('mousedown', fuera); document.addEventListener('keydown', tecla)
+    return () => { document.removeEventListener('mousedown', fuera); document.removeEventListener('keydown', tecla) }
+  }, [abierta])
+  const actual = categorias.find((c) => c.id === valor)
+  const t = q.trim().toLowerCase()
+  const elegir = (id) => { onChange(id); setAbierta(false); setQ('') }
+  return (
+    <div className="cs-dd" ref={caja}>
+      <button type="button" className={'cs-dd-btn' + (actual ? ' lista' : '')} aria-haspopup="listbox" aria-expanded={abierta} aria-label={etiqueta} disabled={ocupado} onClick={() => setAbierta(!abierta)}>
+        <span className="cs-dd-i">{I_ETQ}</span>
+        <span className="cs-dd-t">{actual ? actual.id + ' · ' + actual.nombre : vacio}</span>
+        <span className="cs-dd-c">{I_CH}</span>
+      </button>
+      {abierta && (
+        <div className="cs-dd-panel">
+          <div className="cs-dd-bus">
+            <input autoFocus type="search" placeholder="Buscar por ID o nombre…" aria-label="Buscar categoría" value={q} onChange={(e) => setQ(e.target.value)} />
+          </div>
+          <div className="cs-dd-lista" role="listbox" aria-label={etiqueta}>
+            {conVacio && !t && <button type="button" role="option" aria-selected={!valor} className={'cs-op' + (!valor ? ' sel' : '')} onClick={() => elegir('')}><span className="cs-op-n">{vacio}</span></button>}
+            {['recurso', 'actividad'].map((tp) => {
+              const lista = categorias.filter((c) => c.tipo === tp && (!t || (c.id + ' ' + c.nombre).toLowerCase().includes(t)))
+              if (!lista.length) return null
+              return (
+                <div key={tp}>
+                  <div className="cs-dd-g">{TIPOS[tp][0].toUpperCase()} · {lista.length}</div>
+                  {lista.map((c) => (
+                    <button key={c.id} type="button" role="option" aria-selected={c.id === valor} className={'cs-op' + (c.id === valor ? ' sel' : '')} onClick={() => elegir(c.id)}>
+                      <span className="cs-op-id">{c.id}</span>
+                      <span className="cs-op-n">{c.nombre}</span>
+                      {c.id === valor && I_CHECK_OP}
+                    </button>
+                  ))}
+                </div>
+              )
+            })}
+            {t && !categorias.some((c) => (c.id + ' ' + c.nombre).toLowerCase().includes(t)) && <div className="cs-dd-nada">Ninguna categoría coincide.</div>}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 function SelectCategoria({ valor, categorias, ocupado, onChange, etiqueta, vacio }) {
   return (
@@ -79,14 +106,14 @@ function SelectCategoria({ valor, categorias, ocupado, onChange, etiqueta, vacio
   )
 }
 
-function FilaSin({ nombre, categorias, puedeCambiar, ocupado, onAsignar, subida, oculta, onReemplazar, onEliminar, onOcultar, onVer, confirmando, setConfirmando }) {
+function FilaSin({ nombre, actual = '', compacta, categorias, puedeCambiar, ocupado, onAsignar, subida, oculta, onReemplazar, onEliminar, onOcultar, onVer, confirmando, setConfirmando }) {
   const archivo = useRef(null)
   return (
-    <li className={'cs-fila' + (oculta ? ' oculta' : '') + (puedeCambiar ? '' : ' sin-sel')}>
+    <li className={'cs-fila' + (compacta ? ' compacta' : '') + (oculta ? ' oculta' : '') + (puedeCambiar ? '' : ' sin-sel')}>
       <span className="cat-var-n" title={nombre}>{nombre}{subida && <em className="cat-sub" title={'Subida por ' + (subida.por || 'alguien')}>subida</em>}{oculta && <em className="cat-ocu" title="Oculta para n8n: no sale en el índice ni se descarga">oculta</em>}</span>
       <button type="button" className="cat-var-ver" onClick={() => onVer(nombre)}>Ver</button>
       {puedeCambiar && <span className="cs-sep" aria-hidden="true" />}
-      {puedeCambiar && <SelectCategoria valor="" categorias={categorias} ocupado={ocupado} onChange={(v) => v && onAsignar(nombre, v)} etiqueta={'Categoría de ' + nombre} vacio="Sin categoría" />}
+      {puedeCambiar && <SelectCategoria valor={actual} categorias={categorias} ocupado={ocupado} onChange={(v) => v !== actual && onAsignar(nombre, v || null)} etiqueta={'Categoría de ' + nombre} vacio="Sin categoría" />}
       {puedeCambiar && (
         subida ? (
           <span className="cs-acc">
@@ -97,9 +124,9 @@ function FilaSin({ nombre, categorias, puedeCambiar, ocupado, onAsignar, subida,
               : <button type="button" className="cs-oc peligro" onClick={() => setConfirmando(nombre)}>Eliminar</button>}
           </span>
         ) : oculta ? (
-          <button type="button" className="cs-oc" disabled={ocupado} aria-label={'Volver a mostrar ' + nombre + ' a n8n'} title="Vuelve a ofrecerse a n8n" onClick={() => onOcultar(nombre, false)}>{I_OJO}Mostrar</button>
+          <button type="button" className="cs-oc" disabled={ocupado} aria-label={'Volver a mostrar ' + nombre + ' a n8n'} title="Vuelve a ofrecerse a n8n" onClick={() => onOcultar(nombre, false)}>{I_OJO}<span className="cs-tx">Mostrar</span></button>
         ) : (
-          <button type="button" className="cs-oc" disabled={ocupado} aria-label={'Ocultar ' + nombre + ' de n8n'} title="n8n deja de ver esta plantilla; no se borra y se puede volver a mostrar" onClick={() => onOcultar(nombre, true)}>{I_OJO_X}Ocultar</button>
+          <button type="button" className="cs-oc" disabled={ocupado} aria-label={'Ocultar ' + nombre + ' de n8n'} title="n8n deja de ver esta plantilla; no se borra y se puede volver a mostrar" onClick={() => onOcultar(nombre, true)}>{I_OJO_X}<span className="cs-tx">Ocultar</span></button>
         )
       )}
     </li>
@@ -181,14 +208,7 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
   const idValido = nueva ? RE_ID.test(nueva.id.trim().toUpperCase()) : false
   const idRepetido = nueva && d ? d.categorias.some((c) => c.id === nueva.id.trim().toUpperCase()) : false
   const propsFila = { categorias: d ? d.categorias : [], puedeCambiar, ocupado, onAsignar: asignar, onReemplazar: reemplazar, onEliminar: eliminar, onOcultar: ocultar, onVer: setViendo, confirmando: borrarSub, setConfirmando: setBorrarSub }
-  const selectorTipo = (valor, alCambiar, etiqueta) => (
-    <label>{etiqueta}
-      <select value={valor} onChange={(e) => alCambiar(e.target.value)}>
-        <option value="recurso">{TIPOS.recurso[1]}</option>
-        <option value="actividad">{TIPOS.actividad[1]}</option>
-      </select>
-    </label>
-  )
+  const OPC_TIPO = [['recurso', 'Recurso'], ['actividad', 'Actividad']]
 
   return (
     <div className="cat">
@@ -214,7 +234,7 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
               )}
               {nueva && (
                 <form className="card cat-form" onSubmit={(e) => { e.preventDefault(); if (idValido && !idRepetido && nueva.nombre.trim()) crear() }}>
-                  {selectorTipo(nueva.tipo, (tipo) => setNueva({ ...nueva, tipo }), '¿Qué es?')}
+                  <div className="cat-campo"><span className="cat-lbl">¿Qué es?</span><Seg valor={nueva.tipo} onChange={(tipo) => setNueva({ ...nueva, tipo })} opciones={OPC_TIPO} etiqueta="¿Qué es?" /><small>{nueva.tipo === 'actividad' ? 'Una actividad de autoaprendizaje (como un crucigrama).' : 'Un tipo de HTML que n8n elige para mostrar contenido.'}</small></div>
                   <label>ID del catálogo
                     <input value={nueva.id} onChange={(e) => setNueva({ ...nueva, id: e.target.value })} placeholder={nueva.tipo === 'actividad' ? 'ACT-01' : 'G-13'} maxLength={7} aria-invalid={!!nueva.id && (!idValido || idRepetido)} />
                     <small className={nueva.id && (!idValido || idRepetido) ? 'mal' : ''}>{idRepetido ? 'Ya existe una categoría con ese ID.' : 'Letras y número: G-13, PRE-10, ACT-01…'}</small>
@@ -230,15 +250,11 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
               )}
               {subida && (
                 <form className="card cat-form cat-subir" onSubmit={(e) => { e.preventDefault(); if (nombreOk && subida.html) subir() }}>
-                  <label>Categoría
-                    <select value={subida.categoria} onChange={(e) => elegirCategoria(e.target.value)}>
-                      <option value="">Sin categoría por ahora</option>
-                      {['recurso', 'actividad'].map((t) => (
-                        <optgroup key={t} label={TIPOS[t][0]}>{d.categorias.filter((c) => c.tipo === t).map((c) => <option key={c.id} value={c.id}>{c.id} · {c.nombre}</option>)}</optgroup>
-                      ))}
-                    </select>
+                  <div className="cat-campo">
+                    <span className="cat-lbl">Categoría</span>
+                    <ListaCategorias valor={subida.categoria} categorias={d.categorias} ocupado={ocupado} onChange={elegirCategoria} etiqueta="Categoría" vacio="Sin categoría por ahora" conVacio />
                     <small>Es el tipo de HTML al que pertenece esta variante.</small>
-                  </label>
+                  </div>
                   <label>Nombre de la plantilla
                     <input value={subida.nombre} onChange={(e) => setSubida({ ...subida, nombre: e.target.value.toLowerCase(), nombreEditado: true })} placeholder="lineatiempo-4" maxLength={80} aria-invalid={!!subida.nombre && !nombreOk} />
                     <small className={subida.nombre && !nombreOk ? 'mal' : ''}>
@@ -270,10 +286,7 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
                     {edit && edit.id === c.id ? (
                       <form className="cat-ren" onSubmit={(e) => { e.preventDefault(); if (edit.nombre.trim()) guardarEdicion() }}>
                         <input aria-label="Nombre de la categoría" value={edit.nombre} onChange={(e) => setEdit({ ...edit, nombre: e.target.value })} maxLength={120} autoFocus />
-                        <select aria-label="Tipo" value={edit.tipo} onChange={(e) => setEdit({ ...edit, tipo: e.target.value })}>
-                          <option value="recurso">{TIPOS.recurso[1]}</option>
-                          <option value="actividad">{TIPOS.actividad[1]}</option>
-                        </select>
+                        <Seg chico valor={edit.tipo} onChange={(tipo) => setEdit({ ...edit, tipo })} opciones={OPC_TIPO} etiqueta="Tipo" />
                         <button className="btn sm" type="submit" disabled={ocupado || !edit.nombre.trim()}>Guardar</button>
                         <button className="btn sec sm" type="button" onClick={() => setEdit(null)}>Cancelar</button>
                       </form>
@@ -295,9 +308,9 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
                   {borrar === c.id && <p className="help cat-aviso">Sus {(todasPorCategoria[c.id] || []).length} plantillas quedarán «sin categoría». Las plantillas no se borran.</p>}
                   {puedeCambiar && gestionando === c.id && (
                     <div className="cat-gestion">
-                      <p className="help">Las que <b>subió una persona</b> se pueden reemplazar o eliminar. Las <b>del sistema</b> son archivos del código: no se borran, pero con «Quitar de n8n» dejan de ofrecerse (se puede revertir).</p>
+                      <p className="cs-info"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg><span><b>Subidas por una persona:</b> se reemplazan o se eliminan. <b>Del sistema:</b> no se borran; se pueden ocultar de n8n y volver a mostrar.</span></p>
                       {(todasPorCategoria[c.id] || []).length
-                        ? <ul className="cat-vars">{todasPorCategoria[c.id].map((nom) => <FilaVariante key={nom} nombre={nom} actual={c.id} subida={d.subidas && d.subidas[nom]} oculta={ocultas.has(nom)} {...propsFila} />)}</ul>
+                        ? <ul className="cs-lista una">{todasPorCategoria[c.id].map((nom) => <FilaSin compacta key={nom} nombre={nom} actual={c.id} subida={d.subidas && d.subidas[nom]} oculta={ocultas.has(nom)} {...propsFila} />)}</ul>
                         : <p className="help cat-vacia">Esta categoría todavía no tiene variantes.</p>}
                     </div>
                   )}
@@ -322,7 +335,7 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
                   {puedeCambiar && sin.length > 1 && (
                     <div className="cs-masiva">
                       <span>Misma categoría para todas</span>
-                      <SelectCategoria valor={paraTodas} categorias={d.categorias} ocupado={ocupado} onChange={setParaTodas} etiqueta="Categoría para todas" vacio="Elegir categoría…" />
+                      <ListaCategorias valor={paraTodas} categorias={d.categorias} ocupado={ocupado} onChange={setParaTodas} etiqueta="Categoría para todas" vacio="Elegir categoría…" />
                       <button type="button" className="btn sm" disabled={ocupado || !paraTodas} onClick={asignarTodas}>Aplicar a {sin.length === 2 ? 'las 2' : 'las ' + sin.length}</button>
                     </div>
                   )}
