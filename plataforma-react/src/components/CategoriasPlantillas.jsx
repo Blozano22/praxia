@@ -24,6 +24,10 @@ function sugerirNombre(variantes) {
 // Fila compacta de «Sin categoría»: nombre · Ver | categoría · Ocultar (una sola línea).
 const I_ETQ = <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z" /><circle cx="7.5" cy="7.5" r="1" /></svg>
 const I_CH = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+const I_BASURA = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" /></svg>
+const I_SUBIR = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 20h16" /></svg>
+const I_OK = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
+const I_X = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
 const I_OJO_X = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M17.9 17.9A10.4 10.4 0 0 1 12 20c-6 0-10-8-10-8a18.5 18.5 0 0 1 5.1-5.9M9.9 4.2A9.6 9.6 0 0 1 12 4c6 0 10 8 10 8a18.6 18.6 0 0 1-2.2 3.2M1 1l22 22M14.1 14.1a3 3 0 1 1-4.2-4.2" /></svg>
 const I_OJO = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M2 12s4-8 10-8 10 8 10 8-4 8-10 8-10-8-10-8z" /><circle cx="12" cy="12" r="3" /></svg>
 
@@ -118,21 +122,21 @@ function FilaSin({ nombre, actual = '', compacta, categorias, puedeCambiar, ocup
         subida ? (
           <span className="cs-acc">
             <input ref={archivo} type="file" accept=".html,.htm,text/html" hidden onChange={(e) => { const f = e.target.files[0]; e.target.value = ''; if (f) onReemplazar(nombre, f) }} />
-            <button type="button" className="cs-oc" disabled={ocupado} onClick={() => archivo.current.click()}>Reemplazar</button>
+            <button type="button" className="cs-oc" disabled={ocupado} aria-label={'Reemplazar el archivo de ' + nombre} title="Reemplazar el archivo" onClick={() => archivo.current.click()}>{I_SUBIR}</button>
             {confirmando === nombre
-              ? <><button type="button" className="btn danger sm" disabled={ocupado} onClick={() => onEliminar(nombre)}>Sí, eliminar</button><button type="button" className="cs-oc" onClick={() => setConfirmando('')}>No</button></>
-              : <button type="button" className="cs-oc peligro" onClick={() => setConfirmando(nombre)}>Eliminar</button>}
+              ? <><button type="button" className="cs-oc confirma" disabled={ocupado} aria-label={'Sí, eliminar ' + nombre} title="Sí, eliminar" onClick={() => onEliminar(nombre)}>{I_OK}</button><button type="button" className="cs-oc" aria-label="No eliminar" title="No eliminar" onClick={() => setConfirmando('')}>{I_X}</button></>
+              : <button type="button" className="cs-oc peligro" aria-label={'Eliminar ' + nombre} title="Eliminar" onClick={() => setConfirmando(nombre)}>{I_BASURA}</button>}
           </span>
         ) : (
           <span className="cs-acc">
             {oculta ? (
-              <button type="button" className="cs-oc" disabled={ocupado} aria-label={'Volver a mostrar ' + nombre + ' a n8n'} title="Vuelve a ofrecerse a n8n" onClick={() => onOcultar(nombre, false)}>{I_OJO}<span className="cs-tx">Mostrar</span></button>
+              <button type="button" className="cs-oc" disabled={ocupado} aria-label={'Volver a mostrar ' + nombre + ' a n8n'} title="Vuelve a ofrecerse a n8n" onClick={() => onOcultar(nombre, false)}>{I_OJO}</button>
             ) : (
-              <button type="button" className="cs-oc" disabled={ocupado} aria-label={'Ocultar ' + nombre + ' de n8n'} title="n8n deja de ver esta plantilla; no se borra y se puede volver a mostrar" onClick={() => onOcultar(nombre, true)}>{I_OJO_X}<span className="cs-tx">Ocultar</span></button>
+              <button type="button" className="cs-oc" disabled={ocupado} aria-label={'Ocultar ' + nombre + ' de n8n'} title="n8n deja de ver esta plantilla; no se borra y se puede volver a mostrar" onClick={() => onOcultar(nombre, true)}>{I_OJO_X}</button>
             )}
             {confirmando === nombre
-              ? <><button type="button" className="btn danger sm" disabled={ocupado} title="Sale de la pantalla y de n8n; desde aquí no se puede deshacer" onClick={() => onEliminar(nombre, true)}>Sí, eliminar</button><button type="button" className="cs-oc" onClick={() => setConfirmando('')}>No</button></>
-              : <button type="button" className="cs-oc peligro" disabled={ocupado} onClick={() => setConfirmando(nombre)}>Eliminar</button>}
+              ? <><button type="button" className="cs-oc confirma" disabled={ocupado} aria-label={'Sí, eliminar ' + nombre} title="Sí, eliminar: sale de la pantalla y de n8n; desde aquí no se puede deshacer" onClick={() => onEliminar(nombre, true)}>{I_OK}</button><button type="button" className="cs-oc" aria-label="No eliminar" title="No eliminar" onClick={() => setConfirmando('')}>{I_X}</button></>
+              : <button type="button" className="cs-oc peligro" disabled={ocupado} aria-label={'Eliminar ' + nombre} title="Eliminar" onClick={() => setConfirmando(nombre)}>{I_BASURA}</button>}
           </span>
         )
       )}

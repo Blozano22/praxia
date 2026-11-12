@@ -212,3 +212,10 @@
 .cat-ren-acc{grid-column:2;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .cat-ren-acc .cs-seg{flex:0 0 auto}.cat-ren-acc .cs-seg button{height:32px}
 .cat-ren-acc .btn{min-height:40px}.cat-ren-acc .btn:nth-of-type(1){margin-left:auto}
+
+/* Botones de fila solo con icono */
+.cs-oc{padding:0;width:40px;justify-content:center}
+.cs-oc.confirma{background:#c43b32;border-color:#c43b32;color:#fff}.cs-oc.confirma:hover:not(:disabled){background:#a82d26;border-color:#a82d26;color:#fff}
+.cs-fila{grid-template-columns:minmax(0,1fr) auto 1px 176px auto}
+.cs-acc{gap:6px}
+@media(max-width:900px){.cs-fila .cs-oc{width:auto;padding:0 12px}.cs-fila.compacta .cs-oc{width:auto}}
