@@ -9,7 +9,7 @@
     "dev": "node --watch src/index.js",
     "db:migrar": "node scripts/migrar.js",
     "usuario:crear-admin": "node scripts/crear-admin.js",
-    "test": "node --test test/seguridad.test.js test/bibliografia.test.js test/plantillas-publicas.test.js test/guiones-trabajos.test.js test/limites.test.js test/proyectos-versiones.test.js test/unidades-trabajos.test.js test/plantillas-ciclo.test.js test/pipeline-eventos.test.js",
+    "test": "node --test test/seguridad.test.js test/bibliografia.test.js test/plantillas-publicas.test.js test/guiones-trabajos.test.js test/limites.test.js test/proyectos-versiones.test.js test/unidades-trabajos.test.js test/plantillas-ciclo.test.js test/pipeline-eventos.test.js test/pipeline-matrices-lanzar.test.js",
     "demo": "node test/demo-temporal.js",
     "db:preparar": "node scripts/preparar-local.js"
   },

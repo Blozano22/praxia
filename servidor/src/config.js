@@ -27,7 +27,8 @@ export const config = {
   n8nUnidadesDefecto: process.env.N8N_UNIDADES_URL || 'https://n8n.americana.edu.co/webhook/syllabus-a-plantilla-bibliografia-v2',
   // Secreto con el que n8n FIRMA los avisos a Praxia (HMAC-SHA256). Sin él el receptor de avisos queda desactivado.
   // El «anterior» permite rotarlo sin cortar los avisos: durante el cambio se aceptan los dos.
-  n8nEventosSecreto: process.env.N8N_EVENTOS_SECRETO || '',
+  n8nMatricesUrl: process.env.N8N_MATRICES_URL || '', // webhook del subflujo de matrices; vacío = «Generar matriz» desactivado
+  n8nEventosSecreto:process.env.N8N_EVENTOS_SECRETO || '',
   n8nEventosSecretoAnterior: process.env.N8N_EVENTOS_SECRETO_ANTERIOR || '',
   // Minutos máximos que se espera la respuesta de n8n antes de darla por fallida.
   n8nMinutosMaximo: Number(process.env.N8N_MINUTOS_MAXIMO || 45),
