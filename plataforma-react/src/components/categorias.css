@@ -196,3 +196,10 @@
 .cs-fila.compacta .cs-oc{padding:0;width:40px;justify-content:center}.cs-fila.compacta .cs-tx{display:none}
 .cs-fila.compacta .cs-acc{grid-column:1/-1}
 @media(max-width:640px){.cs-fila.compacta{grid-template-columns:minmax(0,1fr) auto}.cs-fila.compacta .cs-cw{grid-column:1/-1}.cs-fila.compacta .cs-oc{grid-column:1/-1;width:auto;padding:0 12px}.cs-fila.compacta .cs-tx{display:inline}}
+
+/* Ajustes: el nombre ocupa el espacio sobrante (el ID es corto) y al editar el nombre va en su propia línea */
+.cat-form:not(.cat-subir){grid-template-columns:minmax(220px,260px) minmax(150px,200px) minmax(220px,1fr)}
+.cat-form:not(.cat-subir) .cat-form-acc{grid-column:1/-1}
+.cat-ren input{flex:1 1 100%}
+.cat-ren .cs-seg{flex:0 0 auto}
+@media (max-width:760px){.cat-form:not(.cat-subir){grid-template-columns:1fr}}
