@@ -97,7 +97,7 @@ function Cronometro({ desde }) {
   return <span className="mx3-crono">{Math.floor(seg / 60)}:{String(seg % 60).padStart(2, '0')}</span>
 }
 
-function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar }) {
+function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, enviada, desdeEnvio }) {
   const [todos, setTodos] = useState(false)
   const [confirmar, setConfirmar] = useState(false)
   const conteo = useMemo(() => {
@@ -110,7 +110,7 @@ function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar }) {
   const generados = recursos.filter((r) => r.estado === 'GENERADO' && !r.sinRespuesta)
   const visibles = todos ? generados : generados.slice(0, 3)
   const porGenerar = conteo.PENDIENTE + conteo.EN_PROCESO
-  const generandoMat = !!matriz && matriz.estado === 'generando' && !matriz.sinRespuesta
+  const generandoMat = (!!matriz && matriz.estado === 'generando' && !matriz.sinRespuesta) || (!matriz && !!enviada)
   // Sin matriz (o generándose sin recursos aún): una fila simple, sin tarjeta con datos vacíos.
   if (!matriz || (generandoMat && conteo.total === 0)) {
     return (
@@ -120,7 +120,7 @@ function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar }) {
           <div className="mx3-fila-tx">
             <b>Unidad {unidad}</b>
             {generandoMat
-              ? <span className="mx3-gen-tx"><span className="mx3-gira chico" aria-hidden="true" />Generando la matriz… <Cronometro desde={matriz.actualizadoEn} /></span>
+              ? <span className="mx3-gen-tx"><span className="mx3-gira chico" aria-hidden="true" />Generando la matriz… <Cronometro desde={matriz ? matriz.actualizadoEn : desdeEnvio} /></span>
               : <span className="mx3-sin">{nombre && nombre !== 'Unidad ' + unidad ? nombre + ' · ' : ''}Sin matriz</span>}
           </div>
           {generandoMat
@@ -230,6 +230,8 @@ export default function MatricesH5P({ s }) {
   const [lanzando, setLanzando] = useState(false)
   const [aviso, setAviso] = useState('')
   const [maximo, setMaximo] = useState(10)
+  const [yaEnCurso, setYaEnCurso] = useState(0) // el servidor dijo que ya hay una generación en marcha
+  const [enviadas, setEnviadas] = useState([]) // unidades cuya matriz se pidió hace poco
   const [lanzadoEn, setLanzadoEn] = useState(0) // hasta que n8n avise del inicio pasan unos segundos: mientras tanto se sigue refrescando
 
   const cargar = useCallback(async () => {
@@ -239,7 +241,7 @@ export default function MatricesH5P({ s }) {
   }, [s.id])
   useEffect(() => { cargar() }, [cargar])
 
-  const lanzadoReciente = lanzadoEn > 0 && Date.now() - lanzadoEn < 120000
+  const lanzadoReciente = (lanzadoEn > 0 && Date.now() - lanzadoEn < 120000) || (yaEnCurso > 0 && Date.now() - yaEnCurso < 600000)
   const enProgreso = lanzadoReciente || !!d && (d.matrices.some((m) => m.estado === 'generando' && !m.sinRespuesta) || d.ejecuciones.some((e) => e.estado === 'en_curso' && !e.sinRespuesta) || d.recursos.some((r) => r.estado === 'EN_PROCESO' && !r.sinRespuesta))
   // Mientras algo esté en proceso se refresca solo (consulta a Praxia, no a n8n); además, al volver a la pestaña.
   useEffect(() => {
@@ -258,10 +260,13 @@ export default function MatricesH5P({ s }) {
     setLanzando(true); setError(''); setAviso('')
     try {
       await api('POST', '/proyectos/' + encodeURIComponent(s.id) + '/pipeline/matrices', { unidades: nums, forzar })
-      setLanzadoEn(Date.now())
+      setLanzadoEn(Date.now()); setYaEnCurso(0); setEnviadas(nums)
       setAviso((forzar ? 'Se pidió volver a generar' : 'Se pidió generar') + (nums.length === 1 ? ' la matriz de la Unidad ' + nums[0] : ' las matrices de las unidades ' + nums.join(', ')) + '. n8n la está preparando; esta pantalla se actualiza sola.')
       await cargar()
-    } catch (e) { setError(e.message || 'No se pudo lanzar la generación') }
+    } catch (e) {
+      if (e && (e.estado === 409 || /ya se est/i.test(e.message || ''))) { setYaEnCurso(Date.now()); setEnviadas(nums); setLanzadoEn(Date.now()) } // no es un fallo: ya hay una en marcha
+      else setError(e.message || 'No se pudo lanzar la generación')
+    }
     setLanzando(false)
   }, [s.id, cargar])
 
@@ -269,7 +274,7 @@ export default function MatricesH5P({ s }) {
     setLanzando(true); setError(''); setAviso('')
     try {
       await api('POST', '/proyectos/' + encodeURIComponent(s.id) + '/pipeline/h5p', { maximo: Math.max(1, Math.min(200, Math.round(Number(maximo)) || 10)), reintentarErrores: reintentar })
-      setLanzadoEn(Date.now())
+      setLanzadoEn(Date.now()); setYaEnCurso(0); setEnviadas([])
       setAviso((reintentar ? 'Se pidió reintentar los recursos con error.' : 'Se pidió generar los recursos H5P.') + ' n8n está planificando la corrida; el avance aparece aquí y se actualiza solo.')
       await cargar()
     } catch (e) { setError(e.message || 'No se pudo lanzar la generación de H5P') }
@@ -306,7 +311,8 @@ export default function MatricesH5P({ s }) {
   const nombres = (l) => (l.length === 1 ? 'la matriz de la Unidad ' + l[0].unidad : 'las matrices de las unidades ' + l.map((m) => m.unidad).join(', '))
   const desdeMat = enCursoMat.map((m) => new Date(m.actualizadoEn).getTime()).filter(Boolean).sort((a, b) => a - b)[0]
   const todoAlDia = !!d && unidades.length > 0 && listas === unidades.length && resumen && resumen.h5p > 0 && pendientes === 0 && conError === 0
-  const fase1Activa = enCursoMat.length > 0 || faltan.length > 0
+  const fase1Activa = enCursoMat.length > 0 || faltan.length > 0 || (soloEnviado && enviadas.length > 0)
+  useEffect(() => { if (yaEnCurso && (enCursoMat.length > 0 || (d && faltan.length === 0))) setYaEnCurso(0) }, [yaEnCurso, enCursoMat.length, d, faltan.length])
   const subFase2 = listas === 0 ? 'Se habilita cuando haya una matriz lista' : resumen && resumen.h5p ? resumen.generados + ' de ' + resumen.h5p + ' generados' : 'Aún sin recursos generados'
 
   return (
@@ -344,10 +350,10 @@ export default function MatricesH5P({ s }) {
             <span className="mx3-anillo" aria-hidden="true"><span className="mx3-gira" /></span>
             <div className="mx3-ahora-tx">
               <span className="mx3-etq">EN PROCESO</span>
-              <h3>{enCursoMat.length ? 'Generando ' + nombres(enCursoMat) : corridaH5p ? 'Generando los recursos H5P' : 'Orden enviada a n8n'}</h3>
-              <p>{enCursoMat.length ? 'n8n la está preparando. Puede tardar unos minutos: deje esta pantalla abierta, el resultado aparece aquí solo.' : corridaH5p ? (corridaH5p.plan ? corridaH5p.resumen ? (corridaH5p.resumen.generados ?? 0) + ' de ' + corridaH5p.plan.aGenerar + ' recursos listos. ' : corridaH5p.plan.aGenerar + ' recursos por generar. ' : 'n8n está planificando la corrida. ') + 'El avance se actualiza solo.' : 'n8n está empezando a trabajar; en unos segundos verá aquí el avance.'}</p>
+              <h3>{enCursoMat.length ? 'Generando ' + nombres(enCursoMat) : corridaH5p ? 'Generando los recursos H5P' : yaEnCurso ? 'Ya se están generando las matrices de este curso' : enviadas.length ? 'Generando ' + (enviadas.length === 1 ? 'la matriz de la Unidad ' + enviadas[0] : 'las matrices de las unidades ' + enviadas.join(', ')) : 'Orden enviada a n8n'}</h3>
+              <p>{enCursoMat.length ? 'n8n la está preparando. Puede tardar unos minutos: deje esta pantalla abierta, el resultado aparece aquí solo.' : corridaH5p ? (corridaH5p.plan ? corridaH5p.resumen ? (corridaH5p.resumen.generados ?? 0) + ' de ' + corridaH5p.plan.aGenerar + ' recursos listos. ' : corridaH5p.plan.aGenerar + ' recursos por generar. ' : 'n8n está planificando la corrida. ') + 'El avance se actualiza solo.' : yaEnCurso ? 'Ya se pidió: no hace falta repetirlo. Espere a que termine; el resultado aparece aquí solo.' : 'n8n está empezando a trabajar. Puede tardar unos minutos: deje esta pantalla abierta, el resultado aparece aquí solo.'}</p>
             </div>
-            {(desdeMat || soloEnviado) && <div className="mx3-tiempo"><Cronometro desde={desdeMat || lanzadoEn} /><span>desde que se pidió</span></div>}
+            {(desdeMat || (soloEnviado && !yaEnCurso)) && <div className="mx3-tiempo"><Cronometro desde={desdeMat || lanzadoEn} /><span>desde que se pidió</span></div>}
           </div>
           {corridaH5p && corridaH5p.plan && corridaH5p.plan.aGenerar > 0 && corridaH5p.resumen
             ? <div className="mx3-barra det" role="progressbar" aria-valuemin="0" aria-valuemax={corridaH5p.plan.aGenerar} aria-valuenow={corridaH5p.resumen.generados ?? 0}><i style={{ width: Math.min(100, Math.round(((corridaH5p.resumen.generados ?? 0) / corridaH5p.plan.aGenerar) * 100)) + '%' }} /></div>
@@ -407,7 +413,7 @@ export default function MatricesH5P({ s }) {
           <h4 className="mx2-h mx3-h">Unidades</h4>
           <div className="mx-grid mx3-lista">
             {unidades.map((u) => (
-              <Unidad key={u.unidad} unidad={u.unidad} nombre={u.nombre} matriz={d.matrices.find((m) => m.unidad === u.unidad)} recursos={d.recursos.filter((r) => r.unidad === u.unidad)} puede={puede} ocupado={ocupado} lanzar={lanzar} />
+              <Unidad key={u.unidad} unidad={u.unidad} nombre={u.nombre} matriz={d.matrices.find((m) => m.unidad === u.unidad)} recursos={d.recursos.filter((r) => r.unidad === u.unidad)} puede={puede} ocupado={ocupado} lanzar={lanzar} enviada={lanzadoReciente && enviadas.includes(u.unidad)} desdeEnvio={yaEnCurso ? 0 : lanzadoEn} />
             ))}
           </div>
         </>
