@@ -207,7 +207,7 @@ Praxia entrega la orden y n8n responde enseguida; el resultado llega por los avi
 | Variable | Webhook | Cuerpo que recibe | Respuesta esperada |
 | --- | --- | --- | --- |
 | `N8N_MATRICES_URL` | subflujo de matrices | `{ trabajo_id, proyecto_id, carpeta_raiz, unidades:[n], unidades_detalle:[{ numero, formacion, guiones:[{ tema, nombre, url }] }], forzar }` (Praxia no manda unidades sin guiones) | `200 {ok, ejecucion_id}` de inmediato; `400` con el motivo si falta algo; `409 {ya:true}` si ya hay una corrida en esa carpeta |
-| `N8N_H5P_URL` | orquestador de H5P | `{ trabajo_id, proyecto_id, carpeta_raiz, maximo, unidades?:[n], reintentar_errores }` | 2xx tras planificar, idealmente `{ ejecucion_id, plan }`; `409` si ya hay una corrida |
+| `N8N_H5P_URL` | orquestador de H5P | `{ trabajo_id, proyecto_id, carpeta_raiz, unidades?:[n], reintentar_errores }` (Praxia ya no manda `maximo`: cuántos recursos se generan lo define n8n; si el pedido lo trae, se reenvía) | 2xx tras planificar, idealmente `{ ejecucion_id, plan }`; `409` si ya hay una corrida |
 
 Rutas de Praxia (sesión y permiso `proyectos.crear`): `POST /api/proyectos/:id/pipeline/matrices` y `POST /api/proyectos/:id/pipeline/h5p`. Solo una generación por curso y etapa a la vez (409). Si n8n no acepta la orden, el curso no queda bloqueado. El flujo de guiones recibe además `proyecto_id` y `carpeta_raiz` (cambio 7.1a del plan).
 

@@ -200,3 +200,9 @@
 .mx2-plega:hover{background:#eef2f9;border-color:var(--nav)}
 .mx2-plega svg{transition:transform .2s}.mx2-plega.abierto svg{transform:rotate(180deg)}
 .mx2-lista+.mx2-plega,.mx2-gen+.mx2-plega{margin-top:8px}
+
+/* Las fases del paso son pestañas que se pueden pulsar */
+button.mx3-fase{appearance:none;border:0;background:transparent;font:inherit;text-align:left;cursor:pointer;color:inherit}
+button.mx3-fase:not(.on):not(.bloq):hover{background:#f4f6fb}
+button.mx3-fase:focus-visible{outline:3px solid var(--brand);outline-offset:-3px}
+button.mx3-fase.bloq{cursor:not-allowed;opacity:.75}

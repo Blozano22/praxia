@@ -2,7 +2,7 @@
 // El navegador nunca llama a n8n: lo hace el servidor. n8n responde enseguida (ack) y el resultado llega después por avisos firmados
 // (src/pipeline/eventos.js), así que aquí solo se valida, se anota el origen del trabajo y se entrega la orden.
 //   POST /api/proyectos/:id/pipeline/matrices   { unidades: [1,2], forzar: false }                      →   202 { trabajo_id }
-//   POST /api/proyectos/:id/pipeline/h5p        { maximo: 10, unidades?: [1], reintentarErrores?: bool }  →   202 { trabajo_id, ejecucion_id? }
+//   POST /api/proyectos/:id/pipeline/h5p        { unidades?: [1], reintentarErrores?: bool }   (maximo es opcional: lo define n8n)  →   202 { trabajo_id, ejecucion_id? }
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { config } from '../config.js'
@@ -25,7 +25,7 @@ export const urlH5p = () => urlConfigurada('n8n.h5p', config.n8nH5pUrl)
 const Unidades = z.array(z.number().int().min(1).max(200)).min(1).max(50)
 export const EsquemaLanzarMatrices = z.object({ unidades: Unidades, forzar: z.boolean().default(false) }).strict()
 export const EsquemaLanzarH5p = z.object({
-  maximo: z.number().int().min(1).max(200).default(10), // filas TOTALES de la corrida, sumando todas las matrices de la carpeta
+  maximo: z.number().int().min(1).max(200).optional(), // opcional: cuántos recursos tiene la corrida como tope. Praxia ya no lo pide; lo define n8n
   unidades: Unidades.optional(),
   reintentarErrores: z.boolean().default(false)
 }).strict()
@@ -141,8 +141,8 @@ export async function lanzarH5p({ usuario, proyectoId, maximo, unidades, reinten
   if (!trabajoId) return falla(409, 'Ya se están generando los recursos H5P de este curso. Espere a que termine.', { ya: true })
   // El orquestador responde después de planificar (lee las matrices): se le da más margen que a una simple confirmación.
   const r = await entregar({ url, minutos: 5, trabajoId, publicarFn, nombre: 'recursos H5P',
-    cuerpo: { trabajo_id: trabajoId, proyecto_id: proyectoId, carpeta_raiz: curso.carpeta, maximo, ...(pedidas ? { unidades: pedidas } : {}), reintentar_errores: reintentarErrores } })
+    cuerpo: { trabajo_id: trabajoId, proyecto_id: proyectoId, carpeta_raiz: curso.carpeta, ...(maximo ? { maximo } : {}), ...(pedidas ? { unidades: pedidas } : {}), reintentar_errores: reintentarErrores } })
   if (r.codigo !== 202) return r
   const ejecucion = r.ack && typeof r.ack.ejecucion_id === 'string' ? r.ack.ejecucion_id.slice(0, 100) : undefined
-  return { codigo: 202, cuerpo: { trabajo_id: trabajoId, maximo, ...(pedidas ? { unidades: pedidas } : {}), reintentarErrores, ...(ejecucion ? { ejecucion_id: ejecucion } : {}) } }
+  return { codigo: 202, cuerpo: { trabajo_id: trabajoId, ...(maximo ? { maximo } : {}), ...(pedidas ? { unidades: pedidas } : {}), reintentarErrores, ...(ejecucion ? { ejecucion_id: ejecucion } : {}) } }
 }

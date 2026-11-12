@@ -235,7 +235,7 @@ export default function MatricesH5P({ s }) {
   const [, tic] = useState(0)
   const [lanzando, setLanzando] = useState(false)
   const [aviso, setAviso] = useState('')
-  const [maximo, setMaximo] = useState(10)
+  const [faseSel, setFaseSel] = useState(null) // fase elegida a mano (1 = Matrices, 2 = Recursos H5P); null = la que corresponde al estado
   const [yaEnCurso, setYaEnCurso] = useState(0) // el servidor dijo que ya hay una generación en marcha
   const [enviadas, setEnviadas] = useState([]) // unidades cuya matriz se pidió hace poco
   const [lanzadoEn, setLanzadoEn] = useState(0) // hasta que n8n avise del inicio pasan unos segundos: mientras tanto se sigue refrescando
@@ -266,7 +266,7 @@ export default function MatricesH5P({ s }) {
     setLanzando(true); setError(''); setAviso('')
     try {
       await api('POST', '/proyectos/' + encodeURIComponent(s.id) + '/pipeline/matrices', { unidades: nums, forzar })
-      setLanzadoEn(Date.now()); setYaEnCurso(0); setEnviadas(nums)
+      setLanzadoEn(Date.now()); setYaEnCurso(0); setEnviadas(nums); setFaseSel(1)
       setAviso((forzar ? 'Se pidió volver a generar' : 'Se pidió generar') + (nums.length === 1 ? ' la matriz de la Unidad ' + nums[0] : ' las matrices de las unidades ' + nums.join(', ')) + '. n8n la está preparando; esta pantalla se actualiza sola.')
       await cargar()
     } catch (e) {
@@ -279,13 +279,13 @@ export default function MatricesH5P({ s }) {
   const lanzarH5p = useCallback(async (reintentar) => {
     setLanzando(true); setError(''); setAviso('')
     try {
-      await api('POST', '/proyectos/' + encodeURIComponent(s.id) + '/pipeline/h5p', { maximo: Math.max(1, Math.min(200, Math.round(Number(maximo)) || 10)), reintentarErrores: reintentar })
-      setLanzadoEn(Date.now()); setYaEnCurso(0); setEnviadas([])
+      await api('POST', '/proyectos/' + encodeURIComponent(s.id) + '/pipeline/h5p', { reintentarErrores: reintentar })
+      setLanzadoEn(Date.now()); setYaEnCurso(0); setEnviadas([]); setFaseSel(2)
       setAviso((reintentar ? 'Se pidió reintentar los recursos con error.' : 'Se pidió generar los recursos H5P.') + ' n8n está planificando la corrida; el avance aparece aquí y se actualiza solo.')
       await cargar()
     } catch (e) { setError(e.message || 'No se pudo lanzar la generación de H5P') }
     setLanzando(false)
-  }, [s.id, maximo, cargar])
+  }, [s.id, cargar])
 
   const unidades = useMemo(() => {
     const docs = (s.syllabus.documentos || []).slice().sort((a, b) => a.unidad - b.unidad)
@@ -319,6 +319,8 @@ export default function MatricesH5P({ s }) {
   const todoAlDia = !!d && unidades.length > 0 && listas === unidades.length && resumen && resumen.h5p > 0 && pendientes === 0 && conError === 0
   const fase1Activa = enCursoMat.length > 0 || faltan.length > 0 || (soloEnviado && enviadas.length > 0)
   useEffect(() => { if (yaEnCurso && (enCursoMat.length > 0 || (d && faltan.length === 0))) setYaEnCurso(0) }, [yaEnCurso, enCursoMat.length, d, faltan.length])
+  const faseAuto = fase1Activa || listas === 0 ? 1 : 2
+  const fase = listas === 0 ? 1 : (faseSel || faseAuto) // la fase 2 no se abre sin una matriz lista
   const subFase2 = listas === 0 ? 'Se habilita cuando haya una matriz lista' : resumen && resumen.h5p ? resumen.generados + ' de ' + resumen.h5p + ' generados' : 'Aún sin recursos generados'
 
   return (
@@ -338,15 +340,15 @@ export default function MatricesH5P({ s }) {
       {!d && !error && <p className="help" style={{ marginTop: 14 }}>Cargando…</p>}
 
       {d && resumen && (
-        <div className="mx3-fases" role="list">
-          <div role="listitem" className={'mx3-fase' + (fase1Activa ? ' on' : listas > 0 && faltan.length === 0 ? ' hecha' : '')}>
+        <div className="mx3-fases" role="tablist" aria-label="Fases del paso">
+          <button type="button" role="tab" aria-selected={fase === 1} className={'mx3-fase' + (fase === 1 ? ' on' : listas > 0 && faltan.length === 0 ? ' hecha' : '')} onClick={() => setFaseSel(1)}>
             <i>{!fase1Activa && listas > 0 && faltan.length === 0 ? I_CHECK : '1'}</i>
             <span><b>Matrices</b><small>{listas} de {unidades.length} listas{enCursoMat.length ? ' · ' + enCursoMat.length + ' generándose' : ''}</small></span>
-          </div>
-          <div role="listitem" className={'mx3-fase' + (listas === 0 ? ' bloq' : !fase1Activa ? ' on' : '')}>
+          </button>
+          <button type="button" role="tab" aria-selected={fase === 2} disabled={listas === 0} className={'mx3-fase' + (listas === 0 ? ' bloq' : fase === 2 ? ' on' : '')} onClick={() => setFaseSel(2)}>
             <i>{listas === 0 ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg> : '2'}</i>
             <span><b>Recursos H5P</b><small>{subFase2}</small></span>
-          </div>
+          </button>
         </div>
       )}
 
@@ -367,7 +369,7 @@ export default function MatricesH5P({ s }) {
         </section>
       )}
 
-      {d && !(enCursoMat.length > 0 || corridaH5p || soloEnviado) && puede && faltan.length > 0 && (
+      {d && fase === 1 && !(enCursoMat.length > 0 || corridaH5p || soloEnviado) && puede && faltan.length > 0 && (
         <section className="mx3-ahora paso">
           <div className="mx3-ahora-fila">
             <span className="mx3-ico" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 10h18M9 4v16" /></svg></span>
@@ -381,8 +383,21 @@ export default function MatricesH5P({ s }) {
         </section>
       )}
       {d && !puede && <p className="help" style={{ marginTop: 10 }}>La generación de matrices desde Praxia todavía no está activada en este servidor.</p>}
+      {d && fase === 1 && !(enCursoMat.length > 0 || corridaH5p || soloEnviado) && faltan.length === 0 && listas > 0 && (
+        <section className="mx3-ahora listo" aria-label="Matrices listas">
+          <div className="mx3-ahora-fila">
+            <span className="mx3-ico ok" aria-hidden="true">{I_CHECK}</span>
+            <div className="mx3-ahora-tx">
+              <span className="mx3-etq">MATRICES LISTAS</span>
+              <h3>{listas === 1 ? 'La matriz está lista' : 'Las ' + listas + ' matrices están listas'}</h3>
+              <p>Si necesita rehacer una, use «Volver a generar la matriz» en su unidad (la anterior va a la papelera de Drive).</p>
+            </div>
+            {puedeH5p && <button type="button" className="mx3-gran" onClick={() => setFaseSel(2)}>Ir a los recursos H5P</button>}
+          </div>
+        </section>
+      )}
 
-      {d && !(enCursoMat.length > 0 || corridaH5p || soloEnviado) && faltan.length === 0 && puedeH5p && listas > 0 && !todoAlDia && (
+      {d && fase === 2 && !(enCursoMat.length > 0 || corridaH5p || soloEnviado) && puedeH5p && listas > 0 && !todoAlDia && (
         <section className="mx3-ahora paso" aria-label="Generar recursos H5P">
           <div className="mx3-ahora-fila">
             <span className="mx3-ico" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 8l-5 4 5 4M16 8l5 4-5 4M14 5l-4 14" /></svg></span>
@@ -393,9 +408,6 @@ export default function MatricesH5P({ s }) {
             </div>
           </div>
           <div className="mx3-ahora-acc">
-            <label className="mx-max">Máximo por corrida
-              <input type="number" min="1" max="200" value={maximo} onChange={(e) => setMaximo(e.target.value)} disabled={h5pOcupado} />
-            </label>
             {conError > 0 && <button type="button" className="btn sec" disabled={h5pOcupado} onClick={() => lanzarH5p(true)}>Reintentar los {conError} con error</button>}
             <button type="button" className="mx3-gran" disabled={h5pOcupado} onClick={() => lanzarH5p(false)}>{lanzando ? 'Enviando…' : 'Generar H5P'}<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg></button>
           </div>
@@ -403,7 +415,7 @@ export default function MatricesH5P({ s }) {
       )}
       {d && !puedeH5p && listas > 0 && <p className="help" style={{ marginTop: 10 }}>La generación de H5P desde Praxia todavía no está activada en este servidor.</p>}
 
-      {d && todoAlDia && !(enCursoMat.length > 0 || corridaH5p || soloEnviado) && (
+      {d && fase === 2 && todoAlDia && !(enCursoMat.length > 0 || corridaH5p || soloEnviado) && (
         <section className="mx3-ahora listo">
           <div className="mx3-ahora-fila">
             <span className="mx3-ico ok" aria-hidden="true">{I_CHECK}</span>
@@ -412,7 +424,7 @@ export default function MatricesH5P({ s }) {
         </section>
       )}
 
-      {ultimaH5P && !corridaH5p && <Corrida e={ultimaH5P} />}
+      {fase === 2 && ultimaH5P && !corridaH5p && <Corrida e={ultimaH5P} />}
 
       {d && (
         <>

@@ -269,3 +269,20 @@ test('las direcciones se leen de «Conexión n8n» (tabla configuracion) y, si n
   assert.equal((await admin('PUT', '/config/n8n', { matrices: '', h5p: '' })).status, 200)
   assert.deepEqual(await (await admin('GET', '/config/n8n')).json(), { syllabus: '', guiones: '', matrices: '', h5p: '' })
 })
+
+test('H5P: el máximo es opcional; sin él Praxia no lo envía a n8n (lo define n8n) y con él lo reenvía', async () => {
+  const ana = await entrar('ana@u.co')
+  assert.equal((await ana('PUT', '/proyectos/curso-x', curso('curso-x'))).status, 200)
+  const mat = await ana('POST', '/proyectos/curso-x/pipeline/matrices', { unidades: [1] })
+  assert.equal(mat.status, 202)
+  const tm = (await mat.json()).trabajo_id
+  const f = (s) => new Date(Date.now() - 60 * 1000 + s * 1000).toISOString()
+  assert.equal((await firmado({ evento_id: 'x-m-fin-0001', evento: 'matrices_fin', etapa: 'matrices', trabajo_id: tm, proyecto_id: 'curso-x', ejecucion_id: 'ej-x', secuencia: 1, fecha_evento: f(1),
+    resultados: [{ unidad: 1, formacion: 'Tecnológico', resultado: 'creada', matriz: { id: 'MX1', url: 'https://docs.google.com/spreadsheets/d/mx1abcdefgh/edit', nombre: 'M' }, filas: [] }] })).status, 200)
+  respuestaN8n = { estado: 200, cuerpo: { ok: true } }
+  const r = await ana('POST', '/proyectos/curso-x/pipeline/h5p', {})
+  assert.equal(r.status, 202)
+  const enviado = recibidas.at(-1)
+  assert.equal('maximo' in enviado, false); assert.equal(enviado.reintentar_errores, false)
+  assert.equal((await ana('POST', '/proyectos/curso-x/pipeline/h5p', { maximo: 0 })).status, 400) // si viene, se valida
+}) 
