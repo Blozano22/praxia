@@ -59,7 +59,9 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
   const codigoDe = (k) => {
     if (!cats) return null
     let id = directo(k)
-    if (!id) {
+    // Solo los originales hechos a mano (que no se publican) heredan la categoría de su familia. Un diseño que SÍ es una plantilla publicada
+    // y no tiene categoría (o está quitada de n8n) no la hereda: se queda sin categoría hasta que se le asigne una.
+    if (!id && !nombrePublico(k)) {
       const g = gruposTodos.find(([, l]) => l.some(([x]) => x === k))
       const ids = g ? new Set(g[1].map(([x]) => directo(x)).filter(Boolean)) : new Set()
       if (ids.size === 1) id = [...ids][0]
@@ -123,6 +125,9 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
   const gi = Math.max(0, grupos.findIndex(([, l]) => l.some(([k]) => k === tipo)))
   const [grupoNombre, lista] = grupos[gi] || ['', []]
   const pos = lista.findIndex(([k]) => k === tipo)
+  const idCategoria = lista.length ? (codigoDe(lista[0][0]) || {}).id : ''
+  const activasDeCategoria = cats && idCategoria ? cats.plantillas.filter((n) => activas.has(n) && cats.asignaciones[n] === idCategoria).length : 0
+  const sinEjemplo = Math.max(0, activasDeCategoria - lista.filter((x) => x[2]).length)
   const titulo = (lista[pos] || [])[1] || tipo
   const nombre = tipo.replace(/^o-/, '') + '.html'
   const mover = (d) => { if (lista.length) setTipo(lista[(pos + d + lista.length) % lista.length][0]) }
@@ -208,7 +213,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
                 {codigoActual ? <><b>{codigoActual.id}</b><small>{codigoActual.nombre}</small></> : <small>{estaQuitada(tipo) ? 'Esta plantilla está quitada de n8n (se vuelve a mostrar en «Categorías para n8n»)' : seaPublica(tipo) ? 'Sin categoría todavía (se asigna en «Categorías para n8n»)' : 'Este diseño no se publica para n8n'}</small>}
               </div>
             )}
-            <p className="help">{res ? `Coinciden con «${q.trim()}».` : NOTAS[corto(grupoNombre)] || (cats && grupoNombre === 'Sin categoría' ? 'Sin categoría, pero con una revisión u observación pendiente. Se le asigna una en «Categorías para n8n».' : lista.length + (lista.length === 1 ? ' diseño' : ' diseños') + ' de esta categoría' + (cats && lista.some((x) => x[2]) ? ' · ' + lista.filter((x) => x[2]).length + ' activos para n8n' + (lista.some((x) => !x[2]) ? ', ' + lista.filter((x) => !x[2]).length + ' original' + (lista.filter((x) => !x[2]).length === 1 ? '' : 'es') + ' hechos a mano (no se publican)' : '') : '') + '.')}</p>
+            <p className="help">{res ? `Coinciden con «${q.trim()}».` : NOTAS[corto(grupoNombre)] || (cats && grupoNombre === 'Sin categoría' ? 'Sin categoría, pero con una revisión u observación pendiente. Se le asigna una en «Categorías para n8n».' : lista.length + (lista.length === 1 ? ' diseño' : ' diseños') + ' de esta categoría' + (cats && lista.some((x) => x[2]) ? ' · ' + lista.filter((x) => x[2]).length + (lista.filter((x) => x[2]).length === 1 ? ' activo' : ' activos') + ' para n8n' + (lista.some((x) => !x[2]) ? ', ' + lista.filter((x) => !x[2]).length + ' original' + (lista.filter((x) => !x[2]).length === 1 ? '' : 'es') + ' hechos a mano (no se publican)' : '') : '') + '.' + (sinEjemplo > 0 ? ' Además hay ' + sinEjemplo + (sinEjemplo === 1 ? ' variante activa' : ' variantes activas') + ' para n8n sin diseño de ejemplo en la galería.' : ''))}</p>
             {(res || lista.map(([k, n]) => ({ k, n, g: '' }))).map((t, i) => (
               <button key={t.k} className={t.k === tipo ? 'on' : ''} onClick={() => elegir(t.k)}>
                 <span className="pl2-n">{res ? '•' : i + 1}</span>
