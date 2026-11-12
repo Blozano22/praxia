@@ -36,6 +36,52 @@ const hace = (c) => {
 
 function Pill({ par }) { return <span className={'pill ' + par[0]}>{par[1]}</span> }
 
+function CorridaFranja({ e }) {
+  const [abierto, setAbierto] = useState(false)
+  const omitidas = e.plan ? e.plan.omitidas : []
+  const r = e.resumen
+  const porMotivo = Object.entries(omitidas.reduce((a, o) => { a[o.motivo] = (a[o.motivo] || 0) + 1; return a }, {})).sort((x, y) => y[1] - x[1])
+  const nOmit = omitidas.length || (r ? r.omitidos ?? 0 : 0)
+  const nadaQueGenerar = e.estado !== 'en_curso' && !!e.plan && e.plan.aGenerar === 0 && porMotivo.length > 0
+  const total = porMotivo.reduce((a, x) => a + x[1], 0) || 1
+  return (
+    <div className="mx6-corr">
+      <div className="mx6-corr-cab">
+        <span className="mx6-corr-t"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>Última corrida</span>
+        <span className="mx6-corr-f">{e.estado === 'en_curso' ? 'En curso' : fecha(e.terminadoEn || e.ultimoEventoEn)}{e.maximo ? ' · máximo ' + e.maximo + ' recursos' : ''}</span>
+        {e.estado !== 'en_curso' && <span className="mx6-ok">Terminada</span>}
+        <span className="mx6-sp" />
+        <span className="mx6-res"><b>{r ? r.generados ?? 0 : 0}</b> generados · <b>{nOmit}</b> omitidos · <b>{r ? r.errores ?? 0 : 0}</b> con error</span>
+        {(porMotivo.length > 0 || omitidas.length > 0) && (
+          <button type="button" className="mx6-ver" aria-expanded={abierto} onClick={() => setAbierto(!abierto)}>
+            {abierto ? 'Ocultar el motivo' : 'Ver por qué se omitieron'}
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ transform: abierto ? 'rotate(180deg)' : 'none' }}><path d="M6 9l6 6 6-6" /></svg>
+          </button>
+        )}
+      </div>
+      {abierto && (
+        <div className="mx6-mot">
+          {nadaQueGenerar && <p><b>Ningún recurso se generó:</b> n8n los revisó y los omitió. Estos son los motivos.</p>}
+          <ul>
+            {porMotivo.map(([m, n]) => (
+              <li key={m}>
+                <span className="mx6-n">{n}</span>
+                <div><span>{motivoTexto(m)}</span><div className="mx6-b"><i style={{ width: (n / total) * 100 + '%' }} /></div></div>
+              </li>
+            ))}
+          </ul>
+          {omitidas.length > 0 && (
+            <details className="mx-omitidas">
+              <summary>Ver el listado de los {omitidas.length} omitidos</summary>
+              <ul>{omitidas.map((o, i) => <li key={(o.codigo || o.id) + '-' + i}><b>{o.codigo || o.id}</b><span>{motivoTexto(o.motivo)}</span></li>)}</ul>
+            </details>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function Corrida({ e }) {
   const omitidas = e.plan ? e.plan.omitidas : []
   const r = e.resumen
@@ -382,26 +428,33 @@ export default function MatricesH5P({ s }) {
       )}
 
       {d && fase === 2 && !(enCursoMat.length > 0 || corridaH5p || soloEnviado) && puedeH5p && listas > 0 && !todoAlDia && (
-        <section className="mx5-h5p" aria-label="Generar recursos H5P">
-          <div className="mx5-num">
-            <span className="mx5-etq">PASO 2 · RECURSOS H5P</span>
-            <div className="mx5-cifra"><b>{pendientes || '—'}</b><span>{pendientes === 1 ? 'recurso por generar' : 'recursos por generar'}</span></div>
-            <ul className="mx5-por">
-              {unidades.map((u) => {
-                const rs = d.recursos.filter((r) => r.unidad === u.unidad)
-                const hechos = rs.filter((r) => r.estado === 'GENERADO' && !r.sinRespuesta).length
-                return <li key={u.unidad}><i>U{u.unidad}</i>{hechos}/{rs.length}</li>
-              })}
-            </ul>
-          </div>
-          <div className="mx5-acc">
-            <h3>Cree los recursos interactivos</h3>
-            <p>n8n toma cada guion de las matrices listas y arma su recurso H5P. Lo que no se pueda generar queda como «omitido», con su motivo.</p>
-            <div className="mx5-btns">
-              <button type="button" className="mx5-gen" disabled={h5pOcupado} onClick={() => lanzarH5p(false)}>{lanzando ? 'Enviando…' : 'Generar los recursos H5P'}<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M8 8l-5 4 5 4M16 8l5 4-5 4M14 5l-4 14" /></svg></button>
-              {conError > 0 && <button type="button" className="mx5-re" disabled={h5pOcupado} onClick={() => lanzarH5p(true)}>Reintentar los {conError} con error</button>}
+        <section className="mx6-card" aria-label="Generar recursos H5P">
+          <div className="mx6-top">
+            <span className="mx6-ico" aria-hidden="true"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 8l-5 4 5 4M16 8l5 4-5 4M14 5l-4 14" /></svg></span>
+            <div className="mx6-tx">
+              <span className="mx6-etq">PASO 2 · RECURSOS H5P</span>
+              <h3>Genere los recursos interactivos</h3>
+              <p>n8n arma un recurso H5P por cada guion de las matrices listas.</p>
+            </div>
+            <div className="mx6-btns">
+              {conError > 0 && <button type="button" className="btn sec" disabled={h5pOcupado} onClick={() => lanzarH5p(true)}>Reintentar los {conError} con error</button>}
+              <button type="button" className="mx6-gen" disabled={h5pOcupado} onClick={() => lanzarH5p(false)}>{lanzando ? 'Enviando…' : 'Generar H5P'}<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg></button>
             </div>
           </div>
+          <div className="mx6-stats">
+            <div className="mx6-pend"><b>{pendientes}</b><span>{pendientes === 1 ? 'recurso por generar' : 'recursos por generar'}</span></div>
+            {unidades.map((u) => {
+              const rs = d.recursos.filter((r) => r.unidad === u.unidad)
+              const hechos = rs.filter((r) => r.estado === 'GENERADO' && !r.sinRespuesta).length
+              return (
+                <div key={u.unidad} className="mx6-u">
+                  <div><b>Unidad {u.unidad}</b><span><strong>{hechos}</strong> / {rs.length}</span></div>
+                  <div className="mx6-ub" role="img" aria-label={hechos + ' de ' + rs.length + ' generados'}><i style={{ width: (rs.length ? (hechos / rs.length) * 100 : 0) + '%' }} /></div>
+                </div>
+              )
+            })}
+          </div>
+          {ultimaH5P && <CorridaFranja e={ultimaH5P} />}
         </section>
       )}
       {d && !puedeH5p && listas > 0 && <p className="help" style={{ marginTop: 10 }}>La generación de H5P desde Praxia todavía no está activada en este servidor.</p>}
@@ -415,7 +468,7 @@ export default function MatricesH5P({ s }) {
         </section>
       )}
 
-      {fase === 2 && ultimaH5P && !corridaH5p && <Corrida e={ultimaH5P} />}
+      {fase === 2 && ultimaH5P && !corridaH5p && !(d && !(enCursoMat.length > 0 || corridaH5p || soloEnviado) && puedeH5p && listas > 0 && !todoAlDia) && <Corrida e={ultimaH5P} />}
 
       {d && (
         <>

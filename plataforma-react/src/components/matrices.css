@@ -276,3 +276,35 @@ button.mx3-fase.bloq{cursor:not-allowed;opacity:.75}
 @media(max-width:760px){.mx5-h5p{grid-template-columns:1fr}}
 
 .mx-nada{margin:12px 0 0;padding:10px 12px;border-radius:10px;background:#fff7e0;border:1px solid #ecd9a0;font-size:13.5px;line-height:1.45}
+
+/* ---------- Paso H5P: una sola tarjeta (generar + última corrida) ---------- */
+.mx6-card{margin-top:18px;background:#fff;border:1px solid var(--line);border-radius:20px;overflow:hidden;box-shadow:0 14px 34px rgba(var(--sombra),.08)}
+.mx6-top{display:flex;flex-wrap:wrap;align-items:center;gap:18px 24px;padding:26px 28px 22px}
+.mx6-ico{flex:none;display:grid;place-items:center;width:54px;height:54px;border-radius:16px;background:#e4f5ec;color:var(--brand)}
+.mx6-tx{flex:1 1 320px;min-width:0}
+.mx6-etq{font-size:.7rem;font-weight:800;letter-spacing:.07em;color:var(--brand)}
+.mx6-tx h3{margin:3px 0 4px;font-size:1.35rem;color:var(--nav);letter-spacing:-.01em}.mx6-tx p{margin:0;font-size:.9rem;line-height:1.5;color:var(--muted)}
+.mx6-btns{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+.mx6-gen{display:inline-flex;align-items:center;gap:10px;min-height:52px;padding:0 26px;border:0;border-radius:14px;background:var(--nav);color:#fff;font:inherit;font-weight:800;font-size:.95rem;cursor:pointer;box-shadow:0 10px 22px rgba(var(--sombra),.22)}
+.mx6-gen:hover:not(:disabled){background:color-mix(in srgb,var(--nav) 84%,#fff)}.mx6-gen:disabled{opacity:.5;cursor:not-allowed}
+.mx6-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;padding:0 28px 24px}
+.mx6-pend{padding:14px 16px;border-radius:14px;background:var(--nav);color:#fff;display:flex;flex-direction:column;gap:2px}
+.mx6-pend b{font-size:2.1rem;font-weight:800;letter-spacing:-.03em;line-height:1.1;color:#c9f26b}.mx6-pend span{font-size:.82rem;color:#d4dcf3}
+.mx6-u{padding:14px 16px;border-radius:14px;background:#f4f6fa;display:flex;flex-direction:column;gap:8px;justify-content:center}
+.mx6-u>div:first-child{display:flex;align-items:baseline;justify-content:space-between;gap:8px}.mx6-u b{font-size:.88rem;color:var(--nav)}.mx6-u span{font-size:.82rem;color:var(--muted)}.mx6-u strong{color:var(--nav)}
+.mx6-ub{height:8px;border-radius:99px;background:#dfe5ee;overflow:hidden}.mx6-ub i{display:block;height:100%;background:var(--brand)}
+.mx6-corr{border-top:1px solid #e6ebf2;background:#f9fafc}
+.mx6-corr-cab{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding:14px 28px}
+.mx6-corr-t{display:inline-flex;align-items:center;gap:8px;font-size:.82rem;font-weight:800;color:var(--nav)}
+.mx6-corr-f{font-size:.82rem;color:var(--muted)}
+.mx6-ok{padding:3px 10px;border-radius:99px;background:#e4f5ec;color:#145c3b;font-size:.75rem;font-weight:800}
+.mx6-sp{flex:1}.mx6-res{font-size:.82rem;color:#44506b}.mx6-res b{color:var(--nav)}
+.mx6-ver{display:inline-flex;align-items:center;gap:7px;min-height:36px;padding:0 12px;border:0;border-radius:10px;background:transparent;color:var(--nav);font:inherit;font-weight:700;font-size:.82rem;cursor:pointer}
+.mx6-ver:hover{background:#eef1f7}
+.mx6-mot{padding:2px 28px 22px;display:flex;flex-direction:column;gap:12px}
+.mx6-mot>p{margin:0;font-size:.9rem;line-height:1.5}
+.mx6-mot>ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.mx6-mot>ul>li{display:grid;grid-template-columns:64px minmax(0,1fr);gap:14px;align-items:center;padding:12px 14px;border-radius:12px;background:#fff;border:1px solid #e0e6ef}
+.mx6-n{display:grid;place-items:center;height:44px;border-radius:10px;background:#eaf0fb;color:var(--nav);font-weight:800;font-size:1.2rem}
+.mx6-mot li>div{display:flex;flex-direction:column;gap:7px;min-width:0}.mx6-mot li>div>span{font-size:.88rem;font-weight:600}
+.mx6-b{height:6px;border-radius:99px;background:#e3e8f0;overflow:hidden}.mx6-b i{display:block;height:100%;background:#7d93c9}
