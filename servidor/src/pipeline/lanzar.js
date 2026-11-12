@@ -26,6 +26,25 @@ export const EsquemaLanzarH5p = z.object({
 
 const falla = (codigo, error, extra = {}) => ({ codigo, cuerpo: { error, ...extra } })
 
+const texto = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '')
+// Lo que n8n necesita de cada unidad para armar su matriz: la formación y los guiones ya generados (de lo que Praxia guardó del flujo de guiones).
+function detalleUnidad(datos, numero) {
+  const archivos = ((((datos || {}).guionesUnidad || {})[numero] || {}).archivos) || []
+  const lista = Array.isArray(archivos) ? archivos : []
+  const guiones = []
+  for (const a of lista.slice(0, 200)) {
+    let url = ''
+    try { const u = new URL(texto(a && a.url, 600)); if (u.protocol === 'https:') url = u.href } catch { /* sin enlace */ }
+    if (!url) continue
+    const tema = Number.parseInt(a.tema, 10)
+    guiones.push({ tema: Number.isFinite(tema) ? tema : null, nombre: texto(a.nombre, 300), url })
+  }
+  const info = (datos && datos.info) || {}
+  const delGuion = lista.map((a) => texto(a && a.info && a.info.nivel, 120)).find(Boolean)
+  const formacion = delGuion || texto(info.nivel, 120) || texto(info.nivel_de_formacion, 120)
+  return { numero, formacion, guiones }
+}
+
 // Valida que el curso sea de la persona y tenga carpeta; devuelve { datos, carpeta } o una falla.
 async function leerCurso(usuario, proyectoId) {
   // El curso se lee con la sesión de la persona: la política de filas (RLS) garantiza que sea suyo.
@@ -56,6 +75,12 @@ async function entregar({ url, cuerpo, minutos, trabajoId, publicarFn, nombre })
   try {
     const r = await publicarFn(url, cuerpo, minutos)
     if (r.estado === 409) { await olvidar(); return falla(409, 'n8n ya está generando ' + nombre + ' en la carpeta de este curso.', { ya: true }) }
+    if (r.estado === 400) {
+      await olvidar()
+      let motivo = ''
+      try { const j = JSON.parse(r.texto); motivo = texto(j.error || j.motivo || j.message || j.mensaje, 300) } catch { motivo = texto(String(r.texto || '').replace(/\s+/g, ' '), 300) }
+      return falla(400, 'n8n rechazó la orden' + (motivo ? ': ' + motivo : '.'))
+    }
     if (r.estado < 200 || r.estado >= 300) { await olvidar(); return falla(502, 'n8n no aceptó la orden (HTTP ' + r.estado + ').') }
     let ack = null
     try { ack = JSON.parse(r.texto) } catch { /* el ack puede venir sin cuerpo */ }
@@ -76,14 +101,18 @@ export async function lanzarMatrices({ usuario, proyectoId, unidades, forzar, pu
   const pedidas = [...new Set(unidades)].sort((a, b) => a - b)
   const sin = pedidas.filter((u) => !aprobadas.has(u))
   if (sin.length) return falla(400, 'Estas unidades no existen o no están aprobadas: ' + sin.join(', ') + '.')
+  const detalle = pedidas.map((n) => detalleUnidad(curso.datos, n))
+  const sinGuiones = detalle.filter((d) => !d.guiones.length).map((d) => d.numero)
+  if (sinGuiones.length) return falla(400, 'Estas unidades todavía no tienen guiones generados, y la matriz se arma con ellos: ' + sinGuiones.join(', ') + '.')
 
   const trabajoId = await reservar({ usuarioId: usuario.id, proyectoId, carpeta: curso.carpeta, etapa: 'matrices', unidad: pedidas.length === 1 ? pedidas[0] : null })
   if (!trabajoId) return falla(409, 'Ya se están generando las matrices de este curso. Espere a que termine.', { ya: true })
   // Dos minutos son de sobra para que n8n confirme que recibió la orden.
   const r = await entregar({ url, minutos: 2, trabajoId, publicarFn, nombre: 'matrices',
-    cuerpo: { trabajo_id: trabajoId, proyecto_id: proyectoId, carpeta_raiz: curso.carpeta, unidades: pedidas, forzar } })
+    cuerpo: { trabajo_id: trabajoId, proyecto_id: proyectoId, carpeta_raiz: curso.carpeta, unidades: pedidas, unidades_detalle: detalle, forzar } })
   if (r.codigo !== 202) return r
-  return { codigo: 202, cuerpo: { trabajo_id: trabajoId, unidades: pedidas, forzar } }
+  const ejecucion = r.ack && typeof r.ack.ejecucion_id === 'string' ? r.ack.ejecucion_id.slice(0, 100) : undefined
+  return { codigo: 202, cuerpo: { trabajo_id: trabajoId, unidades: pedidas, forzar, ...(ejecucion ? { ejecucion_id: ejecucion } : {}) } }
 }
 
 export async function lanzarH5p({ usuario, proyectoId, maximo, unidades, reintentarErrores, publicarFn = publicar }) {

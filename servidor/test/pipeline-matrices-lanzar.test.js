@@ -76,7 +76,12 @@ async function entrar(correo) {
 const curso = (id, aprobadas = [1, 2]) => ({
   id, programa: 'P', curso: 'Curso ' + id, creado: Date.now(), syllabusUrl: 'https://docs.google.com/document/d/syllabusX1234', carpetaUrl: CARPETA,
   syllabus: { estado: 'listo', mensaje: '', documentos: [1, 2, 3].map((u) => ({ unidad: u, nombre: 'U' + u, url: 'https://docs.google.com/document/d/g' + u + 'abcdefghij', aprobado: aprobadas.includes(u), visto: true, temas: [] })) },
-  recursos: [], guiones: [], info: {}
+  recursos: [], guiones: [], info: { nivel: 'Profesional' },
+  guionesUnidad: Object.fromEntries([1, 2].map((u) => [u, { fecha: 1, archivos: [
+    { nombre: 'Guion tema 2', tema: 2, url: 'https://docs.google.com/document/d/u' + u + 'g2abcdefghij', info: { nivel: 'Tecnológico' }, guion: { largo: 'x'.repeat(50) } },
+    { nombre: 'Guion tema 1', tema: 1, url: 'https://docs.google.com/document/d/u' + u + 'g1abcdefghij', info: {} },
+    { nombre: 'Sin enlace', tema: 3, url: '' }
+  ] }]))
 })
 const firmado = async (obj) => {
   const cuerpo = JSON.stringify(obj)
@@ -100,7 +105,9 @@ test('lanzar: valida el curso y las unidades, entrega la orden a n8n con los ide
   const j = await r.json()
   assert.deepEqual(j.unidades, [1, 2])
   assert.equal(recibidas.length, 1)
-  assert.deepEqual(recibidas[0], { trabajo_id: j.trabajo_id, proyecto_id: 'curso-m', carpeta_raiz: CARPETA, unidades: [1, 2], forzar: false })
+  const guionesDe = (u) => [{ tema: 2, nombre: 'Guion tema 2', url: 'https://docs.google.com/document/d/u' + u + 'g2abcdefghij' }, { tema: 1, nombre: 'Guion tema 1', url: 'https://docs.google.com/document/d/u' + u + 'g1abcdefghij' }]
+  assert.deepEqual(recibidas[0], { trabajo_id: j.trabajo_id, proyecto_id: 'curso-m', carpeta_raiz: CARPETA, unidades: [1, 2],
+    unidades_detalle: [{ numero: 1, formacion: 'Tecnológico', guiones: guionesDe(1) }, { numero: 2, formacion: 'Tecnológico', guiones: guionesDe(2) }], forzar: false })
   const o = await origenes('ana', 'curso-m')
   assert.equal(o.length, 1); assert.equal(o[0].trabajo_id, j.trabajo_id); assert.equal(o[0].carpeta_raiz, CARPETA)
   const lectura = await (await ana('GET', '/proyectos/curso-m/pipeline')).json()
@@ -211,4 +218,23 @@ test('H5P: una sola corrida a la vez, el 409 de n8n y los fallos se explican y n
   assert.equal((await ana('POST', '/proyectos/curso-h/pipeline/h5p', { maximo: 3 })).status, 202) // los fallos no dejaron bloqueado el curso
   const beto = await entrar('beto@u.co')
   assert.equal((await beto('POST', '/proyectos/curso-h/pipeline/h5p', { maximo: 3 })).status, 404) // curso ajeno
+})
+
+test('matrices: la orden lleva formación y guiones por unidad; sin guiones no sale, y el 400 de n8n se explica; el ack trae ejecucion_id', async () => {
+  const ana = await entrar('ana@u.co')
+  const c = curso('curso-g'); c.guionesUnidad = { 2: { fecha: 1, archivos: [{ nombre: 'G', tema: 1, url: 'https://docs.google.com/document/d/solo2abcdefgh' }] } }
+  assert.equal((await ana('PUT', '/proyectos/curso-g', c)).status, 200)
+  const antes = recibidas.length
+  const sin = await ana('POST', '/proyectos/curso-g/pipeline/matrices', { unidades: [1, 2] }) // la 1 está aprobada pero no tiene guiones
+  assert.equal(sin.status, 400); assert.match((await sin.json()).error, /guiones.*: 1\./)
+  assert.equal(recibidas.length, antes)
+  respuestaN8n = { estado: 400, cuerpo: { error: 'Falta la lista de guiones de la unidad 2' } }
+  const r400 = await ana('POST', '/proyectos/curso-g/pipeline/matrices', { unidades: [2] })
+  assert.equal(r400.status, 400); assert.match((await r400.json()).error, /n8n rechazó la orden: Falta la lista de guiones/)
+  assert.equal((await origenes('ana', 'curso-g')).length, 0) // no quedó bloqueado
+  respuestaN8n = { estado: 200, cuerpo: { ok: true, ejecucion_id: 'ej-mat-9' } }
+  const ok = await ana('POST', '/proyectos/curso-g/pipeline/matrices', { unidades: [2] })
+  assert.equal(ok.status, 202); assert.equal((await ok.json()).ejecucion_id, 'ej-mat-9')
+  assert.deepEqual(recibidas.at(-1).unidades_detalle, [{ numero: 2, formacion: 'Profesional', guiones: [{ tema: 1, nombre: 'G', url: 'https://docs.google.com/document/d/solo2abcdefgh' }] }]) // sin formación en el guion: la del curso
+  respuestaN8n = { estado: 200, cuerpo: { ok: true } }
 })
