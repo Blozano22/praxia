@@ -199,3 +199,14 @@ todo dentro de este servidor y sin servicios externos. Los idiomas vienen en las
 solos a `servidor/data/ocr` la primera vez. Variables opcionales: `OCR=0` lo apaga, `OCR_MAX_PAGINAS` (60 por defecto) limita las
 páginas leídas por documento y `OCR_ESCALA` (2) la resolución. El texto leído así puede traer errores; la lectura queda con la nota
 «Leído por OCR».
+
+### Órdenes de Praxia a n8n (matrices y H5P)
+
+Praxia entrega la orden y n8n responde enseguida; el resultado llega por los avisos firmados de arriba. Las direcciones van en `servidor/.env` (vacías = botones desactivados):
+
+| Variable | Webhook | Cuerpo que recibe | Respuesta esperada |
+| --- | --- | --- | --- |
+| `N8N_MATRICES_URL` | subflujo de matrices | `{ trabajo_id, proyecto_id, carpeta_raiz, unidades:[n], forzar }` | 2xx de inmediato; `409` si ya hay una ejecución en esa carpeta |
+| `N8N_H5P_URL` | orquestador de H5P | `{ trabajo_id, proyecto_id, carpeta_raiz, maximo, unidades?:[n], reintentar_errores }` | 2xx tras planificar, idealmente `{ ejecucion_id, plan }`; `409` si ya hay una corrida |
+
+Rutas de Praxia (sesión y permiso `proyectos.crear`): `POST /api/proyectos/:id/pipeline/matrices` y `POST /api/proyectos/:id/pipeline/h5p`. Solo una generación por curso y etapa a la vez (409). Si n8n no acepta la orden, el curso no queda bloqueado. El flujo de guiones recibe además `proyecto_id` y `carpeta_raiz` (cambio 7.1a del plan).

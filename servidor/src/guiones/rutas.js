@@ -118,15 +118,17 @@ rutasGuiones.post('/trabajos', exigirPermiso('proyectos.crear'), limiteCrear, va
     if (p.codigo !== 200) return res.status(p.codigo).json(p.cuerpo)
     if (!p.cuerpo.fuentes || !p.cuerpo.fuentes.length) return res.status(409).json({ error: 'La bibliografía de la unidad ' + unidad + ' no tiene fuentes leídas: los guiones no se pueden respaldar.' })
     const url = await urlGuiones()
+    // Carpeta del curso: viaja a n8n junto con proyecto_id para que la matriz y los avisos posteriores sepan a qué curso pertenecen (7.1a del plan).
+    let carpeta = null
+    try { carpeta = ((await conUsuario(req.usuario, (cx) => cx.query(Q.pipeCarpetaDeProyecto, [req.usuario.id, proyecto]))).rows[0] || {}).carpeta || null } catch (e) { console.error('[pipeline] no se pudo leer la carpeta del curso', e && e.message) }
     const t = await lanzarTrabajo({
       usuarioId: req.usuario.id, proyecto, unidad, url,
-      cuerpo: { unidad_url: unidadUrl, ...(syllabusUrl ? { syllabus_url: syllabusUrl } : {}), unidad, bibliografia: p.cuerpo }
+      cuerpo: { unidad_url: unidadUrl, ...(syllabusUrl ? { syllabus_url: syllabusUrl } : {}), unidad, bibliografia: p.cuerpo, proyecto_id: proyecto, ...(carpeta ? { carpeta_raiz: carpeta } : {}) }
     })
     if (t.ya) return res.status(409).json({ ya: true, id: t.id, creado: t.creado, error: 'Ya hay una generación de guiones en curso para esta unidad.' })
     // Se anota a qué persona y curso pertenece este trabajo: los avisos que n8n mande después (matrices, H5P) se atribuyen con esto.
     try {
-      const carpeta = ((await conUsuario(req.usuario, (cx) => cx.query(Q.pipeCarpetaDeProyecto, [req.usuario.id, proyecto]))).rows[0] || {}).carpeta
-      await registrarOrigen({ trabajoId: t.id, propietarioId: req.usuario.id, proyectoId: proyecto, carpeta: carpeta || null, etapa: 'guiones', unidad })
+      await registrarOrigen({ trabajoId: t.id, propietarioId: req.usuario.id, proyectoId: proyecto, carpeta, etapa: 'guiones', unidad })
     } catch (e) { console.error('[pipeline] no se pudo anotar el origen del trabajo', e && e.message) } // no debe impedir la generación
     res.status(202).json({ id: t.id, estado: 'en_curso', creado: t.creado })
   } catch (e) { next(e) }

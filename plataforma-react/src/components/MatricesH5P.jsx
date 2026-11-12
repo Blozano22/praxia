@@ -198,6 +198,7 @@ export default function MatricesH5P({ s }) {
   const [, tic] = useState(0)
   const [lanzando, setLanzando] = useState(false)
   const [aviso, setAviso] = useState('')
+  const [maximo, setMaximo] = useState(10)
   const [lanzadoEn, setLanzadoEn] = useState(0) // hasta que n8n avise del inicio pasan unos segundos: mientras tanto se sigue refrescando
 
   const cargar = useCallback(async () => {
@@ -233,6 +234,17 @@ export default function MatricesH5P({ s }) {
     setLanzando(false)
   }, [s.id, cargar])
 
+  const lanzarH5p = useCallback(async (reintentar) => {
+    setLanzando(true); setError(''); setAviso('')
+    try {
+      await api('POST', '/proyectos/' + encodeURIComponent(s.id) + '/pipeline/h5p', { maximo: Math.max(1, Math.min(200, Math.round(Number(maximo)) || 10)), reintentarErrores: reintentar })
+      setLanzadoEn(Date.now())
+      setAviso((reintentar ? 'Se pidió reintentar los recursos con error.' : 'Se pidió generar los recursos H5P.') + ' n8n está planificando la corrida; el avance aparece aquí y se actualiza solo.')
+      await cargar()
+    } catch (e) { setError(e.message || 'No se pudo lanzar la generación de H5P') }
+    setLanzando(false)
+  }, [s.id, maximo, cargar])
+
   const unidades = useMemo(() => {
     const docs = (s.syllabus.documentos || []).slice().sort((a, b) => a.unidad - b.unidad)
     const nums = new Set(docs.map((x) => x.unidad))
@@ -249,6 +261,11 @@ export default function MatricesH5P({ s }) {
   const ultimaH5P = d && d.ejecuciones.find((e) => e.etapa === 'h5p')
   const puede = !!(d && d.puedeGenerarMatrices)
   const ocupado = lanzando || lanzadoReciente || !!(d && (d.matrices.some((m) => m.estado === 'generando' && !m.sinRespuesta) || d.ejecuciones.some((e) => e.etapa === 'matrices' && e.estado === 'en_curso' && !e.sinRespuesta)))
+  const puedeH5p = !!(d && d.puedeGenerarH5p)
+  const listas = d ? d.matrices.filter((m) => ['creada', 'omitida', 'reemplazada'].includes(m.estado) && !m.sinRespuesta).length : 0
+  const h5pOcupado = lanzando || lanzadoReciente || !!(d && d.ejecuciones.some((e) => e.etapa === 'h5p' && e.estado === 'en_curso' && !e.sinRespuesta))
+  const conError = d ? d.recursos.filter((r) => r.estado === 'ERROR').length : 0
+  const pendientes = d ? d.recursos.filter((r) => r.estado === 'PENDIENTE' && String(r.generador || '').toUpperCase() === 'H5P').length : 0
   const aprobadas = new Set((s.syllabus.documentos || []).filter((x) => x.aprobado).map((x) => x.unidad))
   const faltan = d ? unidades.map((u) => u.unidad).filter((n) => aprobadas.has(n) && (() => { const m = d.matrices.find((x) => x.unidad === n); return !m || m.estado === 'error' || m.sinRespuesta })()) : []
 
@@ -288,6 +305,23 @@ export default function MatricesH5P({ s }) {
         </div>
       )}
       {d && !puede && <p className="help" style={{ marginTop: 10 }}>La generación de matrices desde Praxia todavía no está activada en este servidor.</p>}
+
+      {d && puedeH5p && listas > 0 && (
+        <section className="card mx-h5p" aria-label="Generar recursos H5P">
+          <div className="mx-h5p-tx">
+            <h3>Generar recursos H5P</h3>
+            <p className="help">{pendientes ? pendientes + ' recursos H5P pendientes en las matrices listas.' : 'n8n revisa las matrices listas y genera los recursos H5P que estén pendientes.'} Lo que no se pueda generar queda como «omitido», con su motivo.</p>
+          </div>
+          <div className="mx-h5p-acc">
+            <label className="mx-max">Máximo por corrida
+              <input type="number" min="1" max="200" value={maximo} onChange={(e) => setMaximo(e.target.value)} disabled={h5pOcupado} />
+            </label>
+            <button type="button" className="btn sm" disabled={h5pOcupado} onClick={() => lanzarH5p(false)}>{lanzando ? 'Enviando…' : 'Generar H5P'}</button>
+            {conError > 0 && <button type="button" className="btn sec sm" disabled={h5pOcupado} onClick={() => lanzarH5p(true)}>Reintentar los {conError} con error</button>}
+          </div>
+        </section>
+      )}
+      {d && !puedeH5p && listas > 0 && <p className="help" style={{ marginTop: 10 }}>La generación de H5P desde Praxia todavía no está activada en este servidor.</p>}
 
       {ultimaH5P && <Corrida e={ultimaH5P} />}
 

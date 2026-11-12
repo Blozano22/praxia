@@ -133,15 +133,15 @@ export const Q = Object.freeze({
   pipeCarpetaDeProyecto: `SELECT datos->>'carpetaUrl' AS carpeta FROM proyectos WHERE propietario_id = $1 AND id = $2`,
   pipeProyectoDatos: `SELECT datos FROM proyectos WHERE propietario_id = $1 AND id = $2`,
   pipeOrigenBorrar: `DELETE FROM pipeline_origen WHERE trabajo_id = $1`,
-  // ¿Hay ya una generación de matrices en este curso? Una corrida avisó hace menos de 15 min, o se lanzó hace menos de 3 y aún no terminó.
-  pipeMatrizEnCurso: `
+  // ¿Hay ya una generación (matrices o h5p, según $3) en este curso? Una corrida avisó hace menos de 15 min, o se lanzó hace menos de 3 y aún no terminó.
+  pipeEnCurso: `
     SELECT 1 FROM pipeline_ejecuciones
-     WHERE propietario_id = $1 AND proyecto_id = $2 AND etapa = 'matrices' AND estado = 'en_curso' AND ultimo_evento_en > now() - interval '15 minutes'
+     WHERE propietario_id = $1 AND proyecto_id = $2 AND etapa = $3 AND estado = 'en_curso' AND ultimo_evento_en > now() - interval '15 minutes'
     UNION ALL
     SELECT 1 FROM pipeline_origen o
-     WHERE o.propietario_id = $1 AND o.proyecto_id = $2 AND o.etapa = 'matrices' AND o.creado > now() - interval '3 minutes'
+     WHERE o.propietario_id = $1 AND o.proyecto_id = $2 AND o.etapa = $3 AND o.creado > now() - interval '3 minutes'
        AND NOT EXISTS (SELECT 1 FROM pipeline_ejecuciones e WHERE e.propietario_id = o.propietario_id AND e.proyecto_id = o.proyecto_id
-                          AND e.etapa = 'matrices' AND e.estado = 'terminada' AND (e.trabajo_id = o.trabajo_id OR e.origen_trabajo_id = o.trabajo_id))
+                          AND e.etapa = $3 AND e.estado = 'terminada' AND (e.trabajo_id = o.trabajo_id OR e.origen_trabajo_id = o.trabajo_id))
     LIMIT 1`,
   pipeOrigenGuardar: `
     INSERT INTO pipeline_origen (trabajo_id, propietario_id, proyecto_id, carpeta_raiz, etapa, unidad) VALUES ($1, $2, $3, $4, $5, $6)

@@ -1,7 +1,8 @@
-// Fase 2 del pipeline: lanzar desde Praxia la generación de matrices de recursos (A: «las que faltan», B: «volver a generar»).
+// Fases 2 y 3 del pipeline: lanzar desde Praxia la generación de matrices (A: «las que faltan», B: «volver a generar») y la de H5P.
 // El navegador nunca llama a n8n: lo hace el servidor. n8n responde enseguida (ack) y el resultado llega después por avisos firmados
 // (src/pipeline/eventos.js), así que aquí solo se valida, se anota el origen del trabajo y se entrega la orden.
-//   POST /api/proyectos/:id/pipeline/matrices   { unidades: [1,2], forzar: false }   →   202 { trabajo_id }
+//   POST /api/proyectos/:id/pipeline/matrices   { unidades: [1,2], forzar: false }                      →   202 { trabajo_id }
+//   POST /api/proyectos/:id/pipeline/h5p        { maximo: 10, unidades?: [1], reintentarErrores?: bool }  →   202 { trabajo_id, ejecucion_id? }
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { config } from '../config.js'
@@ -10,53 +11,103 @@ import { Q } from '../consultas.js'
 import { publicar } from '../guiones/rutas.js'
 
 const RE_CARPETA = /^https:\/\/drive\.google\.com\/drive\/(?:u\/\d+\/)?folders\/[A-Za-z0-9_-]+/
+const LISTAS = ['creada', 'omitida', 'reemplazada'] // estados de una matriz que ya se puede usar
 
 export const urlMatrices = () => config.n8nMatricesUrl || ''
+export const urlH5p = () => config.n8nH5pUrl || ''
 
-export const EsquemaLanzarMatrices = z.object({
-  unidades: z.array(z.number().int().min(1).max(200)).min(1).max(50),
-  forzar: z.boolean().default(false)
+const Unidades = z.array(z.number().int().min(1).max(200)).min(1).max(50)
+export const EsquemaLanzarMatrices = z.object({ unidades: Unidades, forzar: z.boolean().default(false) }).strict()
+export const EsquemaLanzarH5p = z.object({
+  maximo: z.number().int().min(1).max(200).default(10), // filas TOTALES de la corrida, sumando todas las matrices de la carpeta
+  unidades: Unidades.optional(),
+  reintentarErrores: z.boolean().default(false)
 }).strict()
 
 const falla = (codigo, error, extra = {}) => ({ codigo, cuerpo: { error, ...extra } })
+
+// Valida que el curso sea de la persona y tenga carpeta; devuelve { datos, carpeta } o una falla.
+async function leerCurso(usuario, proyectoId) {
+  // El curso se lee con la sesión de la persona: la política de filas (RLS) garantiza que sea suyo.
+  const f = (await conUsuario(usuario, (cx) => cx.query(Q.pipeProyectoDatos, [usuario.id, proyectoId]))).rows[0]
+  if (!f) return falla(404, 'No se encontró el curso.')
+  const datos = f.datos || {}
+  const carpeta = String(datos.carpetaUrl || '')
+  if (!RE_CARPETA.test(carpeta)) return falla(400, 'El curso no tiene una carpeta de Drive válida.')
+  return { datos, carpeta }
+}
+
+// Una sola generación a la vez por curso y etapa. La comprobación y el registro del origen van juntos bajo un candado para que dos
+// clics seguidos (o dos pestañas) no lancen dos veces. Devuelve el id del trabajo o null si ya había una en curso.
+async function reservar({ usuarioId, proyectoId, carpeta, etapa, unidad }) {
+  const trabajoId = randomUUID()
+  const ocupado = await conTransaccion(async (c) => {
+    await c.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['pipeline-' + etapa + ':' + usuarioId + ':' + proyectoId])
+    if ((await c.query(Q.pipeEnCurso, [usuarioId, proyectoId, etapa])).rows.length) return true
+    await c.query(Q.pipeOrigenGuardar, [trabajoId, usuarioId, proyectoId, carpeta, etapa, unidad])
+    return false
+  })
+  return ocupado ? null : trabajoId
+}
+
+// Entrega la orden a n8n. n8n solo confirma que la recibió (o, en H5P, que ya planificó); el resultado llega por avisos.
+async function entregar({ url, cuerpo, minutos, trabajoId, publicarFn, nombre }) {
+  const olvidar = () => sinUsuario(Q.pipeOrigenBorrar, [trabajoId]).catch(() => {})
+  try {
+    const r = await publicarFn(url, cuerpo, minutos)
+    if (r.estado === 409) { await olvidar(); return falla(409, 'n8n ya está generando ' + nombre + ' en la carpeta de este curso.', { ya: true }) }
+    if (r.estado < 200 || r.estado >= 300) { await olvidar(); return falla(502, 'n8n no aceptó la orden (HTTP ' + r.estado + ').') }
+    let ack = null
+    try { ack = JSON.parse(r.texto) } catch { /* el ack puede venir sin cuerpo */ }
+    return { codigo: 202, ack }
+  } catch (e) {
+    await olvidar()
+    return falla(502, 'No se pudo avisar a n8n: ' + ((e && (e.code || e.message)) || 'error').toString().slice(0, 200))
+  }
+}
 
 // Devuelve { codigo, cuerpo } listo para responder. «publicarFn» solo se cambia en las pruebas.
 export async function lanzarMatrices({ usuario, proyectoId, unidades, forzar, publicarFn = publicar }) {
   const url = urlMatrices()
   if (!url) return falla(503, 'La generación de matrices no está configurada en el servidor.')
-  const usuarioId = usuario.id
-
-  // El curso se lee con la sesión de la persona: la política de filas (RLS) garantiza que sea suyo.
-  const f = (await conUsuario(usuario, (cx) => cx.query(Q.pipeProyectoDatos, [usuarioId, proyectoId]))).rows[0]
-  if (!f) return falla(404, 'No se encontró el curso.')
-  const datos = f.datos || {}
-  const carpeta = String(datos.carpetaUrl || '')
-  if (!RE_CARPETA.test(carpeta)) return falla(400, 'El curso no tiene una carpeta de Drive válida.')
-  const aprobadas = new Set(((datos.syllabus && datos.syllabus.documentos) || []).filter((d) => d && d.aprobado).map((d) => Number(d.unidad)))
+  const curso = await leerCurso(usuario, proyectoId)
+  if (curso.codigo) return curso
+  const aprobadas = new Set(((curso.datos.syllabus && curso.datos.syllabus.documentos) || []).filter((d) => d && d.aprobado).map((d) => Number(d.unidad)))
   const pedidas = [...new Set(unidades)].sort((a, b) => a - b)
   const sin = pedidas.filter((u) => !aprobadas.has(u))
   if (sin.length) return falla(400, 'Estas unidades no existen o no están aprobadas: ' + sin.join(', ') + '.')
 
-  // Una sola generación de matrices a la vez por curso. La comprobación y el registro van juntos bajo un candado para que dos clics
-  // seguidos (o dos pestañas) no lancen dos veces.
-  const trabajoId = randomUUID()
-  const ocupado = await conTransaccion(async (c) => {
-    await c.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['pipeline-matrices:' + usuarioId + ':' + proyectoId])
-    if ((await c.query(Q.pipeMatrizEnCurso, [usuarioId, proyectoId])).rows.length) return true
-    await c.query(Q.pipeOrigenGuardar, [trabajoId, usuarioId, proyectoId, carpeta, 'matrices', pedidas.length === 1 ? pedidas[0] : null])
-    return false
-  })
-  if (ocupado) return falla(409, 'Ya se están generando las matrices de este curso. Espere a que termine.', { ya: true })
-
-  const olvidar = () => sinUsuario(Q.pipeOrigenBorrar, [trabajoId]).catch(() => {})
-  try {
-    // n8n solo confirma que recibió la orden; el resultado llega por avisos. Dos minutos son de sobra para esa confirmación.
-    const r = await publicarFn(url, { trabajo_id: trabajoId, proyecto_id: proyectoId, carpeta_raiz: carpeta, unidades: pedidas, forzar }, 2)
-    if (r.estado === 409) { await olvidar(); return falla(409, 'n8n ya está generando matrices en la carpeta de este curso.', { ya: true }) }
-    if (r.estado < 200 || r.estado >= 300) { await olvidar(); return falla(502, 'n8n no aceptó la orden (HTTP ' + r.estado + ').') }
-  } catch (e) {
-    await olvidar()
-    return falla(502, 'No se pudo avisar a n8n: ' + ((e && (e.code || e.message)) || 'error').toString().slice(0, 200))
-  }
+  const trabajoId = await reservar({ usuarioId: usuario.id, proyectoId, carpeta: curso.carpeta, etapa: 'matrices', unidad: pedidas.length === 1 ? pedidas[0] : null })
+  if (!trabajoId) return falla(409, 'Ya se están generando las matrices de este curso. Espere a que termine.', { ya: true })
+  // Dos minutos son de sobra para que n8n confirme que recibió la orden.
+  const r = await entregar({ url, minutos: 2, trabajoId, publicarFn, nombre: 'matrices',
+    cuerpo: { trabajo_id: trabajoId, proyecto_id: proyectoId, carpeta_raiz: curso.carpeta, unidades: pedidas, forzar } })
+  if (r.codigo !== 202) return r
   return { codigo: 202, cuerpo: { trabajo_id: trabajoId, unidades: pedidas, forzar } }
+}
+
+export async function lanzarH5p({ usuario, proyectoId, maximo, unidades, reintentarErrores, publicarFn = publicar }) {
+  const url = urlH5p()
+  if (!url) return falla(503, 'La generación de H5P no está configurada en el servidor.')
+  const curso = await leerCurso(usuario, proyectoId)
+  if (curso.codigo) return curso
+
+  // Solo se puede generar H5P de unidades que ya tienen su matriz.
+  const listas = new Set((await sinUsuario(Q.pipeLeerMatrices, [usuario.id, proyectoId])).rows.filter((m) => LISTAS.includes(m.estado)).map((m) => m.unidad))
+  if (!listas.size) return falla(409, 'Primero genere las matrices del curso: todavía no hay ninguna lista.')
+  let pedidas = null
+  if (unidades) {
+    pedidas = [...new Set(unidades)].sort((a, b) => a - b)
+    const sin = pedidas.filter((u) => !listas.has(u))
+    if (sin.length) return falla(400, 'Estas unidades no tienen una matriz lista: ' + sin.join(', ') + '.')
+  }
+
+  const trabajoId = await reservar({ usuarioId: usuario.id, proyectoId, carpeta: curso.carpeta, etapa: 'h5p', unidad: pedidas && pedidas.length === 1 ? pedidas[0] : null })
+  if (!trabajoId) return falla(409, 'Ya se están generando los recursos H5P de este curso. Espere a que termine.', { ya: true })
+  // El orquestador responde después de planificar (lee las matrices): se le da más margen que a una simple confirmación.
+  const r = await entregar({ url, minutos: 5, trabajoId, publicarFn, nombre: 'recursos H5P',
+    cuerpo: { trabajo_id: trabajoId, proyecto_id: proyectoId, carpeta_raiz: curso.carpeta, maximo, ...(pedidas ? { unidades: pedidas } : {}), reintentar_errores: reintentarErrores } })
+  if (r.codigo !== 202) return r
+  const ejecucion = r.ack && typeof r.ack.ejecucion_id === 'string' ? r.ack.ejecucion_id.slice(0, 100) : undefined
+  return { codigo: 202, cuerpo: { trabajo_id: trabajoId, maximo, ...(pedidas ? { unidades: pedidas } : {}), reintentarErrores, ...(ejecucion ? { ejecucion_id: ejecucion } : {}) } }
 }

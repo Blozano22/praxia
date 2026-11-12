@@ -110,3 +110,12 @@
 .mx-faltan{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;padding:14px 16px}
 .mx-faltan>div{display:flex;flex-direction:column;gap:2px;min-width:200px;flex:1}
 .mx-faltan span{font-size:13px;color:var(--muted,#667085)}
+
+/* Fase 3: generar H5P */
+.mx-h5p{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:14px;margin-top:14px;padding:16px 18px}
+.mx-h5p-tx{flex:1;min-width:240px}
+.mx-h5p-tx h3{margin:0 0 2px}
+.mx-h5p-tx .help{margin:0}
+.mx-h5p-acc{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px}
+.mx-max{display:flex;flex-direction:column;gap:4px;font-size:12.5px;font-weight:600}
+.mx-max input{width:104px}

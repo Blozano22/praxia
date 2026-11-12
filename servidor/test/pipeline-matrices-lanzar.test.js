@@ -47,6 +47,7 @@ before(async () => {
   process.env.N8N_EVENTOS_SECRETO = SECRETO
   process.env.LIMITE_LANZAR_PIPELINE = '500'
   process.env.N8N_MATRICES_URL = 'http://127.0.0.1:' + n8n.address().port + '/webhook/matrices'
+  process.env.N8N_H5P_URL = 'http://127.0.0.1:' + n8n.address().port + '/webhook/h5p'
   const { crearApp } = await import('../src/app.js')
   const db = await import('../src/db.js')
   config = (await import('../src/config.js')).config
@@ -155,4 +156,59 @@ test('nadie lanza sobre un curso ajeno y dos clics a la vez lanzan una sola vez'
   const codigos = rs.map((r) => r.status).sort()
   assert.deepEqual(codigos, [202, 409, 409, 409])
   assert.equal(recibidas.length, antes + 1)
+})
+
+test('H5P: exige matrices listas, valida unidades y máximo, entrega la orden con el plan por pedir y recoge el ejecucion_id del ack', async () => {
+  const ana = await entrar('ana@u.co')
+  assert.equal((await ana('PUT', '/proyectos/curso-h', curso('curso-h'))).status, 200)
+  assert.equal((await fetch(base + '/api/proyectos/curso-h/pipeline/h5p', { method: 'POST', headers: { 'x-ova': '1', 'content-type': 'application/json' }, body: '{}' })).status, 401)
+  assert.equal((await ana('POST', '/proyectos/curso-h/pipeline/h5p', { maximo: 0 })).status, 400)
+  assert.equal((await ana('POST', '/proyectos/curso-h/pipeline/h5p', { maximo: 5, otro: 1 })).status, 400)
+  const sinMatrices = await ana('POST', '/proyectos/curso-h/pipeline/h5p', { maximo: 5 })
+  assert.equal(sinMatrices.status, 409); assert.match((await sinMatrices.json()).error, /matrices/)
+  // n8n avisa que la matriz de la unidad 1 quedó lista (así llega en producción)
+  const comun = { etapa: 'matrices', proyecto_id: 'curso-h', ejecucion_id: 'ej-h-m' }
+  const mat = await ana('POST', '/proyectos/curso-h/pipeline/matrices', { unidades: [1] })
+  assert.equal(mat.status, 202)
+  const tm = (await mat.json()).trabajo_id
+  const f = (s) => new Date(Date.now() - 60 * 1000 + s * 1000).toISOString()
+  assert.equal((await firmado({ evento_id: 'h-m-fin-0001', evento: 'matrices_fin', ...comun, trabajo_id: tm, origen_trabajo_id: tm, secuencia: 1, fecha_evento: f(1),
+    resultados: [{ unidad: 1, formacion: 'Tecnológico', resultado: 'creada', matriz: { id: 'MH1', url: 'https://docs.google.com/spreadsheets/d/mh1abcdefgh/edit', nombre: 'Matriz U1' }, filas: [] }] })).status, 200)
+  assert.equal((await ana('POST', '/proyectos/curso-h/pipeline/h5p', { maximo: 5, unidades: [2] })).status, 400) // la unidad 2 no tiene matriz
+  respuestaN8n = { estado: 200, cuerpo: { ejecucion_id: 'ej-n8n-77', plan: { a_generar: [], omitidas: [] } } }
+  const antes = recibidas.length
+  const r = await ana('POST', '/proyectos/curso-h/pipeline/h5p', { maximo: 7, unidades: [1], reintentarErrores: true })
+  assert.equal(r.status, 202)
+  const j = await r.json()
+  assert.equal(j.ejecucion_id, 'ej-n8n-77')
+  assert.equal(recibidas.length, antes + 1)
+  assert.deepEqual(recibidas.at(-1), { trabajo_id: j.trabajo_id, proyecto_id: 'curso-h', carpeta_raiz: CARPETA, maximo: 7, unidades: [1], reintentar_errores: true })
+  const o = await pool.query("SELECT etapa, carpeta_raiz FROM pipeline_origen WHERE trabajo_id = $1", [j.trabajo_id])
+  assert.deepEqual(o.rows[0], { etapa: 'h5p', carpeta_raiz: CARPETA })
+  respuestaN8n = { estado: 200, cuerpo: { ok: true } }
+})
+
+test('H5P: una sola corrida a la vez, el 409 de n8n y los fallos se explican y no dejan bloqueado el curso, y sin configurar da 503', async () => {
+  const ana = await entrar('ana@u.co')
+  assert.equal((await ana('POST', '/proyectos/curso-h/pipeline/h5p', { maximo: 3 })).status, 409) // la anterior sigue en curso (sin aviso de fin)
+  // se da por terminada con el aviso firmado
+  const o = (await pool.query("SELECT trabajo_id FROM pipeline_origen WHERE propietario_id = $1 AND proyecto_id = 'curso-h' AND etapa = 'h5p'", [ids.ana])).rows[0].trabajo_id
+  const f = (s) => new Date(Date.now() - 30 * 1000 + s * 1000).toISOString()
+  const comun = { etapa: 'h5p', trabajo_id: o, proyecto_id: 'curso-h', ejecucion_id: 'ej-n8n-77' }
+  assert.equal((await firmado({ evento_id: 'h-h-ini-0001', evento: 'h5p_inicio', ...comun, secuencia: 1, fecha_evento: f(1), maximo: 7, plan: { a_generar: [], omitidas: [] } })).status, 200)
+  assert.equal((await firmado({ evento_id: 'h-h-fin-0001', evento: 'h5p_fin', ...comun, secuencia: 2, fecha_evento: f(2), resumen: { generados: 0, errores: 0, omitidos: 0 } })).status, 200)
+  respuestaN8n = { estado: 409, cuerpo: { error: 'ya hay una ejecución' } }
+  let r = await ana('POST', '/proyectos/curso-h/pipeline/h5p', { maximo: 3 })
+  assert.equal(r.status, 409); assert.equal((await r.json()).ya, true)
+  respuestaN8n = { estado: 500, cuerpo: { error: 'boom' } }
+  assert.equal((await ana('POST', '/proyectos/curso-h/pipeline/h5p', { maximo: 3 })).status, 502)
+  const guardada = config.n8nH5pUrl
+  config.n8nH5pUrl = ''
+  assert.equal((await ana('POST', '/proyectos/curso-h/pipeline/h5p', { maximo: 3 })).status, 503)
+  assert.equal((await (await ana('GET', '/proyectos/curso-h/pipeline')).json()).puedeGenerarH5p, false)
+  config.n8nH5pUrl = guardada
+  respuestaN8n = { estado: 200, cuerpo: { ok: true } }
+  assert.equal((await ana('POST', '/proyectos/curso-h/pipeline/h5p', { maximo: 3 })).status, 202) // los fallos no dejaron bloqueado el curso
+  const beto = await entrar('beto@u.co')
+  assert.equal((await beto('POST', '/proyectos/curso-h/pipeline/h5p', { maximo: 3 })).status, 404) // curso ajeno
 })

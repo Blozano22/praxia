@@ -189,6 +189,8 @@ test('por la ruta real: arma el paquete de bibliografía, lo envía a n8n con el
   await esperar(() => recibidos.length > antes)
   const enviado = recibidos[antes]
   assert.equal(enviado.trabajo_id, t.id)
+  assert.equal(enviado.proyecto_id, 'pr') // 7.1(a): el curso viaja a n8n (y carpeta_raiz cuando el curso tiene carpeta; aquí no hay curso guardado)
+  assert.equal('carpeta_raiz' in enviado, false)
   // se anotó a qué persona y curso pertenece el trabajo, para atribuir los avisos que n8n mande después
   const origen = (await pool.query('SELECT proyecto_id, etapa, unidad FROM pipeline_origen WHERE trabajo_id = $1', [t.id])).rows[0]
   assert.deepEqual(origen, { proyecto_id: 'pr', etapa: 'guiones', unidad: 1 })

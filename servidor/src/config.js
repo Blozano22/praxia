@@ -28,6 +28,7 @@ export const config = {
   // Secreto con el que n8n FIRMA los avisos a Praxia (HMAC-SHA256). Sin él el receptor de avisos queda desactivado.
   // El «anterior» permite rotarlo sin cortar los avisos: durante el cambio se aceptan los dos.
   n8nMatricesUrl: process.env.N8N_MATRICES_URL || '', // webhook del subflujo de matrices; vacío = «Generar matriz» desactivado
+  n8nH5pUrl: process.env.N8N_H5P_URL || '', // webhook del orquestador de H5P; vacío = «Generar H5P» desactivado
   n8nEventosSecreto:process.env.N8N_EVENTOS_SECRETO || '',
   n8nEventosSecretoAnterior: process.env.N8N_EVENTOS_SECRETO_ANTERIOR || '',
   // Minutos máximos que se espera la respuesta de n8n antes de darla por fallida.
