@@ -14,7 +14,7 @@ import { sinUsuario } from '../db.js'
 import { Q } from '../consultas.js'
 import { exigirPermiso, exigirSesion } from '../seguridad.js'
 import { armarPaquete, idDoc } from '../bibliografia/rutas.js'
-import { publicar } from '../guiones/rutas.js'
+import { paqueteGrande, publicar } from '../guiones/rutas.js'
 
 export const rutasUnidades = Router()
 rutasUnidades.use(exigirSesion)
@@ -88,10 +88,10 @@ rutasUnidades.post('/trabajos', exigirPermiso('proyectos.crear'), limiteCrear, v
     if (p.codigo === 404) return res.status(404).json({ error: 'No se encontró la bibliografía leída de este syllabus. Vuelva a leerla.' })
     if (p.codigo !== 200) return res.status(p.codigo).json(p.cuerpo)
     const url = await urlUnidades()
-    const t = await lanzarUnidades({
-      usuarioId: req.usuario.id, syllabusUrl, carpetaUrl, curso: curso || '', proyecto: proyecto || null, bibliografiaId, url,
-      cuerpo: { syllabus_url: syllabusUrl, carpeta_destino_url: carpetaUrl, bibliografia: p.cuerpo }
-    })
+    const cuerpoN8n = { syllabus_url: syllabusUrl, carpeta_destino_url: carpetaUrl, bibliografia: p.cuerpo }
+    const grande = paqueteGrande(cuerpoN8n)
+    if (grande) return res.status(413).json({ error: grande })
+    const t = await lanzarUnidades({ usuarioId: req.usuario.id, syllabusUrl, carpetaUrl, curso: curso || '', proyecto: proyecto || null, bibliografiaId, url, cuerpo: cuerpoN8n })
     if (t.ya) return res.status(409).json({ ya: true, id: t.id, creado: t.creado, error: 'Ya se están creando las unidades de este syllabus.' })
     res.status(202).json({ id: t.id, estado: 'en_curso', creado: t.creado })
   } catch (e) { next(e) }

@@ -94,6 +94,7 @@ const esperar = async (fn, ms = 5000) => {
 const lista = async (c) => (await (await c.api('GET', '/guiones/trabajos')).json())
 const lanzar = (correo, proyecto, unidad, url = urlN8n) => lanzarTrabajo({ usuarioId: ids[correo], proyecto, unidad, url, cuerpo: { unidad_url: 'https://docs.google.com/document/d/abc', unidad, bibliografia: { fuentes: [] } } })
 
+let bibPaquete
 test('un trabajo tiene identificador, no se duplica y termina con su respuesta aunque nadie esté mirando', async () => {
   const ana = await entrar('ana@u.co')
   const beto = await entrar('beto@u.co')
@@ -171,6 +172,7 @@ test('por la ruta real: arma el paquete de bibliografía, lo envía a n8n con el
   const dueno = new pg.Client({ connectionString: `postgres://postgres:duenio@localhost:${PUERTO_PG}/ova` })
   await dueno.connect()
   const bib = crypto.randomUUID()
+  bibPaquete = bib // la reutiliza la prueba del tope de tamaño
   await dueno.query("INSERT INTO bib_trabajos (id, propietario_id, proyecto_id, estado, total, resueltas) VALUES ($1, $2, 'pr', 'listo', 1, 1)", [bib, ids['ana@u.co']])
   await dueno.query("INSERT INTO bib_fuentes (trabajo_id, propietario_id, orden, entrada_cruda, unidad, categoria, estado, titulo, referencia_apa, cita_apa) VALUES ($1, $2, 1, 'Autor (2020). Libro.', 1, 'basica', 'resuelta', 'Libro', 'Autor (2020). Libro.', '(Autor, 2020)')", [bib, ids['ana@u.co']])
   await dueno.query("INSERT INTO configuracion (clave, valor) VALUES ('n8n.guiones', $1) ON CONFLICT (clave) DO UPDATE SET valor = EXCLUDED.valor", [urlN8n])
@@ -202,6 +204,23 @@ test('por la ruta real: arma el paquete de bibliografía, lo envía a n8n con el
   // la bibliografía de otra persona no sirve
   const beto = await entrar('beto@u.co')
   assert.equal((await beto.api('POST', '/guiones/trabajos', cuerpo)).status, 404)
+})
+
+test('un paquete demasiado grande para n8n se rechaza antes de enviarlo, con el tamaño y el límite', async () => {
+  const { config } = await import('../src/config.js')
+  const ana = await entrar('ana@u.co')
+  const cuerpo = { proyecto: 'pr', unidad: 1, unidadUrl: 'https://docs.google.com/document/d/unidad1', bibliografiaId: bibPaquete }
+  const antes = recibidos.length
+  const limite = config.n8nPaqueteMaxMb
+  config.n8nPaqueteMaxMb = 0.0001 // ~100 bytes: cualquier paquete real lo supera
+  try {
+    const r = await ana.api('POST', '/guiones/trabajos', cuerpo)
+    assert.equal(r.status, 413)
+    assert.match((await r.json()).error, /pesa .* MB y el límite es 0\.0001 MB/)
+    await new Promise((x) => setTimeout(x, 150))
+    assert.equal(recibidos.length, antes) // no se envió nada
+    assert.equal((await ana.api('GET', '/guiones/trabajos')).status, 200)
+  } finally { config.n8nPaqueteMaxMb = limite }
 })
 
 test('la sesión se renueva sola al usarla y tiene un tope máximo desde que se inició', async () => {

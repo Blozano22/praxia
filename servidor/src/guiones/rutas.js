@@ -24,6 +24,14 @@ rutasGuiones.use(exigirSesion)
 const RE_DOC = /^https:\/\/docs\.google\.com\/document\/d\/[A-Za-z0-9_-]+/
 const ANTERIOR = 'https://n8n.americana.edu.co/webhook/unidad-a-guiones' // flujo antiguo: ya no está activo
 const MAX_RESPUESTA = 40 * 1024 * 1024
+
+// Tope de lo que se ENVÍA a n8n. n8n rechaza paquetes de más de 16 MiB (por defecto) con un error poco claro; mejor avisar antes y con claridad.
+const MB = 1024 * 1024
+export const tamanoMb = (cuerpo) => Buffer.byteLength(JSON.stringify(cuerpo)) / MB
+export const paqueteGrande = (cuerpo) => {
+  const mb = tamanoMb(cuerpo)
+  return mb > config.n8nPaqueteMaxMb ? 'El paquete que habría que enviar a n8n pesa ' + mb.toFixed(1) + ' MB y el límite es ' + config.n8nPaqueteMaxMb + ' MB. Reduzca las fuentes de la bibliografía o el contenido y vuelva a intentarlo.' : ''
+}
 // Cupo por persona (tras iniciar sesión); sin sesión, por dirección IP. Así varios gestores en la misma red no se gastan el cupo entre sí.
 const porPersona = (req) => (req.usuario ? 'u:' + req.usuario.id : ipKeyGenerator(req.ip))
 const limiteCrear = rateLimit({ windowMs: 60 * 1000, limit: 12, keyGenerator: porPersona, standardHeaders: true, legacyHeaders: false })
@@ -51,6 +59,7 @@ export function publicar(urlTexto, cuerpo, minutos = config.n8nMinutosMaximo) {
     const local = ['localhost', '127.0.0.1', '[::1]'].includes(u.hostname)
     if (u.protocol !== 'https:' && !(u.protocol === 'http:' && local)) return reject(new Error('La dirección de n8n debe empezar por https://.'))
     const datos = Buffer.from(JSON.stringify(cuerpo))
+    if (datos.length > config.n8nPaqueteMaxMb * MB) return reject(new Error('El paquete para n8n pesa ' + (datos.length / MB).toFixed(1) + ' MB y el límite es ' + config.n8nPaqueteMaxMb + ' MB.'))
     const lib = u.protocol === 'https:' ? https : http
     const req = lib.request(u, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json', 'content-length': datos.length } }, (res) => {
       const partes = []
@@ -121,10 +130,10 @@ rutasGuiones.post('/trabajos', exigirPermiso('proyectos.crear'), limiteCrear, va
     // Carpeta del curso: viaja a n8n junto con proyecto_id para que la matriz y los avisos posteriores sepan a qué curso pertenecen (7.1a del plan).
     let carpeta = null
     try { carpeta = ((await conUsuario(req.usuario, (cx) => cx.query(Q.pipeCarpetaDeProyecto, [req.usuario.id, proyecto]))).rows[0] || {}).carpeta || null } catch (e) { console.error('[pipeline] no se pudo leer la carpeta del curso', e && e.message) }
-    const t = await lanzarTrabajo({
-      usuarioId: req.usuario.id, proyecto, unidad, url,
-      cuerpo: { unidad_url: unidadUrl, ...(syllabusUrl ? { syllabus_url: syllabusUrl } : {}), unidad, bibliografia: p.cuerpo, proyecto_id: proyecto, ...(carpeta ? { carpeta_raiz: carpeta } : {}) }
-    })
+    const cuerpoN8n = { unidad_url: unidadUrl, ...(syllabusUrl ? { syllabus_url: syllabusUrl } : {}), unidad, bibliografia: p.cuerpo, proyecto_id: proyecto, ...(carpeta ? { carpeta_raiz: carpeta } : {}) }
+    const grande = paqueteGrande(cuerpoN8n)
+    if (grande) return res.status(413).json({ error: grande })
+    const t = await lanzarTrabajo({ usuarioId: req.usuario.id, proyecto, unidad, url, cuerpo: cuerpoN8n })
     if (t.ya) return res.status(409).json({ ya: true, id: t.id, creado: t.creado, error: 'Ya hay una generación de guiones en curso para esta unidad.' })
     // Se anota a qué persona y curso pertenece este trabajo: los avisos que n8n mande después (matrices, H5P) se atribuyen con esto.
     try {

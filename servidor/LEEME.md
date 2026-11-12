@@ -214,3 +214,7 @@ Rutas de Praxia (sesión y permiso `proyectos.crear`): `POST /api/proyectos/:id/
 ### Vista global (coordinación)
 
 `GET /api/pipeline/resumen` (permiso `proyectos.ver_todos`) y el menú «Pipeline H5P»: una fila por curso de todas las personas (matrices listas o con error, recursos generados, en curso, sin respuesta, última actividad), el conteo de avisos de las últimas 24 h y los avisos huérfanos o rechazados para revisión. Solo lectura.
+
+### Tope de tamaño del paquete
+
+Antes de enviar guiones o unidades, Praxia mide el paquete (bibliografía incluida). Si pasa de `N8N_PAQUETE_MAX_MB` (12 por defecto; n8n acepta 16 MiB), responde `413` con el tamaño y el límite en vez de enviarlo y dejar que n8n falle con un error confuso.
