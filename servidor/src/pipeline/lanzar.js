@@ -13,8 +13,14 @@ import { publicar } from '../guiones/rutas.js'
 const RE_CARPETA = /^https:\/\/drive\.google\.com\/drive\/(?:u\/\d+\/)?folders\/[A-Za-z0-9_-]+/
 const LISTAS = ['creada', 'omitida', 'reemplazada'] // estados de una matriz que ya se puede usar
 
-export const urlMatrices = () => config.n8nMatricesUrl || ''
-export const urlH5p = () => config.n8nH5pUrl || ''
+// Las direcciones de los webhooks las guarda el administrador en «Conexión n8n» (tabla configuracion); si no hay una guardada ahí,
+// se usa la del .env (N8N_MATRICES_URL / N8N_H5P_URL). Vacío = esa función queda desactivada.
+async function urlConfigurada(clave, respaldo) {
+  const f = (await sinUsuario(Q.configLeer, [[clave]])).rows[0]
+  return (f && f.valor) || respaldo || ''
+}
+export const urlMatrices = () => urlConfigurada('n8n.matrices', config.n8nMatricesUrl)
+export const urlH5p = () => urlConfigurada('n8n.h5p', config.n8nH5pUrl)
 
 const Unidades = z.array(z.number().int().min(1).max(200)).min(1).max(50)
 export const EsquemaLanzarMatrices = z.object({ unidades: Unidades, forzar: z.boolean().default(false) }).strict()
@@ -93,7 +99,7 @@ async function entregar({ url, cuerpo, minutos, trabajoId, publicarFn, nombre })
 
 // Devuelve { codigo, cuerpo } listo para responder. «publicarFn» solo se cambia en las pruebas.
 export async function lanzarMatrices({ usuario, proyectoId, unidades, forzar, publicarFn = publicar }) {
-  const url = urlMatrices()
+  const url = await urlMatrices()
   if (!url) return falla(503, 'La generación de matrices no está configurada en el servidor.')
   const curso = await leerCurso(usuario, proyectoId)
   if (curso.codigo) return curso
@@ -116,7 +122,7 @@ export async function lanzarMatrices({ usuario, proyectoId, unidades, forzar, pu
 }
 
 export async function lanzarH5p({ usuario, proyectoId, maximo, unidades, reintentarErrores, publicarFn = publicar }) {
-  const url = urlH5p()
+  const url = await urlH5p()
   if (!url) return falla(503, 'La generación de H5P no está configurada en el servidor.')
   const curso = await leerCurso(usuario, proyectoId)
   if (curso.codigo) return curso

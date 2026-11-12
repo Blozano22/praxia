@@ -112,7 +112,7 @@ rutas.get('/proyectos/:id/pipeline', exigirSesion, exigirPermiso('proyectos.ver_
     const [m, r, e] = await Promise.all([sinUsuario(Q.pipeLeerMatrices, p), sinUsuario(Q.pipeLeerRecursos, p), sinUsuario(Q.pipeLeerEjecuciones, p)])
     // El plan de una corrida puede ser largo: se entrega el conteo y la lista de lo omitido con su motivo, no todos los recursos a generar.
     const ejecuciones = e.rows.map((x) => ({ ...x, plan: x.plan ? { aGenerar: (x.plan.a_generar || []).length, omitidas: (x.plan.omitidas || []).slice(0, 500) } : null }))
-    res.json({ matrices: m.rows, recursos: r.rows, ejecuciones, generado: new Date().toISOString(), puedeGenerarMatrices: Boolean(urlMatrices()), puedeGenerarH5p: Boolean(urlH5p()) })
+    res.json({ matrices: m.rows, recursos: r.rows, ejecuciones, generado: new Date().toISOString(), puedeGenerarMatrices: Boolean(await urlMatrices()), puedeGenerarH5p: Boolean(await urlH5p()) })
   } catch (err) { next(err) }
 })
 
@@ -298,16 +298,16 @@ rutas.patch('/usuarios/:id/clave', ...admin, validar(z.object({ id: IdUsuario })
   })
 
 // ------------------------------------------------------------------ direcciones de n8n (compartidas por todas las personas)
-const CLAVES_N8N = { syllabus: 'n8n.syllabus', guiones: 'n8n.guiones' }
+const CLAVES_N8N = { syllabus: 'n8n.syllabus', guiones: 'n8n.guiones', matrices: 'n8n.matrices', h5p: 'n8n.h5p' }
 rutas.get('/config/n8n', exigirSesion, async (req, res, next) => {
   try {
     const f = (await sinUsuario(Q.configLeer, [Object.values(CLAVES_N8N)])).rows
     const v = (c) => (f.find((x) => x.clave === c) || {}).valor || ''
-    res.json({ syllabus: v(CLAVES_N8N.syllabus), guiones: v(CLAVES_N8N.guiones) }) // '' = la dirección original
+    res.json({ syllabus: v(CLAVES_N8N.syllabus), guiones: v(CLAVES_N8N.guiones), matrices: v(CLAVES_N8N.matrices), h5p: v(CLAVES_N8N.h5p) }) // '' = la dirección original
   } catch (e) { next(e) }
 })
 const UrlN8n = z.union([z.literal(''), z.string().trim().max(500).regex(/^https:\/\/\S+$/)])
-rutas.put('/config/n8n', ...admin, validar(z.object({ syllabus: UrlN8n.optional(), guiones: UrlN8n.optional() }).strict(), 'body'),
+rutas.put('/config/n8n', ...admin, validar(z.object({ syllabus: UrlN8n.optional(), guiones: UrlN8n.optional(), matrices: UrlN8n.optional(), h5p: UrlN8n.optional() }).strict(), 'body'),
   async (req, res, next) => {
     try {
       for (const [campo, clave] of Object.entries(CLAVES_N8N)) {

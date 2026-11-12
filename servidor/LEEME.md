@@ -202,7 +202,7 @@ páginas leídas por documento y `OCR_ESCALA` (2) la resolución. El texto leíd
 
 ### Órdenes de Praxia a n8n (matrices y H5P)
 
-Praxia entrega la orden y n8n responde enseguida; el resultado llega por los avisos firmados de arriba. Las direcciones van en `servidor/.env` (vacías = botones desactivados):
+Praxia entrega la orden y n8n responde enseguida; el resultado llega por los avisos firmados de arriba. Las direcciones se guardan en la pantalla «Conexión n8n» (administración; sin reiniciar). Si ahí no hay una, se usa la variable del `servidor/.env`. Sin ninguna, el botón queda desactivado:
 
 | Variable | Webhook | Cuerpo que recibe | Respuesta esperada |
 | --- | --- | --- | --- |

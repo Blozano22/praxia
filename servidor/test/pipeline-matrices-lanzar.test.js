@@ -54,7 +54,7 @@ before(async () => {
   const { hashClave } = await import('../src/seguridad.js')
   const { Q } = await import('../src/consultas.js')
   pool = db.pool
-  for (const [nombre, correo] of [['Ana', 'ana@u.co'], ['Beto', 'beto@u.co']]) ids[nombre.toLowerCase()] = (await pool.query(Q.usuarioCrear, [nombre, correo, await hashClave(CLAVE), ['docente']])).rows[0].id
+  for (const [nombre, correo, rol] of [['Ana', 'ana@u.co', 'docente'], ['Beto', 'beto@u.co', 'docente'], ['Admin', 'admin@u.co', 'admin']]) ids[nombre.toLowerCase()] = (await pool.query(Q.usuarioCrear, [nombre, correo, await hashClave(CLAVE), [rol]])).rows[0].id
   servidor = crearApp().listen(0)
   base = 'http://127.0.0.1:' + servidor.address().port
 })
@@ -237,4 +237,35 @@ test('matrices: la orden lleva formación y guiones por unidad; sin guiones no s
   assert.equal(ok.status, 202); assert.equal((await ok.json()).ejecucion_id, 'ej-mat-9')
   assert.deepEqual(recibidas.at(-1).unidades_detalle, [{ numero: 2, formacion: 'Profesional', guiones: [{ tema: 1, nombre: 'G', url: 'https://docs.google.com/document/d/solo2abcdefgh' }] }]) // sin formación en el guion: la del curso
   respuestaN8n = { estado: 200, cuerpo: { ok: true } }
+})
+
+test('las direcciones se leen de «Conexión n8n» (tabla configuracion) y, si no hay, del .env; el administrador las guarda por la ruta de configuración', async () => {
+  const { Q } = await import('../src/consultas.js')
+  const ana = await entrar('ana@u.co')
+  assert.equal((await ana('PUT', '/proyectos/curso-c', curso('curso-c'))).status, 200)
+  const antes = recibidas.length
+  // Una dirección guardada en la configuración manda sobre la del .env: aquí apunta a un puerto sin nadie, así que la orden falla.
+  await pool.query(Q.configGuardar, ['n8n.matrices', 'http://127.0.0.1:1/otra'])
+  assert.equal((await ana('POST', '/proyectos/curso-c/pipeline/matrices', { unidades: [1], forzar: true })).status, 502)
+  assert.equal(recibidas.length, antes)
+  // Borrada la de la configuración, vuelve la del .env
+  await pool.query(Q.configBorrar, ['n8n.matrices'])
+  assert.equal((await ana('POST', '/proyectos/curso-c/pipeline/matrices', { unidades: [1], forzar: true })).status, 202)
+  // Sin ninguna, la función queda desactivada y la pantalla lo sabe
+  const guardada = config.n8nH5pUrl
+  config.n8nH5pUrl = ''
+  assert.equal((await (await ana('GET', '/proyectos/curso-c/pipeline')).json()).puedeGenerarH5p, false)
+  await pool.query(Q.configGuardar, ['n8n.h5p', 'https://n8n.ejemplo.edu.co/webhook/h5p'])
+  assert.equal((await (await ana('GET', '/proyectos/curso-c/pipeline')).json()).puedeGenerarH5p, true)
+  await pool.query(Q.configBorrar, ['n8n.h5p'])
+  config.n8nH5pUrl = guardada
+  // La ruta del administrador acepta y devuelve las dos direcciones nuevas; una docente no puede cambiarlas
+  const admin = await entrar('admin@u.co')
+  assert.equal((await admin('PUT', '/config/n8n', { matrices: 'https://n8n.ejemplo.edu.co/webhook/m', h5p: 'https://n8n.ejemplo.edu.co/webhook/h' })).status, 200)
+  const c = await (await admin('GET', '/config/n8n')).json()
+  assert.deepEqual([c.matrices, c.h5p], ['https://n8n.ejemplo.edu.co/webhook/m', 'https://n8n.ejemplo.edu.co/webhook/h'])
+  assert.equal((await admin('PUT', '/config/n8n', { matrices: 'http://inseguro.test/x' })).status, 400)
+  assert.equal((await ana('PUT', '/config/n8n', { matrices: 'https://n8n.ejemplo.edu.co/webhook/x' })).status, 403)
+  assert.equal((await admin('PUT', '/config/n8n', { matrices: '', h5p: '' })).status, 200)
+  assert.deepEqual(await (await admin('GET', '/config/n8n')).json(), { syllabus: '', guiones: '', matrices: '', h5p: '' })
 })

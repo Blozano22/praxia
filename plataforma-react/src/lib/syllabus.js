@@ -8,19 +8,24 @@ const WEBHOOKS_ANTERIORES = ['https://n8n.americana.edu.co/webhook/syllabus-a-pl
 
 // Las direcciones de n8n son UNA para toda la plataforma: las guarda el administrador en el servidor y todas las personas las leen de allí.
 // '' = la dirección original (la del código).
-let config = { syllabus: '', guiones: '' }
+let config = { syllabus: '', guiones: '', matrices: '', h5p: '' }
 let cargaEnCurso = null
 export const cargarConfigN8n = (forzar = false) => {
   if (!cargaEnCurso || forzar) {
-    cargaEnCurso = api('GET', '/config/n8n').then((c) => { config = { syllabus: (c && c.syllabus) || '', guiones: (c && c.guiones) || '' } }).catch(() => { cargaEnCurso = null })
+    cargaEnCurso = api('GET', '/config/n8n').then((c) => { config = { syllabus: (c && c.syllabus) || '', guiones: (c && c.guiones) || '', matrices: (c && c.matrices) || '', h5p: (c && c.h5p) || '' } }).catch(() => { cargaEnCurso = null })
   }
   return cargaEnCurso
 }
-export const olvidarConfigN8n = () => { config = { syllabus: '', guiones: '' }; cargaEnCurso = null }
+export const olvidarConfigN8n = () => { config = { syllabus: '', guiones: '', matrices: '', h5p: '' }; cargaEnCurso = null }
 const guardarConfig = (campo, u) => api('PUT', '/config/n8n', { [campo]: u }).then(() => { config = { ...config, [campo]: u } })
 
 export const leerWebhook = () => (!config.syllabus || WEBHOOKS_ANTERIORES.includes(config.syllabus) ? WEBHOOK_POR_DEFECTO : config.syllabus)
 export const guardarWebhook = (u) => guardarConfig('syllabus', u) // devuelve una promesa; falla si no es administrador
+// Matrices y H5P no tienen dirección por defecto: vacío = esa función queda desactivada (o usa la del .env del servidor).
+export const leerWebhookMatrices = () => config.matrices
+export const guardarWebhookMatrices = (u) => guardarConfig('matrices', u)
+export const leerWebhookH5p = () => config.h5p
+export const guardarWebhookH5p = (u) => guardarConfig('h5p', u)
 
 export const RE_DOC = /^https:\/\/docs\.google\.com\/document\/d\/[A-Za-z0-9_-]+/
 export const RE_CARPETA = /^https:\/\/drive\.google\.com\/drive\/(?:u\/\d+\/)?folders\/[A-Za-z0-9_-]+/
