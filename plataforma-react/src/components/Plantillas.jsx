@@ -80,12 +80,13 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
   useEffect(() => {
     const el = caja.current
     if (!el) return
-    const medir = () => setEsc(el.clientWidth / 1280)
+    // Un ancho de 0 (la galería oculta o desmontada) no es una medida válida: dejaría la vista previa a escala 0, en blanco.
+    const medir = () => { const w = el.clientWidth; if (w > 0) setEsc(w / 1280) }
     medir()
     const ro = new ResizeObserver(medir)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [full])
+  }, [full, vista])
 
   useEffect(() => {
     if (!full) return
