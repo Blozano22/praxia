@@ -186,6 +186,10 @@ Praxia responde `200` solo **después** de guardar. **Idempotencia:** un `evento
 
 **Qué se guarda** (tablas en `sql/001_esquema.sql`, ligadas a la persona y al curso): `pipeline_origen` (trabajo_id → persona y curso; se escribe al lanzar guiones y se conserva 180 días), `pipeline_ejecuciones` (cada corrida: plan, resumen, último aviso), `pipeline_matrices` (la matriz de cada unidad), `pipeline_recursos` (una fila por recurso), `pipeline_eventos` (registro de todo aviso y su resultado; 60 días).
 
+**Qué ve la persona (paso «4 · Matrices y H5P» del curso).** La pantalla lee solo de Praxia con `GET /api/proyectos/:id/pipeline` (sesión y curso propios): las matrices de cada unidad, sus recursos con su estado, enlaces, errores y motivos de omisión, y las corridas de H5P con su plan y resumen. Mientras algo está en proceso se refresca sola cada 8 s (consulta a Praxia, no a n8n). Lo que lleva tiempo sin avisos se marca **«sin respuesta de n8n»** y deja de contar como en proceso: una corrida o una matriz «generando» sin avisos hace más de 15 minutos, un recurso `EN_PROCESO` sin avisos hace más de 30. Praxia no consulta a n8n para comprobarlo: es un reloj interno.
+
+**Ver la pantalla sin n8n (demo local).** Con `npm run demo` en marcha (si el puerto está ocupado, `PG_PORT=<otro>`): `PG_PORT=<el mismo> node test/demo-pipeline-simulado.js` crea el curso «Curso de demostración del pipeline» para `ana@demo.co` y le manda avisos simulados y firmados (matriz creada, ya existente, con error, recursos generados, con error, en proceso y omitidos con su motivo). `--terminar` cierra la corrida de H5P y `--atascado` deja una matriz y una corrida sin avisos para ver «sin respuesta». Solo para el demo temporal.
+
 **Probar** sin lanzar guiones de verdad: `node scripts/crear-origen-prueba.js <correo> <id del curso>` imprime un `trabajo_id` de prueba; luego `N8N_EVENTOS_SECRETO=… node scripts/emitir-aviso-prueba.js <url> <tipo> <trabajo_id>` envía un aviso de ejemplo firmado.
 
 ## Lectura de PDF escaneados (OCR)

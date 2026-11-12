@@ -1,0 +1,67 @@
+/* Paso «Matrices y H5P» del curso: resumen, última corrida de H5P y una tarjeta por unidad con su matriz y sus recursos. */
+.mx-act{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.mx-resumen{display:flex;flex-wrap:wrap;align-items:center;gap:14px 24px;margin-top:14px;padding:14px 18px}
+.mx-res-tx{display:flex;flex-direction:column;min-width:200px;flex:1 1 220px}
+.mx-res-tx b{color:var(--nav)}
+.mx-res-tx span{font-size:.85rem;color:var(--muted)}
+.mx-res-c{margin:0;flex:0 1 auto}
+.mx-vivo{display:inline-flex;align-items:center;gap:8px;font-size:.82rem;color:var(--muted)}
+
+.mx-cifras{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}
+.mx-cifras>div{display:flex;flex-direction:column;min-width:92px;padding:10px 14px;border-radius:12px;background:color-mix(in srgb,var(--nav) 4%,#fff);border:1px solid var(--line)}
+.mx-cifras b{font-size:1.25rem;line-height:1.1;color:var(--nav)}
+.mx-cifras span{font-size:.78rem;color:var(--muted);margin-top:2px}
+.mx-cifras .g{background:var(--okbg,#e4f5ec);border-color:transparent}.mx-cifras .g b{color:#1b6a43}
+.mx-cifras .r{background:#fbe4e1;border-color:transparent}.mx-cifras .r b{color:#a32f24}
+
+.mx-corrida{margin-top:14px;padding:16px 18px}
+.mx-corrida-cab{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.mx-corrida-cab h3{margin:0}
+.mx-omitidas{margin-top:4px;font-size:.88rem}
+.mx-omitidas summary{cursor:pointer;font-weight:700;color:var(--nav)}
+.mx-omitidas ul{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+.mx-omitidas li{display:flex;flex-wrap:wrap;gap:4px 12px;padding:8px 12px;border-radius:10px;background:color-mix(in srgb,var(--nav) 3%,#fff)}
+.mx-omitidas li span{color:var(--muted)}
+
+.mx-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px;margin-top:16px;align-items:start}
+.mx-uni{padding:18px 20px;border-width:1.5px}
+.mx-uni.mx-sin{border-style:dashed;background:color-mix(in srgb,var(--nav) 2%,#fff)}
+.mx-uni.mx-ok{border-color:color-mix(in srgb,var(--brand) 55%,#fff)}
+.mx-uni.mx-en{border-color:#e0b43a}
+.mx-uni.mx-bad{border-color:#d98c83}
+.mx-uni-cab{display:flex;align-items:center;gap:14px}
+.mx-n{flex:none;display:grid;place-items:center;width:42px;height:42px;border-radius:12px;background:color-mix(in srgb,var(--nav) 8%,#fff);color:var(--nav);font-weight:800;font-size:1.1rem}
+.mx-ok .mx-n{background:var(--brand);color:#fff}
+.mx-en .mx-n{background:#e0b43a;color:#3a2a00}
+.mx-bad .mx-n{background:#b4332c;color:#fff}
+.mx-uni-tit{flex:1;min-width:0}
+.mx-uni-tit h3{margin:0}
+.mx-uni-tit small{display:block;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mx-vacio{margin:14px 0 0;color:var(--muted);font-size:.9rem;line-height:1.5}
+.mx-matriz{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;margin-top:14px}
+.mx-matriz-datos{display:flex;flex-wrap:wrap;gap:4px 18px;min-width:0;font-size:.86rem}
+.mx-matriz-datos span{display:flex;flex-direction:column;min-width:0}
+.mx-matriz-datos b{font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.mx-matriz-datos span:last-child{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mx-detalle{margin:10px 0 0;padding:8px 12px;border-radius:10px;background:color-mix(in srgb,var(--nav) 4%,#fff);font-size:.88rem;overflow-wrap:anywhere}
+.mx-detalle.mal{background:#fbe4e1;color:#8d2a20}
+.mx-barra{height:8px;border-radius:99px;background:#e6ecef;overflow:hidden}
+.mx-barra i{display:block;height:100%;background:var(--brand);border-radius:99px;transition:width .4s}
+
+.mx-filas-det{margin-top:14px}
+.mx-filas-det summary{cursor:pointer;font-weight:700;color:var(--nav);font-size:.9rem}
+.mx-filas{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+.mx-fila{padding:10px 12px;border:1px solid var(--line);border-left:4px solid #c3cbd3;border-radius:10px;background:#fff}
+.mx-fila.generado{border-left-color:var(--brand)}
+.mx-fila.en_proceso{border-left-color:#e0b43a}
+.mx-fila.error{border-left-color:#b4332c}
+.mx-fila-cab{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
+.mx-fila-cab b{font-size:.84rem;color:var(--nav)}
+.mx-fila-tit{flex:1;min-width:120px;font-size:.9rem;overflow-wrap:anywhere}
+.mx-fila-meta{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px;font-size:.8rem;color:var(--muted)}
+.mx-gen{padding:1px 8px;border-radius:99px;background:color-mix(in srgb,var(--nav) 8%,#fff);color:var(--nav);font-weight:700;font-size:.72rem}
+.mx-fila-meta a{font-weight:700;color:var(--brand)}
+.mx-fila-nota{margin:6px 0 0;font-size:.84rem;color:var(--muted);overflow-wrap:anywhere}
+.mx-fila-nota.mal{color:#a32f24}
+.mx-fila-nota.omit{color:#76590a}
+@media(max-width:560px){.mx-cifras>div{flex:1 1 40%}.mx-matriz-datos span:last-child{max-width:100%}}

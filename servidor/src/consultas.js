@@ -216,6 +216,23 @@ export const Q = Object.freeze({
   pipeRecursosQuitarSobrantes: `
     DELETE FROM pipeline_recursos
      WHERE propietario_id = $1 AND proyecto_id = $2 AND unidad = $3 AND NOT (id = ANY($4::text[])) AND actualizado_en <= $5`,
+  // ---- pipeline: lectura para la pantalla del curso (solo lo de esa persona y ese curso)
+  pipeLeerMatrices: `
+    SELECT unidad, formacion, estado, matriz_id AS "matrizId", matriz_url AS "matrizUrl", matriz_nombre AS "matrizNombre", detalle,
+           filas_total AS "filasTotal", actualizado_en AS "actualizadoEn",
+           (estado = 'generando' AND actualizado_en < now() - interval '15 minutes') AS "sinRespuesta"
+      FROM pipeline_matrices WHERE propietario_id = $1 AND proyecto_id = $2 ORDER BY unidad`,
+  pipeLeerRecursos: `
+    SELECT id, unidad, tema, codigo, formato, titulo, generador, estado, observaciones, enlace_guion AS "enlaceGuion",
+           enlace_recurso AS "enlaceRecurso", omision, actualizado_en AS "actualizadoEn",
+           (estado = 'EN_PROCESO' AND actualizado_en < now() - interval '30 minutes') AS "sinRespuesta"
+      FROM pipeline_recursos WHERE propietario_id = $1 AND proyecto_id = $2
+     ORDER BY unidad NULLS LAST, tema NULLS LAST, codigo NULLS LAST, id LIMIT 3000`,
+  pipeLeerEjecuciones: `
+    SELECT etapa, ejecucion_id AS "ejecucionId", estado, maximo, plan, resumen, iniciado_en AS "iniciadoEn",
+           ultimo_evento_en AS "ultimoEventoEn", terminado_en AS "terminadoEn",
+           (estado = 'en_curso' AND ultimo_evento_en < now() - interval '15 minutes') AS "sinRespuesta"
+      FROM pipeline_ejecuciones WHERE propietario_id = $1 AND proyecto_id = $2 ORDER BY ultimo_evento_en DESC LIMIT 20`,
   usuarioSubirVersion: `UPDATE usuarios SET version_token = version_token + 1 WHERE id = $1 RETURNING id`,
   rolesListar: `SELECT nombre FROM roles ORDER BY id`,
 

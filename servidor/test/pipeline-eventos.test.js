@@ -225,3 +225,43 @@ test('el vector de firma de la documentación coincide con el algoritmo real (pa
   const firma = crypto.createHmac('sha256', 'secreto-de-prueba').update('1700000000.{"evento_id":"prueba-0001"}').digest('hex')
   assert.equal(firma, 'd0e2186090dde1bb100aaa47b5cff7c63bec6e4a3fdf4a044b031b18cde92c99')
 })
+
+test('la pantalla del curso lee lo guardado: cada persona ve solo lo de su curso, y hace falta sesión', async () => {
+  const entrar = async (correo) => {
+    const r = await fetch(base + '/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json', 'x-ova': '1' }, body: JSON.stringify({ correo, clave: CLAVE }) })
+    const cookie = (r.headers.get('set-cookie') || '').split(';')[0]
+    return (ruta) => fetch(base + '/api' + ruta, { headers: { cookie, 'x-ova': '1' } })
+  }
+  const ana = await entrar('ana@u.co')
+  const beto = await entrar('beto@u.co')
+  assert.equal((await fetch(base + '/api/proyectos/curso-a/pipeline', { headers: { 'x-ova': '1' } })).status, 401)
+  assert.equal((await ana('/proyectos/no%20valido!/pipeline')).status, 400)
+  const a = await (await ana('/proyectos/curso-a/pipeline')).json()
+  assert.ok(a.matrices.length >= 3); assert.equal(a.matrices.find((m) => m.unidad === 1).matrizUrl, HOJA)
+  assert.ok(a.recursos.some((r) => r.id === 'f1' && r.unidad === 1)); assert.ok(a.generado)
+  const h2 = a.ejecuciones.find((e) => e.ejecucionId === 'h2')
+  assert.equal(h2.etapa, 'h5p'); assert.equal(h2.plan.aGenerar, 1); assert.equal(h2.plan.omitidas[0].motivo, 'sin_plantilla'); assert.equal(h2.resumen.errores, 1)
+  const b = await (await beto('/proyectos/curso-a/pipeline')).json() // mismo identificador de curso, otra persona
+  assert.equal(b.matrices.length, 0); assert.deepEqual(b.recursos.map((r) => r.id), ['f1'])
+  assert.equal(b.recursos[0].enlaceRecurso, 'https://drive.google.com/file/d/deBeto/view')
+  const vacio = await (await ana('/proyectos/otro-curso/pipeline')).json()
+  assert.deepEqual([vacio.matrices.length, vacio.recursos.length, vacio.ejecuciones.length], [0, 0, 0])
+})
+
+test('lo que lleva tiempo sin avisos se marca «sin respuesta» (no cuenta como en proceso): corrida 15 min, matriz 15 min, recurso 30 min', async () => {
+  const antiguo = (seg) => t(seg) // hace unos 20 minutos
+  await enviar(aviso('h5p_inicio', 'h5p', { ejecucion_id: 'vieja', plan: { a_generar: [], omitidas: [] }, fecha_evento: antiguo(3), secuencia: 1 }))
+  await enviar(aviso('h5p_inicio', 'h5p', { ejecucion_id: 'reciente', plan: { a_generar: [], omitidas: [] }, fecha_evento: new Date().toISOString(), secuencia: 1 }))
+  await enviar(aviso('matrices_inicio', 'matrices', { origen_trabajo_id: T.ana, trabajo_id: null, ejecucion_id: 'mv', unidades: [9], fecha_evento: antiguo(4), secuencia: 1 }))
+  await enviar(aviso('h5p_recurso', 'h5p', { ejecucion_id: 'vieja', unidad: 9, id: 'atascado', estado: 'EN_PROCESO', fecha_evento: new Date(Date.now() - 40 * 60 * 1000).toISOString(), secuencia: 1 }))
+  await enviar(aviso('h5p_recurso', 'h5p', { ejecucion_id: 'reciente', unidad: 9, id: 'trabajando', estado: 'EN_PROCESO', fecha_evento: new Date().toISOString(), secuencia: 2 }))
+  const r = await fetch(base + '/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json', 'x-ova': '1' }, body: JSON.stringify({ correo: 'ana@u.co', clave: CLAVE }) })
+  const cookie = (r.headers.get('set-cookie') || '').split(';')[0]
+  const d = await (await fetch(base + '/api/proyectos/curso-a/pipeline', { headers: { cookie, 'x-ova': '1' } })).json()
+  assert.equal(d.ejecuciones.find((e) => e.ejecucionId === 'vieja').sinRespuesta, true)
+  assert.equal(d.ejecuciones.find((e) => e.ejecucionId === 'reciente').sinRespuesta, false)
+  assert.equal(d.matrices.find((m) => m.unidad === 9).sinRespuesta, true)
+  assert.equal(d.matrices.find((m) => m.unidad === 1).sinRespuesta, false) // una matriz ya creada nunca está «sin respuesta»
+  assert.equal(d.recursos.find((x) => x.id === 'atascado').sinRespuesta, true)
+  assert.equal(d.recursos.find((x) => x.id === 'trabajando').sinRespuesta, false)
+})

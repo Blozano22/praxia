@@ -68,7 +68,7 @@ export default function App() {
     const perm = (c) => yo.permisos.includes(c)
     const proy = ref.current.find((x) => x.id === p[1])
     if (p[0] === 'syllabus' && proy) {
-      setActualId(proy.id); setTab(['syllabus', 'docs', 'unidades', 'recursos'].includes(p[2]) ? p[2] : 'syllabus'); setUnidadSel(p[3] ? (Number(p[3]) || null) : null); setVista('workspace')
+      setActualId(proy.id); setTab(['syllabus', 'docs', 'unidades', 'recursos', 'matrices'].includes(p[2]) ? p[2] : 'syllabus'); setUnidadSel(p[3] ? (Number(p[3]) || null) : null); setVista('workspace')
     } else if (p[0] === 'editor' && proy && proy.recursos.some((r) => r.id === p[2])) {
       setActualId(proy.id); setRecId(p[2]); setVista('editor')
     } else if (['dashboard', 'nuevo'].includes(p[0]) && perm('proyectos.ver_propios')) setVista(p[0])

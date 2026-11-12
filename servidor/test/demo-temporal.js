@@ -25,6 +25,8 @@ await duenio.end()
 process.env.DATABASE_URL = `postgres://ova_app:appclave@localhost:${PUERTO_PG}/ova`
 process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex')
 process.env.PORT = process.env.PORT || '3001'
+// Secreto de DEMO para el receptor de avisos de n8n (solo este demo temporal; en producción va en el .env del servidor).
+process.env.N8N_EVENTOS_SECRETO = process.env.N8N_EVENTOS_SECRETO || 'secreto-solo-para-el-demo-local-0123456789'
 const { pool } = await import('../src/db.js')
 const { hashClave } = await import('../src/seguridad.js')
 const { Q } = await import('../src/consultas.js')

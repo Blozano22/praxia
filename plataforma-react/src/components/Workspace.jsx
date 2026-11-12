@@ -4,6 +4,7 @@ import PortalSyllabus from './PortalSyllabus.jsx'
 import EnlaceDoc from './EnlaceDoc.jsx'
 import CargarGuion from './CargarGuion.jsx'
 import Revision from './Revision.jsx'
+import MatricesH5P from './MatricesH5P.jsx'
 import { Recursos, Unidades, UnidadVista } from './Unidades.jsx'
 import { recursosDeGuion } from '../lib/guionJson.js'
 import { temaBase } from '../lib/render.js'
@@ -25,12 +26,13 @@ export default function Workspace({ s, tab, setTab, unidadSel, setUnidadSel, rec
   const pasos = [
     ['syllabus', '1', 'Syllabus', s.syllabusUrl ? 'Documento base del curso' : 'Sin enlace'],
     ['docs', '2', 'Unidades', docs.length ? aprobados + ' de ' + docs.length + ' documentos aprobados' : 'Sin documentos'],
-    ['unidades', '3', 'Guiones', faltan ? 'Apruebe las unidades' : s.guiones.length + ' guiones cargados']
-    // El paso «Recursos» queda fuera por ahora: el flujo llega hasta los guiones.
+    ['unidades', '3', 'Guiones', faltan ? 'Apruebe las unidades' : s.guiones.length + ' guiones cargados'],
+    ['matrices', '4', 'Matrices y H5P', faltan ? 'Apruebe las unidades' : 'Recursos H5P por unidad']
+    // El paso «Recursos» queda fuera por ahora.
   ]
-  if (faltan && (tab === 'unidades' || tab === 'recursos')) setTimeout(() => setTab('docs'), 0)
+  if (faltan && (tab === 'unidades' || tab === 'recursos' || tab === 'matrices')) setTimeout(() => setTab('docs'), 0)
   // Al cambiar de paso el contenido se desliza: entra por la derecha al avanzar y por la izquierda al volver.
-  const ORDEN = ['syllabus', 'docs', 'unidades', 'recursos']
+  const ORDEN = ['syllabus', 'docs', 'unidades', 'recursos', 'matrices']
   const previo = useRef(tab)
   const dir = useRef('der')
   if (previo.current !== tab) { dir.current = ORDEN.indexOf(tab) >= ORDEN.indexOf(previo.current) ? 'der' : 'izq'; previo.current = tab }
@@ -102,8 +104,8 @@ export default function Workspace({ s, tab, setTab, unidadSel, setUnidadSel, rec
 
       <div className="stepper2" role="tablist">
         {pasos.map(([k, n, t, sub]) => (
-          <button key={k} role="tab" className={(tab === k ? 'on' : '') + (ORDEN.indexOf(k) < ORDEN.indexOf(tab) ? ' hecho' : '')} disabled={k === 'integracion' || ((k === 'unidades' || k === 'recursos') && faltan)}
-            title={k === 'integracion' ? 'La integración con el syllabus se habilitará más adelante' : ((k === 'unidades' || k === 'recursos') && faltan ? 'Apruebe todas las unidades para habilitar este paso' : '')}
+          <button key={k} role="tab" className={(tab === k ? 'on' : '') + (ORDEN.indexOf(k) < ORDEN.indexOf(tab) ? ' hecho' : '')} disabled={k === 'integracion' || ((k === 'unidades' || k === 'recursos' || k === 'matrices') && faltan)}
+            title={k === 'integracion' ? 'La integración con el syllabus se habilitará más adelante' : ((k === 'unidades' || k === 'recursos' || k === 'matrices') && faltan ? 'Apruebe todas las unidades para habilitar este paso' : '')}
             onClick={() => irA(k)}>
             <i>{ORDEN.indexOf(k) < ORDEN.indexOf(tab) ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" /></svg> : n}</i><span><b>{t}</b><small>{sub}</small></span>
           </button>
@@ -169,6 +171,8 @@ export default function Workspace({ s, tab, setTab, unidadSel, setUnidadSel, rec
           )}
         </div>
       )}
+
+      {tab === 'matrices' && <MatricesH5P s={s} />}
 
       {tab === 'recursos' && <Recursos s={s} sel={recSel} setSel={setRecSel} onCambio={onCambio} onEditar={onEditar} aviso={aviso} />}
       </div>

@@ -95,6 +95,18 @@ rutas.get('/proyectos/:id/enlaces', exigirSesion, exigirPermiso('proyectos.ver_p
     } catch (e) { next(e) }
   })
 
+// Lo que n8n avisó de la cadena guiones → matrices → H5P para ESTE curso (matrices, recursos y corridas). Solo lectura: la pantalla del curso
+// lee de aquí y no de n8n; los datos llegan por POST /api/n8n/eventos.
+rutas.get('/proyectos/:id/pipeline', exigirSesion, exigirPermiso('proyectos.ver_propios'), validar(z.object({ id: IdProyecto }), 'params'), async (req, res, next) => {
+  try {
+    const p = [req.usuario.id, req.paramsOk.id]
+    const [m, r, e] = await Promise.all([sinUsuario(Q.pipeLeerMatrices, p), sinUsuario(Q.pipeLeerRecursos, p), sinUsuario(Q.pipeLeerEjecuciones, p)])
+    // El plan de una corrida puede ser largo: se entrega el conteo y la lista de lo omitido con su motivo, no todos los recursos a generar.
+    const ejecuciones = e.rows.map((x) => ({ ...x, plan: x.plan ? { aGenerar: (x.plan.a_generar || []).length, omitidas: (x.plan.omitidas || []).slice(0, 500) } : null }))
+    res.json({ matrices: m.rows, recursos: r.rows, ejecuciones, generado: new Date().toISOString() })
+  } catch (err) { next(err) }
+})
+
 rutas.put('/proyectos/:id', exigirSesion,
   validar(z.object({ id: IdProyecto }), 'params'),
   async (req, res, next) => {
