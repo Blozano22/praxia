@@ -76,8 +76,6 @@
 .pl2-clases button:disabled{opacity:.45;cursor:not-allowed}
 
 /* Código del recurso (ID del catálogo) en la galería */
-.pl2-cod{margin-left:auto;flex:none;align-self:center;padding:2px 8px;border-radius:7px;background:var(--nav);color:#fff;font-size:.72rem;font-weight:800;letter-spacing:.03em}
-.pl2-lista button.on .pl2-cod{background:var(--brand)}
 .pl2-codigo{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:2px 10px;margin:2px 0 14px;padding:10px 12px;border-radius:12px;background:var(--tint,#eef6f4);border:1px solid #cfe3de}
 .pl2-codigo span{grid-column:1/-1;font-size:.7rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .pl2-codigo b{font-size:1.25rem;color:var(--brand);letter-spacing:.02em}
@@ -90,3 +88,6 @@
 .cat-gestion>.help{margin:6px 8px 4px;line-height:1.45}
 .cat-ocu{margin-left:8px;font-style:normal;font-size:.7rem;font-weight:800;letter-spacing:.03em;padding:2px 7px;border-radius:999px;background:#f3e3df;color:#a63a32;vertical-align:middle}
 .cat-var.oculta .cat-var-n{opacity:.6}
+
+.pl2-codigo-nota{grid-column:1/-1;margin-top:4px;font-style:italic}
+.pl2-lista .pl2-codigo{margin:0 0 12px}

@@ -91,6 +91,10 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
   }
   const seaPublica = (k) => !!cats && cats.plantillas.includes(nombrePublico(k))
   const codigoActual = codigoDe(tipo)
+  const codigosFamilia = (() => {
+    const g = gruposTodos.find(([, l]) => l.some(([x]) => x === tipo))
+    return g ? new Set(g[1].map(([x]) => (codigoDe(x) || {}).id).filter(Boolean)).size : 0
+  })()
 
   useEffect(() => {
     if (!ruta) return
@@ -201,12 +205,18 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
         <aside className="pl2-lado">
           <div className="card pl2-lista">
             <h4>{res ? `Resultados (${res.length})` : 'Diseños de ' + corto(grupoNombre).toLowerCase()}</h4>
+            {!res && (
+              <div className={'pl2-codigo' + (codigoActual ? '' : ' sin')}>
+                <span>Código del recurso</span>
+                {codigoActual ? <><b>{codigoActual.id}</b><small>{codigoActual.nombre}</small></> : <small>{seaPublica(tipo) ? 'Sin categoría todavía (se asigna en «Categorías para n8n»)' : 'Este diseño no se publica para n8n'}</small>}
+                {codigoActual && codigosFamilia > 1 && <small className="pl2-codigo-nota">Esta familia reúne recursos distintos: el código cambia según el diseño.</small>}
+              </div>
+            )}
             <p className="help">{res ? `Coinciden con «${q.trim()}».` : NOTAS[corto(grupoNombre)]}</p>
             {(res || lista.map(([k, n]) => ({ k, n, g: '' }))).map((t, i) => (
               <button key={t.k} className={t.k === tipo ? 'on' : ''} onClick={() => elegir(t.k)}>
                 <span className="pl2-n">{res ? '•' : i + 1}</span>
                 <span><b>{t.n}</b>{res && <small>{t.g}</small>}</span>
-                {codigoDe(t.k) && <span className="pl2-cod" title={codigoDe(t.k).nombre}>{codigoDe(t.k).id}</span>}
                 {deTipo(t.k)[0] && <span className={'pill rv-mini ' + ESTADO[deTipo(t.k)[0].estado].clase}>{ESTADO[deTipo(t.k)[0].estado].texto}</span>}
               </button>
             ))}
@@ -214,10 +224,6 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
           </div>
           <div className="card pl2-uso">
             <h4>Usar esta plantilla</h4>
-            <div className={'pl2-codigo' + (codigoActual ? '' : ' sin')}>
-              <span>Código del recurso</span>
-              {codigoActual ? <><b>{codigoActual.id}</b><small>{codigoActual.nombre}</small></> : <small>{seaPublica(tipo) ? 'Sin categoría todavía (se asigna en «Categorías para n8n»)' : 'Este diseño no se publica para n8n'}</small>}
-            </div>
             <button className="btn" disabled={!html} onClick={abrir}>Abrir en pestaña</button>
             <button className="btn sec" disabled={!html} onClick={bajar}>Descargar</button>
             <ul>
