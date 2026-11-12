@@ -61,7 +61,6 @@ const CARGA = { ...ARCHIVOS, ...ORIGINALES }
 export default function Plantillas({ puedeRevisar = false, puedeCorregir = false, yo = null, aviso }) {
   const gruposTodos = useMemo(() => GRUPOS.map(([g, l]) => [g, l.filter(([k]) => CATALOGO[k])]).filter(([, l]) => l.length), [])
   const [clase, setClase] = useState('recurso') // qué clase de HTML se ve en la galería: recurso | actividad
-  const grupos = useMemo(() => gruposTodos.filter(([g]) => (esActividad(g) ? 'actividad' : 'recurso') === clase), [gruposTodos, clase])
   const [vista, setVista] = useState('galeria') // galeria | categorias (las categorías que usa n8n)
   const [tipo, setTipo] = useState(() => (gruposTodos.find(([g]) => !esActividad(g)) || gruposTodos[0])[1][0][0])
   const [q, setQ] = useState('')
@@ -91,10 +90,29 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
   }
   const seaPublica = (k) => !!cats && cats.plantillas.includes(nombrePublico(k))
   const codigoActual = codigoDe(tipo)
-  const codigosFamilia = (() => {
-    const g = gruposTodos.find(([, l]) => l.some(([x]) => x === tipo))
-    return g ? new Set(g[1].map(([x]) => (codigoDe(x) || {}).id).filter(Boolean)).size : 0
-  })()
+
+  // Las pestañas son las CATEGORÍAS de «Categorías para n8n» (ID + nombre) y solo salen las que tienen diseños; los diseños que aún no tienen
+  // categoría van en «Sin categoría». Las revisiones y observaciones de cada diseño siguen atadas a su clave (no cambia al reagrupar).
+  // Mientras no se conocen las categorías se muestran las familias de siempre.
+  const gruposPorClase = useMemo(() => {
+    const res = { recurso: [], actividad: [] }
+    const claseFija = (g) => (esActividad(g) ? 'actividad' : 'recurso')
+    if (!cats) { gruposTodos.forEach(([g, l]) => res[claseFija(g)].push([g, l])); return res }
+    const porCat = new Map()
+    const sin = { recurso: [], actividad: [] }
+    gruposTodos.forEach(([g, l]) => l.forEach(([k, n]) => {
+      const c = codigoDe(k)
+      if (c) { if (!porCat.has(c.id)) porCat.set(c.id, { c, items: [] }); porCat.get(c.id).items.push([k, n]) }
+      // Sin categoría no se muestra, salvo que el diseño ya tenga una revisión u observación: así no se pierde de vista.
+      else if (revisiones.some((r) => r.plantilla === k)) sin[claseFija(g)].push([k, /^Diseño \d+$/.test(n) ? corto(g) + ' · ' + n : n])
+    }))
+    ;[...porCat.values()].sort((x, y) => x.c.id.localeCompare(y.c.id)).forEach(({ c, items }) => res[c.tipo === 'actividad' ? 'actividad' : 'recurso'].push([c.nombre || c.id, items]))
+    ;['recurso', 'actividad'].forEach((t) => { if (sin[t].length) res[t].push(['Sin categoría', sin[t]]) })
+    return res
+  }, [cats, gruposTodos, revisiones])
+  const grupos = gruposPorClase[clase]
+  // si el diseño elegido ya no está en lo que se muestra (cambió la clase o llegaron las categorías), se elige el primero
+  useEffect(() => { if (grupos.length && !grupos.some(([, l]) => l.some(([k]) => k === tipo))) setTipo(grupos[0][1][0][0]) }, [grupos]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!ruta) return
@@ -124,11 +142,11 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
   }, [full])
 
   const gi = Math.max(0, grupos.findIndex(([, l]) => l.some(([k]) => k === tipo)))
-  const [grupoNombre, lista] = grupos[gi]
+  const [grupoNombre, lista] = grupos[gi] || ['', []]
   const pos = lista.findIndex(([k]) => k === tipo)
   const titulo = (lista[pos] || [])[1] || tipo
   const nombre = tipo.replace(/^o-/, '') + '.html'
-  const mover = (d) => setTipo(lista[(pos + d + lista.length) % lista.length][0])
+  const mover = (d) => { if (lista.length) setTipo(lista[(pos + d + lista.length) % lista.length][0]) }
   const todos = useMemo(() => grupos.flatMap(([g, l]) => l.map(([k, n]) => ({ k, n, g }))), [grupos])
   const busca = q.trim().toLowerCase()
   const res = busca ? todos.filter((t) => (t.n + ' ' + t.g).toLowerCase().includes(busca)) : null
@@ -171,9 +189,9 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
       {conmutador}
       <div className="pl2-vistas pl2-clases" role="tablist" aria-label="Clase de HTML">
         {['recurso', 'actividad'].map((c) => {
-          const g = gruposTodos.filter(([n]) => (esActividad(n) ? 'actividad' : 'recurso') === c)
+          const g = gruposPorClase[c]
           const total = g.reduce((a, [, l]) => a + l.length, 0)
-          return <button key={c} role="tab" aria-selected={clase === c} className={clase === c ? 'on' : ''} disabled={!g.length} onClick={() => { setClase(c); setQ(''); if (g.length) setTipo(g[0][1][0][0]) }}>{CLASES[c]} <span>· {total}</span></button>
+          return <button key={c} role="tab" aria-selected={clase === c} className={clase === c ? 'on' : ''} disabled={!g.length} onClick={() => { setClase(c); setQ('') }}>{CLASES[c]} <span>· {total}</span></button>
         })}
       </div>
       <div className="pl2-tabs" role="tablist" aria-label="Tipo de plantilla">
@@ -209,10 +227,9 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
               <div className={'pl2-codigo' + (codigoActual ? '' : ' sin')}>
                 <span>Código del recurso</span>
                 {codigoActual ? <><b>{codigoActual.id}</b><small>{codigoActual.nombre}</small></> : <small>{seaPublica(tipo) ? 'Sin categoría todavía (se asigna en «Categorías para n8n»)' : 'Este diseño no se publica para n8n'}</small>}
-                {codigoActual && codigosFamilia > 1 && <small className="pl2-codigo-nota">Esta familia reúne recursos distintos: el código cambia según el diseño.</small>}
               </div>
             )}
-            <p className="help">{res ? `Coinciden con «${q.trim()}».` : NOTAS[corto(grupoNombre)]}</p>
+            <p className="help">{res ? `Coinciden con «${q.trim()}».` : NOTAS[corto(grupoNombre)] || (cats && grupoNombre === 'Sin categoría' ? 'Sin categoría, pero con una revisión u observación pendiente. Se le asigna una en «Categorías para n8n».' : lista.length + (lista.length === 1 ? ' diseño' : ' diseños') + ' de esta categoría.')}</p>
             {(res || lista.map(([k, n]) => ({ k, n, g: '' }))).map((t, i) => (
               <button key={t.k} className={t.k === tipo ? 'on' : ''} onClick={() => elegir(t.k)}>
                 <span className="pl2-n">{res ? '•' : i + 1}</span>
