@@ -42,14 +42,18 @@ const texto = (n) => z.string().transform((s) => s.slice(0, n))
 const idTexto = z.union([z.string(), z.number()]).transform(String).pipe(z.string().min(1).max(100))
 const UrlGoogle = z.string().max(600).regex(/^https:\/\/(docs|drive)\.google\.com\//)
 const entero = z.number().int().min(0).max(1e9)
+// n8n arma los avisos con cadenas vacías donde no hay dato (origen_trabajo_id: '', enlace_recurso: ''…): una cadena vacía cuenta como «sin dato»,
+// no como un identificador o un enlace mal formados (antes se rechazaban con 400 y el emisor de n8n descarta los 400 sin reintentar).
+const sinVacio = (v) => (typeof v === 'string' && v.trim() === '' ? null : v)
+const opc = (esquema) => z.preprocess(sinVacio, esquema.nullish())
 
 const Comun = z.object({
   evento_id: z.string().regex(/^[A-Za-z0-9_.:-]{8,100}$/),
   etapa: z.enum(['guiones', 'matrices', 'h5p']),
-  trabajo_id: z.string().uuid().nullish(),
-  origen_trabajo_id: z.string().uuid().nullish(),
-  proyecto_id: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/).nullish(),
-  carpeta_raiz: UrlGoogle.nullish(),
+  trabajo_id: opc(z.string().uuid()),
+  origen_trabajo_id: opc(z.string().uuid()),
+  proyecto_id: opc(z.string().regex(/^[A-Za-z0-9_-]{1,64}$/)),
+  carpeta_raiz: opc(UrlGoogle),
   secuencia: entero.nullish(),
   fecha_evento: z.string().datetime({ offset: true })
 })
@@ -62,7 +66,7 @@ const Fila = z.object({
   codigo: texto(100).nullish(), formato: texto(100).nullish(), titulo: texto(500).nullish(),
   con_actividad: z.boolean().nullish(), generador: texto(30).nullish(),
   estado: z.enum(['PENDIENTE', 'EN_PROCESO', 'GENERADO', 'ERROR']),
-  observaciones: texto(2000).nullish(), enlace_guion: UrlGoogle.nullish(), enlace_recurso: UrlGoogle.nullish()
+  observaciones: texto(2000).nullish(), enlace_guion: opc(UrlGoogle), enlace_recurso: opc(UrlGoogle)
 })
 const Motivo = z.string().regex(/^[a-z0-9_]{1,60}$/)
 
@@ -81,7 +85,7 @@ const Evento = z.discriminatedUnion('evento', [
     resultados: z.array(z.object({
       unidad: z.number().int().min(1).max(99), formacion: texto(60).nullish(),
       resultado: z.enum(['creada', 'omitida_ya_existe', 'reemplazada', 'error']),
-      matriz: z.object({ id: texto(200).nullish(), url: UrlGoogle.nullish(), nombre: texto(300).nullish() }).nullish(),
+      matriz: z.object({ id: texto(200).nullish(), url: opc(UrlGoogle), nombre: texto(300).nullish() }).nullish(),
       anterior_id: texto(200).nullish(), detalle: texto(2000).nullish(),
       filas: z.array(Fila).max(2000).nullish()
     })).min(1).max(100)
@@ -96,7 +100,7 @@ const Evento = z.discriminatedUnion('evento', [
   Comun.extend({
     evento: z.literal('h5p_recurso'), ejecucion_id: ejecucion,
     unidad: z.number().int().min(0).max(99).nullish(), id: idTexto, codigo: texto(100).nullish(),
-    estado: z.enum(['PENDIENTE', 'EN_PROCESO', 'GENERADO', 'ERROR']), enlace_recurso: UrlGoogle.nullish(), observaciones: texto(2000).nullish()
+    estado: z.enum(['PENDIENTE', 'EN_PROCESO', 'GENERADO', 'ERROR']), enlace_recurso: opc(UrlGoogle), observaciones: texto(2000).nullish()
   }),
   Comun.extend({
     evento: z.literal('h5p_fin'), ejecucion_id: ejecucion,

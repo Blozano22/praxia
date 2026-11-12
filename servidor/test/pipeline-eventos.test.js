@@ -288,3 +288,27 @@ test('vista global: solo quien ve todos los cursos la lee; trae cifras por curso
   assert.ok(j.avisos24h.aplicados > 0 && j.avisos24h.huerfanos > 0)
   assert.equal(j.secretoConfigurado, true)
 })
+
+test('los avisos tal como los arma n8n (cadenas vacías en origen_trabajo_id y enlaces, tema null, fecha con Z) se aceptan y se aplican', async () => {
+  // Forma real tomada de una corrida de n8n: el padre manda trabajo_id y deja origen_trabajo_id vacío; las filas traen enlace_recurso ''.
+  const comun = { etapa: 'matrices', trabajo_id: T.ana, origen_trabajo_id: '', proyecto_id: 'curso-a', carpeta_raiz: 'https://drive.google.com/drive/folders/carpetaAna', ejecucion_id: '378640' }
+  const ahora = Date.now()
+  const inicio = { ...comun, evento_id: 'n8n-real-inicio-001', evento: 'matrices_inicio', secuencia: 1, fecha_evento: new Date(ahora - 8000).toISOString(), unidades: [7], forzar: false }
+  const fin = {
+    ...comun, evento_id: 'n8n-real-fin-0001', evento: 'matrices_fin', secuencia: 2, fecha_evento: new Date(ahora - 1000).toISOString(),
+    resultados: [{ unidad: 7, formacion: 'Doctorado', resultado: 'omitida_ya_existe', detalle: 'La matriz ya existia; no se modifico.',
+      matriz: { id: 'hoja-real-77', url: 'https://docs.google.com/spreadsheets/d/hoja-real-77/edit', nombre: 'Matriz de recursos - Doctorado - Unidad 7' },
+      filas: [
+        { id: 'G-00', id_base: 'G-00', variante: '', alcance: 'General', tema: null, codigo: 'U7-PRES · G-00', formato: 'Diapositivas de presentación', titulo: '', con_actividad: false, generador: 'H5P', estado: 'PENDIENTE', observaciones: '', enlace_guion: DOC, enlace_recurso: '' },
+        { id: 'G-11-C', id_base: 'G-11', variante: 'C', alcance: 'General', tema: 1, codigo: 'U7-T1-R1 · G-11-C', formato: 'Lecturas', titulo: 'Fundamentos', con_actividad: false, generador: 'H5P', estado: 'PENDIENTE', observaciones: '', enlace_guion: DOC, enlace_recurso: '' }
+      ] }]
+  }
+  const a = await enviar(inicio)
+  assert.equal(a.estado, 200, JSON.stringify(a.datos)); assert.equal(a.datos.aplicados, 1)
+  const b = await enviar(fin)
+  assert.equal(b.estado, 200, JSON.stringify(b.datos)); assert.equal(b.datos.aplicados, 1)
+  const m = (await una('ana', 'pipeline_matrices', 'proyecto_id = $2 AND unidad = 7', ['curso-a']))[0]
+  assert.equal(m.estado, 'omitida'); assert.equal(m.matriz_url, 'https://docs.google.com/spreadsheets/d/hoja-real-77/edit')
+  const filas = await una('ana', 'pipeline_recursos', 'proyecto_id = $2 AND unidad = 7', ['curso-a'])
+  assert.equal(filas.length, 2); assert.ok(filas.every((f) => f.enlace_recurso === null))
+})
