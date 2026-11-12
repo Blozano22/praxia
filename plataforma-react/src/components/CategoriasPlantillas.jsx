@@ -58,6 +58,54 @@ function FilaVariante({ nombre, categorias, actual, puedeCambiar, ocupado, onAsi
   )
 }
 
+// Fila compacta de «Sin categoría»: nombre · Ver | categoría · Ocultar (una sola línea).
+const I_ETQ = <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z" /><circle cx="7.5" cy="7.5" r="1" /></svg>
+const I_CH = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+const I_OJO_X = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M17.9 17.9A10.4 10.4 0 0 1 12 20c-6 0-10-8-10-8a18.5 18.5 0 0 1 5.1-5.9M9.9 4.2A9.6 9.6 0 0 1 12 4c6 0 10 8 10 8a18.6 18.6 0 0 1-2.2 3.2M1 1l22 22M14.1 14.1a3 3 0 1 1-4.2-4.2" /></svg>
+const I_OJO = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M2 12s4-8 10-8 10 8 10 8-4 8-10 8-10-8-10-8z" /><circle cx="12" cy="12" r="3" /></svg>
+
+function SelectCategoria({ valor, categorias, ocupado, onChange, etiqueta, vacio }) {
+  return (
+    <label className="cs-cw">
+      <span className="cs-ic">{I_ETQ}</span>
+      <select className={'cs-sel' + (valor ? ' lista' : '')} aria-label={etiqueta} value={valor} disabled={ocupado} onChange={(e) => onChange(e.target.value)}>
+        <option value="">{vacio}</option>
+        {['recurso', 'actividad'].map((t) => (
+          <optgroup key={t} label={TIPOS[t][0]}>{categorias.filter((c) => c.tipo === t).map((c) => <option key={c.id} value={c.id}>{c.id} · {c.nombre}</option>)}</optgroup>
+        ))}
+      </select>
+      <span className="cs-ch">{I_CH}</span>
+    </label>
+  )
+}
+
+function FilaSin({ nombre, categorias, puedeCambiar, ocupado, onAsignar, subida, oculta, onReemplazar, onEliminar, onOcultar, onVer, confirmando, setConfirmando }) {
+  const archivo = useRef(null)
+  return (
+    <li className={'cs-fila' + (oculta ? ' oculta' : '') + (puedeCambiar ? '' : ' sin-sel')}>
+      <span className="cat-var-n" title={nombre}>{nombre}{subida && <em className="cat-sub" title={'Subida por ' + (subida.por || 'alguien')}>subida</em>}{oculta && <em className="cat-ocu" title="Oculta para n8n: no sale en el índice ni se descarga">oculta</em>}</span>
+      <button type="button" className="cat-var-ver" onClick={() => onVer(nombre)}>Ver</button>
+      {puedeCambiar && <span className="cs-sep" aria-hidden="true" />}
+      {puedeCambiar && <SelectCategoria valor="" categorias={categorias} ocupado={ocupado} onChange={(v) => v && onAsignar(nombre, v)} etiqueta={'Categoría de ' + nombre} vacio="Sin categoría" />}
+      {puedeCambiar && (
+        subida ? (
+          <span className="cs-acc">
+            <input ref={archivo} type="file" accept=".html,.htm,text/html" hidden onChange={(e) => { const f = e.target.files[0]; e.target.value = ''; if (f) onReemplazar(nombre, f) }} />
+            <button type="button" className="cs-oc" disabled={ocupado} onClick={() => archivo.current.click()}>Reemplazar</button>
+            {confirmando === nombre
+              ? <><button type="button" className="btn danger sm" disabled={ocupado} onClick={() => onEliminar(nombre)}>Sí, eliminar</button><button type="button" className="cs-oc" onClick={() => setConfirmando('')}>No</button></>
+              : <button type="button" className="cs-oc peligro" onClick={() => setConfirmando(nombre)}>Eliminar</button>}
+          </span>
+        ) : oculta ? (
+          <button type="button" className="cs-oc" disabled={ocupado} aria-label={'Volver a mostrar ' + nombre + ' a n8n'} title="Vuelve a ofrecerse a n8n" onClick={() => onOcultar(nombre, false)}>{I_OJO}Mostrar</button>
+        ) : (
+          <button type="button" className="cs-oc" disabled={ocupado} aria-label={'Ocultar ' + nombre + ' de n8n'} title="n8n deja de ver esta plantilla; no se borra y se puede volver a mostrar" onClick={() => onOcultar(nombre, true)}>{I_OJO_X}Ocultar</button>
+        )
+      )}
+    </li>
+  )
+}
+
 export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
   const [d, setD] = useState(null)
   const [error, setError] = useState('')
@@ -69,6 +117,8 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
   const [borrarSub, setBorrarSub] = useState('') // nombre de plantilla subida con la confirmación a la vista
   const [gestionando, setGestionando] = useState('') // id de la categoría cuya lista de variantes está abierta para gestionarla
   const [subida, setSubida] = useState(null) // { categoria, nombre, archivo, bytes, html } mientras se sube una plantilla
+  const [sinAbierta, setSinAbierta] = useState(true) // la tarjeta «Sin categoría» se puede plegar
+  const [paraTodas, setParaTodas] = useState('') // categoría elegida para asignar a todas las de «Sin categoría»
   const [viendo, setViendo] = useState('') // nombre de la plantilla cuya vista previa está abierta
   const archivoNuevo = useRef(null)
 
@@ -83,6 +133,7 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
     setOcupado(false)
   }
   const asignar = (plantilla, categoria) => hacer(() => api('PUT', '/plantillas/asignacion/' + encodeURIComponent(plantilla), { categoria }))
+  const asignarTodas = () => hacer(async () => { for (const n of sin) await api('PUT', '/plantillas/asignacion/' + encodeURIComponent(n), { categoria: paraTodas }); setParaTodas('') }, 'Categoría asignada a ' + sin.length + (sin.length === 1 ? ' plantilla' : ' plantillas'))
   const crear = () => hacer(async () => { await api('POST', '/plantillas/categorias', { id: nueva.id.trim().toUpperCase(), nombre: nueva.nombre.trim(), tipo: nueva.tipo }); setVer(nueva.tipo); setNueva(null) }, 'Categoría creada')
   const guardarEdicion = () => hacer(async () => { await api('PUT', '/plantillas/categorias/' + edit.id, { nombre: edit.nombre.trim(), tipo: edit.tipo }); if (edit.tipo !== ver) setVer(edit.tipo); setEdit(null) }, 'Cambios guardados')
   const quitar = (id) => hacer(async () => { await api('DELETE', '/plantillas/categorias/' + id); setBorrar('') }, 'Categoría eliminada')
@@ -257,14 +308,27 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
           </div>
 
           {sin.length > 0 && (
-            <section className="card cat-card cat-sin hay">
-              <header className="cat-cab">
-                <span className="cat-id sin">—</span>
-                <h3>Sin categoría</h3>
-                <span className="cat-cuenta"><b>{sin.length}</b><small>{sin.length === 1 ? 'plantilla' : 'plantillas'}</small></span>
-              </header>
-              <p className="help cat-aviso">n8n no usa estas plantillas hasta que tengan categoría. {puedeCambiar ? 'Elija la de cada una.' : ''}</p>
-              <ul className="cat-vars">{sin.map((n) => <FilaVariante key={n} nombre={n} actual="" subida={d.subidas && d.subidas[n]} oculta={ocultas.has(n)} {...propsFila} />)}</ul>
+            <section className="card cat-card cat-sin hay cs-card">
+              <button type="button" className="cs-tog" aria-expanded={sinAbierta} onClick={() => setSinAbierta(!sinAbierta)}>
+                <span className="cs-warn" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 9v4M12 17h.01" /><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" /></svg></span>
+                <span className="cs-tit">
+                  <b>Sin categoría <em>{sin.length} {sin.length === 1 ? 'plantilla' : 'plantillas'}</em></b>
+                  <small>n8n no usa estas plantillas hasta que tengan categoría.{puedeCambiar ? ' Elija la de cada una o, si no se van a usar, ocúltelas de n8n.' : ''}</small>
+                </span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ transform: sinAbierta ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}><path d="M6 9l6 6 6-6" /></svg>
+              </button>
+              {sinAbierta && (
+                <>
+                  {puedeCambiar && sin.length > 1 && (
+                    <div className="cs-masiva">
+                      <span>Misma categoría para todas</span>
+                      <SelectCategoria valor={paraTodas} categorias={d.categorias} ocupado={ocupado} onChange={setParaTodas} etiqueta="Categoría para todas" vacio="Elegir categoría…" />
+                      <button type="button" className="btn sm" disabled={ocupado || !paraTodas} onClick={asignarTodas}>Aplicar a {sin.length === 2 ? 'las 2' : 'las ' + sin.length}</button>
+                    </div>
+                  )}
+                  <ul className="cs-lista">{sin.map((n) => <FilaSin key={n} nombre={n} subida={d.subidas && d.subidas[n]} oculta={ocultas.has(n)} {...propsFila} />)}</ul>
+                </>
+              )}
             </section>
           )}
         </>
