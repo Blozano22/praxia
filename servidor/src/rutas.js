@@ -329,6 +329,7 @@ rutas.put('/config/n8n', ...admin, validar(z.object({ syllabus: UrlN8n.optional(
 const IdCategoria = z.string().regex(/^[A-Z]{1,4}-[0-9]{2,3}$/)
 const NombrePlantilla = z.string().regex(/^[a-z0-9-]{1,80}$/)
 const NombreCategoria = z.string().trim().min(1).max(120)
+const TipoPlantilla = z.enum(['recurso', 'actividad'])
 export const nombresPlantillasPublicadas = () => {
   try {
     const f = path.join(config.carpetaWeb, 'plantillas-html', 'plantillas.json')
@@ -346,18 +347,18 @@ rutas.get('/plantillas/categorias', exigirSesion, exigirPermiso('plantillas.ver'
     })
   } catch (e) { next(e) }
 })
-rutas.post('/plantillas/categorias', exigirSesion, exigirPermiso('plantillas.revisar'), validar(z.object({ id: IdCategoria, nombre: NombreCategoria }).strict(), 'body'), async (req, res, next) => {
+rutas.post('/plantillas/categorias', exigirSesion, exigirPermiso('plantillas.revisar'), validar(z.object({ id: IdCategoria, nombre: NombreCategoria, tipo: TipoPlantilla.default('recurso') }).strict(), 'body'), async (req, res, next) => {
   try {
-    const { id, nombre } = req.bodyOk
-    const r = await sinUsuario(Q.categoriaCrear, [id, nombre])
+    const { id, nombre, tipo } = req.bodyOk
+    const r = await sinUsuario(Q.categoriaCrear, [id, nombre, tipo])
     if (!r.rowCount) return res.status(409).json({ error: 'Ya existe una categoría con el ID ' + id + '.' })
     await auditar(req.usuario.id, 'plantilla_categoria_crear', 'plantilla_categoria', id, req)
     res.status(201).json({ id, nombre })
   } catch (e) { next(e) }
 })
-rutas.put('/plantillas/categorias/:id', exigirSesion, exigirPermiso('plantillas.revisar'), validar(z.object({ id: IdCategoria }), 'params'), validar(z.object({ nombre: NombreCategoria }).strict(), 'body'), async (req, res, next) => {
+rutas.put('/plantillas/categorias/:id', exigirSesion, exigirPermiso('plantillas.revisar'), validar(z.object({ id: IdCategoria }), 'params'), validar(z.object({ nombre: NombreCategoria.optional(), tipo: TipoPlantilla.optional() }).strict().refine((b) => b.nombre !== undefined || b.tipo !== undefined), 'body'), async (req, res, next) => {
   try {
-    const r = await sinUsuario(Q.categoriaRenombrar, [req.paramsOk.id, req.bodyOk.nombre])
+    const r = await sinUsuario(Q.categoriaRenombrar, [req.paramsOk.id, req.bodyOk.nombre ?? null, req.bodyOk.tipo ?? null])
     if (!r.rowCount) return res.status(404).json({ error: 'No encontrado' })
     await auditar(req.usuario.id, 'plantilla_categoria_renombrar', 'plantilla_categoria', req.paramsOk.id, req)
     res.json({ ok: true })

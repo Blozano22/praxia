@@ -301,6 +301,8 @@ CREATE TABLE IF NOT EXISTS plantilla_categorias (
   nombre text NOT NULL CHECK (char_length(nombre) BETWEEN 1 AND 120),
   creado timestamptz NOT NULL DEFAULT now()
 );
+-- Hay dos clases de HTML: «recurso» (un recurso del curso: acordeón, línea de tiempo…) y «actividad» de autoaprendizaje (crucigrama…).
+ALTER TABLE plantilla_categorias ADD COLUMN IF NOT EXISTS tipo text NOT NULL DEFAULT 'recurso' CHECK (tipo IN ('recurso', 'actividad'));
 -- Qué categoría tiene cada plantilla publicada (por su nombre de archivo). Sin fila = sin categoría.
 CREATE TABLE IF NOT EXISTS plantilla_categoria (
   plantilla text PRIMARY KEY CHECK (plantilla ~ '^[a-z0-9-]{1,80}$'),

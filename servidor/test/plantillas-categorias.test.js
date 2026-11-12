@@ -62,7 +62,7 @@ const indice = async () => (await fetch(base + '/plantillas-html/plantillas.json
 test('punto de partida: el catálogo ya está creado, las plantillas de nombre inequívoco ya tienen categoría y migrar de nuevo no lo repite', async () => {
   const dani = await entrar('dani@u.co')
   const j = await (await dani('GET', '/plantillas/categorias')).json()
-  assert.equal(j.categorias.length, 13); assert.deepEqual(j.categorias.find((c) => c.id === 'G-09'), { id: 'G-09', nombre: 'Acordeón' })
+  assert.equal(j.categorias.length, 13); assert.deepEqual(j.categorias.find((c) => c.id === 'G-09'), { id: 'G-09', nombre: 'Acordeón', tipo: 'recurso' })
   assert.equal(j.asignaciones.acordeon, 'G-09'); assert.equal(j.asignaciones['lineatiempo-3'], 'G-12')
   assert.equal(j.asignaciones.crucigrama, undefined) // sin ID en el catálogo: queda sin categoría
   assert.deepEqual(j.plantillas, NOMBRES) // las que publicó el build
@@ -174,6 +174,29 @@ test('reemplazar y eliminar una plantilla subida; las del sistema no se tocan de
   assert.equal((await indice()).plantillas.some((p) => p.nombre === 'tarjetas-repaso'), false)
 })
 
+test('cada categoría es de un tipo: «recurso» o «actividad» de autoaprendizaje; se elige al crearla, se puede cambiar y sale en el índice', async () => {
+  const dani = await entrar('dani@u.co')
+  // sin decir el tipo, es un recurso
+  assert.equal((await dani('POST', '/plantillas/categorias', { id: 'G-30', nombre: 'Otro recurso' })).status, 201)
+  assert.equal((await dani('POST', '/plantillas/categorias', { id: 'ACT-01', nombre: 'Crucigrama', tipo: 'actividad' })).status, 201)
+  assert.equal((await dani('POST', '/plantillas/categorias', { id: 'ACT-02', nombre: 'Mala', tipo: 'juego' })).status, 400) // solo esos dos tipos
+  let j = await (await dani('GET', '/plantillas/categorias')).json()
+  assert.equal(j.categorias.find((c) => c.id === 'G-30').tipo, 'recurso'); assert.equal(j.categorias.find((c) => c.id === 'ACT-01').tipo, 'actividad')
+  assert.equal((await dani('PUT', '/plantillas/asignacion/crucigrama', { categoria: 'ACT-01' })).status, 200)
+  // cambiar solo el tipo conserva el nombre; cambiar solo el nombre conserva el tipo; una petición vacía se rechaza
+  assert.equal((await dani('PUT', '/plantillas/categorias/G-30', { tipo: 'actividad' })).status, 200)
+  assert.equal((await dani('PUT', '/plantillas/categorias/G-30', { nombre: 'Otra actividad' })).status, 200)
+  assert.equal((await dani('PUT', '/plantillas/categorias/G-30', {})).status, 400)
+  j = await (await dani('GET', '/plantillas/categorias')).json()
+  assert.deepEqual(j.categorias.find((c) => c.id === 'G-30'), { id: 'G-30', nombre: 'Otra actividad', tipo: 'actividad' })
+  // el índice público lo trae por categoría y por plantilla
+  const ix = await indice()
+  assert.equal(ix.categorias.find((c) => c.id === 'ACT-01').tipo, 'actividad')
+  assert.deepEqual([ix.plantillas.find((p) => p.nombre === 'crucigrama').tipo, ix.plantillas.find((p) => p.nombre === 'acordeon').tipo, ix.plantillas.find((p) => p.nombre === 'nueva-plantilla').tipo], ['actividad', 'recurso', null])
+  assert.equal((await dani('DELETE', '/plantillas/categorias/ACT-01')).status, 200)
+  assert.equal((await dani('DELETE', '/plantillas/categorias/G-30')).status, 200)
+})
+
 test('borrar una categoría deja sus plantillas sin categoría; si falla la base de datos se entrega el archivo del build tal cual', async () => {
   const dani = await entrar('dani@u.co')
   assert.equal((await dani('DELETE', '/plantillas/categorias/G-20')).status, 200)
@@ -189,3 +212,4 @@ test('borrar una categoría deja sus plantillas sin categoría; si falla la base
   j = await r.json()
   assert.equal(j.total, NOMBRES.length); assert.equal(j.categorias, undefined)
 })
+

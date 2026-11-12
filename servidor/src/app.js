@@ -64,8 +64,9 @@ export function crearApp() {
       const de = Object.fromEntries(a.rows.map((x) => [x.plantilla, x.categoria]))
       const delBuild = (base.plantillas || []).filter((p) => !u.rows.some((x) => x.nombre === p.nombre))
       const todas = [...delBuild, ...u.rows.map((x) => ({ nombre: x.nombre, archivo: x.nombre + '.html', subida: true }))].sort((x, y) => x.nombre.localeCompare(y.nombre))
-      const plantillas = todas.map((p) => ({ ...p, id_catalogo: de[p.nombre] || null }))
-      const categorias = c.rows.map((k) => ({ id: k.id, nombre: k.nombre, variantes: plantillas.filter((p) => p.id_catalogo === k.id).map(({ nombre, archivo }) => ({ nombre, archivo })) }))
+      const tipoDe = Object.fromEntries(c.rows.map((k) => [k.id, k.tipo]))
+      const plantillas = todas.map((p) => ({ ...p, id_catalogo: de[p.nombre] || null, tipo: tipoDe[de[p.nombre]] || null }))
+      const categorias = c.rows.map((k) => ({ id: k.id, nombre: k.nombre, tipo: k.tipo, variantes: plantillas.filter((p) => p.id_catalogo === k.id).map(({ nombre, archivo }) => ({ nombre, archivo })) }))
       res.json({ ...base, total: plantillas.length, plantillas, categorias, sin_categoria: plantillas.filter((p) => !p.id_catalogo).map(({ nombre, archivo }) => ({ nombre, archivo })) })
     } catch { res.json(base) }
   })

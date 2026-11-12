@@ -2,12 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api, RUTA_API } from '../lib/api.js'
 import './categorias.css'
 
-// Categorías de las plantillas publicadas (las que n8n descarga): cada categoría es un tipo de recurso del catálogo (ID + nombre) y reúne
-// las variantes que n8n puede elegir. Cualquiera que vea las plantillas la consulta; quien las revisa puede crear categorías, asignar
-// plantillas y SUBIR plantillas nuevas (HTML) sin esperar a un despliegue.
+// Categorías de las plantillas publicadas (las que n8n descarga). Cada categoría es un tipo de HTML del catálogo (ID + nombre) y es un
+// «recurso» o una «actividad de autoaprendizaje». Aquí solo se ve CUÁNTAS variantes tiene cada una; quien revisa las plantillas puede crear
+// categorías y subir variantes nuevas (HTML) sin esperar a un despliegue.
 const RE_ID = /^[A-Z]{1,4}-[0-9]{2,3}$/
 const RE_NOMBRE = /^[a-z0-9-]{1,80}$/
 const MAX_BYTES = 1536 * 1024
+const TIPOS = { recurso: ['Recursos', 'Recurso'], actividad: ['Actividades', 'Actividad de autoaprendizaje'] }
 const urlPlantilla = (n) => RUTA_API.replace(/\/api$/, '') + '/plantillas-html/' + n + '.html'
 const slug = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\.html?$/, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80)
 const kb = (b) => (b < 1024 * 1024 ? Math.max(1, Math.round(b / 1024)) + ' KB' : (b / 1024 / 1024).toFixed(1) + ' MB')
@@ -20,16 +21,19 @@ function sugerirNombre(variantes) {
   return base + '-' + (Math.max(1, ...nums) + 1)
 }
 
-function Variante({ nombre, categorias, actual, puedeCambiar, ocupado, onAsignar, subida, onReemplazar, onEliminar, confirmando, setConfirmando }) {
+// Una plantilla que todavía no tiene categoría: se le asigna una (o, si la subió una persona, se reemplaza o se elimina).
+function SinCategoria({ nombre, categorias, puedeCambiar, ocupado, onAsignar, subida, onReemplazar, onEliminar, confirmando, setConfirmando }) {
   const archivo = useRef(null)
   return (
     <li className={'cat-var' + (subida && puedeCambiar ? ' con-sub' : '')}>
       <span className="cat-var-n">{nombre}{subida && <em className="cat-sub" title={'Subida por ' + (subida.por || 'alguien')}>subida</em>}</span>
       <a href={urlPlantilla(nombre)} target="_blank" rel="noopener noreferrer" className="cat-var-ver">Ver ↗</a>
       {puedeCambiar && (
-        <select aria-label={'Categoría de ' + nombre} value={actual || ''} disabled={ocupado} onChange={(e) => onAsignar(nombre, e.target.value || null)}>
+        <select aria-label={'Categoría de ' + nombre} value="" disabled={ocupado} onChange={(e) => onAsignar(nombre, e.target.value || null)}>
           <option value="">Sin categoría</option>
-          {categorias.map((c) => <option key={c.id} value={c.id}>{c.id} · {c.nombre}</option>)}
+          {['recurso', 'actividad'].map((t) => (
+            <optgroup key={t} label={TIPOS[t][0]}>{categorias.filter((c) => c.tipo === t).map((c) => <option key={c.id} value={c.id}>{c.id} · {c.nombre}</option>)}</optgroup>
+          ))}
         </select>
       )}
       {puedeCambiar && subida && (
@@ -49,8 +53,9 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
   const [d, setD] = useState(null)
   const [error, setError] = useState('')
   const [ocupado, setOcupado] = useState(false)
-  const [nueva, setNueva] = useState(null) // { id, nombre } mientras se crea una categoría
-  const [edit, setEdit] = useState(null) // { id, nombre } mientras se renombra una
+  const [ver, setVer] = useState('recurso') // qué tipo de categorías se ven: recurso | actividad
+  const [nueva, setNueva] = useState(null) // { id, nombre, tipo } mientras se crea una categoría
+  const [edit, setEdit] = useState(null) // { id, nombre, tipo } mientras se edita una
   const [borrar, setBorrar] = useState('') // id de categoría con la confirmación a la vista
   const [borrarSub, setBorrarSub] = useState('') // nombre de plantilla subida con la confirmación a la vista
   const [subida, setSubida] = useState(null) // { categoria, nombre, archivo, bytes, html } mientras se sube una plantilla
@@ -67,8 +72,8 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
     setOcupado(false)
   }
   const asignar = (plantilla, categoria) => hacer(() => api('PUT', '/plantillas/asignacion/' + encodeURIComponent(plantilla), { categoria }))
-  const crear = () => hacer(async () => { await api('POST', '/plantillas/categorias', { id: nueva.id.trim().toUpperCase(), nombre: nueva.nombre.trim() }); setNueva(null) }, 'Categoría creada')
-  const renombrar = () => hacer(async () => { await api('PUT', '/plantillas/categorias/' + edit.id, { nombre: edit.nombre.trim() }); setEdit(null) }, 'Nombre guardado')
+  const crear = () => hacer(async () => { await api('POST', '/plantillas/categorias', { id: nueva.id.trim().toUpperCase(), nombre: nueva.nombre.trim(), tipo: nueva.tipo }); setVer(nueva.tipo); setNueva(null) }, 'Categoría creada')
+  const guardarEdicion = () => hacer(async () => { await api('PUT', '/plantillas/categorias/' + edit.id, { nombre: edit.nombre.trim(), tipo: edit.tipo }); if (edit.tipo !== ver) setVer(edit.tipo); setEdit(null) }, 'Cambios guardados')
   const quitar = (id) => hacer(async () => { await api('DELETE', '/plantillas/categorias/' + id); setBorrar('') }, 'Categoría eliminada')
 
   const porCategoria = useMemo(() => {
@@ -78,6 +83,8 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
     return m
   }, [d])
   const sin = d ? d.plantillas.filter((n) => !d.asignaciones[n]) : []
+  const cuantas = (t) => (d ? d.categorias.filter((c) => c.tipo === t).length : 0)
+  const visibles = d ? d.categorias.filter((c) => c.tipo === ver) : []
 
   // ---- subir una plantilla (HTML)
   const leerArchivo = async (f) => {
@@ -85,7 +92,7 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
     if (f.size > MAX_BYTES) { setError('El archivo pesa ' + kb(f.size) + ' y el máximo es 1,5 MB.'); return null }
     try { return await f.text() } catch { setError('No se pudo leer el archivo.'); return null }
   }
-  const abrirSubida = (categoria = '') => { setError(''); setSubida({ categoria, nombre: sugerirNombre(porCategoria[categoria] || []), archivo: '', bytes: 0, html: '' }) }
+  const abrirSubida = (categoria = '') => { setError(''); setNueva(null); setSubida({ categoria, nombre: sugerirNombre(porCategoria[categoria] || []), archivo: '', bytes: 0, html: '' }) }
   const elegirCategoria = (categoria) => setSubida((s) => ({ ...s, categoria, nombre: s.nombreEditado ? s.nombre : sugerirNombre(porCategoria[categoria] || []) }))
   const elegirArchivo = async (f) => {
     const html = await leerArchivo(f)
@@ -106,33 +113,47 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
 
   const idValido = nueva ? RE_ID.test(nueva.id.trim().toUpperCase()) : false
   const idRepetido = nueva && d ? d.categorias.some((c) => c.id === nueva.id.trim().toUpperCase()) : false
-  const propsVar = { categorias: d ? d.categorias : [], puedeCambiar, ocupado, onAsignar: asignar, onReemplazar: reemplazar, onEliminar: eliminar, confirmando: borrarSub, setConfirmando: setBorrarSub }
+  const propsSin = { categorias: d ? d.categorias : [], puedeCambiar, ocupado, onAsignar: asignar, onReemplazar: reemplazar, onEliminar: eliminar, confirmando: borrarSub, setConfirmando: setBorrarSub }
+  const selectorTipo = (valor, alCambiar, etiqueta) => (
+    <label>{etiqueta}
+      <select value={valor} onChange={(e) => alCambiar(e.target.value)}>
+        <option value="recurso">{TIPOS.recurso[1]}</option>
+        <option value="actividad">{TIPOS.actividad[1]}</option>
+      </select>
+    </label>
+  )
 
   return (
     <div className="cat">
-      <p className="lead cat-lead">Cada categoría es un tipo de recurso del catálogo, con su ID, y reúne las variantes (plantillas) que n8n puede elegir al generar. {puedeCambiar ? 'Cree categorías, asigne cada plantilla a la suya o suba plantillas nuevas.' : 'Solo quien revisa las plantillas puede cambiarlas.'}</p>
+      <p className="lead cat-lead">Cada categoría es un tipo de HTML del catálogo, con su ID, y puede ser un <b>recurso</b> o una <b>actividad de autoaprendizaje</b> (como un crucigrama). Reúne las variantes que n8n puede elegir al generar. {puedeCambiar ? 'Cree categorías y suba variantes nuevas.' : 'Solo quien revisa las plantillas puede cambiarlas.'}</p>
       {error && <div className="msg bad" role="alert">{error}</div>}
       {!d && !error && <p className="help">Cargando…</p>}
-      {d && d.plantillas.length === 0 && <div className="msg info">Todavía no hay plantillas publicadas. Las del sistema aparecen al compilar con «npm run build»; también puede subir las suyas.</div>}
 
       {d && (
         <>
+          <div className="cat-tipos" role="tablist" aria-label="Tipo de HTML">
+            {['recurso', 'actividad'].map((t) => (
+              <button key={t} role="tab" aria-selected={ver === t} className={ver === t ? 'on' : ''} onClick={() => setVer(t)}>{TIPOS[t][0]} <span>· {cuantas(t)}</span></button>
+            ))}
+          </div>
+
           {puedeCambiar && (
             <div className="cat-barra">
               {!nueva && !subida && (
                 <>
-                  <button className="btn" onClick={() => { setSubida(null); setNueva({ id: '', nombre: '' }) }}>+ Nueva categoría</button>
-                  <button className="btn sec" onClick={() => { setNueva(null); abrirSubida() }}>↑ Subir plantilla</button>
+                  <button className="btn" onClick={() => { setSubida(null); setNueva({ id: '', nombre: '', tipo: ver }) }}>+ Nueva categoría</button>
+                  <button className="btn sec" onClick={() => abrirSubida()}>↑ Subir plantilla</button>
                 </>
               )}
               {nueva && (
                 <form className="card cat-form" onSubmit={(e) => { e.preventDefault(); if (idValido && !idRepetido && nueva.nombre.trim()) crear() }}>
+                  {selectorTipo(nueva.tipo, (tipo) => setNueva({ ...nueva, tipo }), '¿Qué es?')}
                   <label>ID del catálogo
-                    <input value={nueva.id} onChange={(e) => setNueva({ ...nueva, id: e.target.value })} placeholder="G-13" maxLength={7} aria-invalid={!!nueva.id && (!idValido || idRepetido)} />
-                    <small className={nueva.id && (!idValido || idRepetido) ? 'mal' : ''}>{idRepetido ? 'Ya existe una categoría con ese ID.' : 'Letras y número del catálogo: G-13, PRE-10, POS-15…'}</small>
+                    <input value={nueva.id} onChange={(e) => setNueva({ ...nueva, id: e.target.value })} placeholder={nueva.tipo === 'actividad' ? 'ACT-01' : 'G-13'} maxLength={7} aria-invalid={!!nueva.id && (!idValido || idRepetido)} />
+                    <small className={nueva.id && (!idValido || idRepetido) ? 'mal' : ''}>{idRepetido ? 'Ya existe una categoría con ese ID.' : 'Letras y número: G-13, PRE-10, ACT-01…'}</small>
                   </label>
-                  <label>Nombre del recurso
-                    <input value={nueva.nombre} onChange={(e) => setNueva({ ...nueva, nombre: e.target.value })} placeholder="Tarjetas de repaso" maxLength={120} />
+                  <label>Nombre
+                    <input value={nueva.nombre} onChange={(e) => setNueva({ ...nueva, nombre: e.target.value })} placeholder={nueva.tipo === 'actividad' ? 'Crucigrama' : 'Tarjetas de repaso'} maxLength={120} />
                   </label>
                   <div className="cat-form-acc">
                     <button className="btn" type="submit" disabled={ocupado || !idValido || idRepetido || !nueva.nombre.trim()}>Crear</button>
@@ -145,9 +166,11 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
                   <label>Categoría
                     <select value={subida.categoria} onChange={(e) => elegirCategoria(e.target.value)}>
                       <option value="">Sin categoría por ahora</option>
-                      {d.categorias.map((c) => <option key={c.id} value={c.id}>{c.id} · {c.nombre}</option>)}
+                      {['recurso', 'actividad'].map((t) => (
+                        <optgroup key={t} label={TIPOS[t][0]}>{d.categorias.filter((c) => c.tipo === t).map((c) => <option key={c.id} value={c.id}>{c.id} · {c.nombre}</option>)}</optgroup>
+                      ))}
                     </select>
-                    <small>Es el tipo de recurso al que pertenece esta variante.</small>
+                    <small>Es el tipo de HTML al que pertenece esta variante.</small>
                   </label>
                   <label>Nombre de la plantilla
                     <input value={subida.nombre} onChange={(e) => setSubida({ ...subida, nombre: e.target.value.toLowerCase(), nombreEditado: true })} placeholder="lineatiempo-4" maxLength={80} aria-invalid={!!subida.nombre && !nombreOk} />
@@ -160,7 +183,7 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
                     <button type="button" className="btn sec" onClick={() => archivoNuevo.current.click()}>{subida.archivo ? 'Cambiar archivo' : 'Elegir archivo HTML'}</button>
                     <span className="cat-archivo-n">{subida.archivo ? subida.archivo + ' · ' + kb(subida.bytes) : 'Ninguno elegido'}</span>
                   </div>
-                  <p className="help cat-regla">El archivo debe ser una página HTML completa con <b>una sola</b> marca <code>{'{{TITULO}}'}</code> y <b>una sola</b> <code>{'/*CONTENIDO*/'}</code>: ahí pone n8n el título y el contenido del recurso. Hasta 1,5 MB. Si usa <code>{'/*CSS*/'}</code> o <code>{'/*LIB*/'}</code>, el sistema incrusta los estilos y el código comunes, igual que en las demás plantillas.</p>
+                  <p className="help cat-regla">El archivo debe ser una página HTML completa con <b>una sola</b> marca <code>{'{{TITULO}}'}</code> y <b>una sola</b> <code>{'/*CONTENIDO*/'}</code>: ahí pone n8n el título y el contenido. Hasta 1,5 MB. Si usa <code>{'/*CSS*/'}</code> o <code>{'/*LIB*/'}</code>, el sistema incrusta los estilos y el código comunes, igual que en las demás plantillas.</p>
                   <div className="cat-form-acc">
                     <button className="btn" type="submit" disabled={ocupado || !nombreOk || !subida.html}>{ocupado ? 'Subiendo…' : 'Subir plantilla'}</button>
                     <button className="btn sec" type="button" onClick={() => setSubida(null)}>Cancelar</button>
@@ -171,52 +194,54 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
           )}
 
           <div className="cat-lista">
-            {d.categorias.map((c) => {
-              const vars = porCategoria[c.id] || []
+            {visibles.map((c) => {
+              const n = (porCategoria[c.id] || []).length
               return (
-                <section key={c.id} className={'card cat-card' + (vars.length ? '' : ' vacia')}>
+                <section key={c.id} className={'card cat-card cat-res' + (n ? '' : ' vacia')}>
                   <header className="cat-cab">
                     <span className="cat-id">{c.id}</span>
                     {edit && edit.id === c.id ? (
-                      <form className="cat-ren" onSubmit={(e) => { e.preventDefault(); if (edit.nombre.trim()) renombrar() }}>
+                      <form className="cat-ren" onSubmit={(e) => { e.preventDefault(); if (edit.nombre.trim()) guardarEdicion() }}>
                         <input aria-label="Nombre de la categoría" value={edit.nombre} onChange={(e) => setEdit({ ...edit, nombre: e.target.value })} maxLength={120} autoFocus />
+                        <select aria-label="Tipo" value={edit.tipo} onChange={(e) => setEdit({ ...edit, tipo: e.target.value })}>
+                          <option value="recurso">{TIPOS.recurso[1]}</option>
+                          <option value="actividad">{TIPOS.actividad[1]}</option>
+                        </select>
                         <button className="btn sm" type="submit" disabled={ocupado || !edit.nombre.trim()}>Guardar</button>
                         <button className="btn sec sm" type="button" onClick={() => setEdit(null)}>Cancelar</button>
                       </form>
                     ) : (
                       <h3>{c.nombre}</h3>
                     )}
-                    <span className="cat-n">{vars.length} {vars.length === 1 ? 'variante' : 'variantes'}</span>
-                    {puedeCambiar && !(edit && edit.id === c.id) && (
-                      <span className="cat-acc">
-                        <button className="btn sec sm" onClick={() => { setNueva(null); abrirSubida(c.id); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>↑ Subir variante</button>
-                        <button className="btn sec sm" onClick={() => setEdit({ id: c.id, nombre: c.nombre })}>Renombrar</button>
-                        {borrar === c.id
-                          ? <><button className="btn danger sm" disabled={ocupado} onClick={() => quitar(c.id)}>Sí, eliminar</button><button className="btn sec sm" onClick={() => setBorrar('')}>No</button></>
-                          : <button className="btn danger sm" onClick={() => setBorrar(c.id)}>Eliminar</button>}
-                      </span>
-                    )}
+                    {!(edit && edit.id === c.id) && <span className="cat-cuenta" title={n + (n === 1 ? ' variante' : ' variantes')}><b>{n}</b><small>{n === 1 ? 'variante' : 'variantes'}</small></span>}
                   </header>
-                  {borrar === c.id && <p className="help cat-aviso">Sus {vars.length} plantillas quedarán «sin categoría». Las plantillas no se borran.</p>}
-                  {vars.length > 0
-                    ? <ul className="cat-vars">{vars.map((n) => <Variante key={n} nombre={n} actual={c.id} subida={d.subidas && d.subidas[n]} {...propsVar} />)}</ul>
-                    : <p className="help cat-vacia">Todavía sin plantillas. {puedeCambiar ? 'Suba una con «Subir variante» o asígnele una desde «Sin categoría».' : ''}</p>}
+                  {puedeCambiar && !(edit && edit.id === c.id) && (
+                    <div className="cat-acc">
+                      <button className="btn sec sm" onClick={() => { abrirSubida(c.id); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>↑ Subir variante</button>
+                      <button className="btn sec sm" onClick={() => setEdit({ id: c.id, nombre: c.nombre, tipo: c.tipo })}>Editar</button>
+                      {borrar === c.id
+                        ? <><button className="btn danger sm" disabled={ocupado} onClick={() => quitar(c.id)}>Sí, eliminar</button><button className="btn sec sm" onClick={() => setBorrar('')}>No</button></>
+                        : <button className="btn danger sm" onClick={() => setBorrar(c.id)}>Eliminar</button>}
+                    </div>
+                  )}
+                  {borrar === c.id && <p className="help cat-aviso">Sus {n} plantillas quedarán «sin categoría». Las plantillas no se borran.</p>}
                 </section>
               )
             })}
+            {visibles.length === 0 && <div className="cat-ninguna">No hay categorías de {TIPOS[ver][0].toLowerCase()}. {puedeCambiar ? 'Cree la primera con «+ Nueva categoría».' : ''}</div>}
+          </div>
 
-            <section className={'card cat-card cat-sin' + (sin.length ? ' hay' : '')}>
+          {sin.length > 0 && (
+            <section className="card cat-card cat-sin hay">
               <header className="cat-cab">
                 <span className="cat-id sin">—</span>
                 <h3>Sin categoría</h3>
-                <span className="cat-n">{sin.length} {sin.length === 1 ? 'plantilla' : 'plantillas'}</span>
+                <span className="cat-cuenta"><b>{sin.length}</b><small>{sin.length === 1 ? 'plantilla' : 'plantillas'}</small></span>
               </header>
-              <p className="help cat-aviso">n8n no usa estas plantillas hasta que tengan categoría.</p>
-              {sin.length > 0
-                ? <ul className="cat-vars">{sin.map((n) => <Variante key={n} nombre={n} actual="" subida={d.subidas && d.subidas[n]} {...propsVar} />)}</ul>
-                : <p className="help cat-vacia">Todas las plantillas tienen categoría.</p>}
+              <p className="help cat-aviso">n8n no usa estas plantillas hasta que tengan categoría. {puedeCambiar ? 'Elija la de cada una.' : ''}</p>
+              <ul className="cat-vars">{sin.map((n) => <SinCategoria key={n} nombre={n} subida={d.subidas && d.subidas[n]} {...propsSin} />)}</ul>
             </section>
-          </div>
+          )}
         </>
       )}
     </div>

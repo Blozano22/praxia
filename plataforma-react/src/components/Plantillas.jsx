@@ -31,6 +31,9 @@ const NOTAS = {
   Esquemas: 'Para mostrar procesos y relaciones.',
 }
 const corto = (g) => g.replace(/ \(.*\)$/, '')
+// Hay dos clases de HTML: los recursos y las actividades de autoaprendizaje (el crucigrama, el cuestionario…). La galería muestra una clase a la vez.
+const esActividad = (g) => /^(Actividades|Crucigramas)/.test(g)
+const CLASES = { recurso: 'Recursos', actividad: 'Actividades' }
 
 // { clave: { nivel | 'unico': ruta } }
 const CATALOGO = (() => {
@@ -48,9 +51,11 @@ const CATALOGO = (() => {
 const CARGA = { ...ARCHIVOS, ...ORIGINALES }
 
 export default function Plantillas({ puedeRevisar = false, puedeCorregir = false, yo = null, aviso }) {
-  const grupos = useMemo(() => GRUPOS.map(([g, l]) => [g, l.filter(([k]) => CATALOGO[k])]).filter(([, l]) => l.length), [])
+  const gruposTodos = useMemo(() => GRUPOS.map(([g, l]) => [g, l.filter(([k]) => CATALOGO[k])]).filter(([, l]) => l.length), [])
+  const [clase, setClase] = useState('recurso') // qué clase de HTML se ve en la galería: recurso | actividad
+  const grupos = useMemo(() => gruposTodos.filter(([g]) => (esActividad(g) ? 'actividad' : 'recurso') === clase), [gruposTodos, clase])
   const [vista, setVista] = useState('galeria') // galeria | categorias (las categorías que usa n8n)
-  const [tipo, setTipo] = useState(grupos[0][1][0][0])
+  const [tipo, setTipo] = useState(() => (gruposTodos.find(([g]) => !esActividad(g)) || gruposTodos[0])[1][0][0])
   const [q, setQ] = useState('')
   const [full, setFull] = useState(false)
   const [html, setHtml] = useState('')
@@ -135,6 +140,13 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
       </div>
 
       {conmutador}
+      <div className="pl2-vistas pl2-clases" role="tablist" aria-label="Clase de HTML">
+        {['recurso', 'actividad'].map((c) => {
+          const g = gruposTodos.filter(([n]) => (esActividad(n) ? 'actividad' : 'recurso') === c)
+          const total = g.reduce((a, [, l]) => a + l.length, 0)
+          return <button key={c} role="tab" aria-selected={clase === c} className={clase === c ? 'on' : ''} disabled={!g.length} onClick={() => { setClase(c); setQ(''); if (g.length) setTipo(g[0][1][0][0]) }}>{CLASES[c]} <span>· {total}</span></button>
+        })}
+      </div>
       <div className="pl2-tabs" role="tablist" aria-label="Tipo de plantilla">
         {grupos.map(([g, l], i) => (
           <button key={g} role="tab" aria-selected={i === gi && !res} className={i === gi && !res ? 'on' : ''} onClick={() => { setQ(''); setTipo(l[0][0]) }}>

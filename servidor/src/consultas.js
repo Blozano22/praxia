@@ -285,10 +285,10 @@ export const Q = Object.freeze({
            max(recibido) AS "ultimoAviso"
       FROM pipeline_eventos WHERE recibido > now() - interval '24 hours'`,
   // ---- categorías de las plantillas HTML (para n8n)
-  categoriasListar: `SELECT id, nombre FROM plantilla_categorias ORDER BY id`,
+  categoriasListar: `SELECT id, nombre, tipo FROM plantilla_categorias ORDER BY id`,
   categoriasAsignaciones: `SELECT plantilla, categoria FROM plantilla_categoria ORDER BY plantilla`,
-  categoriaCrear: `INSERT INTO plantilla_categorias (id, nombre) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING RETURNING id`,
-  categoriaRenombrar: `UPDATE plantilla_categorias SET nombre = $2 WHERE id = $1 RETURNING id`,
+  categoriaCrear: `INSERT INTO plantilla_categorias (id, nombre, tipo) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING RETURNING id`,
+  categoriaRenombrar: `UPDATE plantilla_categorias SET nombre = coalesce($2, nombre), tipo = coalesce($3, tipo) WHERE id = $1 RETURNING id`,
   categoriaBorrar: `DELETE FROM plantilla_categorias WHERE id = $1 RETURNING id`,
   categoriaAsignar: `INSERT INTO plantilla_categoria (plantilla, categoria) VALUES ($1, $2) ON CONFLICT (plantilla) DO UPDATE SET categoria = EXCLUDED.categoria, actualizado = now()`,
   categoriaQuitar: `DELETE FROM plantilla_categoria WHERE plantilla = $1`,
