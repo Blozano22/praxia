@@ -75,14 +75,12 @@ function Atencion({ r }) {
   const nota = r.estado === 'ERROR' ? r.observaciones : r.omision ? 'Se omitió: ' + motivoTexto(r.omision) : r.observaciones
   return (
     <li className={'mx2-at ' + (mal ? 'mal' : 'aviso')}>
-      <div className="mx2-at-cab">
-        <span className="mx2-ic" aria-hidden="true">{mal ? I_ALERTA : I_RELOJ}</span>
-        <span className="mx2-cod">{r.codigo || r.id}</span>
-        <b className="mx2-tit">{r.titulo || 'Sin título'}</b>
-        <span className="mx2-est">{texto}</span>
-      </div>
+      <span className="mx2-pt" aria-hidden="true" />
+      <span className="mx2-cod">{r.codigo || r.id}</span>
+      <span className="mx2-tit" title={r.titulo || ''}>{r.titulo || 'Sin título'}</span>
+      <span className="mx2-est">{texto}</span>
+      {r.enlaceGuion ? <a className="mx2-lk" href={r.enlaceGuion} target="_blank" rel="noopener noreferrer">Guion ↗</a> : <span className="mx2-lk" />}
       {nota && <p className="mx2-nota">{nota}</p>}
-      {r.enlaceGuion && <div className="mx2-acc"><a className="btn sec sm" href={r.enlaceGuion} target="_blank" rel="noopener noreferrer">Abrir guion ↗</a></div>}
     </li>
   )
 }
@@ -99,6 +97,7 @@ function Cronometro({ desde }) {
 
 function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, enviada, desdeEnvio }) {
   const [todos, setTodos] = useState(false)
+  const [todosAt, setTodosAt] = useState(false)
   const [confirmar, setConfirmar] = useState(false)
   const conteo = useMemo(() => {
     const c = { total: recursos.length, PENDIENTE: 0, EN_PROCESO: 0, GENERADO: 0, ERROR: 0, h5p: 0, otros: 0 }
@@ -194,7 +193,8 @@ function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, envi
           {atencion.length > 0 && (
             <section aria-label="Requieren atención">
               <h4 className="mx2-h">Requieren atención <span className="mal">{atencion.length}</span></h4>
-              <ul className="mx2-lista">{atencion.map((r) => <Atencion key={r.id} r={r} />)}</ul>
+              <ul className="mx2-lista">{(todosAt ? atencion : atencion.slice(0, 5)).map((r) => <Atencion key={r.id} r={r} />)}</ul>
+              {atencion.length > 5 && <button type="button" className="mx2-mas" aria-expanded={todosAt} onClick={() => setTodosAt(!todosAt)}>{todosAt ? 'Ver menos' : 'Ver los ' + (atencion.length - 5) + ' restantes'}</button>}
             </section>
           )}
 

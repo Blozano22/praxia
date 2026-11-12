@@ -182,3 +182,16 @@
 .mx3-gen-tx{display:inline-flex;align-items:center;gap:8px;font-size:.8rem;font-weight:700;color:#7a5600}
 .mx3-bt{border-color:var(--brand);color:var(--brand)}
 @media(prefers-reduced-motion:reduce){.mx3-gira,.mx3-barra i,.mx3-fila.gen{animation:none}}
+
+/* Listado compacto de recursos: una línea por recurso */
+.mx2-lista{gap:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}
+.mx2-at{display:grid;grid-template-columns:10px auto minmax(0,1fr) auto auto;align-items:center;gap:0 12px;padding:8px 14px;border:0;border-radius:0;border-top:1px solid var(--line);background:#fff}
+.mx2-at:first-child{border-top:0}
+.mx2-at.mal{background:#fdf6f5}
+.mx2-pt{width:9px;height:9px;border-radius:50%;background:var(--ic)}
+.mx2-at .mx2-cod{padding:2px 7px;border-radius:6px;background:#eef1f7;border:0;font-size:.72rem;white-space:nowrap}
+.mx2-at .mx2-tit{min-width:0;font-size:.86rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mx2-at .mx2-est{font-size:.72rem;white-space:nowrap}
+.mx2-at .mx2-lk{min-width:56px;text-align:right;font-size:.8rem;font-weight:700;text-decoration:none;white-space:nowrap}
+.mx2-at .mx2-nota{grid-column:3/-1;padding:2px 0 0;font-size:.8rem;line-height:1.4}
+@media(max-width:640px){.mx2-at{grid-template-columns:10px minmax(0,1fr) auto}.mx2-at .mx2-cod{grid-column:2}.mx2-at .mx2-tit{grid-column:2/-1;white-space:normal}.mx2-at .mx2-est{grid-column:3;grid-row:1}.mx2-at .mx2-lk{grid-column:2/-1;text-align:left}.mx2-at .mx2-nota{grid-column:2/-1}}
