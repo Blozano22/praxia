@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { api, RUTA_API } from '../lib/api.js'
+import { api } from '../lib/api.js'
+import VistaPlantilla from './VistaPlantilla.jsx'
 import './categorias.css'
 
 // Categorías de las plantillas publicadas (las que n8n descarga). Cada categoría es un tipo de HTML del catálogo (ID + nombre) y es un
@@ -9,7 +10,6 @@ const RE_ID = /^[A-Z]{1,4}-[0-9]{2,3}$/
 const RE_NOMBRE = /^[a-z0-9-]{1,80}$/
 const MAX_BYTES = 1536 * 1024
 const TIPOS = { recurso: ['Recursos', 'Recurso'], actividad: ['Actividades', 'Actividad de autoaprendizaje'] }
-const urlPlantilla = (n) => RUTA_API.replace(/\/api$/, '') + '/plantillas-html/' + n + '.html'
 const slug = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\.html?$/, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80)
 const kb = (b) => (b < 1024 * 1024 ? Math.max(1, Math.round(b / 1024)) + ' KB' : (b / 1024 / 1024).toFixed(1) + ' MB')
 
@@ -23,12 +23,12 @@ function sugerirNombre(variantes) {
 
 // Una variante (plantilla) con lo que se puede hacer con ella. Las que subió una persona se reemplazan o se eliminan; las del sistema son
 // archivos del código y no se borran, pero se pueden QUITAR DE N8N (y volver a mostrar) sin tocar el código.
-function FilaVariante({ nombre, categorias, actual, puedeCambiar, ocupado, onAsignar, subida, oculta, onReemplazar, onEliminar, onOcultar, confirmando, setConfirmando }) {
+function FilaVariante({ nombre, categorias, actual, puedeCambiar, ocupado, onAsignar, subida, oculta, onReemplazar, onEliminar, onOcultar, onVer, confirmando, setConfirmando }) {
   const archivo = useRef(null)
   return (
     <li className={'cat-var' + (puedeCambiar ? ' con-sub' : '') + (oculta ? ' oculta' : '')}>
       <span className="cat-var-n">{nombre}{subida && <em className="cat-sub" title={'Subida por ' + (subida.por || 'alguien')}>subida</em>}{oculta && <em className="cat-ocu" title="Quitada de n8n: no sale en el índice ni se descarga">quitada</em>}</span>
-      <a href={urlPlantilla(nombre)} target="_blank" rel="noopener noreferrer" className="cat-var-ver">Ver ↗</a>
+      <button type="button" className="cat-var-ver" onClick={() => onVer(nombre)}>Ver</button>
       {puedeCambiar && (
         <select aria-label={'Categoría de ' + nombre} value={actual || ''} disabled={ocupado} onChange={(e) => onAsignar(nombre, e.target.value || null)}>
           <option value="">Sin categoría</option>
@@ -69,6 +69,7 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
   const [borrarSub, setBorrarSub] = useState('') // nombre de plantilla subida con la confirmación a la vista
   const [gestionando, setGestionando] = useState('') // id de la categoría cuya lista de variantes está abierta para gestionarla
   const [subida, setSubida] = useState(null) // { categoria, nombre, archivo, bytes, html } mientras se sube una plantilla
+  const [viendo, setViendo] = useState('') // nombre de la plantilla cuya vista previa está abierta
   const archivoNuevo = useRef(null)
 
   const cargar = useCallback(async () => {
@@ -128,7 +129,7 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
 
   const idValido = nueva ? RE_ID.test(nueva.id.trim().toUpperCase()) : false
   const idRepetido = nueva && d ? d.categorias.some((c) => c.id === nueva.id.trim().toUpperCase()) : false
-  const propsFila = { categorias: d ? d.categorias : [], puedeCambiar, ocupado, onAsignar: asignar, onReemplazar: reemplazar, onEliminar: eliminar, onOcultar: ocultar, confirmando: borrarSub, setConfirmando: setBorrarSub }
+  const propsFila = { categorias: d ? d.categorias : [], puedeCambiar, ocupado, onAsignar: asignar, onReemplazar: reemplazar, onEliminar: eliminar, onOcultar: ocultar, onVer: setViendo, confirmando: borrarSub, setConfirmando: setBorrarSub }
   const selectorTipo = (valor, alCambiar, etiqueta) => (
     <label>{etiqueta}
       <select value={valor} onChange={(e) => alCambiar(e.target.value)}>
@@ -268,6 +269,7 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
           )}
         </>
       )}
+      {viendo && <VistaPlantilla nombre={viendo} categoria={d ? (d.categorias.find((c) => c.id === d.asignaciones[viendo]) || null) : null} onCerrar={() => setViendo('')} />}
     </div>
   )
 }

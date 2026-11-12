@@ -3,11 +3,8 @@ import Titulo from './Titulo.jsx'
 import RevisionPlantilla, { ESTADO } from './RevisionPlantilla.jsx'
 import CategoriasPlantillas from './CategoriasPlantillas.jsx'
 import { api } from '../lib/api.js'
+import { CARGA, CATALOGO, nombrePublico } from '../lib/ejemplos.js'
 
-// Plantillas HTML (carpeta /ejemplos): se cargan solo al abrirlas para no pesar al inicio.
-// Los recursos usan la misma paleta DIEPO; los que empiezan por «o-» son HTML hechos a mano, tal cual, repartidos en sus familias.
-const ARCHIVOS = import.meta.glob('../../../ejemplos/*.html', { query: '?raw', import: 'default' })
-const ORIGINALES = import.meta.glob('../../../ejemplos/originales/*.html', { query: '?raw', import: 'default' })
 
 // Familias del menú: [título, [[clave, nombre]...]]
 const GRUPOS = [
@@ -30,33 +27,11 @@ const NOTAS = {
   Infografías: 'Cuatro diseños para resumir ideas de forma visual.',
   Esquemas: 'Para mostrar procesos y relaciones.',
 }
-// Las plantillas publicadas (las que descarga n8n) se llaman casi igual que los diseños de la galería: acordeon-v2 → acordeon-2.
-const NOMBRE_PUBLICO = { 'estudio-casos': 'casos', 'diagrama-flujo': 'flujo', 'mapa-conceptual': 'mapa', 'linea-tiempo': 'lineatiempo' }
-const nombrePublico = (k) => {
-  if (k.startsWith('o-')) return '' // los HTML originales hechos a mano no se publican
-  const m = /^(.*?)(?:-v(\d+))?$/.exec(k)
-  const base = NOMBRE_PUBLICO[m[1]] || m[1]
-  return m[2] ? base + '-' + m[2] : base
-}
 const corto = (g) => g.replace(/ \(.*\)$/, '')
 // Hay dos clases de HTML: los recursos y las actividades de autoaprendizaje (el crucigrama, el cuestionario…). La galería muestra una clase a la vez.
 const esActividad = (g) => /^(Actividades|Crucigramas)/.test(g)
 const CLASES = { recurso: 'Recursos', actividad: 'Actividades' }
 
-// { clave: { nivel | 'unico': ruta } }
-const CATALOGO = (() => {
-  const c = {}
-  Object.keys(ARCHIVOS).forEach((ruta) => {
-    const m = /\/([a-z0-9-]+?)-(diepo)\.html$/.exec(ruta)
-    if (m) (c[m[1]] = c[m[1]] || {})[m[2]] = ruta
-  })
-  Object.keys(ORIGINALES).forEach((ruta) => {
-    const m = /\/([a-z0-9-]+)\.html$/.exec(ruta)
-    if (m) c['o-' + m[1]] = { unico: ruta }
-  })
-  return c
-})()
-const CARGA = { ...ARCHIVOS, ...ORIGINALES }
 
 export default function Plantillas({ puedeRevisar = false, puedeCorregir = false, yo = null, aviso }) {
   const gruposTodos = useMemo(() => GRUPOS.map(([g, l]) => [g, l.filter(([k]) => CATALOGO[k])]).filter(([, l]) => l.length), [])

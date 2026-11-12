@@ -91,3 +91,24 @@
 
 .pl2-codigo-nota{grid-column:1/-1;margin-top:4px;font-style:italic}
 .pl2-lista .pl2-codigo{margin:0 0 12px}
+
+/* «Ver» como botón con aspecto de enlace */
+.cat-var-ver{appearance:none;background:none;border:0;padding:0;font:inherit;font-size:.82rem;font-weight:700;color:var(--brand);text-decoration:underline;cursor:pointer}
+.cat-var-ver:hover{color:var(--nav)}
+.cat-var-ver:focus-visible{outline:3px solid var(--brand);outline-offset:2px;border-radius:4px}
+
+/* Ventana de vista previa de una plantilla */
+.vp-fondo{position:fixed;inset:0;z-index:300;display:grid;place-items:center;padding:20px;background:rgba(20,39,73,.58)}
+.vp-caja{display:flex;flex-direction:column;width:min(1120px,100%);max-height:calc(100vh - 40px);background:#fff;border-radius:18px;box-shadow:0 24px 70px rgba(10,20,45,.45);overflow:hidden}
+.vp-cab{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;padding:14px 18px;border-bottom:1px solid var(--line)}
+.vp-tit{display:flex;align-items:center;gap:12px;min-width:0}
+.vp-tit b{display:block;font-size:1.05rem;color:var(--nav)}
+.vp-tit small{color:var(--muted)}
+.vp-acc{display:flex;gap:8px}
+.vp-nota{margin:0;padding:9px 18px;font-size:.84rem;background:#eef6f4;color:var(--nav);border-bottom:1px solid #d3e6e1}
+.vp-nota.aviso{background:#fff7e0;border-bottom-color:#ecd9a0}
+.vp-cuerpo{padding:16px 18px 18px;overflow:auto;background:#f2f4f9}
+.vp-carga{margin:30px 0;text-align:center}
+.vp-marco{position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;border-radius:12px;background:#fff;border:1px solid var(--line)}
+.vp-marco[hidden]{display:none}
+.vp-marco iframe{position:absolute;top:0;left:0;border:0;transform-origin:0 0}
