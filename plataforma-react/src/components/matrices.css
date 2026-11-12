@@ -65,3 +65,48 @@
 .mx-fila-nota.mal{color:#a32f24}
 .mx-fila-nota.omit{color:#76590a}
 @media(max-width:560px){.mx-cifras>div{flex:1 1 40%}.mx-matriz-datos span:last-child{max-width:100%}}
+
+/* ---------- Unidad: primero lo que necesita atención, lo generado compacto ---------- */
+.mx-uni{display:flex;flex-direction:column;gap:18px;align-items:stretch}
+.mx2-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:10px 14px;border-radius:12px;background:#f3f6f7;font-size:.8rem;color:var(--muted)}
+.mx2-meta i{width:3px;height:3px;border-radius:50%;background:#aab4c0}
+.mx2-meta a{margin-left:auto;font-weight:700;font-size:.85rem;text-decoration:none}
+.mx2-info{margin:0;padding:12px 14px;border-radius:12px;background:#eef3fb;color:#27407e;font-size:.88rem;line-height:1.5}
+.mx2-prog{display:flex;flex-direction:column;gap:10px}
+.mx2-grande{display:flex;align-items:baseline;gap:8px}.mx2-grande b{font-size:1.9rem;line-height:1;letter-spacing:-.02em;color:var(--nav)}.mx2-grande span{font-size:.88rem;font-weight:600;color:var(--muted)}
+.mx2-seg{display:flex;gap:3px;height:10px;border-radius:99px;overflow:hidden}.mx2-seg i{border-radius:2px}
+.mx2-seg .ok{background:var(--brand)}.mx2-seg .pe{background:#c9d1da}.mx2-seg .er{background:#d9534a}
+.mx2-ley{display:flex;flex-wrap:wrap;gap:6px 18px;margin:0;padding:0;list-style:none;font-size:.78rem;font-weight:600;color:var(--muted)}
+.mx2-ley li:before{content:"";display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;background:#c9d1da}
+.mx2-ley .ok:before{background:var(--brand)}.mx2-ley .er:before{background:#d9534a}
+.mx2-ley .mx2-tipo{margin-left:auto}.mx2-ley .mx2-tipo:before{display:none}
+.mx2-h{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:.78rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--nav)}
+.mx2-h span{display:inline-grid;place-items:center;min-width:22px;height:22px;padding:0 6px;border-radius:99px;font-size:.75rem;letter-spacing:0}
+.mx2-h .mal{background:#fbe9e7;color:#a82d26}.mx2-h .bien{background:#e4f5ec;color:#1b6a43}
+.mx2-lista,.mx2-gen{list-style:none;margin:0;padding:0}
+.mx2-lista{display:flex;flex-direction:column;gap:10px}
+.mx2-at{--c:#7a5600;--bg:#fffaea;--bd:#f0dfa8;--ic:#e0a100;padding:14px 16px;border-radius:14px;background:var(--bg);border:1px solid var(--bd);display:flex;flex-direction:column;gap:6px}
+.mx2-at.mal{--c:#8c2620;--bg:#fdf1ef;--bd:#f3cfc9;--ic:#d9534a}
+.mx2-at-cab{display:flex;align-items:center;flex-wrap:wrap;gap:8px 10px}
+.mx2-ic{flex:none;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--ic);color:#fff}
+.mx2-cod{padding:3px 9px;border-radius:7px;background:#fff;border:1px solid var(--bd);font-size:.75rem;font-weight:800;color:var(--nav)}
+.mx2-tit{flex:1;min-width:140px;font-size:.92rem;color:var(--nav)}
+.mx2-est{font-size:.75rem;font-weight:700;color:var(--c)}
+.mx2-nota{margin:0;padding-left:38px;font-size:.88rem;line-height:1.5;color:var(--c)}
+.mx2-acc{padding-left:38px}
+.mx2-gen li{display:flex;align-items:center;flex-wrap:wrap;gap:6px 12px;padding:10px 4px;border-top:1px solid #e8edf0}
+.mx2-ok{flex:none;display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--brand);color:#fff}
+.mx2-gen .mx2-cod{padding:0;border:0;background:none;color:var(--muted);min-width:84px}
+.mx2-nom{flex:1;min-width:140px;font-size:.9rem;font-weight:600;color:var(--ink)}
+.mx2-chip{padding:2px 8px;border-radius:6px;background:#eef1f5;font-size:.7rem;font-weight:800;color:var(--muted)}
+.mx2-gen a{font-size:.85rem;font-weight:700;text-decoration:none}
+.mx2-mas{margin-top:6px;min-height:40px;padding:0 14px;border:0;border-radius:10px;background:#f3f6f7;color:var(--nav);font:inherit;font-weight:700;font-size:.85rem;cursor:pointer}
+.mx2-mas:hover{background:#e8edf0}
+
+/* Fase 2: generar matrices desde Praxia */
+.mx-gen{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.mx-conf{margin-top:10px;padding:12px 14px;border:1px solid var(--bad-line,#e8b4b4);background:var(--bad-bg,#fdf1f1);border-radius:10px}
+.mx-conf p{margin:0;font-size:13.5px;line-height:1.45}
+.mx-faltan{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;padding:14px 16px}
+.mx-faltan>div{display:flex;flex-direction:column;gap:2px;min-width:200px;flex:1}
+.mx-faltan span{font-size:13px;color:var(--muted,#667085)}

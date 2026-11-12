@@ -64,72 +64,127 @@ function Corrida({ e }) {
   )
 }
 
-function Unidad({ unidad, nombre, matriz, recursos }) {
+const I_CHECK = <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
+const I_ALERTA = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden="true"><path d="M12 6v7M12 17.5v.5" /></svg>
+const I_RELOJ = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path d="M12 8v4l2.5 2" /></svg>
+
+// Recurso que necesita atención: con error, pendiente o en proceso.
+function Atencion({ r }) {
+  const mal = r.sinRespuesta || r.estado === 'ERROR'
+  const texto = r.sinRespuesta ? 'Sin avisos' : (RECURSO[r.estado] || ['', r.estado])[1]
+  const nota = r.estado === 'ERROR' ? r.observaciones : r.omision ? 'Se omitió: ' + motivoTexto(r.omision) : r.observaciones
+  return (
+    <li className={'mx2-at ' + (mal ? 'mal' : 'aviso')}>
+      <div className="mx2-at-cab">
+        <span className="mx2-ic" aria-hidden="true">{mal ? I_ALERTA : I_RELOJ}</span>
+        <span className="mx2-cod">{r.codigo || r.id}</span>
+        <b className="mx2-tit">{r.titulo || 'Sin título'}</b>
+        <span className="mx2-est">{texto}</span>
+      </div>
+      {nota && <p className="mx2-nota">{nota}</p>}
+      {r.enlaceGuion && <div className="mx2-acc"><a className="btn sec sm" href={r.enlaceGuion} target="_blank" rel="noopener noreferrer">Abrir guion ↗</a></div>}
+    </li>
+  )
+}
+
+function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar }) {
+  const [todos, setTodos] = useState(false)
+  const [confirmar, setConfirmar] = useState(false)
   const conteo = useMemo(() => {
     const c = { total: recursos.length, PENDIENTE: 0, EN_PROCESO: 0, GENERADO: 0, ERROR: 0, h5p: 0, otros: 0 }
     recursos.forEach((r) => { c[r.estado] = (c[r.estado] || 0) + 1; if (String(r.generador || '').toUpperCase() === 'H5P') c.h5p++; else c.otros++ })
     return c
   }, [recursos])
-  const pct = conteo.total ? Math.round((conteo.GENERADO / conteo.total) * 100) : 0
   const clase = !matriz ? 'sin' : matriz.estado === 'error' || matriz.sinRespuesta ? 'bad' : matriz.estado === 'generando' || conteo.EN_PROCESO ? 'en' : conteo.total && conteo.GENERADO === conteo.total ? 'ok' : 'pe'
+  const atencion = recursos.filter((r) => r.estado !== 'GENERADO' || r.sinRespuesta).sort((a, b) => (b.estado === 'ERROR') - (a.estado === 'ERROR'))
+  const generados = recursos.filter((r) => r.estado === 'GENERADO' && !r.sinRespuesta)
+  const visibles = todos ? generados : generados.slice(0, 3)
+  const porGenerar = conteo.PENDIENTE + conteo.EN_PROCESO
   return (
     <article className={'card mx-uni mx-' + clase}>
       <header className="mx-uni-cab">
         <span className="mx-n">{unidad}</span>
         <div className="mx-uni-tit">
           <h3>Unidad {unidad}</h3>
-          <small>{nombre}</small>
+          {nombre && <small>{nombre}</small>}
         </div>
         <Pill par={matriz ? (matriz.sinRespuesta ? SIN_RESPUESTA : MATRIZ[matriz.estado]) : ['', 'Sin matriz']} />
       </header>
 
-      {!matriz && <p className="mx-vacio">Todavía no hay una matriz registrada para esta unidad. Se crea sola cuando terminan los guiones y, apenas n8n lo avise, aparecerá aquí.</p>}
+      {!matriz && <p className="mx-vacio">Todavía no hay una matriz registrada para esta unidad. Puede generarla desde aquí; apenas n8n avise, aparecerá en esta pantalla.</p>}
 
       {matriz && (
-        <div className="mx-matriz">
-          <div className="mx-matriz-datos">
-            {matriz.formacion && <span><b>Formación</b>{matriz.formacion}</span>}
-            <span><b>Actualizada</b>{hace(matriz.actualizadoEn)}</span>
-            {matriz.matrizNombre && <span title={matriz.matrizNombre}><b>Hoja</b>{matriz.matrizNombre}</span>}
-          </div>
-          {matriz.matrizUrl && <a className="btn sec sm" href={matriz.matrizUrl} target="_blank" rel="noopener noreferrer">Abrir la matriz ↗</a>}
+        <div className="mx2-meta">
+          {matriz.formacion && <span>{matriz.formacion}</span>}
+          {matriz.formacion && <i aria-hidden="true" />}
+          <span>Actualizada {hace(matriz.actualizadoEn)}</span>
+          {matriz.matrizUrl && <a href={matriz.matrizUrl} target="_blank" rel="noopener noreferrer" title={matriz.matrizNombre || ''}>Abrir matriz ↗</a>}
         </div>
       )}
       {matriz && matriz.sinRespuesta && <p className="mx-detalle mal">n8n empezó a generar esta matriz {hace(matriz.actualizadoEn)} y no ha vuelto a avisar. Puede haberse interrumpido.</p>}
-      {matriz && matriz.detalle && <p className={'mx-detalle' + (matriz.estado === 'error' ? ' mal' : '')}>{matriz.detalle}</p>}
+      {matriz && matriz.detalle && <p className={matriz.estado === 'error' ? 'mx-detalle mal' : 'mx2-info'}>{matriz.detalle}</p>}
+
+      {puede && (!matriz || matriz.estado === 'error' || matriz.sinRespuesta) && (
+        <div className="mx-gen">
+          <button type="button" className="btn sm" disabled={ocupado} onClick={() => lanzar([unidad], false)}>{matriz ? 'Reintentar la matriz' : 'Generar matriz'}</button>
+        </div>
+      )}
+      {puede && matriz && !matriz.sinRespuesta && ['creada', 'omitida', 'reemplazada'].includes(matriz.estado) && (
+        confirmar ? (
+          <div className="mx-conf" role="alertdialog" aria-label="Confirmar nueva generación">
+            <p><b>¿Volver a generar la matriz de la Unidad {unidad}?</b> La actual irá a la papelera de Drive y se perderán los cambios hechos a mano en ella.</p>
+            <div className="mx-gen">
+              <button type="button" className="btn sm danger" disabled={ocupado} onClick={() => { setConfirmar(false); lanzar([unidad], true) }}>Sí, volver a generar</button>
+              <button type="button" className="btn sec sm" onClick={() => setConfirmar(false)}>Cancelar</button>
+            </div>
+          </div>
+        ) : (
+          <div className="mx-gen"><button type="button" className="btn sec sm" disabled={ocupado} onClick={() => setConfirmar(true)}>Volver a generar la matriz</button></div>
+        )
+      )}
 
       {conteo.total > 0 && (
         <>
-          <div className="mx-cifras">
-            <div><b>{conteo.total}</b><span>recursos</span></div>
-            <div className="g"><b>{conteo.GENERADO}</b><span>generados</span></div>
-            <div><b>{conteo.PENDIENTE + conteo.EN_PROCESO}</b><span>por generar</span></div>
-            <div className={conteo.ERROR ? 'r' : ''}><b>{conteo.ERROR}</b><span>con error</span></div>
-          </div>
-          <div className="mx-barra" aria-label={pct + '% generado'}><i style={{ width: pct + '%' }} /></div>
-          <details className="mx-filas-det" open={conteo.total <= 12}>
-            <summary>Recursos de la matriz ({conteo.total}) · H5P {conteo.h5p}{conteo.otros ? ' · otros ' + conteo.otros : ''}</summary>
-            <ul className="mx-filas">
-              {recursos.map((r) => (
-                <li key={r.id} className={'mx-fila ' + String(r.estado).toLowerCase()}>
-                  <div className="mx-fila-cab">
-                    <b>{r.codigo || r.id}</b>
-                    <span className="mx-fila-tit">{r.titulo || 'Sin título'}</span>
-                    <Pill par={r.sinRespuesta ? ['bad', 'Sin avisos'] : RECURSO[r.estado] || ['', r.estado]} />
-                  </div>
-                  <div className="mx-fila-meta">
-                    {r.formato && <span>{r.formato}</span>}
-                    {r.generador && <span className="mx-gen">{r.generador}</span>}
-                    {r.enlaceGuion && <a href={r.enlaceGuion} target="_blank" rel="noopener noreferrer">Guion ↗</a>}
-                    {r.enlaceRecurso && <a className="mx-rec" href={r.enlaceRecurso} target="_blank" rel="noopener noreferrer">Recurso ↗</a>}
-                  </div>
-                  {r.estado === 'ERROR' && r.observaciones && <p className="mx-fila-nota mal">{r.observaciones}</p>}
-                  {r.estado !== 'ERROR' && r.observaciones && <p className="mx-fila-nota">{r.observaciones}</p>}
-                  {r.omision && <p className="mx-fila-nota omit">Se omitió: {motivoTexto(r.omision)}</p>}
-                </li>
-              ))}
+          <div className="mx2-prog">
+            <div className="mx2-grande"><b>{conteo.GENERADO}</b><span>de {conteo.total} recursos generados</span></div>
+            <div className="mx2-seg" role="img" aria-label={conteo.GENERADO + ' generados, ' + porGenerar + ' por generar, ' + conteo.ERROR + ' con error'}>
+              {conteo.GENERADO > 0 && <i className="ok" style={{ flex: conteo.GENERADO }} />}
+              {porGenerar > 0 && <i className="pe" style={{ flex: porGenerar }} />}
+              {conteo.ERROR > 0 && <i className="er" style={{ flex: conteo.ERROR }} />}
+            </div>
+            <ul className="mx2-ley">
+              {conteo.GENERADO > 0 && <li className="ok">{conteo.GENERADO} generados</li>}
+              {porGenerar > 0 && <li className="pe">{porGenerar} por generar</li>}
+              {conteo.ERROR > 0 && <li className="er">{conteo.ERROR} con error</li>}
+              <li className="mx2-tipo">H5P {conteo.h5p}{conteo.otros ? ' · otros ' + conteo.otros : ''}</li>
             </ul>
-          </details>
+          </div>
+
+          {atencion.length > 0 && (
+            <section aria-label="Requieren atención">
+              <h4 className="mx2-h">Requieren atención <span className="mal">{atencion.length}</span></h4>
+              <ul className="mx2-lista">{atencion.map((r) => <Atencion key={r.id} r={r} />)}</ul>
+            </section>
+          )}
+
+          {generados.length > 0 && (
+            <section aria-label="Generados">
+              <h4 className="mx2-h">Generados <span className="bien">{generados.length}</span></h4>
+              <ul className="mx2-gen">
+                {visibles.map((r) => (
+                  <li key={r.id}>
+                    <span className="mx2-ok" aria-hidden="true">{I_CHECK}</span>
+                    <span className="mx2-cod">{r.codigo || r.id}</span>
+                    <span className="mx2-nom">{r.titulo || 'Sin título'}</span>
+                    {r.generador && <span className="mx2-chip">{r.generador}</span>}
+                    {r.enlaceGuion && <a href={r.enlaceGuion} target="_blank" rel="noopener noreferrer">Guion ↗</a>}
+                    {r.enlaceRecurso && <a href={r.enlaceRecurso} target="_blank" rel="noopener noreferrer">Recurso ↗</a>}
+                  </li>
+                ))}
+              </ul>
+              {generados.length > 3 && <button type="button" className="mx2-mas" aria-expanded={todos} onClick={() => setTodos(!todos)}>{todos ? 'Ver menos' : 'Ver ' + (generados.length - 3) + (generados.length - 3 === 1 ? ' recurso más' : ' recursos más')}</button>}
+            </section>
+          )}
         </>
       )}
     </article>
@@ -141,6 +196,9 @@ export default function MatricesH5P({ s }) {
   const [error, setError] = useState('')
   const [cargando, setCargando] = useState(false)
   const [, tic] = useState(0)
+  const [lanzando, setLanzando] = useState(false)
+  const [aviso, setAviso] = useState('')
+  const [lanzadoEn, setLanzadoEn] = useState(0) // hasta que n8n avise del inicio pasan unos segundos: mientras tanto se sigue refrescando
 
   const cargar = useCallback(async () => {
     setCargando(true)
@@ -149,7 +207,8 @@ export default function MatricesH5P({ s }) {
   }, [s.id])
   useEffect(() => { cargar() }, [cargar])
 
-  const enProgreso = !!d && (d.matrices.some((m) => m.estado === 'generando' && !m.sinRespuesta) || d.ejecuciones.some((e) => e.estado === 'en_curso' && !e.sinRespuesta) || d.recursos.some((r) => r.estado === 'EN_PROCESO' && !r.sinRespuesta))
+  const lanzadoReciente = lanzadoEn > 0 && Date.now() - lanzadoEn < 120000
+  const enProgreso = lanzadoReciente || !!d && (d.matrices.some((m) => m.estado === 'generando' && !m.sinRespuesta) || d.ejecuciones.some((e) => e.estado === 'en_curso' && !e.sinRespuesta) || d.recursos.some((r) => r.estado === 'EN_PROCESO' && !r.sinRespuesta))
   // Mientras algo esté en proceso se refresca solo (consulta a Praxia, no a n8n); además, al volver a la pestaña.
   useEffect(() => {
     if (!enProgreso) return undefined
@@ -162,6 +221,17 @@ export default function MatricesH5P({ s }) {
     const i = setInterval(() => tic((n) => n + 1), 30000) // para que «hace X min» se mantenga al día
     return () => { document.removeEventListener('visibilitychange', alVolver); clearInterval(i) }
   }, [cargar])
+
+  const lanzar = useCallback(async (nums, forzar) => {
+    setLanzando(true); setError(''); setAviso('')
+    try {
+      await api('POST', '/proyectos/' + encodeURIComponent(s.id) + '/pipeline/matrices', { unidades: nums, forzar })
+      setLanzadoEn(Date.now())
+      setAviso((forzar ? 'Se pidió volver a generar' : 'Se pidió generar') + (nums.length === 1 ? ' la matriz de la Unidad ' + nums[0] : ' las matrices de las unidades ' + nums.join(', ')) + '. n8n la está preparando; esta pantalla se actualiza sola.')
+      await cargar()
+    } catch (e) { setError(e.message || 'No se pudo lanzar la generación') }
+    setLanzando(false)
+  }, [s.id, cargar])
 
   const unidades = useMemo(() => {
     const docs = (s.syllabus.documentos || []).slice().sort((a, b) => a.unidad - b.unidad)
@@ -177,6 +247,10 @@ export default function MatricesH5P({ s }) {
     return { creadas, unidades: unidades.length, h5p: h5p.length, generados: h5p.filter((r) => r.estado === 'GENERADO').length, errores: d.recursos.filter((r) => r.estado === 'ERROR').length }
   }, [d, unidades.length])
   const ultimaH5P = d && d.ejecuciones.find((e) => e.etapa === 'h5p')
+  const puede = !!(d && d.puedeGenerarMatrices)
+  const ocupado = lanzando || lanzadoReciente || !!(d && (d.matrices.some((m) => m.estado === 'generando' && !m.sinRespuesta) || d.ejecuciones.some((e) => e.etapa === 'matrices' && e.estado === 'en_curso' && !e.sinRespuesta)))
+  const aprobadas = new Set((s.syllabus.documentos || []).filter((x) => x.aprobado).map((x) => x.unidad))
+  const faltan = d ? unidades.map((u) => u.unidad).filter((n) => aprobadas.has(n) && (() => { const m = d.matrices.find((x) => x.unidad === n); return !m || m.estado === 'error' || m.sinRespuesta })()) : []
 
   return (
     <div className="mx">
@@ -192,6 +266,7 @@ export default function MatricesH5P({ s }) {
       </div>
 
       {error && <div className="msg warn" role="alert" style={{ marginTop: 12 }}>{error}</div>}
+      {aviso && !error && <div className="msg ok" role="status" style={{ marginTop: 12 }}>{aviso}</div>}
       {!d && !error && <p className="help" style={{ marginTop: 14 }}>Cargando…</p>}
 
       {d && resumen && (
@@ -206,12 +281,20 @@ export default function MatricesH5P({ s }) {
         </div>
       )}
 
+      {d && puede && faltan.length > 0 && (
+        <div className="mx-faltan card">
+          <div><b>{faltan.length === 1 ? 'Falta la matriz de 1 unidad' : 'Faltan las matrices de ' + faltan.length + ' unidades'}</b><span>Unidades {faltan.join(', ')}. Las que ya existen no se tocan.</span></div>
+          <button type="button" className="btn sm" disabled={ocupado} onClick={() => lanzar(faltan, false)}>{lanzando ? 'Enviando…' : 'Generar las que faltan'}</button>
+        </div>
+      )}
+      {d && !puede && <p className="help" style={{ marginTop: 10 }}>La generación de matrices desde Praxia todavía no está activada en este servidor.</p>}
+
       {ultimaH5P && <Corrida e={ultimaH5P} />}
 
       {d && (
         <div className="mx-grid">
           {unidades.map((u) => (
-            <Unidad key={u.unidad} unidad={u.unidad} nombre={u.nombre} matriz={d.matrices.find((m) => m.unidad === u.unidad)} recursos={d.recursos.filter((r) => r.unidad === u.unidad)} />
+            <Unidad key={u.unidad} unidad={u.unidad} nombre={u.nombre} matriz={d.matrices.find((m) => m.unidad === u.unidad)} recursos={d.recursos.filter((r) => r.unidad === u.unidad)} puede={puede} ocupado={ocupado} lanzar={lanzar} />
           ))}
         </div>
       )}
