@@ -107,7 +107,7 @@ function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, envi
   const clase = !matriz ? 'sin' : matriz.estado === 'error' || matriz.sinRespuesta ? 'bad' : matriz.estado === 'generando' || conteo.EN_PROCESO ? 'en' : conteo.total && conteo.GENERADO === conteo.total ? 'ok' : 'pe'
   const atencion = recursos.filter((r) => r.estado !== 'GENERADO' || r.sinRespuesta).sort((a, b) => (b.estado === 'ERROR') - (a.estado === 'ERROR'))
   const generados = recursos.filter((r) => r.estado === 'GENERADO' && !r.sinRespuesta)
-  const visibles = todos ? generados : generados.slice(0, 3)
+  const visibles = todos ? generados : []
   const porGenerar = conteo.PENDIENTE + conteo.EN_PROCESO
   const generandoMat = (!!matriz && matriz.estado === 'generando' && !matriz.sinRespuesta) || (!matriz && !!enviada)
   // Sin matriz (o generándose sin recursos aún): una fila simple, sin tarjeta con datos vacíos.
@@ -193,15 +193,18 @@ function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, envi
           {atencion.length > 0 && (
             <section aria-label="Requieren atención">
               <h4 className="mx2-h">Requieren atención <span className="mal">{atencion.length}</span></h4>
-              <ul className="mx2-lista">{(todosAt ? atencion : atencion.slice(0, 5)).map((r) => <Atencion key={r.id} r={r} />)}</ul>
-              {atencion.length > 5 && <button type="button" className="mx2-mas" aria-expanded={todosAt} onClick={() => setTodosAt(!todosAt)}>{todosAt ? 'Ver menos' : 'Ver los ' + (atencion.length - 5) + ' restantes'}</button>}
+              {todosAt && <ul className="mx2-lista">{atencion.map((r) => <Atencion key={r.id} r={r} />)}</ul>}
+              <button type="button" className={'mx2-mas mx2-plega' + (todosAt ? ' abierto' : '')} aria-expanded={todosAt} onClick={() => setTodosAt(!todosAt)}>
+                <span>{todosAt ? 'Ocultar los recursos' : 'Haga clic para ver los ' + atencion.length + (atencion.length === 1 ? ' recurso' : ' recursos') + ' pendientes'}</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+              </button>
             </section>
           )}
 
           {generados.length > 0 && (
             <section aria-label="Generados">
               <h4 className="mx2-h">Generados <span className="bien">{generados.length}</span></h4>
-              <ul className="mx2-gen">
+              {todos && <ul className="mx2-gen">
                 {visibles.map((r) => (
                   <li key={r.id}>
                     <span className="mx2-ok" aria-hidden="true">{I_CHECK}</span>
@@ -212,8 +215,11 @@ function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, envi
                     {r.enlaceRecurso && <a href={r.enlaceRecurso} target="_blank" rel="noopener noreferrer">Recurso ↗</a>}
                   </li>
                 ))}
-              </ul>
-              {generados.length > 3 && <button type="button" className="mx2-mas" aria-expanded={todos} onClick={() => setTodos(!todos)}>{todos ? 'Ver menos' : 'Ver ' + (generados.length - 3) + (generados.length - 3 === 1 ? ' recurso más' : ' recursos más')}</button>}
+              </ul>}
+              <button type="button" className={'mx2-mas mx2-plega' + (todos ? ' abierto' : '')} aria-expanded={todos} onClick={() => setTodos(!todos)}>
+                <span>{todos ? 'Ocultar los recursos' : 'Haga clic para ver los ' + generados.length + (generados.length === 1 ? ' recurso generado' : ' recursos generados')}</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+              </button>
             </section>
           )}
         </>

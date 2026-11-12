@@ -195,3 +195,8 @@
 .mx2-at .mx2-lk{min-width:56px;text-align:right;font-size:.8rem;font-weight:700;text-decoration:none;white-space:nowrap}
 .mx2-at .mx2-nota{grid-column:3/-1;padding:2px 0 0;font-size:.8rem;line-height:1.4}
 @media(max-width:640px){.mx2-at{grid-template-columns:10px minmax(0,1fr) auto}.mx2-at .mx2-cod{grid-column:2}.mx2-at .mx2-tit{grid-column:2/-1;white-space:normal}.mx2-at .mx2-est{grid-column:3;grid-row:1}.mx2-at .mx2-lk{grid-column:2/-1;text-align:left}.mx2-at .mx2-nota{grid-column:2/-1}}
+
+.mx2-plega{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:0;border:1px dashed #c3ccdc;background:#f7f9fc}
+.mx2-plega:hover{background:#eef2f9;border-color:var(--nav)}
+.mx2-plega svg{transition:transform .2s}.mx2-plega.abierto svg{transform:rotate(180deg)}
+.mx2-lista+.mx2-plega,.mx2-gen+.mx2-plega{margin-top:8px}
