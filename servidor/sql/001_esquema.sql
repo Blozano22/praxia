@@ -194,6 +194,105 @@ CREATE TABLE IF NOT EXISTS unidades_trabajos (
 CREATE UNIQUE INDEX IF NOT EXISTS unidades_trabajos_uno_en_curso ON unidades_trabajos (propietario_id, syllabus_doc) WHERE estado = 'en_curso';
 CREATE INDEX IF NOT EXISTS unidades_trabajos_propietario_ix ON unidades_trabajos (propietario_id, creado DESC);
 
+-- ---------------------------------------------------------------- pipeline guiones → matrices → H5P (avisos de n8n)
+-- n8n AVISA a Praxia (POST /api/n8n/eventos, firmado) y Praxia guarda lo recibido ligado al curso; la pantalla del curso lee de aquí y no
+-- consulta a n8n. Cada aviso trae identificadores de correlación; Praxia resuelve persona y curso con pipeline_origen, nunca con lo que
+-- el aviso diga del curso.
+
+-- trabajo_id → persona y curso. Se escribe al lanzar un trabajo (guiones, matriz, H5P) y se conserva semanas: los avisos de la cadena
+-- llegan después de que el trabajo de guiones ya se recogió y se borró.
+CREATE TABLE IF NOT EXISTS pipeline_origen (
+  trabajo_id     uuid PRIMARY KEY,
+  propietario_id uuid NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  proyecto_id    text NOT NULL CHECK (char_length(proyecto_id) <= 64),
+  carpeta_raiz   text CHECK (carpeta_raiz IS NULL OR char_length(carpeta_raiz) <= 600),
+  etapa          text NOT NULL CHECK (etapa IN ('guiones','matrices','h5p')),
+  unidad         integer,
+  creado         timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS pipeline_origen_curso_ix ON pipeline_origen (propietario_id, proyecto_id);
+
+-- Una corrida de n8n (matrices o H5P): su plan, su resumen y cuándo avisó por última vez.
+CREATE TABLE IF NOT EXISTS pipeline_ejecuciones (
+  propietario_id    uuid NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  proyecto_id       text NOT NULL,
+  etapa             text NOT NULL CHECK (etapa IN ('matrices','h5p')),
+  ejecucion_id      text NOT NULL CHECK (char_length(ejecucion_id) <= 100),
+  trabajo_id        uuid,
+  origen_trabajo_id uuid,
+  carpeta_raiz      text,
+  estado            text NOT NULL DEFAULT 'en_curso' CHECK (estado IN ('en_curso','terminada')),
+  maximo            integer,
+  plan              jsonb,
+  resumen           jsonb,
+  iniciado_en       timestamptz,
+  ultimo_evento_en  timestamptz NOT NULL,
+  terminado_en      timestamptz,
+  PRIMARY KEY (propietario_id, proyecto_id, etapa, ejecucion_id)
+);
+
+-- La matriz de cada unidad del curso.
+CREATE TABLE IF NOT EXISTS pipeline_matrices (
+  propietario_id uuid NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  proyecto_id    text NOT NULL,
+  unidad         integer NOT NULL,
+  formacion      text,
+  estado         text NOT NULL CHECK (estado IN ('generando','creada','omitida','reemplazada','error')),
+  matriz_id      text,
+  matriz_url     text,
+  matriz_nombre  text,
+  detalle        text,
+  filas_total    integer NOT NULL DEFAULT 0,
+  actualizado_en timestamptz NOT NULL,
+  secuencia      integer NOT NULL DEFAULT 0,
+  PRIMARY KEY (propietario_id, proyecto_id, unidad)
+);
+
+-- Una fila por recurso de la matriz (lo que n8n anota en la hoja).
+CREATE TABLE IF NOT EXISTS pipeline_recursos (
+  propietario_id uuid NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  proyecto_id    text NOT NULL,
+  id             text NOT NULL CHECK (char_length(id) <= 100),
+  unidad         integer,
+  id_base        text,
+  variante       text,
+  alcance        text,
+  tema           integer,
+  codigo         text,
+  formato        text,
+  titulo         text,
+  con_actividad  boolean,
+  generador      text,
+  estado         text NOT NULL CHECK (estado IN ('PENDIENTE','EN_PROCESO','GENERADO','ERROR')),
+  observaciones  text,
+  enlace_guion   text,
+  enlace_recurso text,
+  omision        text, -- motivo por el que la última corrida de H5P la dejó fuera (sin_plantilla, generador_no_h5p…)
+  actualizado_en timestamptz NOT NULL,
+  secuencia      integer NOT NULL DEFAULT 0,
+  PRIMARY KEY (propietario_id, proyecto_id, id)
+);
+CREATE INDEX IF NOT EXISTS pipeline_recursos_unidad_ix ON pipeline_recursos (propietario_id, proyecto_id, unidad);
+
+-- Todo aviso recibido: es la idempotencia (evento_id único: un reintento de n8n no se aplica dos veces) y la auditoría.
+CREATE TABLE IF NOT EXISTS pipeline_eventos (
+  evento_id         text PRIMARY KEY CHECK (char_length(evento_id) <= 100),
+  recibido          timestamptz NOT NULL DEFAULT now(),
+  tipo              text NOT NULL,
+  etapa             text NOT NULL,
+  trabajo_id        uuid,
+  origen_trabajo_id uuid,
+  ejecucion_id      text,
+  propietario_id    uuid,
+  proyecto_id       text,
+  secuencia         integer,
+  fecha_evento      timestamptz NOT NULL,
+  resultado         text NOT NULL CHECK (resultado IN ('aplicado','ignorado_antiguo','huerfano','rechazado')),
+  motivo            text,
+  carga             jsonb
+);
+CREATE INDEX IF NOT EXISTS pipeline_eventos_recibido_ix ON pipeline_eventos (recibido);
+
 -- ---------------------------------------------------------------- seguridad por fila (RLS)
 -- Aunque una consulta de la aplicación olvidara el filtro por propietario, la base de datos
 -- solo entrega y solo deja escribir las filas del usuario de la sesión (app.usuario_id).
@@ -247,6 +346,7 @@ BEGIN
       RAISE NOTICE 'Sin permiso para dar permisos sobre configuracion (es de otro usuario); se dejan como están.';
     END;
     GRANT SELECT, INSERT, UPDATE ON plantilla_historial TO ova_app;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON pipeline_origen, pipeline_ejecuciones, pipeline_matrices, pipeline_recursos, pipeline_eventos TO ova_app;
     GRANT USAGE, SELECT ON SEQUENCE plantilla_historial_id_seq TO ova_app;
     GRANT USAGE, SELECT ON SEQUENCE enlaces_id_seq, auditoria_id_seq TO ova_app;
   END IF;

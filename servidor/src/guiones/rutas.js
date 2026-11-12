@@ -12,10 +12,11 @@ import { Router } from 'express'
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit'
 import { z } from 'zod'
 import { config } from '../config.js'
-import { sinUsuario } from '../db.js'
+import { conUsuario, sinUsuario } from '../db.js'
 import { Q } from '../consultas.js'
 import { exigirPermiso, exigirSesion } from '../seguridad.js'
 import { armarPaquete } from '../bibliografia/rutas.js'
+import { registrarOrigen } from '../pipeline/eventos.js'
 
 export const rutasGuiones = Router()
 rutasGuiones.use(exigirSesion)
@@ -122,6 +123,11 @@ rutasGuiones.post('/trabajos', exigirPermiso('proyectos.crear'), limiteCrear, va
       cuerpo: { unidad_url: unidadUrl, ...(syllabusUrl ? { syllabus_url: syllabusUrl } : {}), unidad, bibliografia: p.cuerpo }
     })
     if (t.ya) return res.status(409).json({ ya: true, id: t.id, creado: t.creado, error: 'Ya hay una generación de guiones en curso para esta unidad.' })
+    // Se anota a qué persona y curso pertenece este trabajo: los avisos que n8n mande después (matrices, H5P) se atribuyen con esto.
+    try {
+      const carpeta = ((await conUsuario(req.usuario, (cx) => cx.query(Q.pipeCarpetaDeProyecto, [req.usuario.id, proyecto]))).rows[0] || {}).carpeta
+      await registrarOrigen({ trabajoId: t.id, propietarioId: req.usuario.id, proyectoId: proyecto, carpeta: carpeta || null, etapa: 'guiones', unidad })
+    } catch (e) { console.error('[pipeline] no se pudo anotar el origen del trabajo', e && e.message) } // no debe impedir la generación
     res.status(202).json({ id: t.id, estado: 'en_curso', creado: t.creado })
   } catch (e) { next(e) }
 })

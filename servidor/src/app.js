@@ -8,6 +8,7 @@ import { rutas } from './rutas.js'
 import { rutasBibliografia } from './bibliografia/rutas.js'
 import { rutasGuiones } from './guiones/rutas.js'
 import { rutasUnidades } from './unidades/rutas.js'
+import { analizarCuerpoEventos, rutasEventosN8n } from './pipeline/eventos.js'
 
 export function crearApp() {
   const app = express()
@@ -30,6 +31,9 @@ export function crearApp() {
       }
     }
   }))
+  // Avisos de n8n: sin sesión ni cabecera x-ova, con firma HMAC sobre el cuerpo tal como llegó (por eso se guarda crudo) y un tope de
+  // tamaño propio, más pequeño; va ANTES del analizador general para que nadie sin firma haga trabajar al de 25 MB.
+  app.use('/api/n8n', analizarCuerpoEventos, rutasEventosN8n)
   app.use(express.json({ limit: '25mb' }))
   app.use(cookieParser())
   app.use('/api/bibliografia', exigirCabecera, rutasBibliografia)

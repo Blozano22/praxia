@@ -129,6 +129,93 @@ export const Q = Object.freeze({
     UPDATE unidades_trabajos SET estado = 'error', error = $1, terminado = now()
      WHERE estado = 'en_curso' AND creado < now() - ($2::int * interval '1 minute')`,
   unidadTrabajosLimpiar: `DELETE FROM unidades_trabajos WHERE estado <> 'en_curso' AND coalesce(terminado, creado) < now() - interval '7 days'`,
+  // ---- pipeline: avisos de n8n guardados ligados al curso (sin sesión: la persona sale de pipeline_origen)
+  pipeCarpetaDeProyecto: `SELECT datos->>'carpetaUrl' AS carpeta FROM proyectos WHERE propietario_id = $1 AND id = $2`,
+  pipeOrigenGuardar: `
+    INSERT INTO pipeline_origen (trabajo_id, propietario_id, proyecto_id, carpeta_raiz, etapa, unidad) VALUES ($1, $2, $3, $4, $5, $6)
+    ON CONFLICT (trabajo_id) DO NOTHING`,
+  pipeOrigenObtener: `SELECT trabajo_id, propietario_id, proyecto_id, carpeta_raiz, etapa, unidad FROM pipeline_origen WHERE trabajo_id = $1`,
+  pipeEventoInsertar: `
+    INSERT INTO pipeline_eventos (evento_id, tipo, etapa, trabajo_id, origen_trabajo_id, ejecucion_id, propietario_id, proyecto_id, secuencia, fecha_evento, resultado, motivo, carga)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb)
+    ON CONFLICT (evento_id) DO NOTHING
+    RETURNING evento_id`,
+  pipeEventoResultado: `UPDATE pipeline_eventos SET resultado = $2, motivo = $3 WHERE evento_id = $1`,
+  pipeEventosLimpiar: `DELETE FROM pipeline_eventos WHERE recibido < now() - interval '60 days'`,
+  pipeOrigenLimpiar: `DELETE FROM pipeline_origen WHERE creado < now() - interval '180 days'`,
+  pipeEjecucionInicio: `
+    INSERT INTO pipeline_ejecuciones (propietario_id, proyecto_id, etapa, ejecucion_id, trabajo_id, origen_trabajo_id, carpeta_raiz, estado, maximo, plan, iniciado_en, ultimo_evento_en)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, 'en_curso', $8, $9::jsonb, $10, $10)
+    ON CONFLICT (propietario_id, proyecto_id, etapa, ejecucion_id) DO UPDATE SET
+      trabajo_id = coalesce(pipeline_ejecuciones.trabajo_id, EXCLUDED.trabajo_id),
+      origen_trabajo_id = coalesce(pipeline_ejecuciones.origen_trabajo_id, EXCLUDED.origen_trabajo_id),
+      carpeta_raiz = coalesce(EXCLUDED.carpeta_raiz, pipeline_ejecuciones.carpeta_raiz),
+      maximo = coalesce(EXCLUDED.maximo, pipeline_ejecuciones.maximo),
+      plan = coalesce(EXCLUDED.plan, pipeline_ejecuciones.plan),
+      iniciado_en = least(coalesce(pipeline_ejecuciones.iniciado_en, EXCLUDED.iniciado_en), EXCLUDED.iniciado_en),
+      ultimo_evento_en = greatest(pipeline_ejecuciones.ultimo_evento_en, EXCLUDED.ultimo_evento_en),
+      estado = CASE WHEN pipeline_ejecuciones.estado = 'terminada' THEN 'terminada' ELSE 'en_curso' END`,
+  pipeEjecucionTocar: `
+    INSERT INTO pipeline_ejecuciones (propietario_id, proyecto_id, etapa, ejecucion_id, trabajo_id, origen_trabajo_id, carpeta_raiz, estado, ultimo_evento_en)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, 'en_curso', $8)
+    ON CONFLICT (propietario_id, proyecto_id, etapa, ejecucion_id) DO UPDATE SET
+      ultimo_evento_en = greatest(pipeline_ejecuciones.ultimo_evento_en, EXCLUDED.ultimo_evento_en)`,
+  pipeEjecucionFin: `
+    INSERT INTO pipeline_ejecuciones (propietario_id, proyecto_id, etapa, ejecucion_id, trabajo_id, origen_trabajo_id, carpeta_raiz, estado, resumen, ultimo_evento_en, terminado_en)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, 'terminada', $8::jsonb, $9, $9)
+    ON CONFLICT (propietario_id, proyecto_id, etapa, ejecucion_id) DO UPDATE SET
+      estado = 'terminada',
+      resumen = coalesce(EXCLUDED.resumen, pipeline_ejecuciones.resumen),
+      ultimo_evento_en = greatest(pipeline_ejecuciones.ultimo_evento_en, EXCLUDED.ultimo_evento_en),
+      terminado_en = greatest(coalesce(pipeline_ejecuciones.terminado_en, EXCLUDED.terminado_en), EXCLUDED.terminado_en)`,
+  // Un aviso solo cambia lo guardado si no es más antiguo que lo que ya está (por fecha y, si empatan, por secuencia).
+  pipeMatrizGuardar: `
+    INSERT INTO pipeline_matrices (propietario_id, proyecto_id, unidad, formacion, estado, matriz_id, matriz_url, matriz_nombre, detalle, filas_total, actualizado_en, secuencia)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, coalesce($10, 0), $11, $12)
+    ON CONFLICT (propietario_id, proyecto_id, unidad) DO UPDATE SET
+      formacion = coalesce(EXCLUDED.formacion, pipeline_matrices.formacion),
+      estado = EXCLUDED.estado,
+      matriz_id = coalesce(EXCLUDED.matriz_id, pipeline_matrices.matriz_id),
+      matriz_url = coalesce(EXCLUDED.matriz_url, pipeline_matrices.matriz_url),
+      matriz_nombre = coalesce(EXCLUDED.matriz_nombre, pipeline_matrices.matriz_nombre),
+      detalle = EXCLUDED.detalle,
+      filas_total = CASE WHEN $10 IS NULL THEN pipeline_matrices.filas_total ELSE EXCLUDED.filas_total END,
+      actualizado_en = EXCLUDED.actualizado_en,
+      secuencia = EXCLUDED.secuencia
+    WHERE (pipeline_matrices.actualizado_en, pipeline_matrices.secuencia) <= (EXCLUDED.actualizado_en, EXCLUDED.secuencia)
+    RETURNING unidad`,
+  pipeRecursoGuardar: `
+    INSERT INTO pipeline_recursos (propietario_id, proyecto_id, id, unidad, id_base, variante, alcance, tema, codigo, formato, titulo, con_actividad, generador, estado, observaciones, enlace_guion, enlace_recurso, omision, actualizado_en, secuencia)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+    ON CONFLICT (propietario_id, proyecto_id, id) DO UPDATE SET
+      unidad = coalesce(EXCLUDED.unidad, pipeline_recursos.unidad),
+      id_base = coalesce(EXCLUDED.id_base, pipeline_recursos.id_base),
+      variante = coalesce(EXCLUDED.variante, pipeline_recursos.variante),
+      alcance = coalesce(EXCLUDED.alcance, pipeline_recursos.alcance),
+      tema = coalesce(EXCLUDED.tema, pipeline_recursos.tema),
+      codigo = coalesce(EXCLUDED.codigo, pipeline_recursos.codigo),
+      formato = coalesce(EXCLUDED.formato, pipeline_recursos.formato),
+      titulo = coalesce(EXCLUDED.titulo, pipeline_recursos.titulo),
+      con_actividad = coalesce(EXCLUDED.con_actividad, pipeline_recursos.con_actividad),
+      generador = coalesce(EXCLUDED.generador, pipeline_recursos.generador),
+      estado = EXCLUDED.estado,
+      observaciones = EXCLUDED.observaciones,
+      enlace_guion = coalesce(EXCLUDED.enlace_guion, pipeline_recursos.enlace_guion),
+      enlace_recurso = coalesce(EXCLUDED.enlace_recurso, pipeline_recursos.enlace_recurso),
+      omision = EXCLUDED.omision,
+      actualizado_en = EXCLUDED.actualizado_en,
+      secuencia = EXCLUDED.secuencia
+    WHERE (pipeline_recursos.actualizado_en, pipeline_recursos.secuencia) <= (EXCLUDED.actualizado_en, EXCLUDED.secuencia)
+    RETURNING id`,
+  // Plan de una corrida: marca el motivo de omisión en las filas que ya se conocen (sin crear filas).
+  pipeRecursoOmitir: `
+    UPDATE pipeline_recursos SET omision = $4, actualizado_en = $5, secuencia = $6
+     WHERE propietario_id = $1 AND proyecto_id = $2 AND id = $3 AND (actualizado_en, secuencia) <= ($5, $6)
+    RETURNING id`,
+  // Una matriz nueva reemplaza la foto de su unidad: se quitan las filas que ya no están, salvo las que cambiaron después de esa foto.
+  pipeRecursosQuitarSobrantes: `
+    DELETE FROM pipeline_recursos
+     WHERE propietario_id = $1 AND proyecto_id = $2 AND unidad = $3 AND NOT (id = ANY($4::text[])) AND actualizado_en <= $5`,
   usuarioSubirVersion: `UPDATE usuarios SET version_token = version_token + 1 WHERE id = $1 RETURNING id`,
   rolesListar: `SELECT nombre FROM roles ORDER BY id`,
 

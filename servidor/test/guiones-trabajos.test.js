@@ -189,6 +189,9 @@ test('por la ruta real: arma el paquete de bibliografía, lo envía a n8n con el
   await esperar(() => recibidos.length > antes)
   const enviado = recibidos[antes]
   assert.equal(enviado.trabajo_id, t.id)
+  // se anotó a qué persona y curso pertenece el trabajo, para atribuir los avisos que n8n mande después
+  const origen = (await pool.query('SELECT proyecto_id, etapa, unidad FROM pipeline_origen WHERE trabajo_id = $1', [t.id])).rows[0]
+  assert.deepEqual(origen, { proyecto_id: 'pr', etapa: 'guiones', unidad: 1 })
   assert.equal(enviado.unidad_url, cuerpo.unidadUrl); assert.equal(enviado.syllabus_url, cuerpo.syllabusUrl); assert.equal(enviado.unidad, 1)
   assert.equal(enviado.bibliografia.fuentes.length, 1); assert.equal(enviado.bibliografia.fuentes[0].id, 'U1-B1')
   respuestaN8n = { estado: 200, cuerpo: { archivos: [{ nombre: 'Guion 1', tema: 1 }] } }

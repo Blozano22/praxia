@@ -143,6 +143,51 @@ Cada syllabus guarda un número de versión (`proyectos.version`) que sube con c
 
 **Aplicar el cambio de esquema** (idempotente; crea `unidades_trabajos` y añade las columnas `proyectos.version` y `bib_trabajos.syllabus_doc`): `npm run db:migrar`.
 
+## Avisos de n8n a Praxia (pipeline guiones → matrices → H5P)
+
+n8n **avisa** a Praxia cuando ocurren los eventos de la cadena (matrices y H5P) y Praxia los guarda ligados al curso; Praxia **no consulta** a n8n. Un solo endpoint, sin sesión de persona, protegido por firma: `src/pipeline/eventos.js`.
+
+**Activarlo.** Poner `N8N_EVENTOS_SECRETO` en el `.env` (mínimo 32 caracteres aleatorios; el mismo valor lo guarda n8n en su credencial; **nunca** en el repositorio ni en el frontend). Sin ese valor el endpoint responde 503 y queda desactivado. Para rotarlo sin cortes: poner el valor viejo en `N8N_EVENTOS_SECRETO_ANTERIOR`, el nuevo en `N8N_EVENTOS_SECRETO`, cambiarlo en n8n y, cuando ya no llegue nada firmado con el viejo, borrar el anterior.
+
+**Petición.** `POST /api/n8n/eventos` (en el servidor publicado: `https://proyectos.americana.edu.co/praxia/api/n8n/eventos`), cuerpo JSON: un aviso, o `{ "eventos": [ … ] }` con hasta 50. Máximo 2 MB.
+
+| Cabecera | Valor |
+| --- | --- |
+| `X-Praxia-Fecha` | Hora actual en **segundos** (Unix). Se rechaza si difiere más de 5 minutos de la del servidor |
+| `X-Praxia-Firma` | **HMAC-SHA256 en hexadecimal** de `fecha + "." + cuerpo`, con el secreto. `cuerpo` son **exactamente los bytes que se envían** |
+
+Vector de referencia (secreto de ejemplo, **no** el real; se imprime con `node scripts/emitir-aviso-prueba.js --vector`): con secreto `secreto-de-prueba`, fecha `1700000000` y cuerpo `{"evento_id":"prueba-0001"}`, la firma es `d0e2186090dde1bb100aaa47b5cff7c63bec6e4a3fdf4a044b031b18cde92c99`.
+
+**Campos comunes de todo aviso:** `evento_id` (único por aviso; **el mismo en un reintento**; 8–100 caracteres `A-Z a-z 0-9 _ . : -`), `evento`, `etapa` (`guiones`, `matrices` o `h5p`), `trabajo_id` (uuid que Praxia le mandó a n8n; `null` si la etapa la inició n8n), `origen_trabajo_id` (uuid del trabajo de guiones del que viene la cadena), `ejecucion_id` (id de la corrida en n8n; obligatorio en matrices y H5P), `proyecto_id` (curso; solo comprobación), `carpeta_raiz`, `secuencia` (entero creciente por corrida), `fecha_evento` (ISO 8601 con zona horaria). Praxia identifica a la persona y al curso **solo** con `trabajo_id` u `origen_trabajo_id`; si `proyecto_id` no coincide, el aviso se rechaza.
+
+| `evento` | Campos propios |
+| --- | --- |
+| `guiones_terminados` (opcional) | `unidad`, `formacion`, `resultado` (`ok` o `error`), `detalle`, `guiones: [{tema, nombre, url}]` |
+| `matrices_inicio` | `unidades: [n]`, `forzar` |
+| `matrices_fin` | `resultados: [{unidad, formacion, resultado, matriz: {id, url, nombre}, anterior_id, detalle, filas: [...]}]`. `resultado` es `creada`, `omitida_ya_existe`, `reemplazada` o `error`. Cada fila: `id, id_base, variante, alcance, tema, codigo, formato, titulo, con_actividad, generador, estado, observaciones, enlace_guion, enlace_recurso`. `omitida_ya_existe` debe traer también `matriz` y `filas` |
+| `h5p_inicio` | `maximo`, `plan: {a_generar: [{id, codigo}], omitidas: [{id, codigo, motivo}]}`. El motivo va en minúsculas con `_` (`sin_plantilla`, `generador_no_h5p`, `estado_no_pendiente`, `tipo_inactivo`, `supera_maximo`…) |
+| `h5p_recurso` | `unidad`, `id`, `codigo`, `estado` (`PENDIENTE`, `EN_PROCESO`, `GENERADO` o `ERROR`), `enlace_recurso`, `observaciones` |
+| `h5p_fin` | `resumen: {generados, errores, omitidos, pendientes_restantes}` |
+
+Los enlaces deben ser `https://docs.google.com/…` o `https://drive.google.com/…` (las hojas de cálculo están en docs.google.com); cualquier otro se rechaza.
+
+**Respuestas y qué hace n8n con cada una**
+
+| Código | Significado | ¿Reintentar? |
+| --- | --- | --- |
+| `200` con `{ok, aplicados, duplicados, ignorados, huerfanos, rechazados}` | Procesado y guardado de forma duradera | No |
+| `202` con `{huerfano: true}` | El aviso es válido pero no se pudo atribuir a ningún curso (se guarda aparte) | No |
+| `400` | Contrato mal armado (`problemas` dice qué campo); no se guarda nada del envío | No (corregir el aviso) |
+| `401` | Firma o fecha inválida | No (revisar secreto y reloj) |
+| `413`, `429`, `5xx` o sin respuesta | Demasiado grande, demasiados avisos, error o caída | `413` no; `429` y `5xx` **sí**, con espera creciente |
+| `503` | Receptor sin secreto configurado | Avisar al administrador |
+
+Praxia responde `200` solo **después** de guardar. **Idempotencia:** un `evento_id` ya recibido se responde `200` con `duplicados: 1` y no vuelve a aplicarse. **Orden:** un aviso más antiguo (por `fecha_evento` y, si empatan, `secuencia`) que lo ya guardado de esa unidad o fila no lo sobrescribe (queda registrado como `ignorado_antiguo`); una fecha más de 5 minutos adelantada se recorta a la hora del servidor.
+
+**Qué se guarda** (tablas en `sql/001_esquema.sql`, ligadas a la persona y al curso): `pipeline_origen` (trabajo_id → persona y curso; se escribe al lanzar guiones y se conserva 180 días), `pipeline_ejecuciones` (cada corrida: plan, resumen, último aviso), `pipeline_matrices` (la matriz de cada unidad), `pipeline_recursos` (una fila por recurso), `pipeline_eventos` (registro de todo aviso y su resultado; 60 días).
+
+**Probar** sin lanzar guiones de verdad: `node scripts/crear-origen-prueba.js <correo> <id del curso>` imprime un `trabajo_id` de prueba; luego `N8N_EVENTOS_SECRETO=… node scripts/emitir-aviso-prueba.js <url> <tipo> <trabajo_id>` envía un aviso de ejemplo firmado.
+
 ## Lectura de PDF escaneados (OCR)
 
 Si un PDF no tiene texto seleccionable (es un escaneo), cada página sin texto se dibuja y se lee con Tesseract (español e inglés),
