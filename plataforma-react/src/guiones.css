@@ -138,3 +138,25 @@
 .stepper2 button.on i{background:#fff;color:var(--nav);border:0}
 .stepper2 button.on b{color:#fff}.stepper2 button.on small{color:#c9d2ee}
 .stepper2 button:disabled{border:0;opacity:.45}
+
+/* ---------- Conexión con n8n: una fila por conexión ---------- */
+.cx-equipo{display:inline-flex;align-items:center;gap:8px;margin-top:10px;padding:7px 13px;border-radius:99px;background:#eef3fb;color:#27407e;font-size:.8rem;font-weight:600}
+.cx-lista2{max-width:1040px;margin-top:18px;background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:0 10px 26px rgba(var(--sombra),.06);overflow:hidden}
+.cx-fila{display:flex;flex-wrap:wrap;align-items:flex-start;gap:14px 28px;padding:20px 24px;transition:background .25s}
+.cx-fila+.cx-fila{border-top:1px solid #e8edf0}
+.cx-fila.cambio{background:#f6fbf9}
+.cx-que{flex:1 1 280px;max-width:340px;min-width:0;display:flex;gap:12px}
+.cx-ico{flex:none;display:grid;place-items:center;width:36px;height:36px;border-radius:10px;background:#e8ecf7;color:var(--nav)}
+.cx-que h2{margin:0 0 3px;font-size:1rem;color:var(--nav)}
+.cx-que p{margin:0;font-size:.8rem;line-height:1.5;color:var(--muted)}
+.cx-dir{flex:2 1 400px;min-width:0;display:flex;flex-direction:column;gap:6px}
+.cx-dir label{font-size:.76rem;font-weight:700;color:#4b5877}
+.cx-campo{display:flex;flex-wrap:wrap;gap:8px}
+.cx-campo input{flex:1 1 280px;min-width:0;width:auto;box-sizing:border-box;min-height:44px}
+.cx-campo .btn{min-height:44px}
+.cx-fila.cambio .cx-campo input{border-color:var(--brand);background:#fff}
+.cx-est{display:inline-flex;align-items:center;gap:6px;font-size:.76rem;font-weight:600;color:#1b6a43}
+.cx-est i{width:8px;height:8px;border-radius:50%;background:#2da56a}
+.cx-est.cambio,.cx-est.falta{color:#7a5600}.cx-est.cambio i,.cx-est.falta i{background:#d99a00}
+.cx-est.mal{color:#b73d32}.cx-est.mal i{background:#d9534a}
+.cx-pie{max-width:1040px;margin:12px 0 0;font-size:.8rem;color:var(--muted)}
