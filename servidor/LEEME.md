@@ -218,3 +218,7 @@ Rutas de Praxia (sesión y permiso `proyectos.crear`): `POST /api/proyectos/:id/
 ### Tope de tamaño del paquete
 
 Antes de enviar guiones o unidades, Praxia mide el paquete (bibliografía incluida). Si pasa de `N8N_PAQUETE_MAX_MB` (12 por defecto; n8n acepta 16 MiB), responde `413` con el tamaño y el límite en vez de enviarlo y dejar que n8n falle con un error confuso.
+
+### Identificador de fila
+
+El «ID del recurso» de la matriz es el del catálogo (`G-11-A`…) y se repite entre temas; lo único único por fila es su `codigo` (`U1-T2-R3 · G-11-A`). Si una unidad trae ids repetidos en `matrices_fin`, Praxia guarda cada fila con su `codigo`. En los avisos `h5p_inicio` (plan) y `h5p_recurso` envíe siempre `codigo` junto con `id`: Praxia localiza la fila por `codigo` y, si no existe, por `id`.

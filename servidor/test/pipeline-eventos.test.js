@@ -312,3 +312,21 @@ test('los avisos tal como los arma n8n (cadenas vacías en origen_trabajo_id y e
   const filas = await una('ana', 'pipeline_recursos', 'proyecto_id = $2 AND unidad = 7', ['curso-a'])
   assert.equal(filas.length, 2); assert.ok(filas.every((f) => f.enlace_recurso === null))
 })
+
+test('el «ID del recurso» del catálogo se repite entre temas: ninguna fila se pierde (se guardan por código) y los avisos de H5P llegan a la fila correcta', async () => {
+  const ahora = Date.now()
+  const comun = { etapa: 'matrices', trabajo_id: T.ana, proyecto_id: 'curso-a', ejecucion_id: 'rep-1' }
+  const f = (id, codigo, tema) => ({ id, id_base: id.slice(0, 4), variante: id.slice(5), alcance: 'General', tema, codigo, formato: 'Formato', titulo: 'T ' + codigo, con_actividad: false, generador: 'H5P', estado: 'PENDIENTE', observaciones: '', enlace_guion: DOC, enlace_recurso: '' })
+  const filas = [f('G-08-C', 'U8-T1-R1 · G-08-C', 1), f('G-11-A', 'U8-T1-R2 · G-11-A', 1), f('G-08-C', 'U8-T2-R1 · G-08-C', 2), f('G-11-A', 'U8-T3-R1 · G-11-A', 3), f('G-08-C', 'U8-T3-R2 · G-08-C', 3)]
+  const fin = { ...comun, evento_id: 'rep-fin-0001', evento: 'matrices_fin', secuencia: 2, fecha_evento: new Date(ahora - 2000).toISOString(), resultados: [{ unidad: 8, formacion: 'Doctorado', resultado: 'creada', matriz: { id: 'hoja-rep', url: 'https://docs.google.com/spreadsheets/d/hoja-rep/edit', nombre: 'M8' }, filas }] }
+  assert.equal((await enviar(fin)).estado, 200)
+  const guardadas = await una('ana', 'pipeline_recursos', 'proyecto_id = $2 AND unidad = 8', ['curso-a'])
+  assert.equal(guardadas.length, 5) // antes quedaban 2: las filas con el mismo id se pisaban entre sí
+  assert.deepEqual(guardadas.map((x) => x.codigo).sort(), filas.map((x) => x.codigo).sort())
+  // H5P avisa con el id repetido y el código: se actualiza solo la fila de ese código
+  const rec = { etapa: 'h5p', trabajo_id: T.ana, proyecto_id: 'curso-a', ejecucion_id: 'rep-h5p', unidad: 8, id: 'G-08-C', codigo: 'U8-T2-R1 · G-08-C' }
+  assert.equal((await enviar({ ...rec, evento_id: 'rep-rec-0001', evento: 'h5p_recurso', estado: 'GENERADO', enlace_recurso: 'https://drive.google.com/file/d/uno/view', secuencia: 1, fecha_evento: new Date(ahora - 1000).toISOString() })).estado, 200)
+  const despues = await una('ana', 'pipeline_recursos', 'proyecto_id = $2 AND unidad = 8', ['curso-a'])
+  assert.deepEqual(despues.filter((x) => x.estado === 'GENERADO').map((x) => x.codigo), ['U8-T2-R1 · G-08-C'])
+  assert.equal(despues.filter((x) => x.estado === 'PENDIENTE').length, 4)
+})

@@ -128,6 +128,15 @@ async function resolverOrigen(c, ev) {
   return null
 }
 
+// Clave de la fila a la que se refiere un aviso de H5P: la que se guardó con su código (cuando los ids se repiten) o, si no, su id.
+async function claveFila(c, P, Y, id, codigo) {
+  if (codigo) {
+    const f = (await c.query(Q.pipeFilaPorClave, [P, Y, String(codigo).slice(0, 100)])).rows[0]
+    if (f) return f.id
+  }
+  return String(id)
+}
+
 // Devuelve cuántos cambios se hicieron de verdad (0 = el aviso era más antiguo que lo ya guardado) o null si no toca ninguna tabla.
 async function aplicar(c, ev, o, fecha, sec) {
   const P = o.propietario_id
@@ -152,11 +161,16 @@ async function aplicar(c, ev, o, fecha, sec) {
         if (!g.rowCount) continue // un aviso más antiguo que lo que ya hay de esa unidad
         n++
         if (r.filas && estado !== 'error') {
-          for (const f of r.filas) {
-            await c.query(Q.pipeRecursoGuardar, [P, Y, f.id, r.unidad, f.id_base || null, f.variante || null, f.alcance || null, f.tema ?? null, f.codigo || null, f.formato || null, f.titulo || null,
+          // El «ID del recurso» de la matriz es el del catálogo (G-11-A…) y se repite entre temas; la fila se distingue por su código (U1-T2-R3 · G-11-A).
+          // Si en la unidad hay ids repetidos, cada fila se guarda con su código para no perder ninguna.
+          const repetidos = new Set(r.filas.map((f) => f.id)).size !== r.filas.length
+          if (repetidos && r.filas.some((f) => !f.codigo)) console.warn('[avisos] matrices_fin con ids de fila repetidos y filas sin código (unidad ' + r.unidad + '): se perderán filas')
+          const claves = r.filas.map((f) => (repetidos && f.codigo ? f.codigo : f.id))
+          for (const [k, f] of r.filas.entries()) {
+            await c.query(Q.pipeRecursoGuardar, [P, Y, claves[k], r.unidad, f.id_base || null, f.variante || null, f.alcance || null, f.tema ?? null, f.codigo || null, f.formato || null, f.titulo || null,
               f.con_actividad ?? null, f.generador || null, f.estado, f.observaciones || null, f.enlace_guion || null, f.enlace_recurso || null, null, fecha, sec])
           }
-          await c.query(Q.pipeRecursosQuitarSobrantes, [P, Y, r.unidad, r.filas.map((f) => f.id), fecha])
+          await c.query(Q.pipeRecursosQuitarSobrantes, [P, Y, r.unidad, claves, fecha])
         }
       }
       await c.query(Q.pipeEjecucionFin, [...base, JSON.stringify({ resultados: ev.resultados.map((r) => ({ unidad: r.unidad, resultado: r.resultado })) }), fecha])
@@ -165,10 +179,10 @@ async function aplicar(c, ev, o, fecha, sec) {
     case 'h5p_inicio':
       await c.query(Q.pipeEjecucionInicio, [...base, ev.maximo ?? null, JSON.stringify(ev.plan), fecha])
       n++
-      for (const om of ev.plan.omitidas) n += (await c.query(Q.pipeRecursoOmitir, [P, Y, om.id, om.motivo, fecha, sec])).rowCount
+      for (const om of ev.plan.omitidas) n += (await c.query(Q.pipeRecursoOmitir, [P, Y, await claveFila(c, P, Y, om.id, om.codigo), om.motivo, fecha, sec])).rowCount
       return n
     case 'h5p_recurso': {
-      const r = await c.query(Q.pipeRecursoGuardar, [P, Y, ev.id, ev.unidad ?? null, null, null, null, null, ev.codigo || null, null, null, null, null, ev.estado,
+      const r = await c.query(Q.pipeRecursoGuardar, [P, Y, await claveFila(c, P, Y, ev.id, ev.codigo), ev.unidad ?? null, null, null, null, null, ev.codigo || null, null, null, null, null, ev.estado,
         ev.observaciones || null, null, ev.enlace_recurso || null, null, fecha, sec])
       await c.query(Q.pipeEjecucionTocar, [...base, fecha])
       return r.rowCount

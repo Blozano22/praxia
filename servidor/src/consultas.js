@@ -132,6 +132,7 @@ export const Q = Object.freeze({
   // ---- pipeline: avisos de n8n guardados ligados al curso (sin sesión: la persona sale de pipeline_origen)
   pipeCarpetaDeProyecto: `SELECT datos->>'carpetaUrl' AS carpeta FROM proyectos WHERE propietario_id = $1 AND id = $2`,
   pipeProyectoDatos: `SELECT datos FROM proyectos WHERE propietario_id = $1 AND id = $2`,
+  pipeFilaPorClave: `SELECT id FROM pipeline_recursos WHERE propietario_id = $1 AND proyecto_id = $2 AND id = $3`,
   pipeOrigenBorrar: `DELETE FROM pipeline_origen WHERE trabajo_id = $1`,
   // ¿Hay ya una generación (matrices o h5p, según $3) en este curso? Una corrida avisó hace menos de 15 min, o se lanzó hace menos de 3 y aún no terminó.
   pipeEnCurso: `
