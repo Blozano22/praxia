@@ -337,4 +337,57 @@ for (const [pl, nom, datos] of [['lineatiempo', 'linea-tiempo', tiempo], ['cruci
     }
   }
 }
+// Infografía vertical con fotos (RED), video explicativo, podcast y portada: faltaban en la galería (solo existían las demás infografías).
+const comun = (tipo, id, codigo, clase, tag) => ({ id, tipo, codigo, clase, tag, chips: [], pie: 'Programa · Didáctica · ' + codigo, info: { resultado: 'Diseña estrategias didácticas para la formación comunitaria.' }, actividad: null })
+const nuevos = {
+  'infografia': {
+    plantilla: 'infografia',
+    datos: {
+      ...comun('infografia', 'ejemplo-infografia-vertical', 'U1-T1-OVI1', 'OVI', 'Infografía · U1-T1-OVI1'),
+      titulo: 'Innovar para servir mejor', variante: 'red', centro: '', kicker: 'Innovación en el servicio',
+      descripcion: 'Cinco prácticas sencillas para mejorar un servicio a partir de lo que la comunidad necesita.', dato: '5 prácticas', fuentes: 'Autor (2020). Título de la fuente.', img: '',
+      bloques: items(['Colaborar con la comunidad', 'Simplificar los procesos', 'Escuchar antes de decidir', 'Probar y ajustar', 'Medir el resultado'])
+    }
+  },
+  'portada': {
+    plantilla: 'portada',
+    datos: {
+      ...comun('portada', 'ejemplo-portada', 'U1-PRES', 'OVP', 'Portada · Unidad 1'),
+      titulo: 'Fundamentos de la didáctica', descripcion: 'En esta unidad conocerás cómo se relacionan la enseñanza, el aprendizaje y la evaluación, y cómo planear una clase que logre que las personas aprendan.',
+      etiquetas: [{ texto: 'Didáctica' }, { texto: 'Enseñanza' }, { texto: 'Aprendizaje' }, { texto: 'Evaluación' }], boton: 'Regresar al inicio', img: ''
+    }
+  },
+  'video': {
+    plantilla: 'video',
+    datos: {
+      ...comun('video', 'ejemplo-video', 'U1-T1-OVV1', 'OVV', 'Video explicativo · U1-T1-OVV1'),
+      titulo: 'Qué es la didáctica', duracion: '4 minutos', tecnica: 'Explicación con ejemplos',
+      escenas: [
+        { titulo: 'Escena 1 · Apertura', visual: 'Plano general de un aula comunitaria con personas conversando en grupo.', narracion: '¿Alguna vez te has preguntado por qué una clase funciona y otra no? La respuesta empieza en la didáctica.', img: '' },
+        { titulo: 'Escena 2 · Concepto', visual: 'Esquema animado con tres círculos: enseñar, aprender y evaluar.', narracion: 'La didáctica estudia cómo se enseña y cómo se aprende, y orienta las decisiones que toma quien enseña.', img: '' },
+        { titulo: 'Escena 3 · Ejemplo', visual: 'Una docente planea su clase con una lista de pasos sobre una mesa.', narracion: 'Imagina que debes enseñar un tema nuevo: eliges un objetivo, preparas una actividad y decides cómo comprobarás lo aprendido.', img: '' },
+        { titulo: 'Escena 4 · Cierre', visual: 'Pantalla final con la idea central en texto grande.', narracion: 'Enseñar y aprender son procesos que se diseñan. En el siguiente recurso lo pondrás en práctica.', img: '' }
+      ]
+    }
+  },
+  'podcast': {
+    plantilla: 'podcast',
+    datos: {
+      ...comun('podcast', 'ejemplo-podcast', 'U1-T1-OVP1', 'OVP', 'Podcast · U1-T1-OVP1'),
+      titulo: 'Conversando sobre didáctica', duracion: '8 minutos',
+      bloques: [
+        { etiqueta: 'Presentación', texto: 'Bienvenidas y bienvenidos. Hoy conversamos sobre cómo se relacionan enseñar, aprender y evaluar en una clase real.' },
+        { etiqueta: 'Pregunta 1', texto: '¿Qué significa planear una clase? Planear es decidir con anticipación qué se quiere lograr, con qué actividades y cómo se sabrá si se logró.' },
+        { etiqueta: 'Pregunta 2', texto: '¿Cómo se enseña mejor un tema difícil? Conviene partir de un ejemplo cercano, avanzar por pasos cortos y comprobar la comprensión en cada uno.' },
+        { etiqueta: 'Idea clave', texto: 'Enseñar y aprender son procesos que se diseñan: no ocurren solos y mejoran cuando se revisan.' },
+        { etiqueta: 'Cierre', texto: 'Gracias por escuchar. Antes de seguir, piensa en una clase que recuerdes bien: ¿qué la hizo funcionar?' }
+      ]
+    }
+  }
+}
+for (const [nombre, v] of Object.entries(nuevos)) {
+  const f = nombre + '-diepo.html'
+  fs.writeFileSync(path.join(salida, f), construir(v.plantilla, v.datos, 'diepo', false))
+  archivos.push(path.join(salida, f))
+}
 console.log(archivos.join('\n'))
