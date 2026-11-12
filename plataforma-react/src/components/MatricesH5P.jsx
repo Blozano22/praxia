@@ -19,6 +19,7 @@ const MOTIVO = {
   sin_plantilla: 'Todavía no hay una plantilla H5P para este tipo de recurso',
   generador_no_h5p: 'Lo genera otro generador (por ejemplo, Videos), no H5P',
   estado_no_pendiente: 'Ya estaba generado o en proceso',
+  sin_lector: 'Todavía no hay lector del guion para este tipo de recurso',
   tipo_inactivo: 'Este tipo de recurso está desactivado',
   supera_maximo: 'Superó el máximo de recursos de la corrida'
 }
@@ -38,6 +39,8 @@ function Pill({ par }) { return <span className={'pill ' + par[0]}>{par[1]}</spa
 function Corrida({ e }) {
   const omitidas = e.plan ? e.plan.omitidas : []
   const r = e.resumen
+  const porMotivo = Object.entries(omitidas.reduce((a, o) => { a[o.motivo] = (a[o.motivo] || 0) + 1; return a }, {})).sort((x, y) => y[1] - x[1])
+  const nadaQueGenerar = e.estado !== 'en_curso' && !!e.plan && e.plan.aGenerar === 0 && porMotivo.length > 0
   return (
     <section className="card mx-corrida" aria-label="Última corrida de H5P">
       <div className="mx-corrida-cab">
@@ -54,10 +57,11 @@ function Corrida({ e }) {
         <div><b>{omitidas.length || (r ? r.omitidos ?? 0 : 0)}</b><span>omitidos</span></div>
         {r && r.pendientes_restantes != null && <div><b>{r.pendientes_restantes}</b><span>pendientes</span></div>}
       </div>
+      {nadaQueGenerar && <p className="mx-nada"><b>n8n revisó los recursos pero no generó ninguno.</b> {porMotivo.map(([m, n]) => n + ' × ' + motivoTexto(m)).join(' · ')}.</p>}
       {omitidas.length > 0 && (
         <details className="mx-omitidas">
           <summary>Qué se omitió y por qué ({omitidas.length})</summary>
-          <ul>{omitidas.map((o) => <li key={o.id}><b>{o.codigo || o.id}</b><span>{motivoTexto(o.motivo)}</span></li>)}</ul>
+          <ul>{omitidas.map((o, i) => <li key={(o.codigo || o.id) + '-' + i}><b>{o.codigo || o.id}</b><span>{motivoTexto(o.motivo)}</span></li>)}</ul>
         </details>
       )}
     </section>
@@ -280,11 +284,12 @@ export default function MatricesH5P({ s }) {
     return { creadas, unidades: unidades.length, h5p: h5p.length, generados: h5p.filter((r) => r.estado === 'GENERADO').length, errores: d.recursos.filter((r) => r.estado === 'ERROR').length }
   }, [d, unidades.length])
   const ultimaH5P = d && d.ejecuciones.find((e) => e.etapa === 'h5p')
+  const corridaNueva = !!ultimaH5P && ultimaH5P.estado !== 'en_curso' && lanzadoEn > 0 && enviadas.length === 0 && new Date(ultimaH5P.ultimoEventoEn).getTime() >= lanzadoEn - 15000 // la corrida pedida ya terminó
   const puede = !!(d && d.puedeGenerarMatrices)
   const ocupado = lanzando || lanzadoReciente || !!(d && (d.matrices.some((m) => m.estado === 'generando' && !m.sinRespuesta) || d.ejecuciones.some((e) => e.etapa === 'matrices' && e.estado === 'en_curso' && !e.sinRespuesta)))
   const puedeH5p = !!(d && d.puedeGenerarH5p)
   const listas = d ? d.matrices.filter((m) => ['creada', 'omitida', 'reemplazada'].includes(m.estado) && !m.sinRespuesta).length : 0
-  const h5pOcupado = lanzando || lanzadoReciente || !!(d && d.ejecuciones.some((e) => e.etapa === 'h5p' && e.estado === 'en_curso' && !e.sinRespuesta))
+  const h5pOcupado = lanzando || (lanzadoReciente && !corridaNueva) || !!(d && d.ejecuciones.some((e) => e.etapa === 'h5p' && e.estado === 'en_curso' && !e.sinRespuesta))
   const conError = d ? d.recursos.filter((r) => r.estado === 'ERROR').length : 0
   const pendientes = d ? d.recursos.filter((r) => r.estado === 'PENDIENTE' && String(r.generador || '').toUpperCase() === 'H5P').length : 0
   const aprobadas = new Set((s.syllabus.documentos || []).filter((x) => x.aprobado).map((x) => x.unidad))
@@ -292,7 +297,7 @@ export default function MatricesH5P({ s }) {
 
   const enCursoMat = d ? d.matrices.filter((m) => m.estado === 'generando' && !m.sinRespuesta) : []
   const corridaH5p = ultimaH5P && ultimaH5P.estado === 'en_curso' && !ultimaH5P.sinRespuesta ? ultimaH5P : null
-  const soloEnviado = lanzadoReciente && !enCursoMat.length && !corridaH5p
+  const soloEnviado = lanzadoReciente && !corridaNueva && !enCursoMat.length && !corridaH5p
   const nombres = (l) => (l.length === 1 ? 'la matriz de la Unidad ' + l[0].unidad : 'las matrices de las unidades ' + l.map((m) => m.unidad).join(', '))
   const desdeMat = enCursoMat.map((m) => new Date(m.actualizadoEn).getTime()).filter(Boolean).sort((a, b) => a - b)[0]
   const todoAlDia = !!d && unidades.length > 0 && listas === unidades.length && resumen && resumen.h5p > 0 && pendientes === 0 && conError === 0

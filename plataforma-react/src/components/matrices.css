@@ -274,3 +274,5 @@ button.mx3-fase.bloq{cursor:not-allowed;opacity:.75}
 .mx5-re{min-height:54px;padding:0 20px;border:1px solid rgba(255,255,255,.4);border-radius:14px;background:transparent;color:#fff;font:inherit;font-weight:700;cursor:pointer}
 .mx5-re:hover:not(:disabled){background:rgba(255,255,255,.1)}
 @media(max-width:760px){.mx5-h5p{grid-template-columns:1fr}}
+
+.mx-nada{margin:12px 0 0;padding:10px 12px;border-radius:10px;background:#fff7e0;border:1px solid #ecd9a0;font-size:13.5px;line-height:1.45}
