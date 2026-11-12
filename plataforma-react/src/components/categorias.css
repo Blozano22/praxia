@@ -25,11 +25,14 @@
 .cat-vacia{margin:0;padding:14px 16px}
 .cat-vars{list-style:none;margin:0;padding:8px 8px 10px;display:flex;flex-direction:column;gap:2px}
 .cat-var{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(140px,210px);gap:8px 12px;align-items:center;padding:7px 8px;border-radius:8px}
+.cat-var-sub{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding-bottom:2px}
+.cat-sub{margin-left:8px;font-style:normal;font-size:.7rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:999px;background:#e6f1ee;color:var(--brand);vertical-align:middle}
 .cat-var:hover{background:#f4f6fb}
 .cat-var-n{font-weight:700;color:var(--nav);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cat-var-ver{font-size:.82rem;font-weight:700}
 .cat-var select{min-width:0;width:100%}
 .cat-var:not(:has(select)){grid-template-columns:minmax(0,1fr) auto}
+@media (max-width:640px){.cat-var{grid-template-columns:1fr}}
 .cat-sin.hay{border-color:#ecd9a0;background:#fffdf5}
 .cat-sin.hay .cat-cab{border-bottom-color:#f0e4bd}
 
@@ -39,3 +42,14 @@
 .pl2-vistas button:hover{background:#f4f6fb}
 .pl2-vistas button.on{background:var(--nav);color:#fff}
 .pl2-vistas button:focus-visible{outline:3px solid var(--brand);outline-offset:1px}
+
+/* Barra y formulario de subida */
+.cat-barra{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 14px}
+.cat-barra .cat-form{flex:1 1 100%}
+.cat-subir{grid-template-columns:minmax(200px,280px) minmax(200px,1fr)}
+.cat-subir .cat-archivo,.cat-subir .cat-regla,.cat-subir .cat-form-acc{grid-column:1/-1}
+.cat-archivo{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px}
+.cat-archivo-n{font-size:.85rem;color:var(--muted)}
+.cat-regla{margin:0;line-height:1.5}
+.cat-regla code{background:#eef1f8;border-radius:5px;padding:1px 6px;font-size:.82rem}
+@media (max-width:760px){.cat-subir{grid-template-columns:1fr}}

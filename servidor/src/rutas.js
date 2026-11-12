@@ -7,6 +7,7 @@ import { conUsuario, conTransaccion, sinUsuario } from './db.js'
 import { Q } from './consultas.js'
 import { config } from './config.js'
 import { extraerEnlaces } from './enlaces.js'
+import { armarSubida, MAX_HTML, NOMBRES_RESERVADOS } from './plantillas/subidas.js'
 import { EsquemaLanzarH5p, EsquemaLanzarMatrices, lanzarH5p, lanzarMatrices, urlH5p, urlMatrices } from './pipeline/lanzar.js'
 import { COOKIE, claveValida, compararClave, emitirSesion, exigirPermiso, exigirSesion, hashClave } from './seguridad.js'
 
@@ -337,8 +338,12 @@ export const nombresPlantillasPublicadas = () => {
 }
 rutas.get('/plantillas/categorias', exigirSesion, exigirPermiso('plantillas.ver'), async (req, res, next) => {
   try {
-    const [c, a] = await Promise.all([sinUsuario(Q.categoriasListar), sinUsuario(Q.categoriasAsignaciones)])
-    res.json({ categorias: c.rows, asignaciones: Object.fromEntries(a.rows.map((x) => [x.plantilla, x.categoria])), plantillas: nombresPlantillasPublicadas() })
+    const [c, a, u] = await Promise.all([sinUsuario(Q.categoriasListar), sinUsuario(Q.categoriasAsignaciones), sinUsuario(Q.subidasListar)])
+    const plantillas = [...new Set([...nombresPlantillasPublicadas(), ...u.rows.map((x) => x.nombre)])].sort()
+    res.json({
+      categorias: c.rows, asignaciones: Object.fromEntries(a.rows.map((x) => [x.plantilla, x.categoria])), plantillas,
+      subidas: Object.fromEntries(u.rows.map((x) => [x.nombre, { por: x.por, actualizado: x.actualizado }]))
+    })
   } catch (e) { next(e) }
 })
 rutas.post('/plantillas/categorias', exigirSesion, exigirPermiso('plantillas.revisar'), validar(z.object({ id: IdCategoria, nombre: NombreCategoria }).strict(), 'body'), async (req, res, next) => {
@@ -376,6 +381,45 @@ rutas.put('/plantillas/asignacion/:plantilla', exigirSesion, exigirPermiso('plan
       await sinUsuario(Q.categoriaAsignar, [plantilla, categoria])
     }
     await auditar(req.usuario.id, 'plantilla_categoria_asignar', 'plantilla', plantilla, req)
+    res.json({ ok: true })
+  } catch (e) { next(e) }
+})
+
+// Subir plantillas nuevas desde la pantalla. Se arman y validan igual que las del build; no pueden pisar una del sistema.
+const limiteSubir = rateLimit({ windowMs: 60 * 1000, limit: 30, keyGenerator: (req) => (req.usuario ? 'u:' + req.usuario.id : ipKeyGenerator(req.ip)), standardHeaders: true, legacyHeaders: false })
+const NombreSubida = z.string().regex(/^[a-z0-9-]{1,80}$/)
+const HtmlSubido = z.string().min(1).max(MAX_HTML + 4096)
+const CuerpoSubir = z.object({ nombre: NombreSubida, html: HtmlSubido, categoria: IdCategoria.nullish() }).strict()
+rutas.post('/plantillas/subidas', exigirSesion, exigirPermiso('plantillas.revisar'), limiteSubir, validar(CuerpoSubir, 'body'), async (req, res, next) => {
+  try {
+    const { nombre, html, categoria } = req.bodyOk
+    if (NOMBRES_RESERVADOS.includes(nombre) || nombresPlantillasPublicadas().includes(nombre)) return res.status(409).json({ error: 'Ese nombre ya lo usa una plantilla del sistema. Elija otro.' })
+    if (categoria && !(await sinUsuario(Q.categoriasListar)).rows.some((c) => c.id === categoria)) return res.status(404).json({ error: 'No existe esa categoría.' })
+    const armada = armarSubida(html)
+    if (!armada.ok) return res.status(400).json({ error: armada.error })
+    const r = await sinUsuario(Q.subidaCrear, [nombre, html, armada.html, req.usuario.id, req.usuario.nombre])
+    if (!r.rowCount) return res.status(409).json({ error: 'Ya hay una plantilla subida con ese nombre. Use «Reemplazar» para cambiarla.' })
+    if (categoria) await sinUsuario(Q.categoriaAsignar, [nombre, categoria])
+    await auditar(req.usuario.id, 'plantilla_subir', 'plantilla', nombre, req)
+    res.status(201).json({ nombre })
+  } catch (e) { next(e) }
+})
+rutas.put('/plantillas/subidas/:nombre', exigirSesion, exigirPermiso('plantillas.revisar'), limiteSubir, validar(z.object({ nombre: NombreSubida }), 'params'), validar(z.object({ html: HtmlSubido }).strict(), 'body'), async (req, res, next) => {
+  try {
+    const armada = armarSubida(req.bodyOk.html)
+    if (!armada.ok) return res.status(400).json({ error: armada.error })
+    const r = await sinUsuario(Q.subidaReemplazar, [req.paramsOk.nombre, req.bodyOk.html, armada.html, req.usuario.id, req.usuario.nombre])
+    if (!r.rowCount) return res.status(404).json({ error: 'No hay una plantilla subida con ese nombre (las del sistema no se reemplazan desde aquí).' })
+    await auditar(req.usuario.id, 'plantilla_reemplazar', 'plantilla', req.paramsOk.nombre, req)
+    res.json({ ok: true })
+  } catch (e) { next(e) }
+})
+rutas.delete('/plantillas/subidas/:nombre', exigirSesion, exigirPermiso('plantillas.revisar'), validar(z.object({ nombre: NombreSubida }), 'params'), async (req, res, next) => {
+  try {
+    const r = await sinUsuario(Q.subidaBorrar, [req.paramsOk.nombre])
+    if (!r.rowCount) return res.status(404).json({ error: 'No hay una plantilla subida con ese nombre.' })
+    await sinUsuario(Q.categoriaQuitar, [req.paramsOk.nombre])
+    await auditar(req.usuario.id, 'plantilla_eliminar', 'plantilla', req.paramsOk.nombre, req)
     res.json({ ok: true })
   } catch (e) { next(e) }
 })

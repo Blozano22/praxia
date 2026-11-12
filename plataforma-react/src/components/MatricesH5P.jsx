@@ -20,6 +20,7 @@ const MOTIVO = {
   generador_no_h5p: 'Lo genera otro generador (por ejemplo, Videos), no H5P',
   estado_no_pendiente: 'Ya estaba generado o en proceso',
   sin_lector: 'Todavía no hay lector del guion para este tipo de recurso',
+  sin_variante_disponible: 'No queda una variante libre de este tipo: se reintenta sola en la siguiente corrida',
   tipo_inactivo: 'Este tipo de recurso está desactivado',
   supera_maximo: 'Superó el máximo de recursos de la corrida'
 }

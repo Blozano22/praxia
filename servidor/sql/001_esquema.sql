@@ -325,6 +325,17 @@ SELECT v.p, v.c FROM (VALUES
 ) AS v(p, c)
 WHERE NOT EXISTS (SELECT 1 FROM plantilla_categoria) AND EXISTS (SELECT 1 FROM plantilla_categorias WHERE id = v.c);
 
+-- Plantillas HTML subidas desde la pantalla (además de las que publica el build). Se guardan crudas y armadas; la categoría va en plantilla_categoria.
+CREATE TABLE IF NOT EXISTS plantilla_subidas (
+  nombre        text PRIMARY KEY CHECK (nombre ~ '^[a-z0-9-]{1,80}$'),
+  html_crudo    text NOT NULL CHECK (char_length(html_crudo) <= 1700000),
+  html          text NOT NULL,
+  subida_por    uuid REFERENCES usuarios(id) ON DELETE SET NULL,
+  subida_nombre text NOT NULL DEFAULT '' CHECK (char_length(subida_nombre) <= 120),
+  creado        timestamptz NOT NULL DEFAULT now(),
+  actualizado   timestamptz NOT NULL DEFAULT now()
+);
+
 -- ---------------------------------------------------------------- seguridad por fila (RLS)
 -- Aunque una consulta de la aplicación olvidara el filtro por propietario, la base de datos
 -- solo entrega y solo deja escribir las filas del usuario de la sesión (app.usuario_id).
@@ -378,7 +389,7 @@ BEGIN
       RAISE NOTICE 'Sin permiso para dar permisos sobre configuracion (es de otro usuario); se dejan como están.';
     END;
     GRANT SELECT, INSERT, UPDATE ON plantilla_historial TO ova_app;
-    GRANT SELECT, INSERT, UPDATE, DELETE ON plantilla_categorias, plantilla_categoria TO ova_app;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON plantilla_categorias, plantilla_categoria, plantilla_subidas TO ova_app;
     GRANT SELECT, INSERT, UPDATE, DELETE ON pipeline_origen, pipeline_ejecuciones, pipeline_matrices, pipeline_recursos, pipeline_eventos TO ova_app;
     GRANT USAGE, SELECT ON SEQUENCE plantilla_historial_id_seq TO ova_app;
     GRANT USAGE, SELECT ON SEQUENCE enlaces_id_seq, auditoria_id_seq TO ova_app;

@@ -17,7 +17,7 @@ const web = fs.mkdtempSync(path.join(os.tmpdir(), 'ova-web-cat-'))
 const servidorPg = new EmbeddedPostgres({ databaseDir: dir, user: 'postgres', password: 'duenio', port: PUERTO_PG, persistent: false })
 const CLAVE = 'ClaveSegura123'
 // Lo que escribe el build (sin categorías): 3 acordeones, una línea de tiempo, una de crucigrama y una nueva sin categoría.
-const NOMBRES = ['acordeon', 'acordeon-2', 'acordeon-3', 'lineatiempo', 'crucigrama', 'nueva-plantilla']
+const NOMBRES = ['acordeon', 'acordeon-2', 'acordeon-3', 'crucigrama', 'lineatiempo', 'nueva-plantilla']
 
 let servidor, base, pool
 let poolCerrado = false
@@ -112,6 +112,66 @@ test('el índice público sale agrupado por categoría, sin sesión, y conserva 
   assert.deepEqual(j.categorias.find((c) => c.id === 'G-20').variantes, [{ nombre: 'crucigrama', archivo: 'crucigrama.html' }])
   assert.deepEqual(j.sin_categoria.map((p) => p.nombre), ['nueva-plantilla']) // la que se dejó sin categoría
   assert.equal(j.categorias.find((c) => c.id === 'G-01').variantes.length, 0) // categoría sin variantes todavía
+})
+
+const PLANTILLA = (extra = '') => '<!doctype html><html lang="es"><head><meta charset="utf-8"><title>{{TITULO}}</title><style>/*CSS*/</style></head><body><div id="app"></div><script>const D=/*CONTENIDO*/;</script>' + extra + '</body></html>'
+
+test('subir una plantilla desde la pantalla: se arma como las del build, queda en el índice con su categoría y se entrega aislada', async () => {
+  const dani = await entrar('dani@u.co')
+  const r = await dani('POST', '/plantillas/subidas', { nombre: 'tarjetas-repaso', html: PLANTILLA(), categoria: 'G-10' })
+  assert.equal(r.status, 201)
+  const j = await (await dani('GET', '/plantillas/categorias')).json()
+  assert.ok(j.plantillas.includes('tarjetas-repaso')); assert.equal(j.asignaciones['tarjetas-repaso'], 'G-10'); assert.ok(j.subidas['tarjetas-repaso'])
+  // la descarga n8n: sin sesión, armada (estilos incrustados, marcas intactas) y con el aislamiento
+  const h = await fetch(base + '/plantillas-html/tarjetas-repaso.html')
+  assert.equal(h.status, 200)
+  assert.match(h.headers.get('content-type'), /text\/html/)
+  assert.match(h.headers.get('content-security-policy'), /sandbox/); assert.doesNotMatch(h.headers.get('content-security-policy'), /allow-same-origin/)
+  assert.equal(h.headers.get('access-control-allow-origin'), '*')
+  const html = await h.text()
+  assert.ok(html.includes('{{TITULO}}') && html.includes('/*CONTENIDO*/')); assert.equal(html.includes('/*CSS*/'), false)
+  // el índice público la suma y la agrupa
+  const ix = await indice()
+  const p = ix.plantillas.find((x) => x.nombre === 'tarjetas-repaso')
+  assert.deepEqual([p.archivo, p.id_catalogo, p.subida], ['tarjetas-repaso.html', 'G-10', true])
+  assert.deepEqual(ix.categorias.find((c) => c.id === 'G-10').variantes, [{ nombre: 'tarjetas-repaso', archivo: 'tarjetas-repaso.html' }])
+  assert.equal(ix.total, NOMBRES.length + 1)
+})
+
+test('una plantilla subida que no cumple las reglas del build se rechaza con el motivo; no pisa las del sistema; solo la sube quien revisa', async () => {
+  const dani = await entrar('dani@u.co')
+  const ana = await entrar('ana@u.co')
+  const subir = (cuerpo) => dani('POST', '/plantillas/subidas', cuerpo)
+  const motivo = async (r) => (await r.json()).error
+  assert.match(await motivo(await subir({ nombre: 'sin-html', html: 'solo texto {{TITULO}} /*CONTENIDO*/' })), /<html>/)
+  assert.match(await motivo(await subir({ nombre: 'sin-titulo', html: '<html><body>/*CONTENIDO*/</body></html>' })), /\{\{TITULO\}\} y tiene 0/)
+  assert.match(await motivo(await subir({ nombre: 'sin-contenido', html: '<html><title>{{TITULO}}</title></html>' })), /CONTENIDO\*\/ y tiene 0/)
+  assert.match(await motivo(await subir({ nombre: 'doble-titulo', html: PLANTILLA('<h1>{{TITULO}}</h1>') })), /\{\{TITULO\}\} y tiene 2/)
+  assert.match(await motivo(await subir({ nombre: 'marca-interna', html: PLANTILLA('<i>/*TEMA*/</i><i>/*TEMA*/</i>') })), /sin reemplazar \/\*TEMA\*\//)
+  assert.equal((await subir({ nombre: 'enorme', html: PLANTILLA('x'.repeat(1700 * 1024)) })).status, 400) // más de 1,5 MB
+  assert.equal((await subir({ nombre: 'Mal Nombre', html: PLANTILLA() })).status, 400)
+  assert.equal((await subir({ nombre: 'ok-pero', html: PLANTILLA(), categoria: 'G-77' })).status, 404) // categoría inexistente
+  assert.equal((await subir({ nombre: 'acordeon', html: PLANTILLA() })).status, 409) // es una del sistema
+  assert.equal((await subir({ nombre: 'plantillas', html: PLANTILLA() })).status, 409) // reservado
+  assert.equal((await subir({ nombre: 'tarjetas-repaso', html: PLANTILLA() })).status, 409) // ya subida: se usa Reemplazar
+  assert.equal((await ana('POST', '/plantillas/subidas', { nombre: 'de-ana', html: PLANTILLA() })).status, 403)
+  assert.equal((await fetch(base + '/api/plantillas/subidas', { method: 'POST', headers: { 'x-ova': '1', 'content-type': 'application/json' }, body: '{}' })).status, 401)
+  assert.equal((await fetch(base + '/plantillas-html/sin-html.html')).status, 404) // lo rechazado no quedó publicado
+})
+
+test('reemplazar y eliminar una plantilla subida; las del sistema no se tocan desde aquí', async () => {
+  const dani = await entrar('dani@u.co')
+  assert.equal((await dani('PUT', '/plantillas/subidas/tarjetas-repaso', { html: PLANTILLA('<p id="v2">segunda versión</p>') })).status, 200)
+  assert.match(await (await fetch(base + '/plantillas-html/tarjetas-repaso.html')).text(), /segunda versión/)
+  assert.equal((await dani('PUT', '/plantillas/subidas/tarjetas-repaso', { html: '<html>sin marcas</html>' })).status, 400)
+  assert.match(await (await fetch(base + '/plantillas-html/tarjetas-repaso.html')).text(), /segunda versión/) // el intento malo no cambió nada
+  assert.equal((await dani('PUT', '/plantillas/subidas/acordeon', { html: PLANTILLA() })).status, 404)
+  assert.equal((await dani('DELETE', '/plantillas/subidas/acordeon')).status, 404)
+  assert.equal((await dani('DELETE', '/plantillas/subidas/tarjetas-repaso')).status, 200)
+  assert.equal((await fetch(base + '/plantillas-html/tarjetas-repaso.html')).status, 404)
+  const j = await (await dani('GET', '/plantillas/categorias')).json()
+  assert.equal(j.plantillas.includes('tarjetas-repaso'), false); assert.equal(j.asignaciones['tarjetas-repaso'], undefined)
+  assert.equal((await indice()).plantillas.some((p) => p.nombre === 'tarjetas-repaso'), false)
 })
 
 test('borrar una categoría deja sus plantillas sin categoría; si falla la base de datos se entrega el archivo del build tal cual', async () => {

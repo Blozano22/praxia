@@ -8,6 +8,7 @@ import path from 'node:path'
 import { config } from './config.js'
 import { exigirCabecera } from './seguridad.js'
 import { rutas } from './rutas.js'
+import { CABECERAS_AISLADAS } from './plantillas/subidas.js'
 import { rutasBibliografia } from './bibliografia/rutas.js'
 import { rutasGuiones } from './guiones/rutas.js'
 import { rutasUnidades } from './unidades/rutas.js'
@@ -45,28 +46,38 @@ export function crearApp() {
   app.use('/api', exigirCabecera, rutas)
   app.use('/api', (req, res) => res.status(404).json({ error: 'No encontrado' }))
 
+  // Plantillas HTML de los recursos: públicas y de solo lectura. Las descarga un flujo de n8n sin sesión ni cabecera x-ova; no contienen datos de nadie.
+  // Salen de dos sitios: las armadas en el build (dist/plantillas-html) y las subidas desde la pantalla (base de datos). CORS abierto solo para leer (GET).
+  app.use('/plantillas-html', (req, res, next) => {
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return res.status(405).set('Allow', 'GET, HEAD, OPTIONS').end()
+    res.set({ 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS', 'Cross-Origin-Resource-Policy': 'cross-origin', 'Cache-Control': 'no-cache' })
+    if (req.method === 'OPTIONS') return res.status(204).end()
+    next()
+  })
+  // Índice: lo del build + las subidas + la categoría de cada una (si la base de datos no responde, se entrega solo el archivo del build).
+  // Lo de siempre (marcas, total, plantillas[].nombre/archivo) no cambia; se AÑADE id_catalogo por plantilla, «categorias» y «sin_categoria».
+  app.get('/plantillas-html/plantillas.json', async (req, res) => {
+    let base = { marcas: { titulo: '{{TITULO}}', contenido: '/*CONTENIDO*/' }, total: 0, plantillas: [] }
+    if (config.carpetaWeb) { try { base = JSON.parse(fs.readFileSync(path.join(config.carpetaWeb, 'plantillas-html', 'plantillas.json'), 'utf8')) } catch { /* sin build: solo las subidas */ } }
+    try {
+      const [c, a, u] = await Promise.all([sinUsuario(Q.categoriasListar), sinUsuario(Q.categoriasAsignaciones), sinUsuario(Q.subidasListar)])
+      const de = Object.fromEntries(a.rows.map((x) => [x.plantilla, x.categoria]))
+      const delBuild = (base.plantillas || []).filter((p) => !u.rows.some((x) => x.nombre === p.nombre))
+      const todas = [...delBuild, ...u.rows.map((x) => ({ nombre: x.nombre, archivo: x.nombre + '.html', subida: true }))].sort((x, y) => x.nombre.localeCompare(y.nombre))
+      const plantillas = todas.map((p) => ({ ...p, id_catalogo: de[p.nombre] || null }))
+      const categorias = c.rows.map((k) => ({ id: k.id, nombre: k.nombre, variantes: plantillas.filter((p) => p.id_catalogo === k.id).map(({ nombre, archivo }) => ({ nombre, archivo })) }))
+      res.json({ ...base, total: plantillas.length, plantillas, categorias, sin_categoria: plantillas.filter((p) => !p.id_catalogo).map(({ nombre, archivo }) => ({ nombre, archivo })) })
+    } catch { res.json(base) }
+  })
+  // Una plantilla subida desde la pantalla se entrega AISLADA (sandbox sin allow-same-origin): sus scripts corren, pero no pueden usar la sesión de Praxia.
+  app.get(/^\/plantillas-html\/([a-z0-9-]{1,80})\.html$/, async (req, res, next) => {
+    try {
+      const f = (await sinUsuario(Q.subidaHtml, [req.params[0]])).rows[0]
+      if (!f) return next()
+      res.set(CABECERAS_AISLADAS).send(f.html)
+    } catch { next() }
+  })
   if (config.carpetaWeb && fs.existsSync(config.carpetaWeb)) {
-    // Plantillas HTML de los recursos, ya armadas en el build (dist/plantillas-html): públicas y de solo lectura.
-    // Las descarga un flujo de n8n sin sesión ni cabecera x-ova; no contienen datos de nadie. CORS abierto solo para leer (GET).
-    app.use('/plantillas-html', (req, res, next) => {
-      if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return res.status(405).set('Allow', 'GET, HEAD, OPTIONS').end()
-      res.set({ 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS', 'Cross-Origin-Resource-Policy': 'cross-origin', 'Cache-Control': 'no-cache' })
-      if (req.method === 'OPTIONS') return res.status(204).end()
-      next()
-    })
-    // Índice de plantillas: el archivo del build + la categoría de cada una (si la base de datos no responde, se entrega el archivo tal cual).
-    // Lo de siempre (marcas, total, plantillas[].nombre/archivo) no cambia; se AÑADE id_catalogo por plantilla, «categorias» y «sin_categoria».
-    app.get('/plantillas-html/plantillas.json', async (req, res, next) => {
-      let base
-      try { base = JSON.parse(fs.readFileSync(path.join(config.carpetaWeb, 'plantillas-html', 'plantillas.json'), 'utf8')) } catch { return next() }
-      try {
-        const [c, a] = await Promise.all([sinUsuario(Q.categoriasListar), sinUsuario(Q.categoriasAsignaciones)])
-        const de = Object.fromEntries(a.rows.map((x) => [x.plantilla, x.categoria]))
-        const plantillas = (base.plantillas || []).map((p) => ({ ...p, id_catalogo: de[p.nombre] || null }))
-        const categorias = c.rows.map((k) => ({ id: k.id, nombre: k.nombre, variantes: plantillas.filter((p) => p.id_catalogo === k.id).map(({ nombre, archivo }) => ({ nombre, archivo })) }))
-        res.json({ ...base, plantillas, categorias, sin_categoria: plantillas.filter((p) => !p.id_catalogo).map(({ nombre, archivo }) => ({ nombre, archivo })) })
-      } catch { res.json(base) }
-    })
     app.use(express.static(config.carpetaWeb, { index: 'index.html' }))
   }
 
