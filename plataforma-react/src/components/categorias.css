@@ -84,3 +84,9 @@
 .pl2-codigo small{color:var(--muted);font-size:.82rem;line-height:1.3}
 .pl2-codigo.sin{background:#f7f8fb;border-color:var(--line)}
 .pl2-codigo.sin small{grid-column:1/-1}
+
+/* Gestionar las variantes de una categoría */
+.cat-gestion{border-top:1px solid var(--line);padding:6px 8px 10px;background:#fbfcfe}
+.cat-gestion>.help{margin:6px 8px 4px;line-height:1.45}
+.cat-ocu{margin-left:8px;font-style:normal;font-size:.7rem;font-weight:800;letter-spacing:.03em;padding:2px 7px;border-radius:999px;background:#f3e3df;color:#a63a32;vertical-align:middle}
+.cat-var.oculta .cat-var-n{opacity:.6}

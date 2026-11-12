@@ -24,6 +24,7 @@ let poolCerrado = false
 before(async () => {
   fs.mkdirSync(path.join(web, 'plantillas-html'))
   fs.writeFileSync(path.join(web, 'index.html'), '<!doctype html><title>app</title>')
+  for (const n of NOMBRES) fs.writeFileSync(path.join(web, 'plantillas-html', n + '.html'), '<html><title>{{TITULO}}</title>/*CONTENIDO*/</html>')
   fs.writeFileSync(path.join(web, 'plantillas-html', 'plantillas.json'), JSON.stringify({ marcas: { titulo: '{{TITULO}}', contenido: '/*CONTENIDO*/' }, total: NOMBRES.length, plantillas: NOMBRES.map((n) => ({ nombre: n, archivo: n + '.html' })) }))
   await servidorPg.initialise(); await servidorPg.start(); await servidorPg.createDatabase('ova')
   const dueno = new pg.Client({ connectionString: `postgres://postgres:duenio@localhost:${PUERTO_PG}/ova` })
@@ -195,6 +196,35 @@ test('cada categoría es de un tipo: «recurso» o «actividad» de autoaprendiz
   assert.deepEqual([ix.plantillas.find((p) => p.nombre === 'crucigrama').tipo, ix.plantillas.find((p) => p.nombre === 'acordeon').tipo, ix.plantillas.find((p) => p.nombre === 'nueva-plantilla').tipo], ['actividad', 'recurso', null])
   assert.equal((await dani('DELETE', '/plantillas/categorias/ACT-01')).status, 200)
   assert.equal((await dani('DELETE', '/plantillas/categorias/G-30')).status, 200)
+})
+
+test('quitar de n8n una plantilla del sistema (y volver a mostrarla) sin tocar el código; las subidas se eliminan, no se ocultan', async () => {
+  const dani = await entrar('dani@u.co')
+  const ana = await entrar('ana@u.co')
+  assert.equal((await fetch(base + '/plantillas-html/acordeon-3.html')).status, 200)
+  assert.equal((await ana('PUT', '/plantillas/ocultas/acordeon-3', { oculta: true })).status, 403)
+  assert.equal((await dani('PUT', '/plantillas/ocultas/no-existe', { oculta: true })).status, 404)
+  assert.equal((await dani('PUT', '/plantillas/ocultas/acordeon-3', { oculta: 'si' })).status, 400)
+  assert.equal((await dani('PUT', '/plantillas/ocultas/acordeon-3', { oculta: true })).status, 200)
+  // ya no se ofrece a n8n: ni en el índice (plantillas, categoría ni total) ni en la descarga
+  let ix = await indice()
+  assert.equal(ix.plantillas.some((p) => p.nombre === 'acordeon-3'), false); assert.equal(ix.total, NOMBRES.length - 1)
+  assert.deepEqual(ix.categorias.find((c) => c.id === 'G-09').variantes.map((v) => v.nombre), ['acordeon', 'acordeon-2'])
+  assert.equal((await fetch(base + '/plantillas-html/acordeon-3.html')).status, 404)
+  assert.equal((await fetch(base + '/plantillas-html/acordeon-2.html')).status, 200) // las demás siguen
+  // la pantalla la sigue viendo (para poder volver a mostrarla)
+  const j = await (await dani('GET', '/plantillas/categorias')).json()
+  assert.deepEqual(j.ocultas, ['acordeon-3']); assert.ok(j.plantillas.includes('acordeon-3'))
+  // a una subida no se le aplica: se elimina
+  assert.equal((await dani('POST', '/plantillas/subidas', { nombre: 'subida-x', html: PLANTILLA() })).status, 201)
+  assert.equal((await dani('PUT', '/plantillas/ocultas/subida-x', { oculta: true })).status, 404)
+  assert.equal((await dani('DELETE', '/plantillas/subidas/subida-x')).status, 200)
+  // volver a mostrarla
+  assert.equal((await dani('PUT', '/plantillas/ocultas/acordeon-3', { oculta: false })).status, 200)
+  ix = await indice()
+  assert.equal(ix.plantillas.some((p) => p.nombre === 'acordeon-3'), true); assert.equal(ix.total, NOMBRES.length)
+  assert.equal((await fetch(base + '/plantillas-html/acordeon-3.html')).status, 200)
+  assert.deepEqual((await (await dani('GET', '/plantillas/categorias')).json()).ocultas, [])
 })
 
 test('borrar una categoría deja sus plantillas sin categoría; si falla la base de datos se entrega el archivo del build tal cual', async () => {

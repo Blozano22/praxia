@@ -298,6 +298,11 @@ export const Q = Object.freeze({
   subidaCrear: `INSERT INTO plantilla_subidas (nombre, html_crudo, html, subida_por, subida_nombre) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (nombre) DO NOTHING RETURNING nombre`,
   subidaReemplazar: `UPDATE plantilla_subidas SET html_crudo = $2, html = $3, subida_por = $4, subida_nombre = $5, actualizado = now() WHERE nombre = $1 RETURNING nombre`,
   subidaBorrar: `DELETE FROM plantilla_subidas WHERE nombre = $1 RETURNING nombre`,
+  // ---- plantillas del sistema quitadas de n8n
+  ocultasListar: `SELECT plantilla FROM plantilla_ocultas ORDER BY plantilla`,
+  ocultaEsta: `SELECT 1 FROM plantilla_ocultas WHERE plantilla = $1`,
+  ocultaPoner: `INSERT INTO plantilla_ocultas (plantilla, oculta_por) VALUES ($1, $2) ON CONFLICT (plantilla) DO NOTHING`,
+  ocultaQuitar: `DELETE FROM plantilla_ocultas WHERE plantilla = $1`,
   usuarioSubirVersion: `UPDATE usuarios SET version_token = version_token + 1 WHERE id = $1 RETURNING id`,
   rolesListar: `SELECT nombre FROM roles ORDER BY id`,
 

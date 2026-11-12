@@ -338,6 +338,13 @@ CREATE TABLE IF NOT EXISTS plantilla_subidas (
   actualizado   timestamptz NOT NULL DEFAULT now()
 );
 
+-- Plantillas del sistema (las del build) que se quitaron de n8n desde la pantalla: no salen en el índice ni se descargan. Reversible.
+CREATE TABLE IF NOT EXISTS plantilla_ocultas (
+  plantilla  text PRIMARY KEY CHECK (plantilla ~ '^[a-z0-9-]{1,80}$'),
+  oculta_por text NOT NULL DEFAULT '' CHECK (char_length(oculta_por) <= 120),
+  creado     timestamptz NOT NULL DEFAULT now()
+);
+
 -- ---------------------------------------------------------------- seguridad por fila (RLS)
 -- Aunque una consulta de la aplicación olvidara el filtro por propietario, la base de datos
 -- solo entrega y solo deja escribir las filas del usuario de la sesión (app.usuario_id).
@@ -391,7 +398,7 @@ BEGIN
       RAISE NOTICE 'Sin permiso para dar permisos sobre configuracion (es de otro usuario); se dejan como están.';
     END;
     GRANT SELECT, INSERT, UPDATE ON plantilla_historial TO ova_app;
-    GRANT SELECT, INSERT, UPDATE, DELETE ON plantilla_categorias, plantilla_categoria, plantilla_subidas TO ova_app;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON plantilla_categorias, plantilla_categoria, plantilla_subidas, plantilla_ocultas TO ova_app;
     GRANT SELECT, INSERT, UPDATE, DELETE ON pipeline_origen, pipeline_ejecuciones, pipeline_matrices, pipeline_recursos, pipeline_eventos TO ova_app;
     GRANT USAGE, SELECT ON SEQUENCE plantilla_historial_id_seq TO ova_app;
     GRANT USAGE, SELECT ON SEQUENCE enlaces_id_seq, auditoria_id_seq TO ova_app;

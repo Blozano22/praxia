@@ -339,10 +339,10 @@ export const nombresPlantillasPublicadas = () => {
 }
 rutas.get('/plantillas/categorias', exigirSesion, exigirPermiso('plantillas.ver'), async (req, res, next) => {
   try {
-    const [c, a, u] = await Promise.all([sinUsuario(Q.categoriasListar), sinUsuario(Q.categoriasAsignaciones), sinUsuario(Q.subidasListar)])
+    const [c, a, u, o] = await Promise.all([sinUsuario(Q.categoriasListar), sinUsuario(Q.categoriasAsignaciones), sinUsuario(Q.subidasListar), sinUsuario(Q.ocultasListar)])
     const plantillas = [...new Set([...nombresPlantillasPublicadas(), ...u.rows.map((x) => x.nombre)])].sort()
     res.json({
-      categorias: c.rows, asignaciones: Object.fromEntries(a.rows.map((x) => [x.plantilla, x.categoria])), plantillas,
+      categorias: c.rows, asignaciones: Object.fromEntries(a.rows.map((x) => [x.plantilla, x.categoria])), plantillas, ocultas: o.rows.map((x) => x.plantilla),
       subidas: Object.fromEntries(u.rows.map((x) => [x.nombre, { por: x.por, actualizado: x.actualizado }]))
     })
   } catch (e) { next(e) }
@@ -382,6 +382,18 @@ rutas.put('/plantillas/asignacion/:plantilla', exigirSesion, exigirPermiso('plan
       await sinUsuario(Q.categoriaAsignar, [plantilla, categoria])
     }
     await auditar(req.usuario.id, 'plantilla_categoria_asignar', 'plantilla', plantilla, req)
+    res.json({ ok: true })
+  } catch (e) { next(e) }
+})
+
+// Quitar de n8n (y volver a mostrar) una plantilla DEL SISTEMA: son archivos del código y no se borran, pero así dejan de ofrecerse sin tocar el código.
+rutas.put('/plantillas/ocultas/:nombre', exigirSesion, exigirPermiso('plantillas.revisar'), validar(z.object({ nombre: z.string().regex(/^[a-z0-9-]{1,80}$/) }), 'params'), validar(z.object({ oculta: z.boolean() }).strict(), 'body'), async (req, res, next) => {
+  try {
+    const { nombre } = req.paramsOk
+    if (!nombresPlantillasPublicadas().includes(nombre)) return res.status(404).json({ error: 'No es una plantilla del sistema. Las que subió una persona se eliminan.' })
+    if (req.bodyOk.oculta) await sinUsuario(Q.ocultaPoner, [nombre, req.usuario.nombre])
+    else await sinUsuario(Q.ocultaQuitar, [nombre])
+    await auditar(req.usuario.id, req.bodyOk.oculta ? 'plantilla_ocultar' : 'plantilla_mostrar', 'plantilla', nombre, req)
     res.json({ ok: true })
   } catch (e) { next(e) }
 })

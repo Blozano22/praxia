@@ -238,3 +238,7 @@ Convención de nombre: n8n deduce la variante del nombre del archivo (`lineatiem
 #### Recurso o actividad
 
 Cada categoría es de un **tipo**: `recurso` (acordeón, línea de tiempo…) o `actividad` de autoaprendizaje (crucigrama…). Se elige al crearla (`POST /api/plantillas/categorias {id, nombre, tipo}`; por defecto `recurso`) y se cambia con `PUT /api/plantillas/categorias/:id {nombre?, tipo?}`. El índice público trae `tipo` en cada categoría y en cada plantilla (`null` si no tiene categoría). En la galería de diseños, «Recursos / Actividades» solo filtra lo que se ve.
+
+#### Gestionar las variantes desde Praxia (sin tocar el código)
+
+En cada categoría, «Gestionar variantes» lista todas sus plantillas. Las que **subió una persona** se reemplazan o se eliminan (`PUT`/`DELETE /api/plantillas/subidas/:nombre`). Las **del sistema** son archivos del código y no se borran, pero se pueden **quitar de n8n** y volver a mostrar (`PUT /api/plantillas/ocultas/:nombre {oculta: true|false}`): una plantilla quitada no sale en `/plantillas-html/plantillas.json` (ni en `plantillas`, ni en `categorias`, ni en `total`) y su archivo responde 404; la pantalla la sigue viendo para poder revertirlo. Así n8n solo usa lo que está activo en Praxia.

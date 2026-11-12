@@ -60,9 +60,10 @@ export function crearApp() {
     let base = { marcas: { titulo: '{{TITULO}}', contenido: '/*CONTENIDO*/' }, total: 0, plantillas: [] }
     if (config.carpetaWeb) { try { base = JSON.parse(fs.readFileSync(path.join(config.carpetaWeb, 'plantillas-html', 'plantillas.json'), 'utf8')) } catch { /* sin build: solo las subidas */ } }
     try {
-      const [c, a, u] = await Promise.all([sinUsuario(Q.categoriasListar), sinUsuario(Q.categoriasAsignaciones), sinUsuario(Q.subidasListar)])
+      const [c, a, u, o] = await Promise.all([sinUsuario(Q.categoriasListar), sinUsuario(Q.categoriasAsignaciones), sinUsuario(Q.subidasListar), sinUsuario(Q.ocultasListar)])
       const de = Object.fromEntries(a.rows.map((x) => [x.plantilla, x.categoria]))
-      const delBuild = (base.plantillas || []).filter((p) => !u.rows.some((x) => x.nombre === p.nombre))
+      const ocultas = new Set(o.rows.map((x) => x.plantilla)) // plantillas del sistema quitadas de n8n desde la pantalla
+      const delBuild = (base.plantillas || []).filter((p) => !u.rows.some((x) => x.nombre === p.nombre) && !ocultas.has(p.nombre))
       const todas = [...delBuild, ...u.rows.map((x) => ({ nombre: x.nombre, archivo: x.nombre + '.html', subida: true }))].sort((x, y) => x.nombre.localeCompare(y.nombre))
       const tipoDe = Object.fromEntries(c.rows.map((k) => [k.id, k.tipo]))
       const plantillas = todas.map((p) => ({ ...p, id_catalogo: de[p.nombre] || null, tipo: tipoDe[de[p.nombre]] || null }))
@@ -73,9 +74,10 @@ export function crearApp() {
   // Una plantilla subida desde la pantalla se entrega AISLADA (sandbox sin allow-same-origin): sus scripts corren, pero no pueden usar la sesión de Praxia.
   app.get(/^\/plantillas-html\/([a-z0-9-]{1,80})\.html$/, async (req, res, next) => {
     try {
-      const f = (await sinUsuario(Q.subidaHtml, [req.params[0]])).rows[0]
-      if (!f) return next()
-      res.set(CABECERAS_AISLADAS).send(f.html)
+      const [f, o] = await Promise.all([sinUsuario(Q.subidaHtml, [req.params[0]]), sinUsuario(Q.ocultaEsta, [req.params[0]])])
+      if (f.rows[0]) return res.set(CABECERAS_AISLADAS).send(f.rows[0].html)
+      if (o.rowCount) return res.status(404).end() // una plantilla del sistema que se quitó de n8n ya no se descarga
+      next()
     } catch { next() }
   })
   if (config.carpetaWeb && fs.existsSync(config.carpetaWeb)) {
