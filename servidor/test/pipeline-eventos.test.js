@@ -265,3 +265,26 @@ test('lo que lleva tiempo sin avisos se marca «sin respuesta» (no cuenta como 
   assert.equal(d.recursos.find((x) => x.id === 'atascado').sinRespuesta, true)
   assert.equal(d.recursos.find((x) => x.id === 'trabajando').sinRespuesta, false)
 })
+
+test('vista global: solo quien ve todos los cursos la lee; trae cifras por curso de todas las personas y los avisos sin atribuir', async () => {
+  const { Q } = await import('../src/consultas.js')
+  const { hashClave } = await import('../src/seguridad.js')
+  await pool.query(Q.usuarioCrear, ['Coord', 'coord@u.co', await hashClave(CLAVE), ['coordinador']])
+  const entrar = async (correo) => {
+    const r = await fetch(base + '/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json', 'x-ova': '1' }, body: JSON.stringify({ correo, clave: CLAVE }) })
+    const cookie = (r.headers.get('set-cookie') || '').split(';')[0]
+    return (ruta) => fetch(base + '/api' + ruta, { headers: { cookie, 'x-ova': '1' } })
+  }
+  assert.equal((await fetch(base + '/api/pipeline/resumen', { headers: { 'x-ova': '1' } })).status, 401)
+  assert.equal((await (await entrar('ana@u.co'))('/pipeline/resumen')).status, 403) // una docente no ve lo de las demás personas
+  const r = await (await entrar('coord@u.co'))('/pipeline/resumen')
+  assert.equal(r.status, 200)
+  const j = await r.json()
+  const personas = new Set(j.cursos.map((c) => c.correo))
+  assert.ok(personas.has('ana@u.co') && personas.has('beto@u.co')) // el mismo identificador de curso en dos personas sigue siendo dos filas
+  const ana = j.cursos.find((c) => c.correo === 'ana@u.co' && c.id === 'curso-a')
+  assert.ok(ana.matricesListas >= 1); assert.ok(ana.recursos >= 1); assert.equal(typeof ana.enCurso, 'number'); assert.ok(ana.sinRespuesta >= 1) // lo de la prueba de «sin respuesta»
+  assert.ok(j.avisosProblema.some((a) => a.resultado === 'huerfano')) // el aviso sin trabajo de la prueba de huérfanos
+  assert.ok(j.avisos24h.aplicados > 0 && j.avisos24h.huerfanos > 0)
+  assert.equal(j.secretoConfigurado, true)
+})

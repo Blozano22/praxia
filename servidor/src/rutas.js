@@ -88,6 +88,14 @@ rutas.get('/seguimiento', exigirSesion, exigirPermiso('proyectos.ver_todos'), as
   } catch (e) { next(e) }
 })
 
+// Vista global del pipeline para administración/coordinación: cifras por curso de todas las personas y avisos de n8n sin atribuir.
+rutas.get('/pipeline/resumen', exigirSesion, exigirPermiso('proyectos.ver_todos'), async (req, res, next) => {
+  try {
+    const [cursos, problemas, conteo] = await conUsuario(req.usuario, async (c) => [(await c.query(Q.pipeResumenGlobal)).rows, (await c.query(Q.pipeAvisosProblema)).rows, (await c.query(Q.pipeAvisosConteo)).rows[0]])
+    res.json({ cursos, avisosProblema: problemas, avisos24h: conteo, secretoConfigurado: Boolean(config.n8nEventosSecreto), generado: new Date().toISOString() })
+  } catch (e) { next(e) }
+})
+
 rutas.get('/proyectos/:id/enlaces', exigirSesion, exigirPermiso('proyectos.ver_propios'),
   validar(z.object({ id: IdProyecto }), 'params'), async (req, res, next) => {
     try {

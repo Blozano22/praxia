@@ -210,3 +210,7 @@ Praxia entrega la orden y n8n responde enseguida; el resultado llega por los avi
 | `N8N_H5P_URL` | orquestador de H5P | `{ trabajo_id, proyecto_id, carpeta_raiz, maximo, unidades?:[n], reintentar_errores }` | 2xx tras planificar, idealmente `{ ejecucion_id, plan }`; `409` si ya hay una corrida |
 
 Rutas de Praxia (sesión y permiso `proyectos.crear`): `POST /api/proyectos/:id/pipeline/matrices` y `POST /api/proyectos/:id/pipeline/h5p`. Solo una generación por curso y etapa a la vez (409). Si n8n no acepta la orden, el curso no queda bloqueado. El flujo de guiones recibe además `proyecto_id` y `carpeta_raiz` (cambio 7.1a del plan).
+
+### Vista global (coordinación)
+
+`GET /api/pipeline/resumen` (permiso `proyectos.ver_todos`) y el menú «Pipeline H5P»: una fila por curso de todas las personas (matrices listas o con error, recursos generados, en curso, sin respuesta, última actividad), el conteo de avisos de las últimas 24 h y los avisos huérfanos o rechazados para revisión. Solo lectura.

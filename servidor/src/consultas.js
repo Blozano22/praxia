@@ -245,6 +245,44 @@ export const Q = Object.freeze({
            ultimo_evento_en AS "ultimoEventoEn", terminado_en AS "terminadoEn",
            (estado = 'en_curso' AND ultimo_evento_en < now() - interval '15 minutes') AS "sinRespuesta"
       FROM pipeline_ejecuciones WHERE propietario_id = $1 AND proyecto_id = $2 ORDER BY ultimo_evento_en DESC LIMIT 20`,
+  // Vista global (administración): una fila por curso que tenga algo del pipeline, solo cifras. El nombre del curso sale de proyectos,
+  // que la política RLS entrega a quien tiene proyectos.ver_todos (por eso se consulta dentro de conUsuario).
+  pipeResumenGlobal: `
+    WITH cursos AS (
+      SELECT propietario_id, proyecto_id FROM pipeline_matrices
+      UNION SELECT propietario_id, proyecto_id FROM pipeline_recursos
+      UNION SELECT propietario_id, proyecto_id FROM pipeline_ejecuciones
+    )
+    SELECT c.proyecto_id AS id, c.propietario_id, u.nombre AS responsable, u.correo, p.curso, p.programa,
+      (SELECT count(*) FROM pipeline_matrices m WHERE m.propietario_id = c.propietario_id AND m.proyecto_id = c.proyecto_id AND m.estado IN ('creada','omitida','reemplazada'))::int AS "matricesListas",
+      (SELECT count(*) FROM pipeline_matrices m WHERE m.propietario_id = c.propietario_id AND m.proyecto_id = c.proyecto_id AND m.estado = 'error')::int AS "matricesError",
+      (SELECT count(*) FROM pipeline_recursos r WHERE r.propietario_id = c.propietario_id AND r.proyecto_id = c.proyecto_id)::int AS recursos,
+      (SELECT count(*) FROM pipeline_recursos r WHERE r.propietario_id = c.propietario_id AND r.proyecto_id = c.proyecto_id AND r.estado = 'GENERADO')::int AS generados,
+      (SELECT count(*) FROM pipeline_recursos r WHERE r.propietario_id = c.propietario_id AND r.proyecto_id = c.proyecto_id AND r.estado = 'ERROR')::int AS errores,
+      (SELECT count(*) FROM pipeline_matrices m WHERE m.propietario_id = c.propietario_id AND m.proyecto_id = c.proyecto_id AND m.estado = 'generando' AND m.actualizado_en >= now() - interval '15 minutes')::int
+        + (SELECT count(*) FROM pipeline_ejecuciones e WHERE e.propietario_id = c.propietario_id AND e.proyecto_id = c.proyecto_id AND e.estado = 'en_curso' AND e.ultimo_evento_en >= now() - interval '15 minutes')::int AS "enCurso",
+      (SELECT count(*) FROM pipeline_matrices m WHERE m.propietario_id = c.propietario_id AND m.proyecto_id = c.proyecto_id AND m.estado = 'generando' AND m.actualizado_en < now() - interval '15 minutes')::int
+        + (SELECT count(*) FROM pipeline_ejecuciones e WHERE e.propietario_id = c.propietario_id AND e.proyecto_id = c.proyecto_id AND e.estado = 'en_curso' AND e.ultimo_evento_en < now() - interval '15 minutes')::int
+        + (SELECT count(*) FROM pipeline_recursos r WHERE r.propietario_id = c.propietario_id AND r.proyecto_id = c.proyecto_id AND r.estado = 'EN_PROCESO' AND r.actualizado_en < now() - interval '30 minutes')::int AS "sinRespuesta",
+      greatest(
+        (SELECT max(actualizado_en) FROM pipeline_matrices m WHERE m.propietario_id = c.propietario_id AND m.proyecto_id = c.proyecto_id),
+        (SELECT max(actualizado_en) FROM pipeline_recursos r WHERE r.propietario_id = c.propietario_id AND r.proyecto_id = c.proyecto_id),
+        (SELECT max(ultimo_evento_en) FROM pipeline_ejecuciones e WHERE e.propietario_id = c.propietario_id AND e.proyecto_id = c.proyecto_id)) AS actividad
+    FROM cursos c
+    JOIN usuarios u ON u.id = c.propietario_id
+    LEFT JOIN proyectos p ON p.propietario_id = c.propietario_id AND p.id = c.proyecto_id
+    ORDER BY actividad DESC NULLS LAST
+    LIMIT 500`,
+  // Avisos que Praxia recibió pero no pudo atribuir a ningún curso (huérfanos) o que rechazó, para que alguien los revise.
+  pipeAvisosProblema: `
+    SELECT evento_id AS "eventoId", recibido, tipo, etapa, proyecto_id AS "proyectoId", ejecucion_id AS "ejecucionId", resultado, motivo
+      FROM pipeline_eventos WHERE resultado IN ('huerfano','rechazado') ORDER BY recibido DESC LIMIT 50`,
+  pipeAvisosConteo: `
+    SELECT count(*) FILTER (WHERE resultado = 'aplicado')::int AS aplicados,
+           count(*) FILTER (WHERE resultado = 'huerfano')::int AS huerfanos,
+           count(*) FILTER (WHERE resultado = 'rechazado')::int AS rechazados,
+           max(recibido) AS "ultimoAviso"
+      FROM pipeline_eventos WHERE recibido > now() - interval '24 hours'`,
   usuarioSubirVersion: `UPDATE usuarios SET version_token = version_token + 1 WHERE id = $1 RETURNING id`,
   rolesListar: `SELECT nombre FROM roles ORDER BY id`,
 

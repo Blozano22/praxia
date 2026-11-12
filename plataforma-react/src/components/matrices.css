@@ -119,3 +119,16 @@
 .mx-h5p-acc{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px}
 .mx-max{display:flex;flex-direction:column;gap:4px;font-size:12.5px;font-weight:600}
 .mx-max input{width:104px}
+
+/* Fase 4: vista global para administración */
+.mxg-res{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;margin:14px 0;padding:16px 18px}
+.mxg-res .mx-cifras{flex:1;min-width:280px}
+.mxg-ult{margin:0;flex-basis:100%}
+.mxg-chips{display:flex;flex-wrap:wrap;gap:8px}
+.mxg-chips b{margin-left:4px;opacity:.75}
+.mxg-mal{color:#a63a32;display:block}
+.mxg-av{margin-top:18px;padding:16px 18px}
+.mxg-av h3{margin:0 0 4px}
+.mxg-lista{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:320px;overflow:auto}
+.mxg-lista li{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;padding:8px 10px;border:1px solid var(--line,#e3e8ef);border-radius:8px;font-size:13px}
+.mxg-lista small{color:var(--muted,#667085);margin-left:auto}

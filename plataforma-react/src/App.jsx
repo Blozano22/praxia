@@ -10,6 +10,7 @@ import Bibliografia from './components/Bibliografia.jsx'
 import Plantillas from './components/Plantillas.jsx'
 import Seguimiento from './components/Seguimiento.jsx'
 import Usuarios from './components/Usuarios.jsx'
+import PipelineGlobal from './components/PipelineGlobal.jsx'
 import { arrancarSondeo, detenerSondeo, fijarAnfitrion } from './lib/trabajosGuiones.js'
 import { arrancarSondeoUnidades, detenerSondeoUnidades, fijarAnfitrionUnidades } from './lib/trabajosUnidades.js'
 import UnidadesEnCurso from './components/UnidadesEnCurso.jsx'
@@ -60,7 +61,7 @@ export default function App() {
   const [restaurado, setRestaurado] = useState(false)
 
   // La pantalla en que está se guarda en la dirección (#/...): al actualizar la página se queda donde estaba.
-  //   #/dashboard · #/nuevo · #/seguimiento · #/plantillas · #/bibliografia · #/usuarios
+  //   #/dashboard · #/nuevo · #/seguimiento · #/pipeline · #/plantillas · #/bibliografia · #/usuarios
   //   #/syllabus/<id>/<paso>[/<unidad>] · #/editor/<id>/<recurso>
   useEffect(() => {
     if (!yo || !cargado || restaurado) return
@@ -74,6 +75,7 @@ export default function App() {
     } else if (['dashboard', 'nuevo'].includes(p[0]) && perm('proyectos.ver_propios')) setVista(p[0])
     else if (p[0] === 'plantillas' && perm('plantillas.ver')) setVista('plantillas')
     else if (p[0] === 'seguimiento' && perm('proyectos.ver_todos')) setVista('seguimiento')
+    else if (p[0] === 'pipeline' && perm('proyectos.ver_todos')) setVista('pipeline')
     else if (p[0] === 'bibliografia' && perm('usuarios.gestionar')) setVista('bibliografia')
     else if (p[0] === 'usuarios' && perm('usuarios.gestionar')) setVista('usuarios')
     else if (p[0] === 'conexion' && perm('usuarios.gestionar')) setVista('conexion')
@@ -260,6 +262,7 @@ export default function App() {
         </button>
         {puedeVer && <ItemMenu on={['dashboard', 'nuevo', 'workspace', 'editor'].includes(vista)} icono="M3 11l9-8 9 8M5 10v10h14V10" texto="Dashboard" onClick={() => ir('dashboard')} />}
         {veTodos && <ItemMenu on={vista === 'seguimiento'} icono="M4 19V9M10 19V5M16 19v-7M22 19H2" texto="Seguimiento" onClick={() => ir('seguimiento')} />}
+        {veTodos && <ItemMenu on={vista === 'pipeline'} icono="M4 6h16M4 12h10M4 18h6M18 14l3 3-3 3" texto="Pipeline H5P" onClick={() => ir('pipeline')} />}
         {esAdmin && <ItemMenu on={vista === 'bibliografia'} icono="M5 4h11a3 3 0 013 3v13H8a3 3 0 01-3-3V4z" texto="Bibliografía" onClick={() => ir('bibliografia')} />}
         {verPlantillas && <ItemMenu on={vista === 'plantillas'} icono="M8 7l-5 5 5 5M16 7l5 5-5 5" texto="Plantillas HTML" onClick={() => ir('plantillas')} />}
         {esAdmin && <ItemMenu on={vista === 'conexion'} icono="M9 7V3M15 7V3M7 7h10v4a5 5 0 01-10 0V7zM12 16v5" texto="Conexión n8n" onClick={() => ir('conexion')} />}
@@ -271,6 +274,7 @@ export default function App() {
       {vista === 'usuarios' && esAdmin && <Usuarios yo={yo} aviso={aviso} onYo={() => api('GET', '/auth/yo').then(setYo).catch(() => {})} />}
       {vista === 'conexion' && esAdmin && <Conexiones aviso={aviso} />}
       {vista === 'seguimiento' && veTodos && <Seguimiento />}
+      {vista === 'pipeline' && veTodos && <PipelineGlobal />}
       {vista === 'dashboard' && cargado && pendientesLocales.length > 0 && (
         <div className="wrapx" style={{ paddingBottom: 0 }}>
           <div className="msg info" style={{ marginBottom: 0 }}>
