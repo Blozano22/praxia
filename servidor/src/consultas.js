@@ -307,7 +307,11 @@ export const Q = Object.freeze({
   ocultaPoner: `INSERT INTO plantilla_ocultas (plantilla, oculta_por) VALUES ($1, $2) ON CONFLICT (plantilla) DO NOTHING`,
   ocultaQuitar: `DELETE FROM plantilla_ocultas WHERE plantilla = $1 AND NOT eliminada`,
   ocultaEliminar: `INSERT INTO plantilla_ocultas (plantilla, oculta_por, eliminada) VALUES ($1, $2, true) ON CONFLICT (plantilla) DO UPDATE SET eliminada = true`,
-  usuarioSubirVersion: `UPDATE usuarios SET version_token = version_token + 1 WHERE id = $1 RETURNING id`,
+  usuarioSubirVersion: `UPDATE usuarios SET version_token = version_token + 1 WHERE id = $1 RETURNING id, version_token`,
+  adminsAlCambiarRoles: `
+    SELECT (SELECT count(*) FROM usuarios u JOIN usuario_roles ur ON ur.usuario_id = u.id JOIN roles r ON r.id = ur.rol_id
+             WHERE r.nombre = 'admin' AND u.activo AND u.id <> $1)::int AS otros,
+           EXISTS (SELECT 1 FROM usuario_roles ur JOIN roles r ON r.id = ur.rol_id WHERE ur.usuario_id = $1 AND r.nombre = 'admin') AS es_admin`,
   rolesListar: `SELECT nombre FROM roles ORDER BY id`,
 
   // ---- syllabus (proyectos): siempre del usuario de la sesión

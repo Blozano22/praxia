@@ -232,18 +232,25 @@ const sobreOtro = (req, res) => {
 rutas.patch('/usuarios/:id/roles', ...admin, validar(z.object({ id: IdUsuario }), 'params'), validar(z.object({ roles: Roles }).strict(), 'body'),
   async (req, res, next) => {
     try {
-      if (!sobreOtro(req, res)) return
+      // Cada persona puede editar sus propios roles. Nadie puede quitar el rol de administrador si es el único administrador activo.
       const n = await conTransaccion(async (c) => {
+        if (!req.bodyOk.roles.includes('admin')) {
+          const a = (await c.query(Q.adminsAlCambiarRoles, [req.paramsOk.id])).rows[0]
+          if (a.es_admin && a.otros === 0) throw Object.assign(new Error('último administrador'), { ultimoAdmin: true })
+        }
         await c.query(Q.rolesDelUsuarioBorrar, [req.paramsOk.id])
         const asignados = (await c.query(Q.rolDelUsuarioAsignar, [req.paramsOk.id, req.bodyOk.roles])).rowCount
         // Si algún rol no existe en la base (migración pendiente) no se guarda nada: antes se «guardaba» sin asignarlo.
         if (asignados !== req.bodyOk.roles.length) throw Object.assign(new Error('rol inexistente'), { rolInexistente: true })
-        return (await c.query(Q.usuarioSubirVersion, [req.paramsOk.id])).rowCount
+        return (await c.query(Q.usuarioSubirVersion, [req.paramsOk.id])).rows[0]
       })
       if (!n) return res.status(404).json({ error: 'No encontrado' })
+      // Subir la versión cierra las sesiones de esa persona; si se editó a sí misma, se renueva la suya para no sacarla de la plataforma.
+      if (req.paramsOk.id === req.usuario.id) emitirSesion(res, req.usuario, n.version_token)
       await auditar(req.usuario.id, 'usuario_rol', 'usuario', req.paramsOk.id, req)
       res.json({ ok: true })
     } catch (e) {
+      if (e.ultimoAdmin) return res.status(409).json({ error: 'No se puede quitar el rol de administrador al único administrador activo: asigna antes ese rol a otra persona.' })
       if (e.rolInexistente) return res.status(409).json({ error: 'Alguno de esos roles no existe en la base de datos. Falta aplicar la migración (npm run db:migrar).' })
       next(e)
     }

@@ -180,9 +180,11 @@ export default function Usuarios({ yo, aviso, onYo }) {
     const clave = window.prompt('Nueva clave para ' + u.correo + ' (10 o más caracteres, con mayúscula, minúscula y número):')
     if (clave) cambiar('/usuarios/' + u.id + '/clave', { clave }, 'Clave actualizada')
   }
-  const cambiarRoles = (u, nuevos) => {
+  const cambiarRoles = async (u, nuevos) => {
     if (!nuevos.length) { aviso('Debe tener al menos un rol'); return }
-    cambiar('/usuarios/' + u.id + '/roles', { roles: nuevos }, 'Roles actualizados')
+    await cambiar('/usuarios/' + u.id + '/roles', { roles: nuevos }, 'Roles actualizados')
+    // Si cambió los suyos, se vuelven a leer sus permisos (el menú y las pantallas se ajustan a lo nuevo).
+    if (yo && u.id === yo.id && onYo) onYo()
   }
 
   const visibles = useMemo(() => {
@@ -280,7 +282,7 @@ export default function Usuarios({ yo, aviso, onYo }) {
                         <BotonIcono texto="Editar nombre y correo" etiqueta={'Editar el nombre y el correo de ' + u.nombre} onClick={() => { setMenu(null); setEditando(u.id) }}>
                           <Svg size={17} sw={1.9}><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20v-1a5 5 0 015-5h2M14 21l1-4 5.5-5.5a1.4 1.4 0 012 2L17 19l-3 2z" /></Svg>
                         </BotonIcono>
-                        <BotonIcono texto="Editar roles" desactivado={yoMismo} motivo={MOTIVO_PROPIA} abierto={menu?.id === u.id}
+                        <BotonIcono texto="Editar roles" abierto={menu?.id === u.id}
                           etiqueta={'Editar los roles de ' + u.nombre}
                           onClick={(e) => setMenu(menu?.id === u.id ? null : { id: u.id, ancla: e.currentTarget })}>
                           <Svg size={17} sw={1.9}><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4" /></Svg>

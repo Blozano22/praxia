@@ -188,6 +188,36 @@ test('desactivar un usuario cierra su sesión al instante', async () => {
   assert.equal((await admin.api('PATCH', `/usuarios/${id}/activo`, { activo: true })).status, 200)
 })
 
+test('una persona puede editar sus propios roles sin perder la sesión, pero nadie deja al sistema sin administrador', async () => {
+  const admin = await entrar('admin@u.co')
+  assert.equal((await admin.api('POST', '/usuarios', { nombre: 'Jefa', correo: 'jefa@u.co', clave: CLAVE, roles: ['admin', 'docente'] })).status, 201)
+  const jefa = await entrar('jefa@u.co')
+  const id = (await pool.query("SELECT id FROM usuarios WHERE correo='jefa@u.co'")).rows[0].id
+  // se quita a sí misma el rol de docente: 200, y la respuesta renueva su sesión (la anterior se cierra, la nueva sirve)
+  const r = await jefa.api('PATCH', `/usuarios/${id}/roles`, { roles: ['admin'] })
+  assert.equal(r.status, 200)
+  const nueva = (r.headers.get('set-cookie') || '').split(';')[0]
+  assert.ok(nueva.includes('='), 'renueva la sesión')
+  assert.equal((await jefa.api('GET', '/auth/yo')).status, 401)
+  const conNueva = (ruta, metodo = 'GET', cuerpo) => fetch(base + '/api' + ruta, { method: metodo, headers: { cookie: nueva, 'x-ova': '1', ...(cuerpo ? { 'content-type': 'application/json' } : {}) }, body: cuerpo ? JSON.stringify(cuerpo) : undefined })
+  const yo = await (await conNueva('/auth/yo')).json()
+  assert.deepEqual(yo.roles, ['admin'])
+  // si es la única administradora activa, no puede quitarse el rol de administradora
+  const otros = (await pool.query("SELECT u.id FROM usuarios u JOIN usuario_roles ur ON ur.usuario_id = u.id JOIN roles r ON r.id = ur.rol_id WHERE r.nombre = 'admin' AND u.activo AND u.id <> $1", [id])).rows.map((f) => f.id)
+  await pool.query('UPDATE usuarios SET activo = false WHERE id = ANY($1::uuid[])', [otros])
+  const bloqueado = await conNueva(`/usuarios/${id}/roles`, 'PATCH', { roles: ['docente'] })
+  assert.equal(bloqueado.status, 409)
+  assert.match((await bloqueado.json()).error, /único administrador/)
+  await pool.query('UPDATE usuarios SET activo = true WHERE id = ANY($1::uuid[])', [otros])
+  // con otra administradora activa sí puede dejar el rol: pasa a ser docente y ya no gestiona usuarios (con su sesión renovada)
+  const r2 = await conNueva(`/usuarios/${id}/roles`, 'PATCH', { roles: ['docente'] })
+  assert.equal(r2.status, 200)
+  const nueva2 = (r2.headers.get('set-cookie') || '').split(';')[0]
+  const yo2 = await (await fetch(base + '/api/auth/yo', { headers: { cookie: nueva2, 'x-ova': '1' } })).json()
+  assert.deepEqual(yo2.roles, ['docente'])
+  assert.equal((await fetch(base + '/api/usuarios', { headers: { cookie: nueva2, 'x-ova': '1' } })).status, 403)
+})
+
 test('una persona con dos roles (admin y docente) suma los permisos de ambos', async () => {
   const admin = await entrar('admin@u.co')
   const r = await admin.api('POST', '/usuarios', { nombre: 'Doble', correo: 'doble@u.co', clave: CLAVE, roles: ['admin', 'docente'] })

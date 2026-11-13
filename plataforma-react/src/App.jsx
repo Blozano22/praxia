@@ -101,6 +101,13 @@ export default function App() {
     locales().then(setPendientesLocales)
   }, [yo])
 
+  // Si cambian los permisos de la persona (por ejemplo, se quitó un rol a sí misma) y la pantalla en que está ya no le corresponde, vuelve al inicio que le toca.
+  useEffect(() => {
+    if (!yo) return
+    const exige = { usuarios: 'usuarios.gestionar', bibliografia: 'usuarios.gestionar', conexion: 'usuarios.gestionar', plantillas: 'plantillas.ver', seguimiento: 'proyectos.ver_todos', pipeline: 'proyectos.ver_todos' }
+    if (exige[vista] && !yo.permisos.includes(exige[vista])) setVista(yo.permisos.includes('proyectos.ver_propios') ? 'dashboard' : (yo.permisos.includes('plantillas.ver') ? 'plantillas' : 'dashboard'))
+  }, [yo, vista])
+
   const importarLocales = async () => {
     for (const p of pendientesLocales) { await guardar(p); await borrarLocal(p.id) }
     const l = await todos()
