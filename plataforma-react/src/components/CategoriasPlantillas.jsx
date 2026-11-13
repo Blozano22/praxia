@@ -7,19 +7,9 @@ import './categorias.css'
 // «recurso» o una «actividad de autoaprendizaje». Aquí solo se ve CUÁNTAS variantes tiene cada una; quien revisa las plantillas puede crear
 // categorías y subir variantes nuevas (HTML) sin esperar a un despliegue.
 const RE_ID = /^[A-Z]{1,4}-[0-9]{2,3}$/
-export const RE_NOMBRE = /^[a-z0-9-]{1,80}$/
 export const MAX_BYTES = 1536 * 1024
 const TIPOS = { recurso: ['Recursos', 'Recurso'], actividad: ['Actividades', 'Actividad de autoaprendizaje'] }
-export const slug = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\.html?$/, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80)
 export const kb = (b) => (b < 1024 * 1024 ? Math.max(1, Math.round(b / 1024)) + ' KB' : (b / 1024 / 1024).toFixed(1) + ' MB')
-
-// n8n deduce la variante del nombre del archivo: «lineatiempo» es la 1, «lineatiempo-2» la 2… Se propone el siguiente nombre de la categoría.
-export function sugerirNombre(variantes) {
-  if (!variantes.length) return ''
-  const base = variantes[0].replace(/-\d+$/, '')
-  const nums = variantes.filter((n) => n === base || new RegExp('^' + base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '-\\d+$').test(n)).map((n) => (n === base ? 1 : Number(n.slice(base.length + 1))))
-  return base + '-' + (Math.max(1, ...nums) + 1)
-}
 
 // Fila compacta de «Sin categoría»: nombre · Ver | categoría · Ocultar (una sola línea).
 const I_ETQ = <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z" /><circle cx="7.5" cy="7.5" r="1" /></svg>

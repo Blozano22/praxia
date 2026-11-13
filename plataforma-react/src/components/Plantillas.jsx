@@ -386,7 +386,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
           </div>
         </aside>
       </div>
-      {subiendo && cats && <SubirVariante cats={cats} categoriaInicial={codigoActual ? codigoActual.id : ''} onCerrar={() => setSubiendo(false)} onSubida={async () => { await recargarCats(); if (aviso) aviso('Plantilla subida') }} />}
+      {subiendo && cats && <SubirVariante cats={cats} categoriaInicial={codigoActual ? codigoActual.id : ''} onCerrar={() => setSubiendo(false)} onSubida={async (nombre) => { await recargarCats(); if (aviso) aviso('Plantilla subida' + (nombre ? ': ' + nombre : '')) }} />}
     </div>
   )
 }

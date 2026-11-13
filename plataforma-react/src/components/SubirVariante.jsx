@@ -1,18 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api } from '../lib/api.js'
-import { ListaCategorias, sugerirNombre, kb, slug, RE_NOMBRE, MAX_BYTES } from './CategoriasPlantillas.jsx'
+import { ListaCategorias, kb, MAX_BYTES } from './CategoriasPlantillas.jsx'
 
-// Ventana «Subir variante»: una plantilla HTML nueva, con su categoría y su nombre (n8n deduce la variante del nombre del archivo).
-// Se abre desde la galería de diseños; al subir, la galería recarga las categorías.
+// Ventana «Subir variante»: una plantilla HTML nueva en una categoría. El nombre lo genera el servidor (ID de la categoría + orden: g-08-v01…).
+// Se abre desde la galería de diseños; al subir, la galería recarga las categorías y muestra el nombre que se le dio.
 export default function SubirVariante({ cats, categoriaInicial = '', onCerrar, onSubida }) {
-  const todasPorCategoria = useMemo(() => {
-    const m = {}
-    cats.plantillas.forEach((n) => { const c = cats.asignaciones[n]; if (c) (m[c] = m[c] || []).push(n) })
-    return m
-  }, [cats])
   const [categoria, setCategoria] = useState(categoriaInicial)
-  const [nombre, setNombre] = useState(() => sugerirNombre(todasPorCategoria[categoriaInicial] || []))
-  const [editado, setEditado] = useState(false)
   const [archivo, setArchivo] = useState({ nombre: '', bytes: 0, html: '' })
   const [error, setError] = useState('')
   const [ocupado, setOcupado] = useState(false)
@@ -25,8 +18,6 @@ export default function SubirVariante({ cats, categoriaInicial = '', onCerrar, o
     return () => window.removeEventListener('keydown', tecla)
   }, [ocupado, onCerrar])
 
-  const nombreOk = RE_NOMBRE.test(nombre) && !cats.plantillas.includes(nombre)
-  const elegirCategoria = (c) => { setCategoria(c); if (!editado) setNombre(sugerirNombre(todasPorCategoria[c] || [])) }
   const leer = async (f) => {
     if (!f) return
     if (f.size > MAX_BYTES) { setError('El archivo pesa ' + kb(f.size) + ' y el máximo es 1,5 MB.'); return }
@@ -34,15 +25,14 @@ export default function SubirVariante({ cats, categoriaInicial = '', onCerrar, o
     try { html = await f.text() } catch { setError('No se pudo leer el archivo.'); return }
     setError('')
     setArchivo({ nombre: f.name, bytes: f.size, html })
-    if (!nombre) setNombre(slug(f.name))
   }
   const subir = async (e) => {
     e.preventDefault()
-    if (!nombreOk || !archivo.html || ocupado) return
+    if (!categoria || !archivo.html || ocupado) return
     setOcupado(true); setError('')
     try {
-      await api('POST', '/plantillas/subidas', { nombre, html: archivo.html, ...(categoria ? { categoria } : {}) })
-      await onSubida()
+      const r = await api('POST', '/plantillas/subidas', { html: archivo.html, categoria })
+      await onSubida(r && r.nombre)
       onCerrar()
     } catch (err) { setError(err.message || 'No se pudo subir la plantilla.'); setOcupado(false) }
   }
@@ -57,17 +47,10 @@ export default function SubirVariante({ cats, categoriaInicial = '', onCerrar, o
         </header>
         <div className="sv-cuerpo">
           {error && <div className="msg bad" role="alert">{error}</div>}
-          <div className="sv-dos">
-            <div className="sv-campo">
-              <span className="sv-lbl">Categoría</span>
-              <ListaCategorias valor={categoria} categorias={cats.categorias} ocupado={ocupado} onChange={elegirCategoria} etiqueta="Categoría" vacio="Sin categoría por ahora" conVacio />
-              <small>El tipo de HTML al que pertenece.</small>
-            </div>
-            <div className="sv-campo">
-              <label className="sv-lbl" htmlFor="sv-nombre">Nombre de la plantilla</label>
-              <input id="sv-nombre" className="sv-inp" value={nombre} onChange={(e) => { setNombre(e.target.value.toLowerCase()); setEditado(true) }} placeholder="lineatiempo-4" maxLength={80} aria-invalid={!!nombre && !nombreOk} />
-              <small className={nombre && !nombreOk ? 'mal' : ''}>{nombre && cats.plantillas.includes(nombre) ? 'Ya hay una plantilla con ese nombre.' : nombre && !RE_NOMBRE.test(nombre) ? 'Solo minúsculas, números y guiones.' : 'n8n lo lee así: «tipo» es la 1, «tipo-2» la 2…'}</small>
-            </div>
+          <div className="sv-campo">
+            <span className="sv-lbl">Categoría</span>
+            <ListaCategorias valor={categoria} categorias={cats.categorias} ocupado={ocupado} onChange={setCategoria} etiqueta="Categoría" vacio="Elegir categoría…" />
+            <small>{categoria ? 'El nombre se genera solo: ' + categoria.toLowerCase() + '-v01, -v02… según el orden de subida.' : 'El nombre se genera solo con el ID de la categoría: G-08-V01…'}</small>
           </div>
           <input ref={entrada} type="file" accept=".html,.htm,text/html" hidden onChange={(e) => { const f = e.target.files[0]; e.target.value = ''; leer(f) }} />
           <button type="button" className={'sv-zona' + (arrastrando ? ' sobre' : '') + (archivo.html ? ' lleno' : '')} onClick={() => entrada.current.click()}
@@ -85,7 +68,7 @@ export default function SubirVariante({ cats, categoriaInicial = '', onCerrar, o
         </div>
         <footer className="sv-pie">
           <button type="button" className="btn sec" onClick={onCerrar} disabled={ocupado}>Cancelar</button>
-          <button type="submit" className="btn" disabled={ocupado || !nombreOk || !archivo.html}>{ocupado ? 'Subiendo…' : 'Subir variante'}</button>
+          <button type="submit" className="btn" disabled={ocupado || !categoria || !archivo.html}>{ocupado ? 'Subiendo…' : 'Subir variante'}</button>
         </footer>
       </form>
     </div>
