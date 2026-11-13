@@ -19,7 +19,7 @@ Mensaje de arranque sugerido:
 ```
 Formación: <Tecnológico | Profesional | Especialización | Doctorado>
 Recurso: <nombre exacto del recurso>
-Genera una plantilla HTML para Praxia siguiendo la guía y los límites de ese recurso en los límites de su formación.
+Genera una plantilla HTML para Praxia siguiendo la guía y los límites de ese recurso en la parte de su formación.
 Variante / idea de diseño: <opcional>
 ```
 
@@ -35,6 +35,24 @@ La IA debe localizar ese recurso en los límites de su formación (parte final d
 - **Todo texto que cambie de un curso a otro debe venir del JSON, no estar escrito en el HTML.**
 
 Praxia acepta, además, que dentro del archivo vaya un **contenido de ejemplo** ya puesto (apartado 4). Así, al subirla se ve la vista previa con contenido, y al reutilizar la plantilla **no se arrastra el texto de ejemplo**: Praxia lo separa al subirla.
+
+### 2.1 Tres tipos de plantilla: recurso, actividad de autoaprendizaje y evaluación
+
+En los límites de cada formación hay tres grupos; el chat debe saber de cuál es lo que vas a generar:
+
+| Tipo | Dónde está en los límites | Qué es |
+|---|---|---|
+| **Recurso** | Hoja «RED» | Infografías, mapas, diagramas, líneas de tiempo, estudios de caso, etc. |
+| **Actividad de autoaprendizaje** | Hoja «Actividades» | Emparejamiento, arrastre y suelte, clasificación, cuestionario con retroalimentación, toma de decisiones, estudio de caso, etc. |
+| **Evaluación** | Hoja «Evaluaciones» | Evaluación formativa, sumativa y banco de preguntas. |
+
+Reglas:
+
+- En Praxia cada categoría de plantillas es de tipo **recurso** o **actividad**. Una plantilla de actividad se sube en una categoría de actividad.
+- **Si la estructura de un recurso termina en «Actividad de autoaprendizaje»** (por ejemplo mapas conceptuales o líneas de tiempo), esa actividad va **dentro del mismo HTML**, como último apartado, con su propio bloque en el JSON (clave `actividad`). No es un archivo aparte.
+- Una **actividad** o **evaluación** que se genera sola es su propio HTML, con los límites de su fila en la hoja «Actividades» o «Evaluaciones» (número de preguntas, pares, situaciones, palabras de la instrucción, retroalimentación).
+- En actividades y evaluaciones el JSON debe traer **todo lo que se corrige**: respuestas correctas, retroalimentación de acierto y de error por opción, y los porcentajes si el recurso los pide. La plantilla calcula el resultado; no inventa respuestas.
+- Respeta la **cantidad de elementos** de la actividad (por ejemplo «3–4 pares», «3 preguntas, máximo 4»): ni más ni menos de lo permitido.
 
 ---
 
