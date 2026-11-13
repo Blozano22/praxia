@@ -262,6 +262,30 @@ test('una plantilla puede traer su contenido de ejemplo entre /*CONTENIDO*/ y /*
   for (const n of ['con-ejemplo', 'sin-ejemplo']) assert.equal((await dani('DELETE', '/plantillas/subidas/' + n)).status, 200)
 })
 
+test('el nombre de una plantilla subida sale del ID de la categoría y del orden de subida (g-09-v01, g-09-v02…) y el número no se reutiliza', async () => {
+  const dani = await entrar('dani@u.co')
+  const ana = await entrar('ana@u.co')
+  const sube = (cuerpo) => dani('POST', '/plantillas/subidas', { html: PLANTILLA(), ...cuerpo })
+  const r1 = await sube({ categoria: 'G-09' })
+  assert.equal(r1.status, 201); assert.equal((await r1.json()).nombre, 'g-09-v01')
+  assert.equal((await (await sube({ categoria: 'G-09' })).json()).nombre, 'g-09-v02')
+  assert.equal((await (await sube({ categoria: 'G-01' })).json()).nombre, 'g-01-v01') // cada categoría lleva su propia cuenta
+  // se entrega con ese nombre y queda en su categoría
+  assert.equal((await fetch(base + '/plantillas-html/g-09-v01.html')).status, 200)
+  const j = await (await dani('GET', '/plantillas/categorias')).json()
+  assert.equal(j.asignaciones['g-09-v01'], 'G-09')
+  // al eliminar no se reutiliza el número
+  assert.equal((await dani('DELETE', '/plantillas/subidas/g-09-v02')).status, 200)
+  assert.equal((await (await sube({ categoria: 'G-09' })).json()).nombre, 'g-09-v03')
+  // sin categoría ni nombre no hay de dónde sacar el nombre; sin permiso, tampoco
+  assert.equal((await sube({})).status, 400)
+  assert.equal((await ana('POST', '/plantillas/subidas', { html: PLANTILLA(), categoria: 'G-09' })).status, 403)
+  // quien manda el nombre a mano lo conserva, y si ya existe el nombre automático se pasa al siguiente
+  assert.equal((await sube({ nombre: 'g-09-v04', categoria: 'G-09' })).status, 201)
+  assert.equal((await (await sube({ categoria: 'G-09' })).json()).nombre, 'g-09-v05')
+  for (const n of ['g-09-v01', 'g-09-v03', 'g-09-v04', 'g-09-v05', 'g-01-v01']) assert.equal((await dani('DELETE', '/plantillas/subidas/' + n)).status, 200)
+})
+
 test('borrar una categoría deja sus plantillas sin categoría; si falla la base de datos se entrega el archivo del build tal cual', async () => {
   const dani = await entrar('dani@u.co')
   assert.equal((await dani('DELETE', '/plantillas/categorias/G-20')).status, 200)

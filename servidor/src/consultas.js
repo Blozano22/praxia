@@ -287,6 +287,7 @@ export const Q = Object.freeze({
   // ---- categorías de las plantillas HTML (para n8n)
   categoriasListar: `SELECT id, nombre, tipo FROM plantilla_categorias ORDER BY id`,
   categoriasAsignaciones: `SELECT plantilla, categoria FROM plantilla_categoria ORDER BY plantilla`,
+  categoriaSiguienteVariante: `UPDATE plantilla_categorias SET siguiente_variante = siguiente_variante + 1 WHERE id = $1 RETURNING siguiente_variante - 1 AS n`,
   categoriaCrear: `INSERT INTO plantilla_categorias (id, nombre, tipo) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING RETURNING id`,
   categoriaRenombrar: `UPDATE plantilla_categorias SET nombre = coalesce($2, nombre), tipo = coalesce($3, tipo) WHERE id = $1 RETURNING id`,
   categoriaBorrar: `DELETE FROM plantilla_categorias WHERE id = $1 RETURNING id`,

@@ -415,16 +415,29 @@ rutas.delete('/plantillas/sistema/:nombre', exigirSesion, exigirPermiso('plantil
 const limiteSubir = rateLimit({ windowMs: 60 * 1000, limit: 30, keyGenerator: (req) => (req.usuario ? 'u:' + req.usuario.id : ipKeyGenerator(req.ip)), standardHeaders: true, legacyHeaders: false })
 const NombreSubida = z.string().regex(/^[a-z0-9-]{1,80}$/)
 const HtmlSubido = z.string().min(1).max(MAX_HTML + 4096)
-const CuerpoSubir = z.object({ nombre: NombreSubida, html: HtmlSubido, categoria: IdCategoria.nullish() }).strict()
+// El nombre sale solo del ID de la categoría y del orden de subida: G-08 → g-08-v01, g-08-v02… (minúsculas, que es como se guardan y se sirven los nombres).
+// Quien llama puede mandar «nombre» (uso interno); la pantalla no lo manda. Sin categoría no hay ID de dónde sacar el nombre.
+const CuerpoSubir = z.object({ nombre: NombreSubida.optional(), html: HtmlSubido, categoria: IdCategoria.nullish() }).strict().refine((b) => b.nombre || b.categoria, { message: 'Elija la categoría de la plantilla: el nombre sale de su ID.' })
+const nombreVariante = (cat, n) => cat.toLowerCase() + '-v' + String(n).padStart(2, '0')
 rutas.post('/plantillas/subidas', exigirSesion, exigirPermiso('plantillas.revisar'), limiteSubir, validar(CuerpoSubir, 'body'), async (req, res, next) => {
   try {
-    const { nombre, html, categoria } = req.bodyOk
-    if (NOMBRES_RESERVADOS.includes(nombre) || nombresPlantillasPublicadas().includes(nombre)) return res.status(409).json({ error: 'Ese nombre ya lo usa una plantilla del sistema. Elija otro.' })
+    const { html, categoria } = req.bodyOk
+    let nombre = req.bodyOk.nombre
+    if (nombre && (NOMBRES_RESERVADOS.includes(nombre) || nombresPlantillasPublicadas().includes(nombre))) return res.status(409).json({ error: 'Ese nombre ya lo usa una plantilla del sistema. Elija otro.' })
     if (categoria && !(await sinUsuario(Q.categoriasListar)).rows.some((c) => c.id === categoria)) return res.status(404).json({ error: 'No existe esa categoría.' })
     const armada = armarSubida(html)
     if (!armada.ok) return res.status(400).json({ error: armada.error })
-    const r = await sinUsuario(Q.subidaCrear, [nombre, html, armada.html, req.usuario.id, req.usuario.nombre])
-    if (!r.rowCount) return res.status(409).json({ error: 'Ya hay una plantilla subida con ese nombre. Use «Reemplazar» para cambiarla.' })
+    let r = null
+    if (nombre) r = await sinUsuario(Q.subidaCrear, [nombre, html, armada.html, req.usuario.id, req.usuario.nombre])
+    else {
+      // Número de variante: contador de la categoría (no se reutiliza). Si el nombre ya existiera (se subió a mano con ese nombre), se pasa al siguiente.
+      for (let i = 0; i < 20 && !(r && r.rowCount); i++) {
+        const n = (await sinUsuario(Q.categoriaSiguienteVariante, [categoria])).rows[0].n
+        nombre = nombreVariante(categoria, n)
+        r = await sinUsuario(Q.subidaCrear, [nombre, html, armada.html, req.usuario.id, req.usuario.nombre])
+      }
+    }
+    if (!r || !r.rowCount) return res.status(409).json({ error: 'Ya hay una plantilla subida con ese nombre. Use «Reemplazar» para cambiarla.' })
     if (categoria) await sinUsuario(Q.categoriaAsignar, [nombre, categoria])
     await auditar(req.usuario.id, 'plantilla_subir', 'plantilla', nombre, req)
     res.status(201).json({ nombre })

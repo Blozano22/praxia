@@ -194,7 +194,7 @@ Reglas de color:
 - No uses `alert()`, `confirm()` ni `prompt()`.
 - Sin llamadas de red (`fetch`, `XMLHttpRequest`).
 - **El JavaScript no debe fallar si falta un campo** del JSON: revisa que existan (`CFG.bloques || []`) antes de recorrerlos.
-- Nombre del archivo: minúsculas, números y guiones, hasta 80 caracteres (por ejemplo `infografia-vertical-2.html`). No puede llamarse `plantillas` ni `index`, ni repetir el de una plantilla existente.
+- **Nombre:** no lo eliges tú. Praxia le pone el ID de la categoría y el número de variante, en el orden en que se suben (por ejemplo `g-08-v01`, `g-08-v02`). El nombre del archivo que subes no importa.
 
 ---
 
@@ -263,7 +263,7 @@ La IA debe comprobar y **responder cada punto** al entregar el archivo:
 ## 10. Cómo subirla a Praxia
 
 1. Entra a Praxia con un usuario de **diseñador o administrador** → **Plantillas HTML** → pestaña **Categorías para n8n**.
-2. Pulsa **Subir plantilla**, elige la **categoría** (el tipo de recurso, con su ID), el **nombre** y el archivo `.html`.
+2. Pulsa **Subir plantilla**, elige la **categoría** (el tipo de recurso, con su ID) y el archivo `.html`. El nombre se genera solo.
 3. Si no cumple las reglas, Praxia muestra el motivo en español (por ejemplo «Debe tener exactamente una marca {{TITULO}} y tiene 0»). Corrígelo y vuelve a subir.
 4. Con **Ver** abres la vista previa con tu contenido de ejemplo.
 5. Una variante **sin categoría** no la usa n8n: asígnale la categoría correcta.
