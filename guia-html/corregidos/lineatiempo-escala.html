@@ -14,15 +14,41 @@
     detiene en el hito más cercano y abajo aparece su explicación. Los hitos visitados se marcan; los que faltan, no.
     Registra estado (completado al visitar todos los años), tiempo y avance en Moodle (SCORM 1.2). No califica.
   - Contenido: todo sale del bloque JSON #ova-content (meta, quote, nodes[]: año, textos, motivo). Las etapas salen del campo era
-    (hitos seguidos con la misma etapa forman una franja). Los colores son de la paleta DIEPO y no dependen de la formación.
+    (hitos seguidos con la misma etapa forman una franja). Los colores salen de la paleta de la formación (meta.nivel o ?nivel=): cada etapa alterna tonos claro, base y oscuro.
   - Motivos disponibles: tablilla, dados, barras, estado, parcelas, regresion, correlacion, chi, calor.
   - Un solo archivo, sin recursos externos (numeral 4.6 de las especificaciones técnicas).
+
+  CAMPOS DEL JSON (#ova-content)
+  - meta.nivel: texto, opcional; tecnologia | profesional | especializacion | doctorado (acepta licenciatura como alias de profesional); por defecto tecnologia. También se lee de ?nivel= en la dirección.
+  - meta.title: texto, obligatorio; título visible del recurso. Ver límites de la formación en la guía.
+  - meta.course: texto, opcional.
+  - meta.unit: texto, opcional.
+  - meta.source: texto, opcional; se muestra como fuente en «Más detalle».
+  - quote.text: texto, opcional; frase de «Una idea para llevar» (si falta el bloque quote, el botón no aparece). Ver límites de la formación en la guía.
+  - quote.author: texto, opcional.
+  - quote.note: texto, opcional.
+  - nodes: lista, obligatorio; 5 a 12 hitos. Cada hito:
+  - nodes[].id: texto, obligatorio; identificador único del hito (n0, n1...).
+  - nodes[].year: número o null, obligatorio; año del hito (null en «Antes» y «Hoy»; la distancia entre hitos es a escala).
+  - nodes[].hoy: verdadero/falso, opcional; true marca el hito final «Hoy» (usa el año actual).
+  - nodes[].label: texto, opcional.
+  - nodes[].yearLabel: texto, opcional; nombre del hito si no tiene año.
+  - nodes[].display: texto, opcional; rótulo corto sobre la línea cuando no hay año (ej. Antes).
+  - nodes[].era: texto, obligatorio; etapa. Hitos seguidos con la misma etapa forman una franja de color.
+  - nodes[].title: texto, obligatorio; título del hito. Ver límites de la formación en la guía.
+  - nodes[].text: texto, obligatorio; explicación corta del hito. Ver límites de la formación en la guía.
+  - nodes[].themes: lista de textos, opcional; etiquetas (chips) del hito; en el ejemplo, 1 por hito.
+  - nodes[].motif: texto, opcional; dibujo del hito: tablilla, dados, barras, estado, parcelas, regresion, correlacion, chi, calor.
+  - nodes[].alt: texto, opcional; texto alternativo del dibujo.
+  - nodes[].detail: texto, opcional; frase de «Más detalle».
+  - nodes[].bullets: lista, opcional (puede ser []); cada elemento con when (texto) y text (texto); el ejemplo trae hasta 6 en un hito.
+  textos: ninguna
 -->
 <style>
 :root{
-  /* Paleta DIEPO. Cada hito cambia --bg, --fg, --acc y --soft (ver TONOS en el script). */
-  --bg:#FFFFFF; --fg:#142749; --on:#FFFFFF; --acc:#00665F; --soft:rgba(20,39,73,.08);
-  --paper:#FFFFFF; --text:#142749; --muted:rgba(20,39,73,.72); --line:#C8C8C8; --ink:#142749; --pip:#00665F;
+  /* Paleta por formación: el script fija --brand (base) y --nav (oscuro) según meta.nivel; aquí van los respaldos. */
+  --bg:#FFFFFF; --fg:var(--nav,#142749); --on:#FFFFFF; --acc:var(--brand,#00665F); --soft:color-mix(in srgb,var(--nav,#142749) 8%,transparent);
+  --paper:#FFFFFF; --text:var(--nav,#142749); --muted:color-mix(in srgb,var(--nav,#142749) 72%,transparent); --line:#C8C8C8; --ink:var(--nav,#142749); --pip:var(--brand,#00665F);
   /* Tipografía provisional: se reemplaza cuando COEST/GEVIP confirmen la fuente oficial */
   --font:'Century Gothic','CenturyGothic','Apple Gothic','Futura','Avenir Next','Trebuchet MS','Segoe UI',system-ui,sans-serif;
   --ease:cubic-bezier(.22,.9,.3,1);
@@ -126,12 +152,12 @@ body{height:100dvh;overflow:hidden;font-family:var(--font);background:#FFFFFF;co
 .mini i{position:absolute;top:50%;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:#FFFFFF;border:2px solid var(--ink)}
 .mini i[data-v="1"]{background:var(--c)}
 .mini i[data-c="1"]{transform:scale(1.5)}
-.mini .ventana{position:absolute;top:2px;bottom:2px;border:2px solid var(--ink);border-radius:8px;background:rgba(20,39,73,.08);pointer-events:none;transition:left .7s var(--ease)}
+.mini .ventana{position:absolute;top:2px;bottom:2px;border:2px solid var(--ink);border-radius:8px;background:color-mix(in srgb,var(--nav,#142749) 8%,transparent);pointer-events:none;transition:left .7s var(--ease)}
 .mini.libre .ventana{transition:none}
 @media (max-width:820px){.flecha{display:none}.et{width:118px;font-size:.72rem}.et b{font-size:.95rem}}
 
 /* ---------- Explicación del hito ---------- */
-.panel{--c:#00665F;--cf:#FFFFFF;display:grid;grid-template-columns:14px minmax(0,1fr) auto;gap:clamp(.8rem,2vw,1.6rem);align-items:stretch;padding:clamp(.7rem,1.6vw,1.2rem) clamp(1rem,3vw,2.4rem) calc(.8rem + env(safe-area-inset-bottom,0px));background:#FFFFFF;max-height:46vh}
+.panel{--c:var(--brand,#00665F);--cf:#FFFFFF;display:grid;grid-template-columns:14px minmax(0,1fr) auto;gap:clamp(.8rem,2vw,1.6rem);align-items:stretch;padding:clamp(.7rem,1.6vw,1.2rem) clamp(1rem,3vw,2.4rem) calc(.8rem + env(safe-area-inset-bottom,0px));background:#FFFFFF;max-height:46vh}
 .panel .barra{border-radius:7px;background:var(--c)}
 .p-cuerpo{display:flex;flex-direction:column;gap:.45rem;min-width:0;justify-content:center}
 .p-cab{display:flex;align-items:baseline;gap:.9rem;flex-wrap:wrap}
@@ -174,6 +200,7 @@ dialog::backdrop{background:color-mix(in srgb,var(--ink) 55%,transparent);backdr
 @keyframes toast{from{opacity:0;transform:translate(-50%,-14px)}to{opacity:1;transform:translateX(-50%)}}
 .toast{z-index:20;top:4.2rem}
 </style>
+<style>/*TEMA*/</style>
 </head>
 <body>
 <a class="skip" href="#stage">Saltar al contenido</a>
@@ -240,7 +267,8 @@ dialog::backdrop{background:color-mix(in srgb,var(--ink) 55%,transparent);backdr
   "title": "Historia de la estadística: una línea de tiempo por años",
   "course": "Probabilidad y Estadística",
   "unit": "Unidad 1: Estadística",
-  "source": "Guion piloto, subtema 1: Desarrollo histórico de la estadística"
+  "source": "Guion piloto, subtema 1: Desarrollo histórico de la estadística",
+  "nivel": "tecnologia"
  },
  "quote": {
   "text": "Todos los modelos son incorrectos, pero algunos son útiles.",
@@ -507,23 +535,48 @@ var Scorm=(function(){
 
 /* ================= CONFIGURACIÓN Y CONTENIDO ================= */
 var CONFIG={ storageKey:'pn-diepo-ova-linea-escala-v1', playMs:7000 };
-var OVA=JSON.parse(document.getElementById('ova-content').textContent);
-var NODES=OVA.nodes, N=NODES.length, NOW=new Date().getFullYear();
+var OVA=JSON.parse(document.getElementById('ova-content').textContent.replace(/\/\*(?:FIN-)?CONTENIDO\*\//g,''));  /* abierta suelta, el ejemplo va entre las marcas: se quitan para leerlo */
+var NODES=OVA.nodes||[], N=NODES.length, NOW=new Date().getFullYear();
 var root=document.documentElement;
 var REDUCED=!!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 function nodeYear(n){ return n.hoy?NOW:n.year; }
-function nodeName(n){ return n.hoy?'Hoy':(nodeYear(n)?'Año '+nodeYear(n):n.yearLabel); }
+function nodeName(n){ return n.hoy?'Hoy':(nodeYear(n)?'Año '+nodeYear(n):(n.yearLabel||n.label||n.display||'')); }
 function rgba(h,a){ return 'rgba('+[1,3,5].map(function(i){return parseInt(h.substr(i,2),16);}).join(',')+','+a+')'; }
 
 /* ================= PALETA Y ETAPAS ================= */
-/* Colores de las cuatro formaciones juntos; cada etapa de la línea toma uno. Sin lima ni fondos grises. */
-var INK='#142749', BLANCO='#FFFFFF';
-var COLORES=[['#00665F',BLANCO],['#08A6CB','#151B3B'],['#1C45B4',BLANCO],['#22335D',BLANCO]];
+/* Base y oscuro de cada formación; cada etapa de la línea alterna tonos claro, base y oscuro. Sin lima ni fondos grises. */
+var NIVELES={
+  tecnologia:{base:'#00665F',oscuro:'#142749'},
+  profesional:{base:'#1C45B4',oscuro:'#151B3B'},
+  licenciatura:{base:'#1C45B4',oscuro:'#151B3B'},
+  especializacion:{base:'#08A6CB',oscuro:'#151B3B'},
+  doctorado:{base:'#22335D',oscuro:'#151B3B'}
+};
+var CIAN='#14A4C9', GRIS='#C8C8C8', BLANCO='#FFFFFF';
+var TONOS=['claro','base','oscuro'];
+function lum(h){ var c=[1,3,5].map(function(i){ var v=parseInt(h.substr(i,2),16)/255; return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4); }); return .2126*c[0]+.7152*c[1]+.0722*c[2]; }
+function mezcla(h,w,f){ return '#'+[1,3,5].map(function(i){ var a=parseInt(h.substr(i,2),16), b=parseInt(w.substr(i,2),16); var v=Math.round(a*(1-f)+b*f).toString(16); return v.length<2?'0'+v:v; }).join(''); }
+function pickNivel(){ var q=null; try{ q=new URLSearchParams(location.search).get('nivel'); }catch(e){} var m=(OVA.meta&&OVA.meta.nivel)||null; return NIVELES[q]?q:(NIVELES[m]?m:'tecnologia'); }
+var NV=NIVELES[pickNivel()], BASE=NV.base, OSC=NV.oscuro;
+var ON_BASE=(1.05/(lum(BASE)+.05))>=4.5?BLANCO:OSC;   /* texto sobre el color base */
+var TONO={
+  claro:{c:mezcla(BASE,BLANCO,.35),cf:OSC,acc:BASE},
+  base:{c:BASE,cf:ON_BASE,acc:BASE},
+  oscuro:{c:OSC,cf:BLANCO,acc:CIAN}
+};
+(function(){
+  var st=root.style;
+  st.setProperty('--brand',BASE); st.setProperty('--nav',OSC); st.setProperty('--ink',OSC); st.setProperty('--text',OSC);
+  st.setProperty('--fg',OSC); st.setProperty('--acc',BASE); st.setProperty('--pip',BASE);
+  st.setProperty('--on-brand',ON_BASE); st.setProperty('--cyan',CIAN); st.setProperty('--line',GRIS); st.setProperty('--paper',BLANCO);
+  st.setProperty('--muted',rgba(OSC,.72)); st.setProperty('--soft',rgba(OSC,.08));
+})();
 var ETAPAS=[];
 NODES.forEach(function(n,i){
-  var clave=n.era.replace(/ y hoy$/,'');
+  var clave=String(n.era||'').replace(/ y hoy$/,'');
   if(!ETAPAS.length||ETAPAS[ETAPAS.length-1].clave!==clave){ ETAPAS.push({clave:clave,desde:i,hasta:i}); } else { ETAPAS[ETAPAS.length-1].hasta=i; }
-  var e=ETAPAS.length-1; n.etapa=e; n.c=COLORES[e%COLORES.length][0]; n.cf=COLORES[e%COLORES.length][1];
+  var e=ETAPAS.length-1, t=TONO[TONOS[e%TONOS.length]];
+  ETAPAS[e].tono=TONOS[e%TONOS.length]; n.etapa=e; n.c=t.c; n.cf=t.cf; n.acc=t.acc;
 });
 
 /* ================= ESCALA ================= */
@@ -603,8 +656,8 @@ function construir(){
   ETAPAS.forEach(function(e,k){
     var izq=(k===0)?0:Math.round((NODES[ETAPAS[k-1].hasta].x+NODES[e.desde].x)/2);
     var der=(k===ETAPAS.length-1)?W:Math.round((NODES[e.hasta].x+NODES[ETAPAS[k+1].desde].x)/2);
-    var col=COLORES[k%COLORES.length];
-    bs+='<div class="banda'+(col[0]==='#22335D'?' sin-tinte':'')+'" style="left:'+izq+'px;width:'+(der-izq)+'px;--c:'+col[0]+';--cf:'+col[1]+'"><span class="banda-et">'+esc(e.clave)+'</span></div>';
+    var col=TONO[e.tono];
+    bs+='<div class="banda'+(e.tono==='oscuro'?' sin-tinte':'')+'" style="left:'+izq+'px;width:'+(der-izq)+'px;--c:'+col.c+';--cf:'+col.cf+'"><span class="banda-et">'+esc(e.clave)+'</span></div>';
   });
   $('#bandas').innerHTML=bs;
   /* regla de años, corte del eje y distancia entre hitos */
@@ -624,7 +677,7 @@ function construir(){
     var lado=(i%2===0)?'arriba':'abajo', y2=nodeYear(n);
     h+='<li class="ev '+lado+'" data-k="'+i+'" style="left:'+n.x+'px;--c:'+n.c+'">'
       +'<span class="tallo" aria-hidden="true"></span>'
-      +'<button type="button" class="et" tabindex="-1" aria-hidden="true"><b>'+esc(n.hoy?'Hoy':(y2?String(y2):n.display))+'</b><span>'+esc(n.title)+'</span></button>'
+      +'<button type="button" class="et" tabindex="-1" aria-hidden="true"><b>'+esc(n.hoy?'Hoy':(y2?String(y2):(n.display||n.label||'')))+'</b><span>'+esc(n.title)+'</span></button>'
       +'<button type="button" class="pin" aria-label="'+esc(nodeName(n)+': '+n.title)+'"></button></li>';
   });
   $('#evs').innerHTML=h;
@@ -659,13 +712,13 @@ function ocultarPista(){ $('#cue').classList.add('oculto'); }
 function pintarPanel(n){
   var p=$('#panel'), y=nodeYear(n);
   p.style.setProperty('--c',n.c); p.style.setProperty('--cf',n.cf);
-  p.style.setProperty('--acc',n.c); p.style.setProperty('--soft',rgba(n.c==='#22335D'?'#08A6CB':n.c,.14)); p.style.setProperty('--pip',n.c);
-  $('#p-anio').textContent=n.hoy?String(NOW):(y?String(y):n.display);
+  p.style.setProperty('--acc',n.acc); p.style.setProperty('--soft',rgba(n.acc,.14)); p.style.setProperty('--pip',n.acc);
+  $('#p-anio').textContent=n.hoy?String(NOW):(y?String(y):(n.display||n.label||''));
   $('#p-titulo').innerHTML='<span class="sr-only">'+esc(nodeName(n))+'. </span>'+esc(n.title);
-  $('#p-texto').textContent=n.text;
-  $('#p-chips').innerHTML=[n.era].concat(n.themes).map(function(t){return '<li>'+esc(t)+'</li>';}).join('');
-  $('#idea').hidden=(n.id!==NODES[N-1].id);
-  var m=$('#medal'); m.setAttribute('aria-label',n.alt); m.innerHTML='<svg viewBox="0 0 240 240" aria-hidden="true" focusable="false">'+MOTIFS[n.motif]()+'</svg>';
+  $('#p-texto').textContent=n.text||'';
+  $('#p-chips').innerHTML=[n.era].concat(n.themes||[]).filter(Boolean).map(function(t){return '<li>'+esc(t)+'</li>';}).join('');
+  $('#idea').hidden=(n.id!==NODES[N-1].id)||!(OVA.quote&&OVA.quote.text);
+  var m=$('#medal'); m.setAttribute('aria-label',n.alt||''); m.innerHTML=MOTIFS[n.motif]?'<svg viewBox="0 0 240 240" aria-hidden="true" focusable="false">'+MOTIFS[n.motif]()+'</svg>':'';
   p.classList.remove('entra'); void p.offsetWidth; p.classList.add('entra');
 }
 function renderProgress(){
@@ -728,13 +781,14 @@ function helpHTML(){
   return '<ul class="bul"><li><strong>Arrastra la línea</strong> hacia los lados: al soltar se detiene en el año más cercano y abajo aparece lo que pasó.</li><li>También puedes <strong>pulsar un año</strong>, usar las flechas de los lados, <strong>Anterior</strong> y <strong>Siguiente</strong>, o pulsar el minimapa de abajo.</li><li>La distancia entre los años es real: cuanto más separados están, más tiempo pasó entre ellos. Los números sobre la línea cuentan esos años.</li><li>Los años que ya viste quedan rellenos.</li><li><strong>Reproducir viaje</strong> recorre los años solo; pulsa <strong>Pausar viaje</strong> cuando quieras. Con el teclado, las flechas izquierda y derecha cambian de año.</li></ul>';
 }
 function openMore(){
-  var n=NODES[state.i], y=nodeYear(n), h='<p>'+esc(n.detail)+'</p>';
+  var n=NODES[state.i], y=nodeYear(n), h=n.detail?'<p>'+esc(n.detail)+'</p>':'';
   if(n.bullets&&n.bullets.length)h+='<ul class="bl">'+n.bullets.map(function(b){return '<li><b>'+esc(b.when)+'</b><span>'+esc(b.text)+'</span></li>';}).join('')+'</ul>';
-  h+='<p style="color:var(--muted)">Etapa: '+esc(n.era)+'. Fuente: '+esc(OVA.meta.source)+'.</p>';
-  openModal((n.hoy?'Hoy':(y?String(y):n.yearLabel))+': '+n.title,h);
+  h+='<p style="color:var(--muted)">Etapa: '+esc(n.era||'')+'.'+((OVA.meta&&OVA.meta.source)?' Fuente: '+esc(OVA.meta.source)+'.':'')+'</p>';
+  openModal((n.hoy?'Hoy':(y?String(y):(n.yearLabel||n.label||'')))+': '+n.title,h);
 }
 function openQuote(){
-  openModal('Una idea para llevar','<p class="quote">«'+esc(OVA.quote.text)+'»</p><p><strong>'+esc(OVA.quote.author)+'</strong></p><p>'+esc(OVA.quote.note)+'</p>');
+  var q=OVA.quote||{};
+  openModal('Una idea para llevar','<p class="quote">«'+esc(q.text||'')+'»</p>'+(q.author?'<p><strong>'+esc(q.author)+'</strong></p>':'')+(q.note?'<p>'+esc(q.note)+'</p>':''));
 }
 function endSession(){
   if(Scorm.isFinished())return;
@@ -792,7 +846,7 @@ function init(){
   Scorm.init();
   try{ var raw=Scorm.get('cmi.suspend_data'); if(raw){ var o=JSON.parse(raw); if(o&&o.v===2)deepAssign(state,o); } }catch(e){}
   state.i=Math.max(0,Math.min(N-1,state.i||0));
-  $('#h1').textContent=OVA.meta.title; $('#titulo').textContent=OVA.meta.title; document.title=OVA.meta.title;
+  var TIT=(OVA.meta&&OVA.meta.title)||''; $('#h1').textContent=TIT; $('#titulo').textContent=TIT; if(TIT)document.title=TIT;
   construir(); medir(); initEventos();
   if(state.i>0||visitedCount()>1)ocultarPista();
   goNode(state.i,{silent:true,force:true});

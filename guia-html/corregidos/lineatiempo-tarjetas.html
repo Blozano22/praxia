@@ -12,17 +12,46 @@
   - Qué hace: carrusel de tarjetas, una por hito, cada una con su color y un motivo animado. Se navega con las flechas, arrastrando,
     tocando una tarjeta vecina, con la lista de años de abajo o con la reproducción automática.
     Registra estado (completado al visitar todos los años), tiempo y avance en Moodle (SCORM 1.2). No califica.
-  - Contenido: todo sale del bloque JSON #ova-content (meta, quote, nodes[]: año, textos, motivo). Los colores salen de la paleta DIEPO
-    (los colores de las cuatro formaciones juntos) y se alternan por hito; el recurso no cambia con la formación.
+  - Contenido: todo sale del bloque JSON #ova-content (meta, quote, nodes[]: año, textos, motivo). Los colores salen de la paleta
+    de la formación (meta.nivel o ?nivel=): color base y oscuro; los hitos alternan tonos claro, base y oscuro.
   - Motivos disponibles: tablilla, dados, barras, estado, parcelas, regresion, correlacion, chi, calor.
-  - Diseño: tarjetas de color plano (verde azulado, azul, cian, azul marino y blanco) sobre fondo blanco; sin lima ni grises de fondo.
+  - Diseño: tarjetas de color plano (blanco, color base y oscuro de la formación) sobre fondo blanco; sin lima ni grises de fondo.
   - Un solo archivo, sin recursos externos (numeral 4.6 de las especificaciones técnicas).
+
+  CAMPOS DEL JSON (bloque #ova-content)
+  meta.title: texto, obligatorio (título visible)
+  meta.course: texto, opcional (no se muestra)
+  meta.unit: texto, opcional (no se muestra)
+  meta.source: texto, opcional (se cita en «Más detalle»)
+  meta.nivel: texto, opcional: tecnologia | profesional | especializacion | doctorado (por defecto tecnologia; también ?nivel=)
+  quote.text: texto, opcional (si falta no sale el botón «Una idea para llevar»); frase corta, ver límites de la formación en la guía
+  quote.author: texto, opcional
+  quote.note: texto, opcional; 1 o 2 frases, ver límites de la formación en la guía
+  nodes: lista, obligatorio; 5 a 12 hitos (ver límites de la formación en la guía)
+  nodes[].id: texto, obligatorio (se guarda como ubicación del avance)
+  nodes[].year: número o null, obligatorio (null si el hito no tiene año)
+  nodes[].hoy: verdadero/falso, opcional (el hito usa el año actual)
+  nodes[].label: texto, obligatorio (texto del botón de la lista de años)
+  nodes[].yearLabel: texto, obligatorio (nombre del hito cuando no tiene año)
+  nodes[].display: texto, opcional (texto grande cuando year es null)
+  nodes[].era: texto, opcional (etapa; ficha de la tarjeta)
+  nodes[].title: texto, obligatorio; unas 3 a 8 palabras
+  nodes[].text: texto, obligatorio; unas 25 a 50 palabras (ver límites de la formación en la guía)
+  nodes[].themes: lista de textos, opcional (etiquetas de la tarjeta)
+  nodes[].motif: texto, obligatorio: tablilla | dados | barras | estado | parcelas | regresion | correlacion | chi | calor
+  nodes[].alt: texto, opcional (descripción del dibujo)
+  nodes[].detail: texto, opcional (primer párrafo de «Más detalle»)
+  nodes[].bullets: lista, opcional (puede ir vacía)
+  nodes[].bullets[].when: texto (marca del renglón)
+  nodes[].bullets[].text: texto (descripción del renglón)
+  nodes[].tone: texto, opcional: claro | base | oscuro (fija el tono de la tarjeta)
+  textos: ninguna
 -->
 <style>
 :root{
-  /* Paleta DIEPO. Cada hito cambia --bg, --fg, --acc y --soft (ver TONOS en el script). */
-  --bg:#FFFFFF; --fg:#142749; --on:#FFFFFF; --acc:#00665F; --soft:rgba(20,39,73,.08);
-  --paper:#FFFFFF; --text:#142749; --muted:rgba(20,39,73,.72); --line:#C8C8C8; --ink:#142749; --pip:#00665F;
+  /* Paleta DIEPO por formación: el script fija --brand (base) y --nav (oscuro) según meta.nivel. Cada hito cambia --bg, --fg, --acc y --soft (ver TONOS en el script). */
+  --bg:#FFFFFF; --fg:var(--nav,#142749); --on:#FFFFFF; --acc:var(--brand,#00665F); --soft:rgba(20,39,73,.08);
+  --paper:#FFFFFF; --text:var(--nav,#142749); --muted:rgba(20,39,73,.72); --line:#C8C8C8; --ink:var(--nav,#142749); --pip:var(--brand,#00665F);
   /* Tipografía provisional: se reemplaza cuando COEST/GEVIP confirmen la fuente oficial */
   --font:'Century Gothic','CenturyGothic','Apple Gothic','Futura','Avenir Next','Trebuchet MS','Segoe UI',system-ui,sans-serif;
   --ease:cubic-bezier(.22,.9,.3,1);
@@ -157,6 +186,7 @@ dialog::backdrop{background:color-mix(in srgb,var(--ink) 55%,transparent);backdr
 @keyframes toast{from{opacity:0;transform:translate(-50%,-14px)}to{opacity:1;transform:translateX(-50%)}}
 .toast{z-index:20;top:4.2rem}
 </style>
+<style>/*TEMA*/</style>
 </head>
 <body>
 <a class="skip" href="#stage">Saltar al contenido</a>
@@ -201,6 +231,7 @@ dialog::backdrop{background:color-mix(in srgb,var(--ink) 55%,transparent);backdr
   "title": "Historia de la estadística: una línea de tiempo por años",
   "course": "Probabilidad y Estadística",
   "unit": "Unidad 1: Estadística",
+  "nivel": "tecnologia",
   "source": "Guion piloto, subtema 1: Desarrollo histórico de la estadística"
  },
  "quote": {
@@ -404,7 +435,7 @@ function pad(n,l){n=String(n);while(n.length<l)n='0'+n;return n;}
 var liveT=null;
 function announce(msg){ clearTimeout(liveT); liveT=setTimeout(function(){ var l=$('#live'); l.textContent=''; setTimeout(function(){l.textContent=msg;},40); },350); }
 function deepAssign(t,s){ for(var k in s){ if(!Object.prototype.hasOwnProperty.call(s,k))continue; if(s[k]&&typeof s[k]==='object'&&!Array.isArray(s[k])&&t[k]&&typeof t[k]==='object'){deepAssign(t[k],s[k]);} else {t[k]=s[k];} } }
-function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}
 
 /* ================= SCORM 1.2 ================= */
 var Scorm=(function(){
@@ -468,24 +499,43 @@ var Scorm=(function(){
 
 /* ================= CONFIGURACIÓN Y CONTENIDO ================= */
 var CONFIG={ storageKey:'pn-diepo-ova-linea-tarjetas-v1', playMs:7000 };
-var OVA=JSON.parse(document.getElementById('ova-content').textContent);
-var NODES=OVA.nodes, N=NODES.length, NOW=new Date().getFullYear();
+var OVA=JSON.parse(document.getElementById('ova-content').textContent.replace(/\/\*(?:FIN-)?CONTENIDO\*\//g,''));  /* abierta suelta, el ejemplo va entre las marcas: se quitan para leerlo */
+OVA.meta=OVA.meta||{}; OVA.quote=OVA.quote||{};
+var NODES=Array.isArray(OVA.nodes)?OVA.nodes:[], N=NODES.length, NOW=new Date().getFullYear();
 var root=document.documentElement;
 
 /* ================= PALETA DIEPO ================= */
-/* El recurso no cambia con la formación: usa juntos los colores de las cuatro (verde azulado, cian, azul y azul marino) y el blanco.
-   Sin lima ni fondos grises. Cada tono da el fondo, el texto, el resalte de los dibujos (acc) y el color de los puntos del dado (pip). */
-var INK='#142749', OSCURO='#151B3B', CIAN='#14A4C9', GRIS='#C8C8C8', BLANCO='#FFFFFF';
-function rgba(h,a){ return 'rgba('+[1,3,5].map(function(i){return parseInt(h.substr(i,2),16);}).join(',')+','+a+')'; }
-var TONOS={
-  blanco:{bg:BLANCO,fg:INK,acc:'#00665F',pip:'#00665F',soft:rgba('#00665F',.1)},
-  teal:{bg:'#00665F',fg:BLANCO,acc:GRIS,pip:'#00665F',soft:rgba(BLANCO,.14)},
-  azul:{bg:'#1C45B4',fg:BLANCO,acc:GRIS,pip:'#1C45B4',soft:rgba(BLANCO,.14)},
-  cyan:{bg:'#08A6CB',fg:OSCURO,acc:BLANCO,pip:'#08A6CB',soft:rgba(OSCURO,.14)},
-  marino:{bg:'#22335D',fg:BLANCO,acc:CIAN,pip:'#22335D',soft:rgba(BLANCO,.12)}
+/* Base y oscuro de cada formación; el blanco es común. Sin lima ni fondos grises. Cada tono da el fondo, el texto,
+   el resalte de los dibujos (acc) y el color de los puntos del dado (pip). */
+var NIVELES={
+  tecnologia:{base:'#00665F',oscuro:'#142749'},
+  profesional:{base:'#1C45B4',oscuro:'#151B3B'},
+  especializacion:{base:'#08A6CB',oscuro:'#151B3B'},
+  doctorado:{base:'#22335D',oscuro:'#151B3B'}
 };
-var ORDEN=['blanco','teal','azul','cyan','marino'];  /* los hitos alternan estos fondos; un hito puede fijar el suyo con "tone" */
-NODES.forEach(function(n,i){ var t=TONOS[n.tone]||TONOS[ORDEN[i%ORDEN.length]]; n.bg=t.bg; n.fg=t.fg; n.acc=t.acc; n.soft=t.soft; n.pip=t.pip; });
+var ALIAS={licenciatura:'profesional'};
+var CIAN='#14A4C9', GRIS='#C8C8C8', BLANCO='#FFFFFF', NEGRO='#161616';
+function lum(h){ var c=[1,3,5].map(function(i){ var v=parseInt(h.substr(i,2),16)/255; return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4); }); return .2126*c[0]+.7152*c[1]+.0722*c[2]; }
+function rgba(h,a){ return 'rgba('+[1,3,5].map(function(i){return parseInt(h.substr(i,2),16);}).join(',')+','+a+')'; }
+function normNivel(v){ v=String(v==null?'':v).toLowerCase(); v=ALIAS[v]||v; return NIVELES[v]?v:''; }
+function pickNivel(){ var q=''; try{ q=normNivel(new URLSearchParams(location.search).get('nivel')); }catch(e){} return q||normNivel(OVA.meta&&OVA.meta.nivel)||'tecnologia'; }
+var TONOS=['claro','base','oscuro'];  /* los hitos alternan estos tonos; un hito puede fijar el suyo con "tone" */
+function applyPalette(){
+  var p=NIVELES[pickNivel()], base=p.base, osc=p.oscuro;
+  /* sobre el color base el texto blanco solo si pasa el contraste (el cian de Especialización pide texto oscuro) */
+  var onBase=(1.05/(lum(base)+.05))>=4.5?BLANCO:osc;
+  var T={
+    claro:{bg:BLANCO,fg:osc,acc:base,pip:base,soft:rgba(base,.1)},
+    base:{bg:base,fg:onBase,acc:onBase===BLANCO?GRIS:BLANCO,pip:base,soft:rgba(onBase,.14)},
+    oscuro:{bg:osc,fg:BLANCO,acc:CIAN,pip:osc,soft:rgba(BLANCO,.12)}
+  };
+  NODES.forEach(function(n,i){ var t=T[n.tone]||T[TONOS[i%TONOS.length]]; n.bg=t.bg; n.fg=t.fg; n.acc=t.acc; n.soft=t.soft; n.pip=t.pip; });
+  var s=root.style;
+  s.setProperty('--brand',base); s.setProperty('--nav',osc); s.setProperty('--on-brand',onBase); s.setProperty('--cyan',CIAN);
+  s.setProperty('--ink',osc); s.setProperty('--text',osc); s.setProperty('--muted',rgba(osc,.72));
+  s.setProperty('--line',GRIS); s.setProperty('--paper',BLANCO); s.setProperty('--black',NEGRO);
+}
+applyPalette();
 var REDUCED=!!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 function nodeYear(n){ return n.hoy?NOW:n.year; }
 function nodeName(n){ return n.hoy?'Hoy':(nodeYear(n)?'Año '+nodeYear(n):n.yearLabel); }
@@ -561,9 +611,9 @@ function buildCards(){
     c.innerHTML='<div class="c-copy"><div class="yr'+(y?'':' txt')+'" aria-hidden="true">'+esc(y?String(y):n.display)+'</div>'
       +'<h2 class="ev-title"><span class="sr-only">'+esc(nodeName(n))+'. </span>'+esc(n.title)+'</h2>'
       +'<p class="ev-text">'+esc(n.text)+'</p>'
-      +'<ul class="chips" aria-label="Temas">'+[n.era].concat(n.themes).map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul>'
-      +'<div class="ev-actions"><button type="button" class="pill c-more">Más detalle</button>'+(k===N-1?'<button type="button" class="btn-ln c-quote">Una idea para llevar</button>':'')+'</div></div>'
-      +'<div class="medal" role="img" aria-label="'+esc(n.alt)+'"></div>';
+      +'<ul class="chips" aria-label="Temas">'+[n.era].concat(n.themes||[]).filter(Boolean).map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul>'
+      +'<div class="ev-actions"><button type="button" class="pill c-more">Más detalle</button>'+(k===N-1&&OVA.quote.text?'<button type="button" class="btn-ln c-quote">Una idea para llevar</button>':'')+'</div></div>'
+      +'<div class="medal" role="img" aria-label="'+esc(n.alt||'')+'"></div>';
     t.appendChild(c);
   });
 }
@@ -578,7 +628,7 @@ function colocar(){
     if(activa){c.removeAttribute('aria-hidden');}else{c.setAttribute('aria-hidden','true');}
     $$('button',c).forEach(function(b){ b.tabIndex=activa?0:-1; });
     var m=$('.medal',c);
-    if(activa){ m.innerHTML='<svg viewBox="0 0 240 240" aria-hidden="true" focusable="false">'+MOTIFS[NODES[k].motif]()+'</svg>'; }
+    if(activa){ var mf=MOTIFS[NODES[k].motif]; m.innerHTML=mf?'<svg viewBox="0 0 240 240" aria-hidden="true" focusable="false">'+mf()+'</svg>':''; }
     else if(m.firstChild){ m.textContent=''; }
   });
 }
@@ -655,13 +705,14 @@ function helpHTML(){
   return '<ul class="bul"><li>Usa las flechas de los lados, <strong>Año anterior</strong> y <strong>Año siguiente</strong>, o arrastra las tarjetas. También puedes pulsar la tarjeta que asoma a un lado.</li><li>La lista de abajo te lleva directo a cualquier año.</li><li><strong>Reproducir viaje</strong> recorre los años solo; pulsa <strong>Pausar viaje</strong> cuando quieras. También se pausa al abrir una ventana.</li><li>Con el teclado, las flechas izquierda y derecha cambian de año.</li><li><strong>Más detalle</strong> abre información adicional del año que estás viendo.</li></ul>';
 }
 function openMore(){
-  var n=NODES[state.i], y=nodeYear(n), h='<p>'+esc(n.detail)+'</p>';
+  var n=NODES[state.i], y=nodeYear(n), h=n.detail?'<p>'+esc(n.detail)+'</p>':'';
   if(n.bullets&&n.bullets.length)h+='<ul class="bl">'+n.bullets.map(function(b){return '<li><b>'+esc(b.when)+'</b><span>'+esc(b.text)+'</span></li>';}).join('')+'</ul>';
-  h+='<p style="color:var(--muted)">Etapa: '+esc(n.era)+'. Fuente: '+esc(OVA.meta.source)+'.</p>';
+  var pie=[]; if(n.era)pie.push('Etapa: '+esc(n.era)+'.'); if(OVA.meta.source)pie.push('Fuente: '+esc(OVA.meta.source)+'.');
+  if(pie.length)h+='<p style="color:var(--muted)">'+pie.join(' ')+'</p>';
   openModal((n.hoy?'Hoy':(y?String(y):n.yearLabel))+': '+n.title,h);
 }
 function openQuote(){
-  openModal('Una idea para llevar','<p class="quote">«'+esc(OVA.quote.text)+'»</p><p><strong>'+esc(OVA.quote.author)+'</strong></p><p>'+esc(OVA.quote.note)+'</p>');
+  openModal('Una idea para llevar','<p class="quote">«'+esc(OVA.quote.text)+'»</p>'+(OVA.quote.author?'<p><strong>'+esc(OVA.quote.author)+'</strong></p>':'')+(OVA.quote.note?'<p>'+esc(OVA.quote.note)+'</p>':''));
 }
 function endSession(){
   if(Scorm.isFinished())return;
@@ -702,7 +753,7 @@ function init(){
   Scorm.init();
   try{ var raw=Scorm.get('cmi.suspend_data'); if(raw){ var o=JSON.parse(raw); if(o&&o.v===2)deepAssign(state,o); } }catch(e){}
   state.i=Math.max(0,Math.min(N-1,state.i||0));
-  $('#h1').textContent=OVA.meta.title; $('#titulo').textContent=OVA.meta.title; document.title=OVA.meta.title;
+  var ttl=OVA.meta.title||document.title||''; $('#h1').textContent=ttl; $('#titulo').textContent=ttl; if(OVA.meta.title)document.title=OVA.meta.title;
   buildCards(); buildRail(); initEvents();
   goNode(state.i,{silent:true,force:true});
   window.addEventListener('pagehide',function(){ if(!Scorm.isFinished())endSession(); });

@@ -13,15 +13,35 @@
     aparece su explicación: idea central, tres puntos clave y una pregunta para pensar. El sector activo se separa de la rueda,
     los visitados se marcan y el centro cuenta el avance. Registra estado (completado al visitar todos los bloques), tiempo y avance en Moodle (SCORM 1.2). No califica.
   - Contenido: todo sale del bloque JSON #ova-content (meta, bloques[]: número, nombre, idea, párrafos, puntos, pregunta, ícono).
-    El contenido que trae es de ejemplo para validar el formato. Los colores son de la paleta DIEPO y no dependen de la formación.
+    El contenido que trae es de ejemplo para validar el formato. Los colores salen de la formación (meta.nivel o ?nivel= en la dirección; por defecto tecnologia): base y oscuro de la formación, alternados en tres tonos (claro, base, oscuro).
   - Íconos disponibles: libro, lupa, balanza, grafica, objetivo, validar, lista.
   - Un solo archivo, sin recursos externos (numeral 4.6 de las especificaciones técnicas).
+
+  CAMPOS DEL JSON
+  - meta: objeto, obligatorio.
+  - meta.title: texto, obligatorio (título del recurso; ver límites de la formación en la guía).
+  - meta.tema: texto, opcional (rótulo pequeño en el centro de la rueda).
+  - meta.hub: texto, opcional (nombre en el centro de la rueda; si falta usa meta.title).
+  - meta.source: texto, opcional (nota interna; no se muestra).
+  - meta.nivel: texto, opcional; valores: tecnologia, profesional, especializacion, doctorado (por defecto tecnologia; también 'licenciatura' como alias de profesional).
+  - bloques: lista de objetos, obligatorio; de 4 a 8 bloques (cada uno es un sector de la rueda).
+  - bloques[].id: texto, opcional.
+  - bloques[].nombre: texto, obligatorio (nombre del sector; ver límites de la formación en la guía).
+  - bloques[].icono: texto, opcional; uno de: libro, lupa, balanza, grafica, objetivo, validar, lista (si falta o no existe usa lista).
+  - bloques[].idea: texto, opcional (idea central).
+  - bloques[].p1: texto, obligatorio (primer párrafo; ver límites de la formación en la guía).
+  - bloques[].p2: texto, opcional (segundo párrafo).
+  - bloques[].puntos: lista de objetos, opcional; hasta 3 puntos clave.
+  - bloques[].puntos[].t: texto, obligatorio dentro de cada punto (término en negrita).
+  - bloques[].puntos[].d: texto, opcional (explicación del punto).
+  - bloques[].pregunta: texto, opcional (pregunta para pensar).
+  textos: ninguna
 -->
 <style>
 :root{
-  /* Paleta DIEPO. Cada hito cambia --bg, --fg, --acc y --soft (ver TONOS en el script). */
-  --bg:#FFFFFF; --fg:#142749; --on:#FFFFFF; --acc:#00665F; --soft:rgba(20,39,73,.08);
-  --paper:#FFFFFF; --text:#142749; --muted:rgba(20,39,73,.72); --line:#C8C8C8; --ink:#142749; --pip:#00665F;
+  /* Paleta DIEPO por formación: el script fija --brand, --nav y derivadas (ver NIVELES). Cada sector alterna tonos (ver TONOS). */
+  --bg:#FFFFFF; --fg:var(--nav,#142749); --on:#FFFFFF; --acc:var(--brand,#00665F); --soft:rgba(20,39,73,.08);
+  --paper:#FFFFFF; --text:var(--nav,#142749); --muted:rgba(20,39,73,.72); --line:#C8C8C8; --ink:var(--nav,#142749); --pip:var(--brand,#00665F);
   /* Tipografía provisional: se reemplaza cuando COEST/GEVIP confirmen la fuente oficial */
   --font:'Century Gothic','CenturyGothic','Apple Gothic','Futura','Avenir Next','Trebuchet MS','Segoe UI',system-ui,sans-serif;
   --ease:cubic-bezier(.22,.9,.3,1);
@@ -72,7 +92,7 @@ body{height:100dvh;overflow:hidden;font-family:var(--font);background:#FFFFFF;co
   transform:translate(calc(var(--ox) * var(--pop,0px)),calc(var(--oy) * var(--pop,0px)));transition:transform .5s var(--ease)}
 .sec:hover{--pop:9px}
 .sec.act{--pop:18px}
-.sec path{fill:var(--c);stroke:#FFFFFF;stroke-width:3;transition:filter .3s var(--ease)}
+.sec path{fill:var(--c);stroke:var(--sk,#FFFFFF);stroke-width:3;transition:filter .3s var(--ease)}
 .sec:hover path{filter:brightness(1.12)}
 .sec.act path{stroke:var(--ink);stroke-width:4}
 .sec:focus-visible path{stroke:var(--ink);stroke-width:5;stroke-dasharray:10 6}
@@ -82,14 +102,14 @@ body{height:100dvh;overflow:hidden;font-family:var(--font);background:#FFFFFF;co
 .sec use{color:var(--cf);pointer-events:none}
 .marca circle.fondo{fill:#FFFFFF;stroke:var(--ink);stroke-width:2.5}
 .marca .ok{fill:none;stroke:var(--ink);stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round;opacity:0;transition:opacity .4s var(--ease)}
-.marca .ping{fill:var(--c);opacity:1;transition:opacity .3s var(--ease)}
-.marca .onda{fill:none;stroke:var(--c);stroke-width:3;opacity:0}
+.marca .ping{fill:var(--ca,var(--brand,#00665F));opacity:1;transition:opacity .3s var(--ease)}
+.marca .onda{fill:none;stroke:var(--ca,var(--brand,#00665F));stroke-width:3;opacity:0}
 .sec[data-v="1"] .marca .ok{opacity:1}
 .sec[data-v="1"] .marca .ping,.sec[data-v="1"] .marca .onda{opacity:0;animation:none}
 .centro-fondo{fill:var(--ink)}
 .centro-txt{fill:#FFFFFF;font-family:var(--font);text-anchor:middle}
 .aro-pista{fill:none;stroke:var(--ink);stroke-opacity:.15;stroke-width:7}
-.aro{fill:none;stroke:var(--c,#00665F);stroke-width:7;stroke-linecap:round;transform:rotate(-90deg);transform-origin:300px 300px;transition:stroke-dashoffset .8s var(--ease),stroke .5s var(--ease)}
+.aro{fill:none;stroke:var(--c,var(--brand,#00665F));stroke-width:7;stroke-linecap:round;transform:rotate(-90deg);transform-origin:300px 300px;transition:stroke-dashoffset .8s var(--ease),stroke .5s var(--ease)}
 .aro-giro{fill:none;stroke:var(--ink);stroke-width:2;stroke-dasharray:3 11;opacity:.55;transform-origin:300px 300px}
 @media (prefers-reduced-motion:no-preference){
   .sec{animation:secEntra .9s var(--ease) both;animation-delay:calc(var(--i) * 100ms + 150ms)}
@@ -108,24 +128,24 @@ body{height:100dvh;overflow:hidden;font-family:var(--font);background:#FFFFFF;co
 .pista.oculto{opacity:0}
 
 /* ---------- Panel del bloque ---------- */
-.panel{--c:#00665F;--cf:#FFFFFF;display:flex;flex-direction:column;min-height:0;border:2px solid var(--ink);border-radius:24px;overflow:hidden;background:#FFFFFF}
-.pn-cab{background:var(--c);color:var(--cf);padding:clamp(.55rem,1.2vw,.9rem) clamp(1.1rem,2.2vw,1.8rem);display:flex;align-items:center;gap:clamp(.8rem,1.6vw,1.2rem);transition:background .5s var(--ease),color .5s var(--ease)}
-.pn-num{flex:none;width:clamp(44px,4.6vw,58px);aspect-ratio:1;border-radius:50%;background:#FFFFFF;color:var(--c);display:grid;place-items:center;font-size:clamp(1.15rem,2vw,1.6rem);font-weight:700;letter-spacing:-.03em}
+.panel{--c:var(--brand,#00665F);--cf:#FFFFFF;--ca:var(--brand,#00665F);--caf:#FFFFFF;display:flex;flex-direction:column;min-height:0;border:2px solid var(--ink);border-radius:24px;overflow:hidden;background:#FFFFFF}
+.pn-cab{background:var(--c);color:var(--cf);border-bottom:2px solid var(--ink);padding:clamp(.55rem,1.2vw,.9rem) clamp(1.1rem,2.2vw,1.8rem);display:flex;align-items:center;gap:clamp(.8rem,1.6vw,1.2rem);transition:background .5s var(--ease),color .5s var(--ease)}
+.pn-num{flex:none;width:clamp(44px,4.6vw,58px);aspect-ratio:1;border-radius:50%;background:var(--cf);color:var(--c);display:grid;place-items:center;font-size:clamp(1.15rem,2vw,1.6rem);font-weight:700;letter-spacing:-.03em}
 .pn-t small{display:block;font-size:.72rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;opacity:.9}
 .pn-t h2{margin:.05rem 0 0;font-size:clamp(1.15rem,2vw,1.65rem);letter-spacing:-.03em;line-height:1.08;text-wrap:balance}
 .pn-cuerpo{--fs:1;flex:1 1 auto;min-height:0;overflow:hidden;padding:clamp(.8rem,1.5vw,1.2rem) clamp(1.1rem,2.2vw,1.8rem);display:flex;flex-direction:column;gap:calc(var(--fs) * clamp(.5rem,1vw,.8rem))}
-.idea{border-left:5px solid var(--c);padding:.05rem 0 .05rem .85rem}
-.idea b{display:block;font-size:calc(var(--fs) * .7rem);letter-spacing:.09em;text-transform:uppercase;color:var(--c)}
+.idea{border-left:5px solid var(--ca);padding:.05rem 0 .05rem .85rem}
+.idea b{display:block;font-size:calc(var(--fs) * .7rem);letter-spacing:.09em;text-transform:uppercase;color:var(--ink)}
 .idea span{display:block;font-size:calc(var(--fs) * clamp(1rem,1.4vw,1.22rem));font-weight:700;line-height:1.3}
 .txt{margin:0;font-size:calc(var(--fs) * clamp(.95rem,1.22vw,1.12rem));line-height:1.55}
 .puntos{display:flex;flex-direction:column;gap:calc(var(--fs) * .45rem);margin:0;padding:0;list-style:none}
 .punto{display:flex;gap:.65rem;align-items:flex-start;font-size:calc(var(--fs) * clamp(.92rem,1.16vw,1.08rem));line-height:1.45}
-.punto i{flex:none;font-style:normal;width:calc(var(--fs) * 24px);height:calc(var(--fs) * 24px);border-radius:50%;background:var(--c);color:var(--cf);display:grid;place-items:center;font-size:calc(var(--fs) * .78rem);font-weight:700;margin-top:.1rem}
+.punto i{flex:none;font-style:normal;width:calc(var(--fs) * 24px);height:calc(var(--fs) * 24px);border-radius:50%;background:var(--ca);color:var(--caf);display:grid;place-items:center;font-size:calc(var(--fs) * .78rem);font-weight:700;margin-top:.1rem}
 .punto b{font-weight:700}
 .pregunta{display:flex;gap:.6rem;align-items:flex-start;border-top:2px solid var(--ink);padding-top:calc(var(--fs) * .55rem);font-size:calc(var(--fs) * clamp(.92rem,1.16vw,1.08rem));line-height:1.4}
 .pregunta i{flex:none;font-style:normal;width:calc(var(--fs) * 24px);height:calc(var(--fs) * 24px);border-radius:50%;background:var(--ink);color:#FFFFFF;display:grid;place-items:center;font-weight:700;font-size:calc(var(--fs) * .9rem)}
 .pregunta p{margin:0}
-.pregunta p b{color:var(--c)}
+.pregunta p b{color:var(--ink)}
 .pn-pie{flex:none;display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:.5rem clamp(1.1rem,2.2vw,1.8rem);border-top:2px solid var(--ink)}
 .pn-pie .pasos{font-size:.88rem;font-weight:700}
 .pn-pie .btn-ln,.pn-pie .pill{min-height:42px}
@@ -171,6 +191,7 @@ dialog::backdrop{background:color-mix(in srgb,var(--ink) 55%,transparent);backdr
 @keyframes toast{from{opacity:0;transform:translate(-50%,-14px)}to{opacity:1;transform:translateX(-50%)}}
 .toast{z-index:20;top:4.2rem}
 </style>
+<style>/*TEMA*/</style>
 </head>
 <body>
 <a class="skip" href="#grafico">Saltar al contenido</a>
@@ -221,6 +242,7 @@ dialog::backdrop{background:color-mix(in srgb,var(--ink) 55%,transparent);backdr
 {
  "meta": {
   "title": "Innovar para servir mejor",
+  "nivel": "tecnologia",
   "tema": "Servicio policial",
   "hub": "Innovar para servir mejor",
   "source": "Contenido de ejemplo para validar el formato de infografía radial"
@@ -326,7 +348,7 @@ function pad(n,l){n=String(n);while(n.length<l)n='0'+n;return n;}
 var liveT=null;
 function announce(msg){ clearTimeout(liveT); liveT=setTimeout(function(){ var l=$('#live'); l.textContent=''; setTimeout(function(){l.textContent=msg;},40); },350); }
 function deepAssign(t,s){ for(var k in s){ if(!Object.prototype.hasOwnProperty.call(s,k))continue; if(s[k]&&typeof s[k]==='object'&&!Array.isArray(s[k])&&t[k]&&typeof t[k]==='object'){deepAssign(t[k],s[k]);} else {t[k]=s[k];} } }
-function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}
 
 /* ================= SCORM 1.2 ================= */
 var Scorm=(function(){
@@ -390,13 +412,46 @@ var Scorm=(function(){
 
 /* ================= CONFIGURACIÓN Y CONTENIDO ================= */
 var CONFIG={ storageKey:'pn-diepo-ova-infografia-radial-v1' };
-var OVA=JSON.parse(document.getElementById('ova-content').textContent);
-var B=OVA.bloques, N=B.length;
+var OVA=JSON.parse(document.getElementById('ova-content').textContent.replace(/\/\*(?:FIN-)?CONTENIDO\*\//g,''));  /* abierta suelta, el ejemplo va entre las marcas: se quitan para leerlo */
+OVA.meta=OVA.meta||{}; var B=(OVA.bloques||[]).filter(Boolean), N=B.length;
+var root=document.documentElement;
 var REDUCED=!!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
-/* Colores de las cuatro formaciones juntos; los sectores los alternan. Sin lima ni fondos grises. */
-var COL=[['#00665F','#FFFFFF'],['#08A6CB','#151B3B'],['#1C45B4','#FFFFFF'],['#22335D','#FFFFFF']];
-B.forEach(function(b,i){ b.c=COL[i%COL.length][0]; b.cf=COL[i%COL.length][1]; b.num=pad(i+1,2); });
+/* ================= PALETA DIEPO POR FORMACIÓN ================= */
+/* Base y oscuro de cada formación; 'licenciatura' es alias de 'profesional'. Comunes: cian, gris, blanco, negro. */
+var NIVELES={
+  tecnologia:{base:'#00665F',oscuro:'#142749'},
+  profesional:{base:'#1C45B4',oscuro:'#151B3B'},
+  especializacion:{base:'#08A6CB',oscuro:'#151B3B'},
+  doctorado:{base:'#22335D',oscuro:'#151B3B'}
+};
+NIVELES.licenciatura=NIVELES.profesional;
+var CIAN='#14A4C9', GRIS='#C8C8C8', BLANCO='#FFFFFF', NEGRO='#161616';
+var TONOS=['claro','base','oscuro'];  /* los sectores alternan estos tonos */
+function lum(h){ var c=[1,3,5].map(function(i){ var v=parseInt(h.substr(i,2),16)/255; return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4); }); return .2126*c[0]+.7152*c[1]+.0722*c[2]; }
+function rgba(h,a){ return 'rgba('+[1,3,5].map(function(i){return parseInt(h.substr(i,2),16);}).join(',')+','+a+')'; }
+function pickNivel(){ var q=null; try{ q=new URLSearchParams(location.search).get('nivel'); }catch(e){} return NIVELES[q]?q:(NIVELES[OVA.meta.nivel]?OVA.meta.nivel:'tecnologia'); }
+function applyPalette(){
+  var p=NIVELES[pickNivel()], base=p.base, osc=p.oscuro;
+  /* sobre el color base el texto blanco solo si pasa el contraste (el cian de Especialización pide texto oscuro) */
+  var onBase=(1.05/(lum(base)+.05))>=4.5?BLANCO:osc;
+  var T={
+    claro:{c:BLANCO,cf:osc,ca:base,caf:onBase,sk:base},
+    base:{c:base,cf:onBase,ca:base,caf:onBase,sk:BLANCO},
+    oscuro:{c:osc,cf:BLANCO,ca:osc,caf:BLANCO,sk:BLANCO}
+  };
+  B.forEach(function(b,i){
+    var k=i%TONOS.length; if(i===N-1&&k===0&&N>1)k=1;  /* el último no repite el tono del primero */
+    var t=T[TONOS[k]]; b.c=t.c; b.cf=t.cf; b.ca=t.ca; b.caf=t.caf; b.sk=t.sk; b.num=pad(i+1,2);
+  });
+  var st=root.style;
+  st.setProperty('--brand',base); st.setProperty('--nav',osc); st.setProperty('--ink',osc); st.setProperty('--tit',osc);
+  st.setProperty('--text',osc); st.setProperty('--fg',osc); st.setProperty('--on',BLANCO);
+  st.setProperty('--acc',base); st.setProperty('--pip',base); st.setProperty('--on-brand',onBase);
+  st.setProperty('--muted',rgba(osc,.72)); st.setProperty('--soft',rgba(osc,.08));
+  st.setProperty('--line',GRIS); st.setProperty('--paper',BLANCO); st.setProperty('--black',NEGRO); st.setProperty('--cyan',CIAN);
+}
+applyPalette();
 
 /* Íconos (24 x 24, trazo) */
 var ICONOS={
@@ -441,11 +496,11 @@ function construirRueda(){
     var p1=P(R,a0), p2=P(R,a1), p3=P(RI,a1), p4=P(RI,a0);
     var d='M'+f(p1[0])+' '+f(p1[1])+' A'+R+' '+R+' 0 0 1 '+f(p2[0])+' '+f(p2[1])+' L'+f(p3[0])+' '+f(p3[1])+' A'+RI+' '+RI+' 0 0 0 '+f(p4[0])+' '+f(p4[1])+' Z';
     var rm=(R+RI)/2+2, L=P(rm,mid), M=P(R+3,mid);
-    var lin=partir(b.nombre,13);
+    var lin=partir(b.nombre||'',13);
     var txt='<text class="num" x="'+f(L[0])+'" y="'+f(L[1]-8)+'">'+b.num+'</text>';
     lin.forEach(function(t,k){ txt+='<text class="nom" x="'+f(L[0])+'" y="'+f(L[1]+10+k*14.5)+'">'+esc(t)+'</text>'; });
     var ic='<svg x="'+f(L[0]-12)+'" y="'+f(L[1]-58)+'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--cf)">'+(ICONOS[b.icono]||ICONOS.lista)+'</svg>';
-    s+='<g class="sec" role="button" tabindex="0" data-k="'+i+'" aria-label="Bloque '+(i+1)+': '+esc(b.nombre)+'" style="--ox:'+Math.cos(mid).toFixed(3)+';--oy:'+Math.sin(mid).toFixed(3)+';--c:'+b.c+';--cf:'+b.cf+';--i:'+i+'">'
+    s+='<g class="sec" role="button" tabindex="0" data-k="'+i+'" aria-label="Bloque '+(i+1)+': '+esc(b.nombre)+'" style="--ox:'+Math.cos(mid).toFixed(3)+';--oy:'+Math.sin(mid).toFixed(3)+';--c:'+b.c+';--cf:'+b.cf+';--ca:'+b.ca+';--sk:'+b.sk+';--i:'+i+'">'
       +'<path d="'+d+'"/>'+ic+txt
       +'<g class="marca" transform="translate('+f(M[0])+' '+f(M[1])+')"><circle class="onda" r="11"/><circle class="fondo" r="12"/><circle class="ping" r="4.5"/><path class="ok" d="M-5 .5l3.6 3.6L5.5-3.6"/></g></g>';
   });
@@ -456,7 +511,7 @@ function construirRueda(){
     +'<circle class="aro-giro" cx="'+CX+'" cy="'+CY+'" r="'+(RC+4)+'"/>'
     +'<circle class="centro-fondo" cx="'+CX+'" cy="'+CY+'" r="'+RC+'"/>'
     +'<text class="centro-txt" x="'+CX+'" y="'+(CY-66)+'" font-size="11.5" font-weight="700" letter-spacing="1.5">'+esc((OVA.meta.tema||'').toUpperCase())+'</text>';
-  var h=partir((OVA.meta.hub||OVA.meta.title).toUpperCase(),11);
+  var h=partir((OVA.meta.hub||OVA.meta.title||'').toUpperCase(),11);
   var y0=CY-h.length*16+24;
   h.forEach(function(t,k){ s+='<text class="centro-txt" x="'+CX+'" y="'+(y0+k*32)+'" font-size="28" font-weight="700" letter-spacing="-.5">'+esc(t)+'</text>'; });
   s+='<text class="centro-txt" id="centro-av" x="'+CX+'" y="'+(CY+84)+'" font-size="13" font-weight="700"></text></g>';
@@ -467,15 +522,15 @@ function construirRueda(){
 /* ================= PANEL ================= */
 function pintarPanel(b,i){
   var p=$('#panel');
-  p.style.setProperty('--c',b.c); p.style.setProperty('--cf',b.cf);
+  p.style.setProperty('--c',b.c); p.style.setProperty('--cf',b.cf); p.style.setProperty('--ca',b.ca); p.style.setProperty('--caf',b.caf);
   $('#pn-num').textContent=b.num;
   $('#pn-eti').textContent='Bloque '+(i+1)+' de '+N;
-  $('#pn-titulo').textContent=b.nombre;
-  var h='<div class="idea"><b>Idea central</b><span>'+esc(b.idea)+'</span></div>'
-    +'<p class="txt">'+esc(b.p1)+'</p>'
+  $('#pn-titulo').textContent=b.nombre||'';
+  var h=(b.idea?'<div class="idea"><b>Idea central</b><span>'+esc(b.idea)+'</span></div>':'')
+    +(b.p1?'<p class="txt">'+esc(b.p1)+'</p>':'')
     +(b.p2?'<p class="txt">'+esc(b.p2)+'</p>':'')
-    +'<ul class="puntos" aria-label="Puntos clave">'+b.puntos.map(function(x,j){ return '<li class="punto" style="--j:'+j+'"><i aria-hidden="true">'+(j+1)+'</i><div><b>'+esc(x.t)+'</b> '+esc(x.d)+'</div></li>'; }).join('')+'</ul>'
-    +'<div class="pregunta"><i aria-hidden="true">?</i><p><b>Para pensar:</b> '+esc(b.pregunta)+'</p></div>';
+    +((b.puntos&&b.puntos.length)?'<ul class="puntos" aria-label="Puntos clave">'+b.puntos.filter(Boolean).map(function(x,j){ return '<li class="punto" style="--j:'+j+'"><i aria-hidden="true">'+(j+1)+'</i><div>'+(x.t?'<b>'+esc(x.t)+'</b> ':'')+esc(x.d)+'</div></li>'; }).join('')+'</ul>':'')
+    +(b.pregunta?'<div class="pregunta"><i aria-hidden="true">?</i><p><b>Para pensar:</b> '+esc(b.pregunta)+'</p></div>':'');
   var c=$('#pn-cuerpo'); c.innerHTML=h;
   $$('#pn-cuerpo>*').forEach(function(el,k){ el.style.setProperty('--k',k); });
   $('#pasos').textContent='Bloque '+(i+1)+' de '+N;
@@ -501,7 +556,7 @@ function renderProgress(){
   });
   var aro=$('#aro'), circ=parseFloat(aro.getAttribute('data-circ'));
   aro.style.strokeDashoffset=(circ*(1-d/N)).toFixed(1);
-  aro.style.setProperty('--c',B[state.i].c);
+  aro.style.setProperty('--c',B[state.i].ca);
   $('#centro-av').textContent=d+' de '+N+' bloques';
   $('#prev').disabled=(state.i===0); $('#next').disabled=(state.i===N-1);
 }
@@ -569,7 +624,8 @@ function init(){
   Scorm.init();
   try{ var raw=Scorm.get('cmi.suspend_data'); if(raw){ var o=JSON.parse(raw); if(o&&o.v===1)deepAssign(state,o); } }catch(e){}
   state.i=Math.max(0,Math.min(N-1,state.i||0));
-  $('#h1').textContent=OVA.meta.title; $('#titulo').textContent=OVA.meta.title; document.title=OVA.meta.title;
+  var TIT=OVA.meta.title||''; $('#h1').textContent=TIT; $('#titulo').textContent=TIT; if(TIT)document.title=TIT;
+  if(!N)return;
   var dots=$('#dots'); dots.innerHTML=''; for(var k=0;k<N;k++)dots.appendChild(document.createElement('i')); dots.setAttribute('aria-valuemax',N);
   construirRueda(); initEventos();
   window.addEventListener('resize',ajustarTexto);

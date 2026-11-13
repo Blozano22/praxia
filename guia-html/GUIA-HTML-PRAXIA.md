@@ -75,10 +75,10 @@ Reglas de las marcas:
 - El contenido de ejemplo debe ser un **objeto JSON válido** (`{ … }`, no una lista). Si no es JSON válido, Praxia rechaza la subida y dice por qué.
 - Dentro del ejemplo evita escribir la secuencia `</script>`.
 
-Lectura del contenido en el JavaScript de la plantilla:
+Lectura del contenido en el JavaScript de la plantilla. **Debe quitar las dos marcas antes de leer el JSON**: así, al abrir el archivo suelto, la plantilla se ve con su contenido de ejemplo (si no se quitan, el JSON no es válido y la página sale vacía):
 
 ```js
-const CFG = JSON.parse(document.getElementById('contenido').textContent);
+const CFG = JSON.parse(document.getElementById('contenido').textContent.replace(/\/\*(?:FIN-)?CONTENIDO\*\//g, ''));
 ```
 
 ---
@@ -139,7 +139,7 @@ Praxia **todavía no valida** las palabras del JSON: los límites los cumple el 
 
 ### 6.1 Variables de color (usa solo estas)
 
-Praxia define estas variables en `/*TEMA*/`. **Los colores se escriben siempre como `var(--nombre)`**, nunca con un código hexadecimal, para que Praxia pueda cambiar la paleta según la formación sin tocar el HTML.
+Praxia define estas variables en `/*TEMA*/` y la plantilla las ajusta según la formación (apartado 6.2). **Los colores se escriben siempre como `var(--nombre)`**, nunca con un código hexadecimal suelto.
 
 | Variable | Uso | Valor por defecto |
 |---|---|---|
@@ -166,9 +166,39 @@ Reglas de color:
 - El blanco, el negro y los grises neutros pueden ir fijos.
 - Todo texto debe tener contraste suficiente (4,5:1) sobre su fondo, también con otra paleta.
 
-> **Estado actual:** Praxia aplica hoy la paleta DIEPO base a todas las formaciones. Cuando exista la paleta de cada formación, Praxia cambiará las variables y las plantillas que sigan esta regla se verán con los colores de la formación **sin volver a generarlas**. Para eso se necesita la tabla formación → colores (código hexadecimal de cada variable).
+### 6.2 Paleta por formación (la plantilla la trae incluida)
 
-### 6.2 Tipografía, forma y espacio
+Cada formación tiene un color **base** y uno **oscuro**; el blanco, el gris y el cian son comunes:
+
+| Formación | `nivel` en el JSON | Base | Oscuro |
+|---|---|---|---|
+| Tecnológico | `tecnologia` | `#00665F` | `#142749` |
+| Profesional | `profesional` (acepta también `licenciatura`) | `#1C45B4` | `#151B3B` |
+| Especialización | `especializacion` | `#08A6CB` | `#151B3B` |
+| Doctorado | `doctorado` | `#22335D` | `#151B3B` |
+
+Comunes: cian `#14A4C9`, gris `#C8C8C8`, blanco `#FFFFFF`, negro `#161616`.
+
+Reglas:
+
+- El JSON del recurso trae `meta.nivel` (o la dirección trae `?nivel=`); si falta, se usa `tecnologia`.
+- La plantilla lleva este objeto y, al cargar, fija en `:root` las variables `--brand` (base) y `--nav` (oscuro) y las que derive. Todo el CSS usa esas variables:
+
+```js
+var NIVELES = {
+  tecnologia:      { base: '#00665F', oscuro: '#142749' },
+  profesional:     { base: '#1C45B4', oscuro: '#151B3B' },
+  especializacion: { base: '#08A6CB', oscuro: '#151B3B' },
+  doctorado:       { base: '#22335D', oscuro: '#151B3B' }
+};
+```
+
+- Para los elementos que antes alternaban varios colores, alterna **tonos de la formación**: claro (fondo blanco, texto oscuro, acento base), base (fondo base) y oscuro (fondo oscuro, texto blanco, acento cian).
+- Sobre el color base, el texto es blanco solo si el contraste es de 4,5:1 o más; si no, usa el oscuro (el cian de Especialización pide texto oscuro).
+- Referencia: `HTMLs/_archivo/linea-de-tiempo/anterior_por-formacion.html` (`NIVELES`, `pickNivel`, `applyPalette`).
+- Pendiente de confirmar: que «Profesional» use los colores de «licenciatura» (azul `#1C45B4`).
+
+### 6.3 Tipografía, forma y espacio
 
 - Fuente `var(--font)`; títulos en peso 800, cuerpo en 400–600. Base **17 px** (`--fs`), interlineado 1,5.
 - Esquinas redondeadas (`var(--radius)`), botones en forma de píldora, bordes de 2 px.
@@ -176,7 +206,7 @@ Reglas de color:
 - Pensado para verse en **pantalla completa 16:9 (1280 × 720)** y también en celular (ancho 360 px) sin scroll horizontal. Usa `clamp()` y unidades relativas.
 - Animaciones suaves y breves (≤ 350 ms); respeta `@media (prefers-reduced-motion: reduce)` desactivándolas.
 
-### 6.3 Accesibilidad (obligatorio)
+### 6.4 Accesibilidad (obligatorio)
 
 - Se debe poder usar **solo con teclado** (Tab, Enter, Espacio, flechas) y el foco se ve (`:focus-visible` con contorno de 3 px).
 - Botones con `<button>`, no `<div>`; `aria-label` en los botones de solo ícono; `alt` en imágenes (el texto alternativo viene del JSON).
@@ -227,7 +257,7 @@ Reglas de color:
 }
 /*FIN-CONTENIDO*/</script>
 <script>
-const CFG = JSON.parse(document.getElementById('contenido').textContent);
+const CFG = JSON.parse(document.getElementById('contenido').textContent.replace(/\/\*(?:FIN-)?CONTENIDO\*\//g, ''));
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const app = document.getElementById('app');
 app.innerHTML = '<h1>' + esc(CFG.titulo) + '</h1>' +
@@ -253,7 +283,7 @@ La IA debe comprobar y **responder cada punto** al entregar el archivo:
 - [ ] Ningún texto del curso está escrito fijo en el HTML; los textos ajustables están en `CFG.textos` con valor por defecto.
 - [ ] Cada sección y cada elemento del recurso (según los límites de la formación) tiene su lugar, en orden.
 - [ ] Con el máximo de palabras nada se desborda ni se corta; con el mínimo o con menos elementos no se rompe.
-- [ ] Los colores usan solo `var(--…)` (excepto acierto/error y neutros).
+- [ ] Los colores usan solo `var(--…)` (excepto acierto/error y neutros) y la plantilla trae `NIVELES` y lee `meta.nivel` (apartado 6.2).
 - [ ] Funciona con teclado, tiene foco visible, `lang="es"` y `alt` en imágenes.
 - [ ] Sin librerías externas, sin `localStorage`, sin `fetch`, sin `alert()`.
 - [ ] Se ve bien en 1280 × 720 y en 360 px de ancho.
