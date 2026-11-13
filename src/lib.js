@@ -13,7 +13,8 @@ function h(tag,attrs,...kids){
   kids.flat(9).forEach(c=>{if(c==null||c===false)return;e.append(c.nodeType?c:document.createTextNode(c))});
   return e;
 }
-const CFG=JSON.parse(document.getElementById('contenido').textContent);
+// El contenido puede venir con su ejemplo entre las dos marcas de contenido (plantilla subida y abierta suelta): se quitan las marcas para leerlo.
+const CFG=JSON.parse(document.getElementById('contenido').textContent.replace(/\/\*(?:FIN-)?CONTENIDO\*\//g,''));
 const words=t=>(t||'').trim().split(/\s+/).filter(Boolean).length;
 const norm=t=>(t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
 /* SCORM 1.2 sin pantalla: usa la API del aula si existe y una simulación en memoria si no. Registra estado, lugar,
