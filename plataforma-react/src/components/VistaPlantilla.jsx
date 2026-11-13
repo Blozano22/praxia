@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { RUTA_API } from '../lib/api.js'
+import { api, RUTA_API } from '../lib/api.js'
 import { cargarEjemplo } from '../lib/ejemplos.js'
 import './categorias.css'
 
@@ -8,7 +8,7 @@ import './categorias.css'
 // Aquí se muestra con el ejemplo de la galería (que sí trae contenido) cuando existe; si no, tal cual, avisándolo.
 const urlPlantilla = (n) => RUTA_API.replace(/\/api$/, '') + '/plantillas-html/' + n + '.html'
 
-export default function VistaPlantilla({ nombre, categoria = null, onCerrar }) {
+export default function VistaPlantilla({ nombre, categoria = null, subida = false, onCerrar }) {
   const [html, setHtml] = useState('')
   const [origen, setOrigen] = useState('') // 'ejemplo' | 'vacia'
   const [error, setError] = useState('')
@@ -21,7 +21,9 @@ export default function VistaPlantilla({ nombre, categoria = null, onCerrar }) {
     setHtml(''); setError(''); setOrigen('')
     ;(async () => {
       try {
-        const ej = await cargarEjemplo(nombre)
+        // Una plantilla subida puede traer su propio contenido de ejemplo; una del sistema, el de la galería.
+        let ej = null
+        if (subida) { try { ej = (await api('GET', '/plantillas/subidas/' + encodeURIComponent(nombre) + '/ejemplo')).html } catch { ej = null } } else ej = await cargarEjemplo(nombre)
         if (!vivo) return
         if (ej) { setHtml(ej); setOrigen('ejemplo'); return }
         const r = await fetch(urlPlantilla(nombre))
@@ -33,7 +35,7 @@ export default function VistaPlantilla({ nombre, categoria = null, onCerrar }) {
       } catch (e) { if (vivo) setError(e.message || 'No se pudo cargar la plantilla.') }
     })()
     return () => { vivo = false }
-  }, [nombre])
+  }, [nombre, subida])
 
   // La plantilla se dibuja a 1280 × 720 (su tamaño real) y se escala al ancho disponible; un ancho de 0 no es una medida válida.
   useEffect(() => {
@@ -68,7 +70,7 @@ export default function VistaPlantilla({ nombre, categoria = null, onCerrar }) {
             <button ref={cierre} type="button" className="btn sm" onClick={onCerrar}>Cerrar</button>
           </div>
         </header>
-        {origen === 'ejemplo' && <p className="vp-nota">Se muestra con un <b>contenido de ejemplo</b> de la galería. n8n le pone el contenido real de cada recurso.</p>}
+        {origen === 'ejemplo' && <p className="vp-nota">Se muestra con un <b>contenido de ejemplo</b>{subida ? ' que trae la propia plantilla' : ' de la galería'}. n8n le pone el contenido real de cada recurso.</p>}
         {origen === 'vacia' && <p className="vp-nota aviso">Esta plantilla <b>no tiene un ejemplo con contenido</b>: sola se ve vacía, porque n8n le pone el título y el contenido de cada recurso. Esto es la plantilla tal cual.</p>}
         <div className="vp-cuerpo">
           {error && <div className="msg bad" role="alert">{error}</div>}

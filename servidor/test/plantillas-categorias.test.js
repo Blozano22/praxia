@@ -242,6 +242,23 @@ test('eliminar una plantilla del sistema: sale de la pantalla y de n8n, sin vuel
   assert.equal((await fetch(base + '/plantillas-html/acordeon-3.html')).status, 404)
 })
 
+test('una plantilla puede traer su contenido de ejemplo entre /*CONTENIDO*/ y /*FIN-CONTENIDO*/: n8n recibe la marca sola y la vista previa usa el ejemplo', async () => {
+  const dani = await entrar('dani@u.co')
+  const con = (cuerpo) => '<!doctype html><html lang="es"><head><meta charset="utf-8"><title>{{TITULO}}</title></head><body><script type="application/json" id="contenido">/*CONTENIDO*/' + cuerpo + '/*FIN-CONTENIDO*/</script></body></html>'
+  assert.equal((await dani('POST', '/plantillas/subidas', { nombre: 'con-ejemplo', html: con('{ "titulo": "Mi ejemplo", "texto": "uno </script> dos" }') })).status, 201)
+  const servida = await (await fetch(base + '/plantillas-html/con-ejemplo.html')).text()
+  assert.ok(servida.includes('/*CONTENIDO*/</script>') && !servida.includes('Mi ejemplo') && !servida.includes('FIN-CONTENIDO'))
+  const ej = (await (await dani('GET', '/plantillas/subidas/con-ejemplo/ejemplo')).json()).html
+  assert.ok(ej.includes('Mi ejemplo') && !ej.includes('{{TITULO}}') && !ej.includes('/*CONTENIDO*/') && !ej.includes('uno </script>'))
+  assert.equal((await dani('POST', '/plantillas/subidas', { nombre: 'ej-malo', html: con('{ no es json }') })).status, 400)
+  assert.equal((await dani('POST', '/plantillas/subidas', { nombre: 'ej-lista', html: con('[1,2]') })).status, 400)
+  // sin ejemplo: la vista previa no tiene HTML propio
+  assert.equal((await dani('POST', '/plantillas/subidas', { nombre: 'sin-ejemplo', html: PLANTILLA() })).status, 201)
+  assert.equal((await (await dani('GET', '/plantillas/subidas/sin-ejemplo/ejemplo')).json()).html, null)
+  assert.equal((await dani('GET', '/plantillas/subidas/no-hay/ejemplo')).status, 404)
+  for (const n of ['con-ejemplo', 'sin-ejemplo']) assert.equal((await dani('DELETE', '/plantillas/subidas/' + n)).status, 200)
+})
+
 test('borrar una categoría deja sus plantillas sin categoría; si falla la base de datos se entrega el archivo del build tal cual', async () => {
   const dani = await entrar('dani@u.co')
   assert.equal((await dani('DELETE', '/plantillas/categorias/G-20')).status, 200)

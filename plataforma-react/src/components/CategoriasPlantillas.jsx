@@ -359,7 +359,7 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
           )}
         </>
       )}
-      {viendo && <VistaPlantilla nombre={viendo} categoria={d ? (d.categorias.find((c) => c.id === d.asignaciones[viendo]) || null) : null} onCerrar={() => setViendo('')} />}
+      {viendo && <VistaPlantilla nombre={viendo} subida={!!(d && d.subidas && d.subidas[viendo])} categoria={d ? (d.categorias.find((c) => c.id === d.asignaciones[viendo]) || null) : null} onCerrar={() => setViendo('')} />}
     </div>
   )
 }

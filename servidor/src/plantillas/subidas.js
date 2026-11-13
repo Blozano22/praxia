@@ -15,7 +15,13 @@ const cuenta = (texto, marca) => texto.split(marca).length - 1
 export const MAX_HTML = 1536 * 1024 // 1,5 MB de HTML sin armar
 export const NOMBRES_RESERVADOS = ['plantillas', 'index']
 
-// Devuelve { ok: true, html } con la plantilla armada, o { ok: false, error } con el motivo en español.
+// Contenido de ejemplo opcional dentro de la propia plantilla: /*CONTENIDO*/ { …JSON… } /*FIN-CONTENIDO*/.
+// Al subirla se separa: n8n recibe la plantilla con la marca sola (sin el ejemplo) y la vista previa usa el HTML con el ejemplo puesto.
+export const MARCA_FIN = '/*FIN-CONTENIDO*/'
+const RE_EJEMPLO = /\/\*CONTENIDO\*\/([\s\S]*?)\/\*FIN-CONTENIDO\*\//
+
+// Devuelve { ok: true, html, ejemplo } con la plantilla armada (y, si traía contenido de ejemplo, el HTML de la vista previa; si no, null),
+// o { ok: false, error } con el motivo en español.
 export function armarSubida(crudo) {
   if (typeof crudo !== 'string' || !crudo.trim()) return { ok: false, error: 'El archivo está vacío.' }
   if (Buffer.byteLength(crudo, 'utf8') > MAX_HTML) return { ok: false, error: 'El archivo pesa más de ' + (MAX_HTML / 1024 / 1024) + ' MB.' }
@@ -25,15 +31,31 @@ export function armarSubida(crudo) {
     css = leer('base.css') + '\n' + leer('plataforma/tec.css')
     lib = leer('lib.js') + '\n' + leer('plataforma/lib-extra.js')
   } catch { return { ok: false, error: 'El servidor no encontró los estilos comunes para armar la plantilla.' } }
-  const html = aplicarTema(incrustar(crudo, css, lib), temaBase(), false)
+  const armar = (t) => aplicarTema(incrustar(t, css, lib), temaBase(), false)
+
+  let plantilla = crudo
+  let ejemplo = null
+  const m = RE_EJEMPLO.exec(crudo)
+  if (m) {
+    const cuerpo = m[1].trim()
+    let datos
+    try { datos = JSON.parse(cuerpo) } catch (e) { return { ok: false, error: 'El contenido de ejemplo (entre /*CONTENIDO*/ y ' + MARCA_FIN + ') no es un JSON válido: ' + e.message } }
+    if (!datos || typeof datos !== 'object' || Array.isArray(datos)) return { ok: false, error: 'El contenido de ejemplo debe ser un objeto JSON ({ … }).' }
+    plantilla = crudo.replace(RE_EJEMPLO, () => MARCA_CONTENIDO) // n8n recibe la plantilla sin el ejemplo
+    const titulo = typeof datos.titulo === 'string' && datos.titulo.trim() ? datos.titulo.trim() : 'Ejemplo'
+    ejemplo = armar(crudo.replace(RE_EJEMPLO, () => cuerpo.replace(/<\//g, '<\\/')))
+      .replace(MARCA_TITULO, () => titulo.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])))
+  }
+  const html = armar(plantilla)
   for (const marca of [MARCA_TITULO, MARCA_CONTENIDO]) {
     const n = cuenta(html, marca)
     if (n !== 1) return { ok: false, error: 'Debe tener exactamente una marca ' + marca + ' y tiene ' + n + '. Es donde n8n pone el título y el contenido del recurso.' }
   }
+  if (html.includes(MARCA_FIN)) return { ok: false, error: 'Hay una marca ' + MARCA_FIN + ' sin su /*CONTENIDO*/ de apertura delante (o repetida). El contenido de ejemplo va entre las dos.' }
   for (const marca of MARCAS_INTERNAS) {
     if (html.includes(marca)) return { ok: false, error: 'Quedó sin reemplazar ' + marca + ': esa marca la arma el sistema y no puede repetirse.' }
   }
-  return { ok: true, html }
+  return { ok: true, html, ejemplo }
 }
 
 // Cabeceras con las que se entrega una plantilla subida: aislada del resto de la plataforma.

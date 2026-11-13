@@ -440,6 +440,15 @@ rutas.put('/plantillas/subidas/:nombre', exigirSesion, exigirPermiso('plantillas
     res.json({ ok: true })
   } catch (e) { next(e) }
 })
+// Vista previa de una plantilla subida: si traía contenido de ejemplo, el HTML con ese contenido puesto (se arma al pedirlo desde el HTML original guardado).
+rutas.get('/plantillas/subidas/:nombre/ejemplo', exigirSesion, exigirPermiso('plantillas.ver'), validar(z.object({ nombre: NombreSubida }), 'params'), async (req, res, next) => {
+  try {
+    const f = await sinUsuario(Q.subidaCrudo, [req.paramsOk.nombre])
+    if (!f.rows[0]) return res.status(404).json({ error: 'No hay una plantilla subida con ese nombre.' })
+    const armada = armarSubida(f.rows[0].html_crudo)
+    res.json({ html: armada.ok ? armada.ejemplo : null })
+  } catch (e) { next(e) }
+})
 rutas.delete('/plantillas/subidas/:nombre', exigirSesion, exigirPermiso('plantillas.revisar'), validar(z.object({ nombre: NombreSubida }), 'params'), async (req, res, next) => {
   try {
     const r = await sinUsuario(Q.subidaBorrar, [req.paramsOk.nombre])
