@@ -13,16 +13,45 @@
     (inundación radial), cada hito tiene un motivo animado, la línea inferior se arrastra y hay reproducción con pausa.
     Registra estado (completado al visitar todos los años), tiempo y avance en Moodle (SCORM 1.2). No califica.
   - Contenido: todo sale del bloque JSON #ova-content (meta, quote, nodes[]: año, textos, motivo). Los colores no van en el JSON:
-    salen de la paleta DIEPO (los colores de las cuatro formaciones juntos) y se alternan por hito; el recurso no cambia con la formación.
+    salen de la paleta de la formación (meta.nivel o ?nivel=) y se alternan por hito en tres tonos: claro, base y oscuro.
   - Motivos disponibles: tablilla, dados, barras, estado, parcelas, regresion, correlacion, chi, calor.
-  - Diseño: campos de color planos (flat) con la paleta DIEPO: verde azulado, cian, azul, azul marino y blanco; sin lima ni grises de fondo.
+  - Diseño: campos de color planos (flat) con la paleta de la formación (base y oscuro) más cian, gris y blanco; sin lima ni grises de fondo.
   - Un solo archivo, sin recursos externos (numeral 4.6 de las especificaciones técnicas).
+
+  CAMPOS DEL JSON (bloque #ova-content)
+  meta.title: texto, obligatorio (título del recurso; ver límites de la formación en la guía)
+  meta.course: texto, opcional
+  meta.unit: texto, opcional
+  meta.source: texto, opcional (fuente; se muestra en «Más detalle»)
+  meta.nivel: texto, opcional (tecnologia | profesional | especializacion | doctorado; 'licenciatura' = profesional; por defecto tecnologia; ?nivel= en la dirección lo sobrescribe)
+  quote.text: texto, opcional (si falta quote, no aparece «Una idea para llevar»)
+  quote.author: texto, opcional
+  quote.note: texto, opcional
+  nodes: lista, obligatorio (5 a 12 hitos; el ejemplo trae 9)
+  nodes[].id: texto, obligatorio (identificador único del hito, p. ej. n0)
+  nodes[].year: número o null, obligatorio (año; null para «Antes» u «Hoy»)
+  nodes[].hoy: verdadero/falso, opcional (el hito muestra el año actual)
+  nodes[].label: texto, obligatorio (rótulo corto en la línea inferior)
+  nodes[].yearLabel: texto, obligatorio (año o etiqueta leída por lectores de pantalla)
+  nodes[].display: texto, opcional (texto grande cuando year es null, p. ej. Antes)
+  nodes[].era: texto, opcional (etapa; se muestra como etiqueta)
+  nodes[].title: texto, obligatorio (título del hito; ver límites de la formación en la guía)
+  nodes[].text: texto, obligatorio (texto corto del hito; ver límites de la formación en la guía)
+  nodes[].themes: lista de textos, opcional (etiquetas del hito; el ejemplo trae 1 por hito)
+  nodes[].motif: texto, obligatorio (tablilla, dados, barras, estado, parcelas, regresion, correlacion, chi, calor)
+  nodes[].alt: texto, opcional (descripción del dibujo para lectores de pantalla)
+  nodes[].detail: texto, opcional (párrafo de «Más detalle»)
+  nodes[].bullets: lista, opcional (puede ir vacía; el ejemplo trae hasta 6)
+  nodes[].bullets[].when: texto, obligatorio dentro de cada viñeta
+  nodes[].bullets[].text: texto, obligatorio dentro de cada viñeta
+  nodes[].tone: texto, opcional (claro | base | oscuro; fija el tono del hito)
+  textos: ninguna
 -->
 <style>
 :root{
-  /* Paleta DIEPO. Cada hito cambia --bg, --fg, --acc y --soft (ver TONOS en el script). */
-  --bg:#FFFFFF; --fg:#142749; --on:#FFFFFF; --acc:#00665F; --soft:rgba(20,39,73,.08);
-  --paper:#FFFFFF; --text:#142749; --muted:rgba(20,39,73,.72); --line:#C8C8C8; --ink:#142749; --pip:#00665F;
+  /* Paleta de la formación (el script fija --brand y --nav). Cada hito cambia --bg, --fg, --acc y --soft (ver applyPalette en el script). */
+  --bg:#FFFFFF; --fg:var(--nav,#142749); --on:#FFFFFF; --acc:var(--brand,#00665F); --soft:rgba(20,39,73,.08);
+  --paper:#FFFFFF; --text:var(--nav,#142749); --muted:rgba(20,39,73,.72); --line:#C8C8C8; --ink:var(--nav,#142749); --pip:var(--brand,#00665F);
   /* Tipografía provisional: se reemplaza cuando COEST/GEVIP confirmen la fuente oficial */
   --font:'Century Gothic','CenturyGothic','Apple Gothic','Futura','Avenir Next','Trebuchet MS','Segoe UI',system-ui,sans-serif;
   --ease:cubic-bezier(.22,.9,.3,1);
@@ -181,6 +210,7 @@ dialog::backdrop{background:color-mix(in srgb,var(--ink) 55%,transparent);backdr
 .toast[hidden]{display:none}
 @keyframes toast{from{opacity:0;transform:translate(-50%,-14px)}to{opacity:1;transform:translateX(-50%)}}
 </style>
+<style>/*TEMA*/</style>
 </head>
 <body>
 <a class="skip" href="#stage">Saltar al contenido</a>
@@ -249,7 +279,8 @@ dialog::backdrop{background:color-mix(in srgb,var(--ink) 55%,transparent);backdr
   "title": "Historia de la estadística: una línea de tiempo por años",
   "course": "Probabilidad y Estadística",
   "unit": "Unidad 1: Estadística",
-  "source": "Guion piloto, subtema 1: Desarrollo histórico de la estadística"
+  "source": "Guion piloto, subtema 1: Desarrollo histórico de la estadística",
+  "nivel": "tecnologia"
  },
  "quote": {
   "text": "Todos los modelos son incorrectos, pero algunos son útiles.",
@@ -516,24 +547,42 @@ var Scorm=(function(){
 
 /* ================= CONFIGURACIÓN Y CONTENIDO ================= */
 var CONFIG={ storageKey:'pn-diepo-ova-linea-anios-v1', playMs:7000, floodMs:850 };
-var OVA=JSON.parse(document.getElementById('ova-content').textContent);
-var NODES=OVA.nodes, N=NODES.length, NOW=new Date().getFullYear();
+var OVA=JSON.parse(document.getElementById('ova-content').textContent.replace(/\/\*(?:FIN-)?CONTENIDO\*\//g,''));  /* abierta suelta, el ejemplo va entre las marcas: se quitan para leerlo */
+OVA.meta=OVA.meta||{};
+var NODES=OVA.nodes||[], N=NODES.length, NOW=new Date().getFullYear();
 var root=document.documentElement;
 
-/* ================= PALETA DIEPO ================= */
-/* El recurso no cambia con la formación: usa juntos los colores de las cuatro (verde azulado, cian, azul y azul marino) y el blanco.
-   Sin lima ni fondos grises. Cada tono da el fondo, el texto, el resalte de los dibujos (acc) y el color de los puntos del dado (pip). */
-var INK='#142749', OSCURO='#151B3B', CIAN='#14A4C9', GRIS='#C8C8C8', BLANCO='#FFFFFF';
-function rgba(h,a){ return 'rgba('+[1,3,5].map(function(i){return parseInt(h.substr(i,2),16);}).join(',')+','+a+')'; }
-var TONOS={
-  blanco:{bg:BLANCO,fg:INK,acc:'#00665F',pip:'#00665F',soft:rgba('#00665F',.1)},
-  teal:{bg:'#00665F',fg:BLANCO,acc:GRIS,pip:'#00665F',soft:rgba(BLANCO,.14)},
-  azul:{bg:'#1C45B4',fg:BLANCO,acc:GRIS,pip:'#1C45B4',soft:rgba(BLANCO,.14)},
-  cyan:{bg:'#08A6CB',fg:OSCURO,acc:BLANCO,pip:'#08A6CB',soft:rgba(OSCURO,.14)},
-  marino:{bg:'#22335D',fg:BLANCO,acc:CIAN,pip:'#22335D',soft:rgba(BLANCO,.12)}
+/* ================= PALETA POR FORMACIÓN ================= */
+/* Base y oscuro de cada formación; cian, gris y blanco son comunes. Sin lima ni fondos grises en este recurso.
+   Los hitos alternan tres tonos: claro (fondo blanco), base (fondo base) y oscuro (fondo oscuro). */
+var NIVELES={
+  tecnologia:{base:'#00665F',oscuro:'#142749'},
+  profesional:{base:'#1C45B4',oscuro:'#151B3B'},
+  especializacion:{base:'#08A6CB',oscuro:'#151B3B'},
+  doctorado:{base:'#22335D',oscuro:'#151B3B'}
 };
-var ORDEN=['blanco','teal','azul','cyan','marino'];  /* los hitos alternan estos fondos; un hito puede fijar el suyo con "tone" */
-NODES.forEach(function(n,i){ var t=TONOS[n.tone]||TONOS[ORDEN[i%ORDEN.length]]; n.bg=t.bg; n.fg=t.fg; n.acc=t.acc; n.soft=t.soft; n.pip=t.pip; });
+var NIVEL_ALIAS={licenciatura:'profesional'};
+var CIAN='#14A4C9', GRIS='#C8C8C8', BLANCO='#FFFFFF';
+var ORDEN=['claro','base','oscuro'];  /* un hito puede fijar el suyo con "tone" */
+function lum(h){ var c=[1,3,5].map(function(i){ var v=parseInt(h.substr(i,2),16)/255; return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4); }); return .2126*c[0]+.7152*c[1]+.0722*c[2]; }
+function rgba(h,a){ return 'rgba('+[1,3,5].map(function(i){return parseInt(h.substr(i,2),16);}).join(',')+','+a+')'; }
+function normNivel(v){ v=String(v||'').toLowerCase(); v=NIVEL_ALIAS[v]||v; return NIVELES[v]?v:null; }
+function pickNivel(){ var q=null; try{ q=new URLSearchParams(location.search).get('nivel'); }catch(e){} return normNivel(q)||normNivel(OVA.meta&&OVA.meta.nivel)||'tecnologia'; }
+function applyPalette(){
+  var p=NIVELES[pickNivel()], base=p.base, osc=p.oscuro;
+  /* sobre el color base el texto blanco solo si pasa el contraste (el cian de Especialización pide texto oscuro) */
+  var onBase=(1.05/(lum(base)+.05))>=4.5?BLANCO:osc;
+  var T={
+    claro:{bg:BLANCO,fg:osc,acc:base,pip:base,soft:rgba(base,.1)},
+    base:{bg:base,fg:onBase,acc:onBase===BLANCO?GRIS:BLANCO,pip:base,soft:rgba(onBase,.14)},
+    oscuro:{bg:osc,fg:BLANCO,acc:CIAN,pip:osc,soft:rgba(BLANCO,.12)}
+  };
+  NODES.forEach(function(n,i){ var t=T[n.tone]||T[ORDEN[i%ORDEN.length]]; n.bg=t.bg; n.fg=t.fg; n.acc=t.acc; n.soft=t.soft; n.pip=t.pip; });
+  root.style.setProperty('--brand',base); root.style.setProperty('--nav',osc);
+  root.style.setProperty('--ink',osc); root.style.setProperty('--text',osc); root.style.setProperty('--muted',rgba(osc,.72));
+  root.style.setProperty('--line',GRIS); root.style.setProperty('--paper',BLANCO);
+}
+applyPalette();
 var REDUCED=!!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 function nodeYear(n){ return n.hoy?NOW:n.year; }
 
@@ -640,9 +689,9 @@ function renderScene(n,opts){
   var y=nodeYear(n);
   $('#ev-title').innerHTML='<span class="sr-only">'+(n.hoy?'Hoy, '+NOW:(y?'Año '+y:n.yearLabel))+'. </span>'+n.title;
   $('#ev-text').textContent=n.text;
-  $('#ev-chips').innerHTML=[n.era].concat(n.themes).map(function(t){return '<li>'+t+'</li>';}).join('');
-  $('#ev-quote').hidden=(n.id!==NODES[N-1].id);
-  var m=$('#medal'); m.setAttribute('aria-label',n.alt); m.innerHTML='<svg viewBox="0 0 240 240" aria-hidden="true" focusable="false">'+MOTIFS[n.motif]()+'</svg>';
+  $('#ev-chips').innerHTML=[n.era].concat(n.themes||[]).filter(Boolean).map(function(t){return '<li>'+esc(t)+'</li>';}).join('');
+  $('#ev-quote').hidden=!(n.id===NODES[N-1].id&&OVA.quote&&OVA.quote.text);
+  var m=$('#medal'); m.setAttribute('aria-label',n.alt||''); m.innerHTML=MOTIFS[n.motif]?'<svg viewBox="0 0 240 240" aria-hidden="true" focusable="false">'+MOTIFS[n.motif]()+'</svg>':'';
   var sc=$('#scene'); sc.classList.remove('enter'); if(!opts.silent){ void sc.offsetWidth; sc.classList.add('enter'); }
   setYearDisplay(n,opts.silent);
 }
@@ -737,14 +786,15 @@ function closeModal(){ var dlg=$('#modal'); if(dlg.close&&dlg.open){dlg.close();
 function helpHTML(){
   return '<ul class="bul"><li>Pulsa un año de la línea, usa <strong>Año anterior</strong> y <strong>Año siguiente</strong>, o arrastra la línea.</li><li><strong>Reproducir viaje</strong> recorre los años solo; pulsa <strong>Pausar viaje</strong> cuando quieras. También se pausa al abrir una ventana.</li><li>Con una flecha de la línea enfocada, las flechas del teclado cambian de año.</li><li><strong>Más detalle</strong> abre información adicional del año que estás viendo.</li></ul>';
 }
+function Q(){ return OVA.quote||{}; }
 var MODALS={
   help:function(){return {title:'Ayuda',html:helpHTML()};},
   more:function(){
-    var n=NODES[state.i], y=nodeYear(n), h='<p>'+n.detail+'</p>';
+    var n=NODES[state.i], y=nodeYear(n), h=n.detail?'<p>'+n.detail+'</p>':'';
     if(n.bullets&&n.bullets.length)h+='<ul class="bl">'+n.bullets.map(function(b){return '<li><b>'+b.when+'</b><span>'+b.text+'</span></li>';}).join('')+'</ul>';
-    h+='<p style="color:var(--muted)">Etapa: '+n.era+'. Fuente: '+OVA.meta.source+'.</p>';
+    var pie=[]; if(n.era)pie.push('Etapa: '+n.era+'.'); if(OVA.meta.source)pie.push('Fuente: '+OVA.meta.source+'.'); if(pie.length)h+='<p style="color:var(--muted)">'+pie.join(' ')+'</p>';
     return {title:(n.hoy?'Hoy':(y?String(y):n.yearLabel))+': '+n.title,html:h};},
-  quote:function(){return {title:'Una idea para llevar',html:'<p class="quote">«'+OVA.quote.text+'»</p><p><strong>'+OVA.quote.author+'</strong></p><p>'+OVA.quote.note+'</p>'};},
+  quote:function(){return {title:'Una idea para llevar',html:'<p class="quote">«'+(Q().text||'')+'»</p>'+(Q().author?'<p><strong>'+Q().author+'</strong></p>':'')+(Q().note?'<p>'+Q().note+'</p>':'')};},
 };
 function initModals(){
   document.addEventListener('click',function(e){
@@ -773,8 +823,7 @@ function init(){
   try{ var raw=Scorm.get('cmi.suspend_data'); if(raw){ var o=JSON.parse(raw); if(o&&o.v===2)deepAssign(state,o); } }catch(e){}
   state.i=Math.max(0,Math.min(N-1,state.i||0));
   try{ var qp=parseInt(new URLSearchParams(location.search).get('pantalla'),10); if(qp>=1&&qp<=N)state.i=qp-1; }catch(e){}  /* ?pantalla=3 abre el hito 3 (la plataforma lo usa para comparar) */
-  $('#h1').textContent=OVA.meta.title;
-  document.title=OVA.meta.title;
+  if(OVA.meta.title){ $('#h1').textContent=OVA.meta.title; document.title=OVA.meta.title; }
   buildOdometer(); buildTape(); buildRibbon(); initModals(); initScrub();
   $('#prev').addEventListener('click',function(){ goNode(state.i-1,{user:true}); });
   $('#next').addEventListener('click',function(){ goNode(state.i+1,{user:true}); });
