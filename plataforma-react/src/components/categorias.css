@@ -314,3 +314,14 @@
 .sv-reglas code{background:#eef1f8;border-radius:5px;padding:1px 6px}
 .sv-pie{display:flex;justify-content:flex-end;gap:10px;padding:14px 22px;border-top:1px solid #e6ebf2;background:#f9fafc;border-radius:0 0 18px 18px}
 @media(max-width:560px){.sv-dos{grid-template-columns:1fr}}
+
+/* Vista previa del archivo dentro de «Subir variante» */
+.sv-revisando{display:flex;align-items:center;gap:10px;margin:0;font-size:.88rem;font-weight:700;color:var(--nav)}
+.sv-giro{width:16px;height:16px;border-radius:50%;border:3px solid #dbe1ec;border-top-color:var(--nav);animation:svgira .9s linear infinite}
+@keyframes svgira{to{transform:rotate(360deg)}}
+.sv-prev{display:flex;flex-direction:column;gap:10px}
+.sv-nota{margin:0;font-size:.82rem;color:#145c3b}.sv-nota.aviso{color:#6b4a00}
+.sv-marco{position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;border:1px solid #dde3ec;border-radius:12px;background:#fff}
+.sv-marco iframe{position:absolute;left:0;top:0;border:0;transform-origin:0 0;background:#fff}
+.sv-nombre{margin:0;font-size:.9rem;color:var(--muted)}.sv-nombre b{color:var(--nav);font-size:1rem;letter-spacing:.02em}
+@media(prefers-reduced-motion:reduce){.sv-giro{animation:none}}
