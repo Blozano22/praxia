@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { verNombre } from '../lib/nombres.js'
 import { api, RUTA_API } from '../lib/api.js'
 import { cargarEjemplo } from '../lib/ejemplos.js'
 import './categorias.css'
@@ -63,7 +64,7 @@ export default function VistaPlantilla({ nombre, categoria = null, subida = fals
         <header className="vp-cab">
           <div className="vp-tit">
             {categoria && <span className="cat-id">{categoria.id}</span>}
-            <div><b>{nombre}</b>{categoria && <small>{categoria.nombre}</small>}</div>
+            <div><b>{verNombre(nombre)}</b>{categoria && <small>{categoria.nombre}</small>}</div>
           </div>
           <div className="vp-acc">
             <a className="btn sec sm" href={urlPlantilla(nombre)} target="_blank" rel="noopener noreferrer">Abrir en otra pestaña ↗</a>

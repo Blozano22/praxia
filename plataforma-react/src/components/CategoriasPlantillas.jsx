@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { verNombre } from '../lib/nombres.js'
 import { api } from '../lib/api.js'
 import VistaPlantilla from './VistaPlantilla.jsx'
 import './categorias.css'
@@ -104,7 +105,7 @@ function FilaSin({ nombre, actual = '', compacta, categorias, puedeCambiar, ocup
   const archivo = useRef(null)
   return (
     <li className={'cs-fila' + (compacta ? ' compacta' : '') + (oculta ? ' oculta' : '') + (puedeCambiar ? '' : ' sin-sel')}>
-      <span className="cat-var-n" title={nombre}>{nombre}{subida && <em className="cat-sub" title={'Subida por ' + (subida.por || 'alguien')}>subida</em>}{oculta && <em className="cat-ocu" title="Oculta para n8n: no sale en el índice ni se descarga">oculta</em>}</span>
+      <span className="cat-var-n" title={verNombre(nombre)}>{verNombre(nombre)}{subida && <em className="cat-sub" title={'Subida por ' + (subida.por || 'alguien')}>subida</em>}{oculta && <em className="cat-ocu" title="Oculta para n8n: no sale en el índice ni se descarga">oculta</em>}</span>
       <button type="button" className="cat-var-ver" onClick={() => onVer(nombre)}>Ver</button>
       {puedeCambiar && <span className="cs-sep" aria-hidden="true" />}
       {puedeCambiar && <SelectCategoria valor={actual} categorias={categorias} ocupado={ocupado} onChange={(v) => v !== actual && onAsignar(nombre, v || null)} etiqueta={'Categoría de ' + nombre} vacio="Sin categoría" />}

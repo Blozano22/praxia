@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { verNombre } from '../lib/nombres.js'
 import Titulo from './Titulo.jsx'
 import RevisionPlantilla, { ESTADO } from './RevisionPlantilla.jsx'
 import CategoriasPlantillas from './CategoriasPlantillas.jsx'
@@ -320,7 +321,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
       <div className="pl2-cuerpo">
         <section className={'pl2-prev' + (full ? ' full' : '')} aria-label="Vista previa">
           <div className="pl2-barra">
-            <div className="pl2-tit"><small>{corto(grupoNombre)}</small><b>{titulo}</b></div>
+            <div className="pl2-tit"><small>{corto(grupoNombre)}</small><b>{verNombre(titulo)}</b></div>
             <button type="button" className="pg-flecha chica" aria-label="Diseño anterior" onClick={() => mover(-1)}><IcoFlecha izq /></button>
             <span className="pl2-pos">{pos + 1} / {lista.length}</span>
             <button type="button" className="pg-flecha chica" aria-label="Diseño siguiente" onClick={() => mover(1)}><IcoFlecha /></button>
@@ -330,10 +331,10 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
           {publica && html && !ejSubido && <p className="vp-nota aviso">Esta variante <b>no tiene un ejemplo con contenido</b>: sola se ve vacía, porque n8n le pone el título y el contenido de cada recurso. Esto es la plantilla tal cual.</p>}
           <div className="pl2-caja" ref={caja} style={full ? { maxWidth: 'calc((100vh - 130px) * 16 / 9)' } : undefined}>
             {!html && !error && <p className="help" style={{ padding: 18 }}>Cargando…</p>}
-            {html && <iframe sandbox="allow-scripts" title={'Plantilla ' + titulo} srcDoc={html} style={{ width: 1280, height: 720, transform: `scale(${esc})` }} />}
+            {html && <iframe sandbox="allow-scripts" title={'Plantilla ' + verNombre(titulo)} srcDoc={html} style={{ width: 1280, height: 720, transform: `scale(${esc})` }} />}
           </div>
           {!full && <p className="help pl2-pie">Se ve a 1280 × 720, sin barras de desplazamiento, con la paleta de la institución.</p>}
-          {!full && <RevisionPlantilla key={tipo} plantilla={tipo} titulo={titulo} historial={deTipo(tipo)} puedeRevisar={puedeRevisar} puedeCorregir={puedeCorregir} yo={yo} aviso={aviso} onNueva={(r) => setRevisiones((l) => [r, ...l])} onEditada={(r) => setRevisiones((l) => l.map((x) => (x.id === r.id ? r : x)))} />}
+          {!full && <RevisionPlantilla key={tipo} plantilla={tipo} titulo={verNombre(titulo)} historial={deTipo(tipo)} puedeRevisar={puedeRevisar} puedeCorregir={puedeCorregir} yo={yo} aviso={aviso} onNueva={(r) => setRevisiones((l) => [r, ...l])} onEditada={(r) => setRevisiones((l) => l.map((x) => (x.id === r.id ? r : x)))} />}
         </section>
 
         <aside className="pl2-lado">
@@ -359,7 +360,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
             {(res || lista.map(([k, n, , sinEj]) => ({ k, n, g: '', sinEj }))).map((t, i) => (
               <button key={t.k} className={t.k === tipo ? 'on' : ''} onClick={() => elegir(t.k)}>
                 <span className="pl2-n">{res ? '•' : i + 1}</span>
-                <span><b>{t.n}</b>{res && <small>{t.g}</small>}</span>
+                <span><b>{verNombre(t.n)}</b>{res && <small>{t.g}</small>}</span>
                 {t.sinEj && <span className="pl2-sinej" title="No hay un diseño de ejemplo con contenido para esta plantilla">sin ejemplo</span>}
                 {deTipo(t.k)[0]
                   ? <span className={'pill rv-mini ' + ESTADO[deTipo(t.k)[0].estado].clase}>{ESTADO[deTipo(t.k)[0].estado].texto}</span>
@@ -386,7 +387,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
           </div>
         </aside>
       </div>
-      {subiendo && cats && <SubirVariante cats={cats} categoriaInicial={codigoActual ? codigoActual.id : ''} onCerrar={() => setSubiendo(false)} onSubida={async (nombre) => { await recargarCats(); if (aviso) aviso('Plantilla subida' + (nombre ? ': ' + nombre : '')) }} />}
+      {subiendo && cats && <SubirVariante cats={cats} categoriaInicial={codigoActual ? codigoActual.id : ''} onCerrar={() => setSubiendo(false)} onSubida={async (nombre) => { await recargarCats(); if (aviso) aviso('Plantilla subida' + (nombre ? ': ' + verNombre(nombre) : '')) }} />}
     </div>
   )
 }
