@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Titulo from './Titulo.jsx'
 import RevisionPlantilla, { ESTADO } from './RevisionPlantilla.jsx'
 import CategoriasPlantillas from './CategoriasPlantillas.jsx'
+import SubirVariante from './SubirVariante.jsx'
 import { api, RUTA_API } from '../lib/api.js'
 import { CARGA, CATALOGO, ejemploDe, nombrePublico } from '../lib/ejemplos.js'
 
@@ -32,6 +33,73 @@ const corto = (g) => g.replace(/ \(.*\)$/, '')
 const esActividad = (g) => /^(Actividades|Crucigramas)/.test(g)
 const CLASES = { recurso: 'Recursos', actividad: 'Actividades' }
 
+
+// Flecha de los selectores (categoría / diseño): icono grande dentro de un botón redondo.
+function IcoFlecha({ izq }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {izq ? <path d="M19 12H5M11 6l-6 6 6 6" /> : <path d="M5 12h14M13 6l6 6-6 6" />}
+    </svg>
+  )
+}
+
+// Estado de revisión de una categoría: «Revisada» si todos sus diseños están aprobados; si no, cuántos faltan.
+function ChipRevision({ c, grande }) {
+  const texto = c.completa ? 'Revisada' : 'Faltan ' + c.pend
+  return (
+    <span className={'pg-chip ' + (c.completa ? 'ok' : 'pend') + (grande ? ' grande' : '')} title={c.completa ? 'Todos los diseños están aprobados' : c.pend + (c.pend === 1 ? ' diseño sin aprobar' : ' diseños sin aprobar')}>
+      {c.completa
+        ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
+        : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path d="M12 8v4l2.5 2" /></svg>}
+      {texto}
+    </span>
+  )
+}
+
+// Lista desplegable de categorías con búsqueda; cada una muestra su ID, cuántos diseños tiene y si ya está revisada.
+function SelectorCategoria({ opciones, actual, onElegir, deshabilitado }) {
+  const [abierto, setAbierto] = useState(false)
+  const [q, setQ] = useState('')
+  const caja = useRef(null)
+  useEffect(() => {
+    if (!abierto) return undefined
+    const fuera = (e) => { if (caja.current && !caja.current.contains(e.target)) setAbierto(false) }
+    const tecla = (e) => { if (e.key === 'Escape') setAbierto(false) }
+    document.addEventListener('mousedown', fuera); document.addEventListener('keydown', tecla)
+    return () => { document.removeEventListener('mousedown', fuera); document.removeEventListener('keydown', tecla) }
+  }, [abierto])
+  const o = opciones[actual] || { id: '', nombre: '—', n: 0, c: { completa: false, pend: 0, total: 0 } }
+  const t = q.trim().toLowerCase()
+  const lista = opciones.filter((x) => !t || (x.id + ' ' + x.nombre).toLowerCase().includes(t))
+  const nd = (n) => n + (n === 1 ? ' diseño' : ' diseños')
+  return (
+    <div className="pg-dd" ref={caja}>
+      <button type="button" className="pg-dd-btn" aria-haspopup="listbox" aria-expanded={abierto} disabled={deshabilitado} onClick={() => setAbierto(!abierto)}>
+        {o.id && <span className="pg-id">{o.id}</span>}
+        <span className="pg-dd-n">{o.nombre}</span>
+        <span className="pg-dd-v">{nd(o.n)}</span>
+        {o.c.total > 0 && <ChipRevision c={o.c} />}
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+      </button>
+      {abierto && (
+        <div className="pg-dd-panel">
+          <input autoFocus type="search" placeholder="Buscar categoría por ID o nombre…" aria-label="Buscar categoría" value={q} onChange={(e) => setQ(e.target.value)} />
+          <div className="pg-dd-lista" role="listbox" aria-label="Categorías">
+            {lista.map((x) => (
+              <button key={x.i} type="button" role="option" aria-selected={x.i === actual} className={'pg-op' + (x.i === actual ? ' sel' : '')} onClick={() => { onElegir(x.i); setAbierto(false); setQ('') }}>
+                {x.id && <span className="pg-id">{x.id}</span>}
+                <span className="pg-op-n">{x.nombre}</span>
+                <span className="pg-op-v">{nd(x.n)}</span>
+                <ChipRevision c={x.c} />
+              </button>
+            ))}
+            {lista.length === 0 && <div className="pg-dd-nada">Ninguna categoría coincide.</div>}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function Plantillas({ puedeRevisar = false, puedeCorregir = false, yo = null, aviso }) {
   const gruposTodos = useMemo(() => GRUPOS.map(([g, l]) => [g, l.filter(([k]) => CATALOGO[k])]).filter(([, l]) => l.length), [])
@@ -99,7 +167,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
       if (!porCat.has(c.id)) porCat.set(c.id, { c, items: [] })
       porCat.get(c.id).items.push([ej || 'pub-' + n, n, true, !ej && !ejSub])
     })
-    ;[...porCat.values()].sort((x, y) => x.c.id.localeCompare(y.c.id)).forEach(({ c, items }) => res[c.tipo === 'actividad' ? 'actividad' : 'recurso'].push([c.nombre || c.id, items]))
+    ;[...porCat.values()].sort((x, y) => x.c.id.localeCompare(y.c.id)).forEach(({ c, items }) => res[c.tipo === 'actividad' ? 'actividad' : 'recurso'].push([c.nombre || c.id, items, c.id]))
     ;['recurso', 'actividad'].forEach((t) => { if (sin[t].length) res[t].push(['Sin categoría', sin[t]]) })
     return res
   }, [cats, activas, gruposTodos, revisiones])
@@ -165,10 +233,32 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
   const abrir = () => { const u = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' })); window.open(u, '_blank', 'noopener'); setTimeout(() => URL.revokeObjectURL(u), 60000) }
   const bajar = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' })); a.download = nombre; document.body.append(a); a.click(); a.remove() }
 
-  const conmutador = (
-    <div className="pl2-vistas" role="tablist" aria-label="Qué ver">
-      <button role="tab" aria-selected={vista === 'galeria'} className={vista === 'galeria' ? 'on' : ''} onClick={() => setVista('galeria')}>Galería de diseños</button>
-      <button role="tab" aria-selected={vista === 'categorias'} className={vista === 'categorias' ? 'on' : ''} onClick={() => setVista('categorias')}>Categorías para n8n</button>
+  // ---- Estado de revisión de cada categoría: qué diseños ya se revisaron (aprobados) y cuáles faltan.
+  const resumenDe = (items) => {
+    const c = { total: items.length, aprobada: 0, rechazada: 0, revision: 0, corregida: 0, nada: 0 }
+    items.forEach(([k]) => { const v = deTipo(k)[0]; if (v) c[v.estado] = (c[v.estado] || 0) + 1; else c.nada++ })
+    c.pend = c.total - c.aprobada
+    c.completa = c.total > 0 && c.pend === 0
+    return c
+  }
+  const detalleRev = (c) => [
+    c.aprobada && c.aprobada + (c.aprobada === 1 ? ' aprobada' : ' aprobadas'),
+    c.revision && c.revision + ' en revisión',
+    c.corregida && c.corregida + (c.corregida === 1 ? ' corregida' : ' corregidas'),
+    c.rechazada && c.rechazada + (c.rechazada === 1 ? ' rechazada' : ' rechazadas'),
+    c.nada && c.nada + ' sin revisar'
+  ].filter(Boolean).join(' · ')
+  const resumenCat = resumenDe(lista)
+  const opcionesCat = grupos.map(([g, l, id], i) => ({ i, id: id || '', nombre: corto(g), n: l.length, c: resumenDe(l) }))
+  const irACategoria = (i) => { const [, l] = grupos[(i + grupos.length) % grupos.length]; setQ(''); setTipo(l[0][0]) }
+  const [subiendo, setSubiendo] = useState(false)
+  const recargarCats = () => api('GET', '/plantillas/categorias').then(setCats).catch(() => {})
+  const puedeSubir = puedeRevisar && !!cats
+
+  const pestanas = (
+    <div className="pg-tabs" role="tablist" aria-label="Qué ver">
+      <button type="button" role="tab" aria-selected={vista === 'galeria'} className={vista === 'galeria' ? 'on' : ''} onClick={() => setVista('galeria')}>Galería de diseños</button>
+      <button type="button" role="tab" aria-selected={vista === 'categorias'} className={vista === 'categorias' ? 'on' : ''} onClick={() => setVista('categorias')}>Categorías para n8n</button>
     </div>
   )
   if (vista === 'categorias') {
@@ -177,7 +267,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
         <div className="pl2-cab">
           <Titulo icono="codigo"><h1>Plantillas HTML</h1></Titulo>
         </div>
-        {conmutador}
+        <div className="pg-fila-tabs">{pestanas}</div>
         <CategoriasPlantillas puedeCambiar={puedeRevisar} aviso={aviso} />
       </div>
     )
@@ -185,40 +275,55 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
 
   return (
     <div className="wrapx fade">
-      <div className="pl2-cab">
+      <div className="pg-cab">
         <Titulo icono="codigo">
           <h1>Plantillas HTML</h1>
-          <p className="lead">Así se ven los recursos que genera la plataforma. Elija el tipo y el diseño; puede abrirlo en una pestaña o descargarlo.</p>
+          <p className="lead">Así se ven los recursos que genera la plataforma. Elija la categoría y el diseño; puede abrirlo en una pestaña o descargarlo.</p>
         </Titulo>
-        <label className="pl2-busca">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></svg>
+        {puedeSubir && (
+          <button type="button" className="btn pg-subir" onClick={() => setSubiendo(true)}>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 20h16" /></svg>
+            Subir variante
+          </button>
+        )}
+      </div>
+
+      <div className="pg-fila-tabs">
+        {pestanas}
+        <label className="pg-busca">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></svg>
           <input aria-label="Buscar una plantilla" placeholder="Buscar una plantilla" value={q} onChange={(e) => setQ(e.target.value)} />
         </label>
       </div>
 
-      {conmutador}
-      <div className="pl2-vistas pl2-clases" role="tablist" aria-label="Clase de HTML">
-        {['recurso', 'actividad'].map((c) => {
-          const g = gruposPorClase[c]
-          const total = g.reduce((a, [, l]) => a + l.length, 0)
-          return <button key={c} role="tab" aria-selected={clase === c} className={clase === c ? 'on' : ''} disabled={!g.length} onClick={() => { setClase(c); setQ('') }}>{CLASES[c]} <span>· {total}</span></button>
-        })}
-      </div>
-      <div className="pl2-tabs" role="tablist" aria-label="Tipo de plantilla">
-        {grupos.map(([g, l], i) => (
-          <button key={g} role="tab" aria-selected={i === gi && !res} className={i === gi && !res ? 'on' : ''} onClick={() => { setQ(''); setTipo(l[0][0]) }}>
-            {corto(g)} <span>· {l.length}</span>
-          </button>
-        ))}
+      <div className="card pg-filtro">
+        <div>
+          <span className="pg-lb">Clase de HTML</span>
+          <div className="pg-seg" role="tablist" aria-label="Clase de HTML">
+            {['recurso', 'actividad'].map((c) => {
+              const g = gruposPorClase[c]
+              const total = g.reduce((a, [, l]) => a + l.length, 0)
+              return <button key={c} type="button" role="tab" aria-selected={clase === c} className={clase === c ? 'on' : ''} disabled={!g.length} onClick={() => { setClase(c); setQ('') }}>{CLASES[c]} <span>· {total}</span></button>
+            })}
+          </div>
+        </div>
+        <div className="pg-cat">
+          <span className="pg-lb">Categoría</span>
+          <div className="pg-cat-fila">
+            <button type="button" className="pg-flecha" aria-label="Categoría anterior" disabled={grupos.length < 2} onClick={() => irACategoria(gi - 1)}><IcoFlecha izq /></button>
+            <SelectorCategoria opciones={opcionesCat} actual={gi} deshabilitado={!!res} onElegir={irACategoria} />
+            <button type="button" className="pg-flecha" aria-label="Categoría siguiente" disabled={grupos.length < 2} onClick={() => irACategoria(gi + 1)}><IcoFlecha /></button>
+          </div>
+        </div>
       </div>
 
       <div className="pl2-cuerpo">
         <section className={'pl2-prev' + (full ? ' full' : '')} aria-label="Vista previa">
           <div className="pl2-barra">
             <div className="pl2-tit"><small>{corto(grupoNombre)}</small><b>{titulo}</b></div>
-            <button className="btn sec sm pl2-ic" aria-label="Diseño anterior" onClick={() => mover(-1)}>‹</button>
+            <button type="button" className="pg-flecha chica" aria-label="Diseño anterior" onClick={() => mover(-1)}><IcoFlecha izq /></button>
             <span className="pl2-pos">{pos + 1} / {lista.length}</span>
-            <button className="btn sec sm pl2-ic" aria-label="Diseño siguiente" onClick={() => mover(1)}>›</button>
+            <button type="button" className="pg-flecha chica" aria-label="Diseño siguiente" onClick={() => mover(1)}><IcoFlecha /></button>
             <button className="btn sec sm" onClick={() => setFull(!full)}>{full ? 'Cerrar pantalla completa' : 'Pantalla completa'}</button>
           </div>
           {error && <div className="msg bad" role="alert">{error}</div>}
@@ -234,6 +339,16 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
         <aside className="pl2-lado">
           <div className="card pl2-lista">
             <h4>{res ? `Resultados (${res.length})` : 'Diseños de ' + corto(grupoNombre).toLowerCase()}</h4>
+            {!res && lista.length > 0 && (
+              <div className={'pg-rev' + (resumenCat.completa ? ' ok' : '')}>
+                <div className="pg-rev-cab">
+                  <ChipRevision c={resumenCat} grande />
+                  <span>{resumenCat.aprobada} de {resumenCat.total} aprobadas</span>
+                </div>
+                <div className="pg-rev-barra" role="img" aria-label={resumenCat.aprobada + ' de ' + resumenCat.total + ' aprobadas'}><i style={{ width: (resumenCat.total ? (resumenCat.aprobada / resumenCat.total) * 100 : 0) + '%' }} /></div>
+                <small>{detalleRev(resumenCat)}</small>
+              </div>
+            )}
             {!res && (
               <div className={'pl2-codigo' + (codigoActual ? '' : ' sin')}>
                 <span>Código del recurso</span>
@@ -246,10 +361,18 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
                 <span className="pl2-n">{res ? '•' : i + 1}</span>
                 <span><b>{t.n}</b>{res && <small>{t.g}</small>}</span>
                 {t.sinEj && <span className="pl2-sinej" title="No hay un diseño de ejemplo con contenido para esta plantilla">sin ejemplo</span>}
-                {deTipo(t.k)[0] && <span className={'pill rv-mini ' + ESTADO[deTipo(t.k)[0].estado].clase}>{ESTADO[deTipo(t.k)[0].estado].texto}</span>}
+                {deTipo(t.k)[0]
+                  ? <span className={'pill rv-mini ' + ESTADO[deTipo(t.k)[0].estado].clase}>{ESTADO[deTipo(t.k)[0].estado].texto}</span>
+                  : <span className="pill rv-mini pg-sinrev">Sin revisar</span>}
               </button>
             ))}
             {res && res.length === 0 && <p className="help">No hay plantillas con esa palabra. Pruebe con «acordeón» o «tiempo».</p>}
+            {puedeSubir && !res && (
+              <button type="button" className="pg-subir-aqui" onClick={() => setSubiendo(true)}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+                Subir variante a esta categoría
+              </button>
+            )}
           </div>
           <div className="card pl2-uso">
             <h4>Usar esta plantilla</h4>
@@ -263,6 +386,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
           </div>
         </aside>
       </div>
+      {subiendo && cats && <SubirVariante cats={cats} categoriaInicial={codigoActual ? codigoActual.id : ''} onCerrar={() => setSubiendo(false)} onSubida={async () => { await recargarCats(); if (aviso) aviso('Plantilla subida') }} />}
     </div>
   )
 }

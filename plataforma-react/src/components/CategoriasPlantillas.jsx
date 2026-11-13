@@ -7,14 +7,14 @@ import './categorias.css'
 // «recurso» o una «actividad de autoaprendizaje». Aquí solo se ve CUÁNTAS variantes tiene cada una; quien revisa las plantillas puede crear
 // categorías y subir variantes nuevas (HTML) sin esperar a un despliegue.
 const RE_ID = /^[A-Z]{1,4}-[0-9]{2,3}$/
-const RE_NOMBRE = /^[a-z0-9-]{1,80}$/
-const MAX_BYTES = 1536 * 1024
+export const RE_NOMBRE = /^[a-z0-9-]{1,80}$/
+export const MAX_BYTES = 1536 * 1024
 const TIPOS = { recurso: ['Recursos', 'Recurso'], actividad: ['Actividades', 'Actividad de autoaprendizaje'] }
-const slug = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\.html?$/, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80)
-const kb = (b) => (b < 1024 * 1024 ? Math.max(1, Math.round(b / 1024)) + ' KB' : (b / 1024 / 1024).toFixed(1) + ' MB')
+export const slug = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\.html?$/, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80)
+export const kb = (b) => (b < 1024 * 1024 ? Math.max(1, Math.round(b / 1024)) + ' KB' : (b / 1024 / 1024).toFixed(1) + ' MB')
 
 // n8n deduce la variante del nombre del archivo: «lineatiempo» es la 1, «lineatiempo-2» la 2… Se propone el siguiente nombre de la categoría.
-function sugerirNombre(variantes) {
+export function sugerirNombre(variantes) {
   if (!variantes.length) return ''
   const base = variantes[0].replace(/-\d+$/, '')
   const nums = variantes.filter((n) => n === base || new RegExp('^' + base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '-\\d+$').test(n)).map((n) => (n === base ? 1 : Number(n.slice(base.length + 1))))
@@ -43,7 +43,7 @@ function Seg({ valor, onChange, opciones, etiqueta, chico }) {
 }
 
 // Lista desplegable propia para elegir una categoría: con búsqueda, grupos (Recursos / Actividades) y el ID de cada una.
-function ListaCategorias({ valor, categorias, onChange, etiqueta, vacio, conVacio, ocupado }) {
+export function ListaCategorias({ valor, categorias, onChange, etiqueta, vacio, conVacio, ocupado }) {
   const [abierta, setAbierta] = useState(false)
   const [q, setQ] = useState('')
   const caja = useRef(null)
@@ -154,11 +154,9 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
   const [borrar, setBorrar] = useState('') // id de categoría con la confirmación a la vista
   const [borrarSub, setBorrarSub] = useState('') // nombre de plantilla subida con la confirmación a la vista
   const [gestionando, setGestionando] = useState('') // id de la categoría cuya lista de variantes está abierta para gestionarla
-  const [subida, setSubida] = useState(null) // { categoria, nombre, archivo, bytes, html } mientras se sube una plantilla
   const [sinAbierta, setSinAbierta] = useState(true) // la tarjeta «Sin categoría» se puede plegar
   const [paraTodas, setParaTodas] = useState('') // categoría elegida para asignar a todas las de «Sin categoría»
   const [viendo, setViendo] = useState('') // nombre de la plantilla cuya vista previa está abierta
-  const archivoNuevo = useRef(null)
 
   const cargar = useCallback(async () => {
     try { setD(await api('GET', '/plantillas/categorias')); setError('') } catch (e) { setError(e.message || 'No se pudieron cargar las categorías.') }
@@ -196,19 +194,6 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
     if (f.size > MAX_BYTES) { setError('El archivo pesa ' + kb(f.size) + ' y el máximo es 1,5 MB.'); return null }
     try { return await f.text() } catch { setError('No se pudo leer el archivo.'); return null }
   }
-  const abrirSubida = (categoria = '') => { setError(''); setNueva(null); setSubida({ categoria, nombre: sugerirNombre(todasPorCategoria[categoria] || []), archivo: '', bytes: 0, html: '' }) }
-  const elegirCategoria = (categoria) => setSubida((s) => ({ ...s, categoria, nombre: s.nombreEditado ? s.nombre : sugerirNombre(todasPorCategoria[categoria] || []) }))
-  const elegirArchivo = async (f) => {
-    const html = await leerArchivo(f)
-    if (html === null) return
-    setError('')
-    setSubida((s) => ({ ...s, archivo: f.name, bytes: f.size, html, nombre: s.nombre || (s.categoria ? sugerirNombre(todasPorCategoria[s.categoria] || []) : '') || slug(f.name) }))
-  }
-  const nombreOk = subida && RE_NOMBRE.test(subida.nombre) && !(d && d.plantillas.includes(subida.nombre))
-  const subir = () => hacer(async () => {
-    await api('POST', '/plantillas/subidas', { nombre: subida.nombre, html: subida.html, ...(subida.categoria ? { categoria: subida.categoria } : {}) })
-    setSubida(null)
-  }, 'Plantilla subida')
   const reemplazar = async (nombre, f) => {
     const html = await leerArchivo(f)
     if (html !== null) hacer(() => api('PUT', '/plantillas/subidas/' + encodeURIComponent(nombre), { html }), 'Plantilla reemplazada')
@@ -237,10 +222,9 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
 
           {puedeCambiar && (
             <div className="cat-barra">
-              {!nueva && !subida && (
+              {!nueva && (
                 <>
-                  <button className="btn" onClick={() => { setSubida(null); setNueva({ id: '', nombre: '', tipo: ver }) }}>+ Nueva categoría</button>
-                  <button className="btn sec" onClick={() => abrirSubida()}>↑ Subir plantilla</button>
+                  <button className="btn" onClick={() => setNueva({ id: '', nombre: '', tipo: ver })}>+ Nueva categoría</button>
                 </>
               )}
               {nueva && (
@@ -256,31 +240,6 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
                   <div className="cat-form-acc">
                     <button className="btn" type="submit" disabled={ocupado || !idValido || idRepetido || !nueva.nombre.trim()}>Crear</button>
                     <button className="btn sec" type="button" onClick={() => setNueva(null)}>Cancelar</button>
-                  </div>
-                </form>
-              )}
-              {subida && (
-                <form className="card cat-form cat-subir" onSubmit={(e) => { e.preventDefault(); if (nombreOk && subida.html) subir() }}>
-                  <div className="cat-campo">
-                    <span className="cat-lbl">Categoría</span>
-                    <ListaCategorias valor={subida.categoria} categorias={d.categorias} ocupado={ocupado} onChange={elegirCategoria} etiqueta="Categoría" vacio="Sin categoría por ahora" conVacio />
-                    <small>Es el tipo de HTML al que pertenece esta variante.</small>
-                  </div>
-                  <label>Nombre de la plantilla
-                    <input value={subida.nombre} onChange={(e) => setSubida({ ...subida, nombre: e.target.value.toLowerCase(), nombreEditado: true })} placeholder="lineatiempo-4" maxLength={80} aria-invalid={!!subida.nombre && !nombreOk} />
-                    <small className={subida.nombre && !nombreOk ? 'mal' : ''}>
-                      {subida.nombre && d.plantillas.includes(subida.nombre) ? 'Ya hay una plantilla con ese nombre.' : subida.nombre && !RE_NOMBRE.test(subida.nombre) ? 'Solo minúsculas, números y guiones.' : 'n8n deduce la variante del nombre: «tipo» es la 1, «tipo-2» la 2, «tipo-3» la 3…'}
-                    </small>
-                  </label>
-                  <div className="cat-archivo">
-                    <input ref={archivoNuevo} type="file" accept=".html,.htm,text/html" hidden onChange={(e) => { const f = e.target.files[0]; e.target.value = ''; elegirArchivo(f) }} />
-                    <button type="button" className="btn sec" onClick={() => archivoNuevo.current.click()}>{subida.archivo ? 'Cambiar archivo' : 'Elegir archivo HTML'}</button>
-                    <span className="cat-archivo-n">{subida.archivo ? subida.archivo + ' · ' + kb(subida.bytes) : 'Ninguno elegido'}</span>
-                  </div>
-                  <p className="help cat-regla">El archivo debe ser una página HTML completa con <b>una sola</b> marca <code>{'{{TITULO}}'}</code> y <b>una sola</b> <code>{'/*CONTENIDO*/'}</code>: ahí pone n8n el título y el contenido. Hasta 1,5 MB. Si usa <code>{'/*CSS*/'}</code> o <code>{'/*LIB*/'}</code>, el sistema incrusta los estilos y el código comunes, igual que en las demás plantillas.</p>
-                  <div className="cat-form-acc">
-                    <button className="btn" type="submit" disabled={ocupado || !nombreOk || !subida.html}>{ocupado ? 'Subiendo…' : 'Subir plantilla'}</button>
-                    <button className="btn sec" type="button" onClick={() => setSubida(null)}>Cancelar</button>
                   </div>
                 </form>
               )}
@@ -310,7 +269,6 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
                   </header>
                   {puedeCambiar && !(edit && edit.id === c.id) && (
                     <div className="cat-acc">
-                      <button className="btn sec sm" onClick={() => { abrirSubida(c.id); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>↑ Subir variante</button>
                       <button className="btn sec sm" aria-expanded={gestionando === c.id} onClick={() => setGestionando(gestionando === c.id ? '' : c.id)}>{gestionando === c.id ? 'Cerrar variantes' : 'Gestionar variantes'}</button>
                       <button className="btn sec sm" onClick={() => setEdit({ id: c.id, nombre: c.nombre, tipo: c.tipo })}>Editar</button>
                       {borrar === c.id
