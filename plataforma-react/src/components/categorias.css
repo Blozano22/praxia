@@ -219,3 +219,8 @@
 .cs-fila{grid-template-columns:minmax(0,1fr) auto 1px 176px auto}
 .cs-acc{gap:6px}
 @media(max-width:900px){.cs-fila .cs-oc{width:auto;padding:0 12px}.cs-fila.compacta .cs-oc{width:auto}}
+
+/* Variantes dentro de una tarjeta: nombre · Ver · categoría · iconos, todo en una línea */
+.cs-fila.compacta{grid-template-columns:minmax(0,1fr) auto minmax(130px,176px) auto}
+.cs-fila.compacta .cs-acc{grid-column:auto}
+@media(max-width:640px){.cs-fila.compacta{grid-template-columns:minmax(0,1fr) auto}.cs-fila.compacta .cs-cw{grid-column:1/-1}.cs-fila.compacta .cs-acc{grid-column:1/-1}}
