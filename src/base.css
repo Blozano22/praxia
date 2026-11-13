@@ -28,7 +28,7 @@ h3{margin:.2rem 0 .4rem;font-weight:700}
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px}
 .grid{display:grid;gap:18px}
 /* ---- Botones ---- */
-.btn{font:inherit;cursor:pointer;border:2px solid var(--brand);border-radius:8px;padding:10px 22px;background:var(--brand);color:#fff;font-weight:600;letter-spacing:.01em;transition:background .15s,transform .1s}
+.btn{font:inherit;cursor:pointer;border:2px solid var(--brand);border-radius:8px;padding:10px 22px;background:var(--brand);color:var(--on-brand,#fff);font-weight:600;letter-spacing:.01em;transition:background .15s,transform .1s}
 .btn:hover:not(:disabled){background:var(--brand2);border-color:var(--brand2)}
 .btn:active:not(:disabled){transform:translateY(1px)}
 .btn:disabled{opacity:.4;cursor:not-allowed}
@@ -59,7 +59,7 @@ label{font-weight:600}
 /* ---- Ilustraciones ---- */
 .art svg{width:100%;height:auto;display:block;border-radius:8px}
 .art img{width:100%;display:block;border-radius:8px}
-.badge{display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:30px;border-radius:6px;background:var(--brand);color:#fff;font-weight:700;font-size:.9rem;flex:none}
+.badge{display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:30px;border-radius:6px;background:var(--brand);color:var(--on-brand,#fff);font-weight:700;font-size:.9rem;flex:none}
 .muted{color:var(--muted)}
 .sr{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
 footer{margin-top:44px;padding:0 16px 34px;text-align:center;color:var(--muted);font-size:.85rem}

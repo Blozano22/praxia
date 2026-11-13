@@ -4,6 +4,43 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{{TITULO}}</title>
+<!--
+  PLANTILLA · casos
+  CAMPOS DEL JSON (sacados del contenido de ejemplo; los límites de palabras de cada formación están en la guía de plantillas):
+    id  texto
+    tipo  texto
+    codigo  texto
+    clase  texto
+    unidadNum  número
+    tag  texto
+    titulo  texto
+    tituloReto  texto
+    chips  lista (0 elementos en el ejemplo)
+    pie  texto
+    info  objeto
+    actividad  vacío
+    contexto  texto
+    objetivo  texto
+    tituloExploracion  texto
+    subExploracion  texto
+    evidencias  lista (2 elementos en el ejemplo)
+      .titulo  texto
+      .texto  texto
+      .dato  texto
+      .x  texto
+      .y  texto
+    preguntas  texto
+    pasos  texto
+    apartados  lista (3 elementos en el ejemplo)
+      .titulo  texto
+      .guia  texto
+      .clave  texto
+    defienda  texto
+    estructura  texto
+    criterios  texto
+  FORMACIÓN: el JSON puede traer "nivel" (tecnologia, profesional, especializacion o doctorado) o la dirección ?nivel=; sin nivel se usa Tecnológico.
+  TEXTOS: los títulos de interfaz son fijos y genéricos en el HTML; claves de "textos" ajustables: ninguna.
+-->
 <style>/*CSS*/</style>
 <style>
 /* ===== Estudio de caso · tres etapas, cada una cabe en una pantalla ===== */
@@ -39,7 +76,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:#fff}
 .bl{border-radius:var(--r-card);padding:14px 18px;font-size:.95rem;line-height:1.5}
 .bl h3{margin:0 0 6px;font-size:.72rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
 .bl p{margin:0;font-weight:700}
-.bl.obj{background:var(--brand);color:#fff}
+.bl.obj{background:var(--brand);color:var(--on-brand,#fff)}
 .bl.obj h3{color:#fff;opacity:.9}
 .bl.pq{background:var(--tint);border-left:6px solid var(--brand)}
 .bl.pq h3{color:var(--brand)}

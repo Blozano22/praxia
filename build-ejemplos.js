@@ -11,7 +11,7 @@ const lib = R('src/lib.js') + '\n' + R('src/plataforma/lib-extra.js')
 const PRESETS = { diepo: { nav: '#142749', brand: '#00665F', accent: '#CBFF01', bg: '#FFFFFF' } }
 const rgb = (c) => { c = c.replace('#', ''); return [0, 2, 4].map((i) => parseInt(c.slice(i, i + 2), 16)) }
 const mix = (a, b, t) => { const A = rgb(a), B = rgb(b); return '#' + A.map((v, i) => Math.round(v * (1 - t) + B[i] * t).toString(16).padStart(2, '0')).join('') }
-const FONT = "'Century Gothic','CenturyGothic','Apple Gothic','Futura','Avenir Next','Trebuchet MS','Segoe UI',system-ui,sans-serif"
+const FONT = "'Montserrat','Segoe UI',system-ui,-apple-system,Arial,sans-serif"
 
 // Paleta DIEPO fija: los recursos no cambian según la formación (igual que cssTema de la plataforma).
 function cssTema() {

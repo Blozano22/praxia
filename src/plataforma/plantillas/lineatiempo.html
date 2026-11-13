@@ -4,6 +4,32 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{{TITULO}}</title>
+<!--
+  PLANTILLA · lineatiempo
+  CAMPOS DEL JSON (sacados del contenido de ejemplo; los límites de palabras de cada formación están en la guía de plantillas):
+    id  texto
+    tipo  texto
+    codigo  texto
+    clase  texto
+    unidadNum  número
+    tag  texto
+    titulo  texto
+    chips  lista (0 elementos en el ejemplo)
+    pie  texto
+    info  objeto
+    tituloSecuencia  texto
+    intro  texto
+    eventos  lista (5 elementos en el ejemplo)
+      .fecha  texto
+      .titulo  texto
+      .texto  texto
+      .cambio  texto
+      .img  texto
+    comparar  texto
+    actividad  vacío
+  FORMACIÓN: el JSON puede traer "nivel" (tecnologia, profesional, especializacion o doctorado) o la dirección ?nivel=; sin nivel se usa Tecnológico.
+  TEXTOS: los títulos de interfaz son fijos y genéricos en el HTML; claves de "textos" ajustables: ninguna.
+-->
 <style>/*CSS*/</style>
 <style>
 /* ===== Línea de tiempo · diseño 1: eje vertical azul noche con todos los momentos + hoja de lectura a pantalla completa ===== */
@@ -61,7 +87,7 @@ ol,ul{padding:0;list-style:none}
 .tx{min-height:0;overflow:auto;max-width:68ch;font-size:19px;line-height:1.55}
 .tx p{margin:0 0 .75em;font-size:inherit}
 .im{align-self:center;justify-self:center;width:100%;max-height:100%;object-fit:cover;border-radius:var(--r-card);border:2px solid var(--nav)}
-.cam{display:flex;gap:14px;align-items:baseline;padding:12px 18px;border-radius:var(--r-card);background:var(--brand);color:#fff;max-width:76ch}
+.cam{display:flex;gap:14px;align-items:baseline;padding:12px 18px;border-radius:var(--r-card);background:var(--brand);color:var(--on-brand,#fff);max-width:76ch}
 .cam b{flex:none;font-size:.78rem;letter-spacing:.1em;text-transform:uppercase;font-weight:800}
 .cam p{font-size:clamp(.92rem,1.1vw,1.02rem);font-weight:600;line-height:1.4}
 .ct{display:flex;align-items:center;gap:10px;flex-wrap:wrap}

@@ -4,6 +4,31 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{{TITULO}}</title>
+<!--
+  PLANTILLA · presentacion
+  CAMPOS DEL JSON (sacados del contenido de ejemplo; los límites de palabras de cada formación están en la guía de plantillas):
+    id  texto
+    tipo  texto
+    codigo  texto
+    clase  texto
+    unidadNum  número
+    tag  texto
+    titulo  texto
+    chips  lista (0 elementos en el ejemplo)
+    pie  texto
+    info  objeto
+    actividad  vacío
+    diapositivas  lista (8 elementos en el ejemplo)
+      .titulo  texto
+      .layout  texto
+      .subtitulo  texto
+      .texto  texto
+      .items  texto
+      .extra  texto
+      .img  texto
+  FORMACIÓN: el JSON puede traer "nivel" (tecnologia, profesional, especializacion o doctorado) o la dirección ?nivel=; sin nivel se usa Tecnológico.
+  TEXTOS: los títulos de interfaz son fijos y genéricos en el HTML; claves de "textos" ajustables: ninguna.
+-->
 <style>/*CSS*/</style>
 <style>
 /* ===== Presentación · panel de color a la izquierda (título) + lienzo blanco a la derecha (contenido) ===== */
@@ -28,7 +53,7 @@ body{font-size:16px;line-height:1.5}
 .bd>*{flex:0 1 auto}
 .bd h2{font-size:1.15em;margin:0 0 .5em;color:var(--nav)}
 .bd h2:before{display:none}
-.k0{background:var(--brand);color:#fff}.k1{background:var(--mid);color:#fff}.k2{background:var(--brand2);color:#fff}.k3{background:var(--cyan);color:var(--cyan-ink)}
+.k0{background:var(--brand);color:var(--on-brand,#fff)}.k1{background:var(--mid);color:#fff}.k2{background:var(--brand2);color:#fff}.k3{background:var(--cyan);color:var(--cyan-ink)}
 /* texto */
 .tx{display:grid;gap:1.1em;align-items:center}
 .tx.im2{grid-template-columns:1.2fr 1fr}
@@ -59,7 +84,7 @@ body{font-size:16px;line-height:1.5}
 .det{min-width:0}
 .det h3{margin:0 0 .35em;font-size:1.5em;font-weight:800;line-height:1.15;color:var(--nav)}
 .det>p{margin:0 0 .7em;font-size:1.08em;line-height:1.6;color:var(--nav)}
-.dato{background:var(--brand);color:#fff;border-radius:var(--r-card);padding:.7em 1em;font-size:.95em;line-height:1.5;margin-top:.5em}
+.dato{background:var(--brand);color:var(--on-brand,#fff);border-radius:var(--r-card);padding:.7em 1em;font-size:.95em;line-height:1.5;margin-top:.5em}
 .dato b{display:block;font-size:.7em;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.15em;color:#fff;opacity:.92}
 .pl{display:flex;flex-wrap:wrap;gap:.5em;margin-top:.9em}
 .pl button{font:inherit;font-size:.8em;font-weight:800;min-height:44px;padding:.3em 1em;border-radius:var(--r-pill);border:2px solid var(--nav);background:#fff;color:var(--nav);cursor:pointer;display:inline-flex;align-items:center;gap:.5em;transition:background-color .2s var(--ease),color .2s var(--ease),transform .2s var(--ease)}
@@ -116,7 +141,7 @@ body{font-size:16px;line-height:1.5}
 .dots button.vista:after{background:var(--brand);border-color:var(--brand)}
 .dots button.act:after{background:var(--nav);border-color:var(--nav);width:1.3em;border-radius:99px}
 /* pregunta */
-.enun{background:var(--brand);color:#fff;border-radius:var(--r-card);padding:.8em 1.2em;margin:0 0 .8em;font-size:1.22em;font-weight:800;line-height:1.4}
+.enun{background:var(--brand);color:var(--on-brand,#fff);border-radius:var(--r-card);padding:.8em 1.2em;margin:0 0 .8em;font-size:1.22em;font-weight:800;line-height:1.4}
 .enun p{margin:0}
 .ops{display:grid;gap:.55em}
 .op{display:flex;align-items:center;gap:.9em;width:100%;min-height:44px;padding:.5em 1em;border:2px solid var(--nav);border-radius:var(--r-card);background:#fff;font:inherit;font-size:1.02em;font-weight:600;text-align:left;cursor:pointer;color:var(--nav);transition:background-color .2s var(--ease),color .2s var(--ease),transform .2s var(--ease)}

@@ -166,7 +166,7 @@ input[type=checkbox],input[type=radio]{accent-color:var(--brand)}
 .toast{animation:tIn .2s var(--ease-out) both;transition:opacity .25s ease}
 @keyframes tIn{from{opacity:0;transform:translate(-50%,8px) scale(.96)}to{opacity:1;transform:translate(-50%,0) scale(1)}}
 
-/* ===== Lenguaje DIEPO: paleta fija, campos de color planos, Century Gothic, botones en píldora =====
+/* ===== Lenguaje DIEPO: paleta fija, campos de color planos, Montserrat, botones en píldora =====
    Lima (#CBFF01): solo detalles pequeños (indicador, chip sobre fondo oscuro); el texto encima SIEMPRE en #142749.
    Gris #C8C8C8: solo líneas y bordes finos, nunca fondos. Sin barras de desplazamiento visibles. */
 :root{--ease:cubic-bezier(.22,.9,.3,1);--r-card:18px;--r-pill:999px}

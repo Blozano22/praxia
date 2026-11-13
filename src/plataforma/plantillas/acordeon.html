@@ -4,6 +4,32 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{{TITULO}}</title>
+<!--
+  PLANTILLA · acordeon
+  CAMPOS DEL JSON (sacados del contenido de ejemplo; los límites de palabras de cada formación están en la guía de plantillas):
+    id  texto
+    tipo  texto
+    codigo  texto
+    clase  texto
+    tag  texto
+    titulo  texto
+    chips  lista (1 elementos en el ejemplo)
+    pie  texto
+    info  objeto
+      resultado  texto
+    introduccion  texto
+    apartados  lista (6 elementos en el ejemplo)
+      .titulo  texto
+      .texto  texto
+      .idea  texto
+      .img  texto
+    sintesis  texto
+    referencias  texto
+    img  texto
+    actividad  vacío
+  FORMACIÓN: el JSON puede traer "nivel" (tecnologia, profesional, especializacion o doctorado) o la dirección ?nivel=; sin nivel se usa Tecnológico.
+  TEXTOS: los títulos de interfaz son fijos y genéricos en el HTML; claves de "textos" ajustables: ninguna.
+-->
 <style>/*CSS*/</style>
 <style>
 /* ===== Acordeón · diseño 1: panel de lectura a la izquierda y lista de apartados con riel numerado a la derecha =====
@@ -34,7 +60,7 @@ body{background:#fff;color:var(--nav);font-size:16px;line-height:1.5;-webkit-fon
 .hoja .fit{flex:1 1 0}
 .fit p{margin:0 0 .7em;line-height:1.55}
 .fit p:last-child{margin-bottom:0}
-.prop{margin-top:.9em;padding:.7em .95em;border-radius:12px;background:var(--brand);color:#fff}
+.prop{margin-top:.9em;padding:.7em .95em;border-radius:12px;background:var(--brand);color:var(--on-brand,#fff)}
 .prop b{display:block;margin-bottom:.15em;font-size:.72em;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
 .prop p{margin:0;font-size:.95em;line-height:1.5}
 .hoja.anim .fit{animation:pgIn .28s var(--ease) both}
@@ -71,7 +97,7 @@ body{background:#fff;color:var(--nav);font-size:16px;line-height:1.5;-webkit-fon
 .it.lk .cd{border-style:dashed;border-color:var(--nav);background:#fff}
 .ah{flex:none;display:flex;align-items:center;gap:12px;width:100%;height:calc(var(--hh) - 4px);padding:0 16px;margin:0;border:0;background:transparent;color:var(--nav);font:inherit;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background-color .25s var(--ease),color .25s var(--ease)}
 .ah:focus-visible{outline-offset:-5px}
-.it.on .ah{background:var(--brand);color:#fff}
+.it.on .ah{background:var(--brand);color:var(--on-brand,#fff)}
 .it.on .ah:focus-visible{outline-color:#fff}
 .it.lk .ah{cursor:not-allowed;opacity:.7}
 .ah .ti{flex:1;min-width:0;font-size:clamp(15px,2.5vh,22px);line-height:1.2;font-weight:800;letter-spacing:-.01em}

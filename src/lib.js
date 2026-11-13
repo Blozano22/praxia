@@ -15,6 +15,21 @@ function h(tag,attrs,...kids){
 }
 // El contenido puede venir con su ejemplo entre las dos marcas de contenido (plantilla subida y abierta suelta): se quitan las marcas para leerlo.
 const CFG=JSON.parse(document.getElementById('contenido').textContent.replace(/\/\*(?:FIN-)?CONTENIDO\*\//g,''));
+/* Paleta por formación: si el contenido trae "nivel" (o meta.nivel, o la dirección ?nivel=), se ajustan las variables de color de la marca.
+   Sin nivel no se toca nada (queda la paleta base que armó la plataforma, la de Tecnológico). Valores: tecnologia, profesional (alias licenciatura), especializacion, doctorado. */
+(function(){
+  var N={tecnologia:['#00665F','#142749'],profesional:['#1C45B4','#151B3B'],licenciatura:['#1C45B4','#151B3B'],especializacion:['#08A6CB','#151B3B'],doctorado:['#22335D','#151B3B']};
+  var q=null;try{q=new URLSearchParams(location.search).get('nivel')}catch(e){}
+  var k=String(q||CFG.nivel||(CFG.meta&&CFG.meta.nivel)||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  if(!N[k])return;
+  var base=N[k][0],osc=N[k][1];
+  var rgb=function(h){return[1,3,5].map(function(i){return parseInt(h.substr(i,2),16)})};
+  var mix=function(a,b,t){var A=rgb(a),B=rgb(b);return'#'+A.map(function(v,i){return Math.round(v*(1-t)+B[i]*t).toString(16).padStart(2,'0')}).join('')};
+  var lum=function(h){var c=rgb(h).map(function(v){v/=255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4)});return .2126*c[0]+.7152*c[1]+.0722*c[2]};
+  var on=(1.05/(lum(base)+.05))>=4.5?'#FFFFFF':osc; /* texto sobre el color base: blanco solo si el contraste alcanza (el cian de Especialización pide texto oscuro) */
+  var v={'--brand':base,'--nav':osc,'--ink':osc,'--tit':osc,'--on-brand':on,'--tint':mix(base,'#ffffff',.9),'--prop-bg':mix(base,'#ffffff',.9),'--prop-ink':base,'--prop-tx':osc,'--accent-soft':mix(base,'#ffffff',.92),'--muted':'rgba('+rgb(osc).join(',')+',.72)'};
+  for(var n in v)document.documentElement.style.setProperty(n,v[n]);
+})();
 const words=t=>(t||'').trim().split(/\s+/).filter(Boolean).length;
 const norm=t=>(t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
 /* SCORM 1.2 sin pantalla: usa la API del aula si existe y una simulación en memoria si no. Registra estado, lugar,

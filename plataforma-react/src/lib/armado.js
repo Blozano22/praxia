@@ -2,7 +2,7 @@
 // lo usan render.js (dentro de la plataforma) y scripts/armar-plantillas.mjs (build de las plantillas públicas),
 // así el tema, la paleta y el orden de los reemplazos son los mismos en los dos sitios.
 
-export const FUENTE_DIEPO = "'Century Gothic','CenturyGothic','Apple Gothic','Futura','Avenir Next','Trebuchet MS','Segoe UI',system-ui,sans-serif"
+export const FUENTE_DIEPO = "'Montserrat','Segoe UI',system-ui,-apple-system,Arial,sans-serif"
 export const LINK_FUENTE = '<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">'
 
 // Marcas que quedan en una plantilla pública: lo único que hay que reemplazar para producir un recurso.

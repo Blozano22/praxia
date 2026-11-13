@@ -4,6 +4,28 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{{TITULO}}</title>
+<!--
+  PLANTILLA · crucigrama
+  CAMPOS DEL JSON (sacados del contenido de ejemplo; los límites de palabras de cada formación están en la guía de plantillas):
+    id  texto
+    tipo  texto
+    codigo  texto
+    clase  texto
+    unidadNum  número
+    tag  texto
+    titulo  texto
+    tituloCrucigrama  texto
+    chips  lista (0 elementos en el ejemplo)
+    pie  texto
+    info  objeto
+    actividad  vacío
+    nota  texto
+    palabras  lista (6 elementos en el ejemplo)
+      .palabra  texto
+      .pista  texto
+  FORMACIÓN: el JSON puede traer "nivel" (tecnologia, profesional, especializacion o doctorado) o la dirección ?nivel=; sin nivel se usa Tecnológico.
+  TEXTOS: los títulos de interfaz son fijos y genéricos en el HTML; claves de "textos" ajustables: ninguna.
+-->
 <style>/*CSS*/</style>
 <style>
 /* ===== Crucigrama · diseño 1 «Tres columnas»: horizontales | cuadrícula | verticales, con la pista activa en una barra bajo el título.
@@ -86,7 +108,7 @@ ol{padding:0;list-style:none}
 .pi .l{font-size:.72rem;font-weight:700;color:var(--brand);white-space:nowrap}
 .pi.open{border-color:var(--nav);background:var(--tint)}
 .pi.open .c{background:var(--nav);color:#fff}
-.pi.hecha .c{background:var(--brand);color:#fff}
+.pi.hecha .c{background:var(--brand);color:var(--on-brand,#fff)}
 .pi.hecha .l:after{content:" · ✔ lista"}
 
 /* Escritorio: tres columnas a pantalla completa, sin desplazamiento de página */

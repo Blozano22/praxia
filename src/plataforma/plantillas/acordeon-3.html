@@ -4,6 +4,33 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{{TITULO}}</title>
+<!--
+  PLANTILLA · acordeon-3
+  CAMPOS DEL JSON (sacados del contenido de ejemplo; los límites de palabras de cada formación están en la guía de plantillas):
+    id  texto
+    tipo  texto
+    codigo  texto
+    clase  texto
+    tag  texto
+    titulo  texto
+    chips  lista (1 elementos en el ejemplo)
+    pie  texto
+    info  objeto
+      resultado  texto
+    introduccion  texto
+    apartados  lista (6 elementos en el ejemplo)
+      .titulo  texto
+      .texto  texto
+      .idea  texto
+      .img  texto
+    sintesis  texto
+    referencias  texto
+    img  texto
+    actividad  vacío
+    variante  texto
+  FORMACIÓN: el JSON puede traer "nivel" (tecnologia, profesional, especializacion o doctorado) o la dirección ?nivel=; sin nivel se usa Tecnológico.
+  TEXTOS: los títulos de interfaz son fijos y genéricos en el HTML; claves de "textos" ajustables: ninguna.
+-->
 <style>/*CSS*/</style>
 <style>
 /* ===== Acordeón · diseño 3: índice lateral con pestañas verticales y hoja de lectura =====
@@ -33,7 +60,7 @@ body{background:#fff;color:var(--nav);font-size:16px;line-height:1.5;-webkit-fon
 .tab{position:relative;flex:1 1 0;min-height:44px;max-height:64px;display:flex;align-items:center;gap:12px;width:100%;margin:0;padding:0 14px 0 10px;border:0;border-radius:14px;background:transparent;color:#fff;font:inherit;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background-color .18s var(--ease),color .18s var(--ease),transform .16s var(--ease)}
 .tab:active{transform:scale(.97)}
 @media(hover:hover){.tab:hover:not(.on){background:rgba(255,255,255,.12)}}
-.tab.on{background:var(--brand);color:#fff}
+.tab.on{background:var(--brand);color:var(--on-brand,#fff)}
 .dot{filter:none;flex:none;display:grid;place-items:center;width:30px;height:30px;border-radius:50%;border:2px solid #fff;font-size:.82rem;font-weight:800;font-variant-numeric:tabular-nums;transition:background-color .2s var(--ease),color .2s var(--ease),border-color .2s var(--ease)}
 .dot .ic{width:15px;height:15px}
 .tab.ok .dot{background:#fff;color:var(--nav)}
@@ -77,7 +104,7 @@ body{background:#fff;color:var(--nav);font-size:16px;line-height:1.5;-webkit-fon
 .pb .im img{display:block;width:100%;height:100%;object-fit:cover}
 .idea{margin:.9em 0 0;padding:.7em 1em;border-radius:14px;background:var(--tint);border-left:6px solid var(--bgc);font-size:.95em;line-height:1.5}
 .idea b{display:block;margin-bottom:.1em;font-size:.72em;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
-.prop{margin-top:.9em;padding:.7em 1em;border-radius:14px;background:var(--brand);color:#fff}
+.prop{margin-top:.9em;padding:.7em 1em;border-radius:14px;background:var(--brand);color:var(--on-brand,#fff)}
 .prop b{display:block;margin-bottom:.15em;font-size:.72em;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
 .prop p{margin:0;font-size:.95em}
 .cols{flex:1 1 0;min-width:0;min-height:0;display:flex;flex-direction:column;gap:6px}

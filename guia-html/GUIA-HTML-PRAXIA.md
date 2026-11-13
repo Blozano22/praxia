@@ -155,7 +155,7 @@ Praxia define estas variables en `/*TEMA*/` y la plantilla las ajusta según la 
 | `--line` | Líneas y bordes neutros | `#C8C8C8` |
 | `--black` | Negro de apoyo | `#161616` |
 | `--radius` | Radio de esquinas | `14px` |
-| `--font` | Familia tipográfica | Century Gothic; respaldo Montserrat |
+| `--font` | Familia tipográfica: **Montserrat** (siempre, en todas las variantes) | `Montserrat`, `Segoe UI`, sans-serif |
 
 Reglas de color:
 
@@ -200,7 +200,7 @@ var NIVELES = {
 
 ### 6.3 Tipografía, forma y espacio
 
-- Fuente `var(--font)`; títulos en peso 800, cuerpo en 400–600. Base **17 px** (`--fs`), interlineado 1,5.
+- **Fuente: Montserrat en todas las variantes** (sin excepción, para mantener la misma línea gráfica). Se escribe siempre con `font-family: var(--font)`, y la variable nunca se redefine con otra familia. Praxia carga Montserrat al servir la plantilla; el respaldo es Segoe UI y la fuente del sistema. Títulos en peso 800, cuerpo en 400–600. Base **17 px** (`--fs`), interlineado 1,5.
 - Esquinas redondeadas (`var(--radius)`), botones en forma de píldora, bordes de 2 px.
 - Estilo limpio: fondo blanco, mucho espacio, sin sombras pesadas ni degradados llamativos.
 - Pensado para verse en **pantalla completa 16:9 (1280 × 720)** y también en celular (ancho 360 px) sin scroll horizontal. Usa `clamp()` y unidades relativas.

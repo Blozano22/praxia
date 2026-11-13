@@ -4,6 +4,40 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{{TITULO}}</title>
+<!--
+  PLANTILLA · lectura
+  CAMPOS DEL JSON (sacados del contenido de ejemplo; los límites de palabras de cada formación están en la guía de plantillas):
+    id  texto
+    tipo  texto
+    codigo  texto
+    clase  texto
+    tag  texto
+    titulo  texto
+    kicker  texto
+    subtitulo  texto
+    resumen  texto
+    chips  lista (0 elementos en el ejemplo)
+    pie  texto
+    info  objeto
+    centro  texto
+    secciones  lista (7 elementos en el ejemplo)
+      .titulo  texto
+      .texto  texto
+      .estilo  texto
+      .img  texto
+    glosario  lista (4 elementos en el ejemplo)
+      .termino  texto
+      .definicion  texto
+    pasos  lista (3 elementos en el ejemplo)
+      .titulo  texto
+      .texto  texto
+    registro  lista (3 elementos en el ejemplo)
+      .observa  texto
+      .registra  texto
+    actividad  vacío
+  FORMACIÓN: el JSON puede traer "nivel" (tecnologia, profesional, especializacion o doctorado) o la dirección ?nivel=; sin nivel se usa Tecnológico.
+  TEXTOS: los títulos de interfaz son fijos y genéricos en el HTML; claves de "textos" ajustables: ninguna.
+-->
 <style>/*CSS*/</style>
 <style>
 /* ===== Lectura diagramada · pantallas completas, sin scroll de página ===== */
@@ -14,7 +48,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:#fff}
 #pagina.ent>.rt{animation-delay:.06s}
 @keyframes lecIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 /* Panel de color (izquierda) */
-.lf{position:relative;display:flex;flex-direction:column;justify-content:center;gap:clamp(10px,2vh,20px);min-width:0;min-height:0;overflow:hidden;padding:clamp(20px,4vh,48px) clamp(22px,3.2vw,48px);color:#fff;background:var(--brand)}
+.lf{position:relative;display:flex;flex-direction:column;justify-content:center;gap:clamp(10px,2vh,20px);min-width:0;min-height:0;overflow:hidden;padding:clamp(20px,4vh,48px) clamp(22px,3.2vw,48px);color:var(--on-brand,#fff);background:var(--brand)}
 .lf.c1{background:var(--brand2)}
 .lf.c2{background:var(--mid)}
 .lf.c3{background:var(--cyan);color:var(--cyan-ink)}

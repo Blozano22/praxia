@@ -4,6 +4,30 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{{TITULO}}</title>
+<!--
+  PLANTILLA · video
+  CAMPOS DEL JSON (sacados del contenido de ejemplo; los límites de palabras de cada formación están en la guía de plantillas):
+    id  texto
+    tipo  texto
+    codigo  texto
+    clase  texto
+    tag  texto
+    chips  lista (0 elementos en el ejemplo)
+    pie  texto
+    info  objeto
+      resultado  texto
+    actividad  vacío
+    titulo  texto
+    duracion  texto
+    tecnica  texto
+    escenas  lista (4 elementos en el ejemplo)
+      .titulo  texto
+      .visual  texto
+      .narracion  texto
+      .img  texto
+  FORMACIÓN: el JSON puede traer "nivel" (tecnologia, profesional, especializacion o doctorado) o la dirección ?nivel=; sin nivel se usa Tecnológico.
+  TEXTOS: los títulos de interfaz son fijos y genéricos en el HTML; claves de "textos" ajustables: ninguna.
+-->
 <style>/*CSS*/</style>
 <style>
 /* ===== Video · escenario de color a pantalla completa + panel de escenas y transcripción ===== */

@@ -189,7 +189,7 @@ export function PanelContenido() {
 export function PanelDiseno() {
   return (
     <div>
-      <div className="tour">Todos los recursos usan el mismo diseño institucional DIEPO: la paleta, la tipografía (Century Gothic) y el estilo no cambian según la formación. Por eso aquí no hay colores ni letras para elegir.</div>
+      <div className="tour">Todos los recursos usan el mismo diseño institucional DIEPO: la paleta, la tipografía (Montserrat) y el estilo no cambian según la formación. Por eso aquí no hay colores ni letras para elegir.</div>
       <label className="l">Paleta DIEPO</label>
       <div className="sw" aria-label="Colores del recurso" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         {[['#142749', 'Azul noche'], ['#22335D', 'Azul marino'], ['#1C45B4', 'Azul'], ['#08A6CB', 'Cian'], ['#00665F', 'Verde azulado']].map(([c, n]) => (
