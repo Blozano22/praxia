@@ -9,7 +9,7 @@ import { config } from './config.js'
 import { extraerEnlaces } from './enlaces.js'
 import { armarSubida, MAX_HTML, NOMBRES_RESERVADOS } from './plantillas/subidas.js'
 import { EsquemaLanzarH5p, EsquemaLanzarMatrices, lanzarH5p, lanzarMatrices, urlH5p, urlMatrices } from './pipeline/lanzar.js'
-import { COOKIE, claveValida, compararClave, emitirSesion, exigirPermiso, exigirSesion, hashClave } from './seguridad.js'
+import { COOKIE, claveValida, compararClave, emitirSesion, exigirAlguno, exigirPermiso, exigirSesion, hashClave } from './seguridad.js'
 
 export const rutas = Router()
 
@@ -199,8 +199,8 @@ rutas.post('/guion-url', exigirSesion, exigirPermiso('proyectos.crear'), limiteG
   })
 
 // ------------------------------------------------------------------ usuarios (solo con usuarios.gestionar)
-const Rol = z.enum(['admin', 'coordinador', 'docente', 'disenador'])
-const Roles = z.array(Rol).min(1).max(4).refine((a) => new Set(a).size === a.length)
+const Rol = z.enum(['admin', 'coordinador', 'docente', 'disenador', 'editor_html'])
+const Roles = z.array(Rol).min(1).max(5).refine((a) => new Set(a).size === a.length)
 const admin = [exigirSesion, exigirPermiso('usuarios.gestionar')]
 
 rutas.get('/usuarios', ...admin, async (req, res, next) => {
@@ -419,7 +419,7 @@ const HtmlSubido = z.string().min(1).max(MAX_HTML + 4096)
 // Quien llama puede mandar «nombre» (uso interno); la pantalla no lo manda. Sin categoría no hay ID de dónde sacar el nombre.
 const CuerpoSubir = z.object({ nombre: NombreSubida.optional(), html: HtmlSubido, categoria: IdCategoria.nullish() }).strict().refine((b) => b.nombre || b.categoria, { message: 'Elija la categoría de la plantilla: el nombre sale de su ID.' })
 const nombreVariante = (cat, n) => cat.toLowerCase() + '-v' + String(n).padStart(2, '0')
-rutas.post('/plantillas/subidas', exigirSesion, exigirPermiso('plantillas.revisar'), limiteSubir, validar(CuerpoSubir, 'body'), async (req, res, next) => {
+rutas.post('/plantillas/subidas', exigirSesion, exigirAlguno('plantillas.revisar', 'plantillas.subir'), limiteSubir, validar(CuerpoSubir, 'body'), async (req, res, next) => {
   try {
     const { html, categoria } = req.bodyOk
     let nombre = req.bodyOk.nombre
@@ -441,6 +441,23 @@ rutas.post('/plantillas/subidas', exigirSesion, exigirPermiso('plantillas.revisa
     if (categoria) await sinUsuario(Q.categoriaAsignar, [nombre, categoria])
     await auditar(req.usuario.id, 'plantilla_subir', 'plantilla', nombre, req)
     res.status(201).json({ nombre })
+  } catch (e) { next(e) }
+})
+// Vista previa ANTES de subir: valida y arma el archivo igual que la subida, pero sin guardarlo. Devuelve el HTML con el ejemplo puesto (o la plantilla
+// vacía si no trae ejemplo) y el nombre que le tocaría en la categoría. Si no cumple las reglas, responde 400 con el motivo.
+rutas.post('/plantillas/subidas/previa', exigirSesion, exigirAlguno('plantillas.revisar', 'plantillas.subir'), limiteSubir, validar(z.object({ html: HtmlSubido, categoria: IdCategoria.nullish() }).strict(), 'body'), async (req, res, next) => {
+  try {
+    const { html, categoria } = req.bodyOk
+    const armada = armarSubida(html)
+    if (!armada.ok) return res.status(400).json({ error: armada.error })
+    let nombre = null
+    if (categoria) {
+      const c = (await sinUsuario(Q.categoriaSiguiente, [categoria])).rows[0]
+      if (!c) return res.status(404).json({ error: 'No existe esa categoría.' })
+      nombre = nombreVariante(categoria, c.siguiente_variante)
+    }
+    const vacia = armada.html.replace('{{TITULO}}', () => 'Vista previa').replace('/*CONTENIDO*/', () => '{}')
+    res.json({ ok: true, conEjemplo: !!armada.ejemplo, html: armada.ejemplo || vacia, nombre })
   } catch (e) { next(e) }
 })
 rutas.put('/plantillas/subidas/:nombre', exigirSesion, exigirPermiso('plantillas.revisar'), limiteSubir, validar(z.object({ nombre: NombreSubida }), 'params'), validar(z.object({ html: HtmlSubido }).strict(), 'body'), async (req, res, next) => {

@@ -51,6 +51,10 @@ export async function exigirSesion(req, res, next) {
 export const exigirPermiso = (codigo) => (req, res, next) =>
   req.usuario && req.usuario.permisos.has(codigo) ? next() : res.status(403).json({ error: 'No tienes permiso para esto' })
 
+// Basta con tener uno de los permisos.
+export const exigirAlguno = (...codigos) => (req, res, next) =>
+  req.usuario && codigos.some((c) => req.usuario.permisos.has(c)) ? next() : res.status(403).json({ error: 'No tienes permiso para esto' })
+
 // Protección contra peticiones enviadas desde otras páginas: toda escritura debe traer este encabezado
 // (un formulario ajeno no puede añadirlo) y viajar como JSON.
 export function exigirCabecera(req, res, next) {

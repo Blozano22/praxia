@@ -1,5 +1,5 @@
 /* Pantalla de Usuarios: encabezado, formulario con selector de roles en tarjetas y tabla de personas. */
-.us{--c-admin:#5b3fd1;--c-admin-bg:#ece8ff;--c-coord:#1f6fd1;--c-coord-bg:#dfeeff;--c-doc:#0a6b5c;--c-doc-bg:#d9f3e8;--c-dis:#b86a00;--c-dis-bg:#fff0d2}
+.us{--c-admin:#5b3fd1;--c-admin-bg:#ece8ff;--c-coord:#1f6fd1;--c-coord-bg:#dfeeff;--c-doc:#0a6b5c;--c-doc-bg:#d9f3e8;--c-dis:#b86a00;--c-dis-bg:#fff0d2;--c-edi:#0e7490;--c-edi-bg:#d8f2f8}
 .us-cab{display:flex;gap:16px;align-items:flex-start}
 .us-cab h1{margin:0;line-height:1.1}
 .us-cab .lead{margin:6px 0 0;max-width:780px}
@@ -52,6 +52,7 @@
 .r-coordinador{background:var(--c-coord-bg);color:var(--c-coord)}
 .r-docente{background:var(--c-doc-bg);color:var(--c-doc)}
 .r-disenador{background:var(--c-dis-bg);color:var(--c-dis)}
+.r-editor_html{background:var(--c-edi-bg);color:var(--c-edi)}
 
 /* Listado */
 .us-lista-cab{padding:20px 26px 16px}

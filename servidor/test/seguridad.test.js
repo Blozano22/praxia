@@ -254,7 +254,7 @@ test('el diseñador solo puede ver las plantillas: sin syllabus, seguimiento ni 
   const dani = await entrar('dani@u.co')
   const yo = await (await dani.api('GET', '/auth/yo')).json()
   assert.deepEqual(yo.roles, ['disenador'])
-  assert.deepEqual([...yo.permisos].sort(), ['plantillas.revisar', 'plantillas.ver'])
+  assert.deepEqual([...yo.permisos].sort(), ['plantillas.categorias', 'plantillas.revisar', 'plantillas.ver'])
   assert.equal((await dani.api('GET', '/proyectos')).status, 403)
   assert.equal((await dani.api('PUT', '/proyectos/dis-1', proyecto('dis-1'))).status, 403)
   assert.equal((await dani.api('GET', '/seguimiento')).status, 403)

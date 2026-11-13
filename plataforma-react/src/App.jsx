@@ -269,7 +269,7 @@ export default function App() {
         {esAdmin && <ItemMenu on={vista === 'usuarios'} icono="M16 20v-1a4 4 0 00-4-4H8a4 4 0 00-4 4v1M10 11a3 3 0 100-6 3 3 0 000 6" texto="Usuarios" onClick={() => ir('usuarios')} />}
       </nav>
       <div className="shellmain">
-      {vista === 'plantillas' && verPlantillas && <Plantillas puedeRevisar={yo.permisos.includes('plantillas.revisar')} puedeCorregir={yo.permisos.includes('plantillas.corregir')} yo={yo} aviso={aviso} />}
+      {vista === 'plantillas' && verPlantillas && <Plantillas puedeRevisar={yo.permisos.includes('plantillas.revisar')} puedeCorregir={yo.permisos.includes('plantillas.corregir')} puedeCategorias={yo.permisos.includes('plantillas.categorias')} puedeSubirVariante={yo.permisos.includes('plantillas.subir')} yo={yo} aviso={aviso} />}
       {vista === 'bibliografia' && esAdmin && <Bibliografia lista={lista} />}
       {vista === 'usuarios' && esAdmin && <Usuarios yo={yo} aviso={aviso} onYo={() => api('GET', '/auth/yo').then(setYo).catch(() => {})} />}
       {vista === 'conexion' && esAdmin && <Conexiones aviso={aviso} />}

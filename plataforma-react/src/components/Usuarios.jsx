@@ -6,7 +6,8 @@ const DETALLE_ROL = {
   admin: 'Gestiona cuentas, roles y auditoría',
   coordinador: 'Crea syllabus y ve el avance de todos',
   docente: 'Crea y edita sus propios syllabus',
-  disenador: 'Solo ve las plantillas HTML'
+  disenador: 'Solo ve las plantillas HTML',
+  editor_html: 'Ve la galería de plantillas HTML y sube variantes; no aprueba ni revisa'
 }
 
 const alternar = (lista, r) => (lista.includes(r) ? lista.filter((x) => x !== r) : [...lista, r])
@@ -21,6 +22,7 @@ const ICONO = {
   admin: <><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z" /><path d="M9 12l2 2 4-4" /></>,
   coordinador: <><circle cx="9" cy="8" r="3.2" /><path d="M3 20v-1a4.5 4.5 0 014.5-4.5h3A4.5 4.5 0 0115 19v1M16 5.5a3 3 0 010 5.5M21 20v-1a4 4 0 00-3-3.8" /></>,
   docente: <><path d="M2 9l10-5 10 5-10 5L2 9z" /><path d="M6 11.5V16c0 1.2 2.7 3 6 3s6-1.8 6-3v-4.5M22 9v5" /></>,
+  editor_html: <><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16" /></>,
   disenador: <><path d="M12 3a9 9 0 100 18c1.2 0 2-.8 2-1.8 0-.5-.2-.9-.5-1.3-.3-.4-.5-.8-.5-1.3 0-1 .8-1.8 1.8-1.8H17a4 4 0 004-4c0-4.4-4-8-9-8z" /><circle cx="7.5" cy="11" r="1" /><circle cx="10" cy="7" r="1" /><circle cx="15" cy="7.5" r="1" /></>
 }
 const IconoRol = ({ r, size = 20 }) => <Svg size={size}>{ICONO[r]}</Svg>

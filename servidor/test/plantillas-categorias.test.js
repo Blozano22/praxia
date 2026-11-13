@@ -42,7 +42,7 @@ before(async () => {
   const { hashClave } = await import('../src/seguridad.js')
   const { Q } = await import('../src/consultas.js')
   pool = db.pool
-  for (const [n, c, r] of [['Admin', 'admin@u.co', 'admin'], ['Dani', 'dani@u.co', 'disenador'], ['Ana', 'ana@u.co', 'docente']]) await pool.query(Q.usuarioCrear, [n, c, await hashClave(CLAVE), [r]])
+  for (const [n, c, r] of [['Admin', 'admin@u.co', 'admin'], ['Dani', 'dani@u.co', 'disenador'], ['Ana', 'ana@u.co', 'docente'], ['Edi', 'edi@u.co', 'editor_html']]) await pool.query(Q.usuarioCrear, [n, c, await hashClave(CLAVE), [r]])
   servidor = crearApp().listen(0)
   base = 'http://127.0.0.1:' + servidor.address().port
 })
@@ -284,6 +284,50 @@ test('el nombre de una plantilla subida sale del ID de la categoría y del orden
   assert.equal((await sube({ nombre: 'g-09-v04', categoria: 'G-09' })).status, 201)
   assert.equal((await (await sube({ categoria: 'G-09' })).json()).nombre, 'g-09-v05')
   for (const n of ['g-09-v01', 'g-09-v03', 'g-09-v04', 'g-09-v05', 'g-01-v01']) assert.equal((await dani('DELETE', '/plantillas/subidas/' + n)).status, 200)
+})
+
+test('rol «editor_html»: ve la galería y sube variantes con vista previa, pero no ve las categorías para n8n ni aprueba, rechaza o manda a revisión', async () => {
+  const edi = await entrar('edi@u.co')
+  const ana = await entrar('ana@u.co')
+  const dani = await entrar('dani@u.co')
+  const html = PLANTILLA()
+  // permisos: ve las plantillas y sube; no tiene los de revisar, corregir ni el de ver «Categorías para n8n»
+  const yo = await (await edi('GET', '/auth/yo')).json()
+  assert.ok(yo.roles.includes('editor_html'))
+  assert.ok(yo.permisos.includes('plantillas.ver') && yo.permisos.includes('plantillas.subir'))
+  for (const p of ['plantillas.revisar', 'plantillas.corregir', 'plantillas.categorias']) assert.equal(yo.permisos.includes(p), false, p)
+  const yoDani = await (await dani('GET', '/auth/yo')).json()
+  assert.ok(yoDani.permisos.includes('plantillas.categorias')); assert.equal((await (await ana('GET', '/auth/yo')).json()).permisos.includes('plantillas.categorias'), true)
+  // ve la galería (categorías, revisiones) en solo lectura
+  assert.equal((await edi('GET', '/plantillas/categorias')).status, 200)
+  assert.equal((await edi('GET', '/plantillas/revisiones')).status, 200)
+  // vista previa antes de subir: valida y devuelve el nombre que le tocaría, sin guardar nada
+  const previa = await edi('POST', '/plantillas/subidas/previa', { html, categoria: 'G-09' })
+  assert.equal(previa.status, 200)
+  const pj = await previa.json()
+  assert.equal(pj.ok, true); assert.equal(pj.conEjemplo, false); assert.match(pj.nombre, /^g-09-v\d\d$/); assert.ok(pj.html.includes('<html'))
+  assert.equal((await fetch(base + '/plantillas-html/' + pj.nombre + '.html')).status, 404) // la previa no guarda
+  const conEj = '<!doctype html><html lang="es"><head><meta charset="utf-8"><title>{{TITULO}}</title></head><body><script type="application/json" id="contenido">/*CONTENIDO*/{"titulo":"Con ejemplo"}/*FIN-CONTENIDO*/</script></body></html>'
+  const pj2 = await (await edi('POST', '/plantillas/subidas/previa', { html: conEj })).json()
+  assert.equal(pj2.conEjemplo, true); assert.ok(pj2.html.includes('Con ejemplo')); assert.equal(pj2.nombre, null)
+  assert.equal((await edi('POST', '/plantillas/subidas/previa', { html: '<html><body>sin marcas</body></html>' })).status, 400)
+  assert.equal((await edi('POST', '/plantillas/subidas/previa', { html, categoria: 'Z-99' })).status, 404)
+  assert.equal((await ana('POST', '/plantillas/subidas/previa', { html, categoria: 'G-09' })).status, 403)
+  // sube: queda con el nombre automático y en la categoría elegida
+  const sube = await edi('POST', '/plantillas/subidas', { html, categoria: 'G-09' })
+  assert.equal(sube.status, 201); const nombre = (await sube.json()).nombre
+  assert.equal(nombre, pj.nombre) // el nombre que anunció la vista previa es el que se le da
+  assert.equal((await fetch(base + '/plantillas-html/' + nombre + '.html')).status, 200)
+  // lo demás sigue siendo de quien revisa: categorías, asignación, ocultar, eliminar, reemplazar
+  assert.equal((await edi('POST', '/plantillas/categorias', { id: 'G-77', nombre: 'Nueva' })).status, 403)
+  assert.equal((await edi('PUT', '/plantillas/asignacion/acordeon', { categoria: 'G-09' })).status, 403)
+  assert.equal((await edi('PUT', '/plantillas/ocultas/acordeon-3', { oculta: true })).status, 403)
+  assert.equal((await edi('DELETE', '/plantillas/sistema/acordeon-3')).status, 403)
+  assert.equal((await edi('PUT', '/plantillas/subidas/' + nombre, { html })).status, 403)
+  assert.equal((await edi('DELETE', '/plantillas/subidas/' + nombre)).status, 403)
+  // no puede aprobar, rechazar, mandar a revisión ni marcar como corregida
+  for (const estado of ['aprobada', 'rechazada', 'revision', 'corregida']) assert.equal((await edi('POST', '/plantillas/revisiones', { plantilla: 'acordeon', estado, observacion: 'x' })).status, 403, estado)
+  assert.equal((await dani('DELETE', '/plantillas/subidas/' + nombre)).status, 200)
 })
 
 test('borrar una categoría deja sus plantillas sin categoría; si falla la base de datos se entrega el archivo del build tal cual', async () => {

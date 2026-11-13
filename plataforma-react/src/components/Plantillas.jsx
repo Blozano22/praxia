@@ -102,7 +102,7 @@ function SelectorCategoria({ opciones, actual, onElegir, deshabilitado }) {
   )
 }
 
-export default function Plantillas({ puedeRevisar = false, puedeCorregir = false, yo = null, aviso }) {
+export default function Plantillas({ puedeRevisar = false, puedeCorregir = false, puedeCategorias = false, puedeSubirVariante = false, yo = null, aviso }) {
   const gruposTodos = useMemo(() => GRUPOS.map(([g, l]) => [g, l.filter(([k]) => CATALOGO[k])]).filter(([, l]) => l.length), [])
   const [clase, setClase] = useState('recurso') // qué clase de HTML se ve en la galería: recurso | actividad
   const [ejSubido, setEjSubido] = useState(false) // la variante publicada que se ve trae su propio contenido de ejemplo (plantilla subida)
@@ -254,15 +254,15 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
   const irACategoria = (i) => { const [, l] = grupos[(i + grupos.length) % grupos.length]; setQ(''); setTipo(l[0][0]) }
   const [subiendo, setSubiendo] = useState(false)
   const recargarCats = () => api('GET', '/plantillas/categorias').then(setCats).catch(() => {})
-  const puedeSubir = puedeRevisar && !!cats
+  const puedeSubir = (puedeRevisar || puedeSubirVariante) && !!cats // quien revisa o quien tiene el rol de editor HTML
 
   const pestanas = (
     <div className="pg-tabs" role="tablist" aria-label="Qué ver">
       <button type="button" role="tab" aria-selected={vista === 'galeria'} className={vista === 'galeria' ? 'on' : ''} onClick={() => setVista('galeria')}>Galería de diseños</button>
-      <button type="button" role="tab" aria-selected={vista === 'categorias'} className={vista === 'categorias' ? 'on' : ''} onClick={() => setVista('categorias')}>Categorías para n8n</button>
+      {puedeCategorias && <button type="button" role="tab" aria-selected={vista === 'categorias'} className={vista === 'categorias' ? 'on' : ''} onClick={() => setVista('categorias')}>Categorías para n8n</button>}
     </div>
   )
-  if (vista === 'categorias') {
+  if (vista === 'categorias' && puedeCategorias) {
     return (
       <div className="wrapx fade">
         <div className="pl2-cab">

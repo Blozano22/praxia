@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS rol_permisos (
   PRIMARY KEY (rol_id, permiso_id)
 );
 
-INSERT INTO roles (id, nombre) VALUES (1,'admin'), (2,'coordinador'), (3,'docente'), (4,'disenador')
+INSERT INTO roles (id, nombre) VALUES (1,'admin'), (2,'coordinador'), (3,'docente'), (4,'disenador'), (5,'editor_html')
   ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO permisos (id, codigo, detalle) VALUES
@@ -36,7 +36,9 @@ INSERT INTO permisos (id, codigo, detalle) VALUES
   (7, 'auditoria.ver',         'Consultar el registro de actividad'),
   (8, 'plantillas.ver',        'Ver la galería de plantillas HTML de los recursos (solo lectura)'),
   (9, 'plantillas.revisar',    'Aprobar, rechazar o mandar a revisión una plantilla HTML, con su observación y el documento de cambios'),
-  (10, 'plantillas.corregir',  'Marcar como corregida una solicitud de revisión de una plantilla HTML, para que el diseñador la verifique')
+  (10, 'plantillas.corregir',  'Marcar como corregida una solicitud de revisión de una plantilla HTML, para que el diseñador la verifique'),
+  (11, 'plantillas.categorias', 'Ver la pantalla «Categorías para n8n» de las plantillas HTML'),
+  (12, 'plantillas.subir',      'Subir variantes nuevas de plantillas HTML (sin aprobar, rechazar ni mandar a revisión)')
   ON CONFLICT (id) DO UPDATE SET detalle = EXCLUDED.detalle;
 
 -- admin: administra usuarios y auditoría (no ve el contenido de otros por defecto)
@@ -48,7 +50,9 @@ INSERT INTO rol_permisos (rol_id, permiso_id) VALUES
   (3,1), (3,2), (3,3), (3,4),
   (1,8), (2,8), (3,8), (4,8),
   (1,9), (4,9),
-  (1,10)
+  (1,10),
+  (1,11), (2,11), (3,11), (4,11),
+  (5,8), (5,12)
   ON CONFLICT DO NOTHING;
 
 -- ---------------------------------------------------------------- usuarios
