@@ -9,22 +9,22 @@ import { CARGA, CATALOGO, ejemploDe, nombrePublico } from '../lib/ejemplos.js'
 // Familias del menú: [título, [[clave, nombre]...]]
 const GRUPOS = [
   ['Contenido', [['presentacion', 'Presentación'], ['lectura', 'Lectura diagramada'], ['estudio-casos', 'Estudio de casos']]],
-  ['Acordeones', [['acordeon', 'Diseño 1'], ['acordeon-v2', 'Diseño 2'], ['acordeon-v3', 'Diseño 3'], ['o-infografia-v2', 'Diseño 4']]],
+  ['Acordeones', [['acordeon', 'Diseño 1'], ['acordeon-v2', 'Diseño 2'], ['acordeon-v3', 'Diseño 3']]],
   ['Actividades (van en cualquier recurso)', [['acordeon-clasificacion', 'Clasificación'], ['acordeon-cuestionario', 'Cuestionario'], ['acordeon-emparejamiento', 'Emparejamiento'], ['acordeon-laboratorio', 'Laboratorio'], ['acordeon-tarea', 'Tarea']]],
-  ['Líneas de tiempo', [['o-linea-de-tiempo-v1', 'Diseño 1'], ['linea-tiempo-v2', 'Diseño 2'], ['o-linea-de-tiempo-v3', 'Diseño 3'], ['o-linea-de-tiempo-anterior-carrusel', 'Diseño 4']]],
+  ['Líneas de tiempo', [['linea-tiempo-v2', 'Diseño 2']]],
   ['Crucigramas', [['crucigrama', 'Diseño 1'], ['crucigrama-v2', 'Diseño 2'], ['crucigrama-v3', 'Diseño 3']]],
-  ['Infografías', [['infografia-hex', 'Hexagonal'], ['infografia-pines', 'Con pines'], ['infografia-radial', 'Radial'], ['o-infografia-v1', 'Diseño 4']]],
+  ['Infografías', [['infografia-hex', 'Hexagonal'], ['infografia-pines', 'Con pines'], ['infografia-radial', 'Radial']]],
   ['Esquemas', [['diagrama-flujo', 'Diagrama de flujo'], ['mapa-conceptual', 'Mapa conceptual']]]
 ]
 
 // Nota breve de cada familia (se muestra sobre la lista de diseños).
 const NOTAS = {
   Contenido: 'Para presentar el tema de la unidad.',
-  Acordeones: 'Cuatro diseños para desplegar contenido por secciones.',
+  Acordeones: 'Diseños para desplegar contenido por secciones.',
   Actividades: 'Van en cualquier recurso: se insertan dentro de la presentación, la lectura u otro.',
-  'Líneas de tiempo': 'Cuatro diseños para ordenar hechos o etapas.',
+  'Líneas de tiempo': 'Diseños para ordenar hechos o etapas.',
   Crucigramas: 'Tres diseños de crucigrama.',
-  Infografías: 'Cuatro diseños para resumir ideas de forma visual.',
+  Infografías: 'Diseños para resumir ideas de forma visual.',
   Esquemas: 'Para mostrar procesos y relaciones.',
 }
 const corto = (g) => g.replace(/ \(.*\)$/, '')
@@ -188,7 +188,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
       <div className="pl2-cab">
         <Titulo icono="codigo">
           <h1>Plantillas HTML</h1>
-          <p className="lead">Así se ven los recursos que genera la plataforma. Elija el tipo y el diseño; puede abrirlo en una pestaña o descargarlo. «Mis HTML originales» son los archivos hechos a mano, sin cambios.</p>
+          <p className="lead">Así se ven los recursos que genera la plataforma. Elija el tipo y el diseño; puede abrirlo en una pestaña o descargarlo.</p>
         </Titulo>
         <label className="pl2-busca">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></svg>
