@@ -36,6 +36,7 @@ const CLASES = { recurso: 'Recursos', actividad: 'Actividades' }
 export default function Plantillas({ puedeRevisar = false, puedeCorregir = false, yo = null, aviso }) {
   const gruposTodos = useMemo(() => GRUPOS.map(([g, l]) => [g, l.filter(([k]) => CATALOGO[k])]).filter(([, l]) => l.length), [])
   const [clase, setClase] = useState('recurso') // qué clase de HTML se ve en la galería: recurso | actividad
+  const [ejSubido, setEjSubido] = useState(false) // la variante publicada que se ve trae su propio contenido de ejemplo (plantilla subida)
   const [vista, setVista] = useState('galeria') // galeria | categorias (las categorías que usa n8n)
   const [tipo, setTipo] = useState(() => (gruposTodos.find(([g]) => !esActividad(g)) || gruposTodos[0])[1][0][0])
   const [q, setQ] = useState('')
@@ -94,8 +95,9 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
       const c = cats.categorias.find((x) => x.id === cats.asignaciones[n])
       if (!c) return
       const ej = ejemploDe(n)
+      const ejSub = !!(cats.subidas && cats.subidas[n] && cats.subidas[n].ejemplo) // una plantilla subida puede traer su propio contenido de ejemplo
       if (!porCat.has(c.id)) porCat.set(c.id, { c, items: [] })
-      porCat.get(c.id).items.push([ej || 'pub-' + n, n, true, !ej])
+      porCat.get(c.id).items.push([ej || 'pub-' + n, n, true, !ej && !ejSub])
     })
     ;[...porCat.values()].sort((x, y) => x.c.id.localeCompare(y.c.id)).forEach(({ c, items }) => res[c.tipo === 'actividad' ? 'actividad' : 'recurso'].push([c.nombre || c.id, items]))
     ;['recurso', 'actividad'].forEach((t) => { if (sin[t].length) res[t].push(['Sin categoría', sin[t]]) })
@@ -109,13 +111,19 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
   useEffect(() => {
     if (!publica) return undefined
     let vivo = true
-    setHtml(''); setError('')
+    setHtml(''); setError(''); setEjSubido(false)
+    if (cats && cats.subidas && cats.subidas[publica] && cats.subidas[publica].ejemplo) {
+      api('GET', '/plantillas/subidas/' + encodeURIComponent(publica) + '/ejemplo')
+        .then((d) => { if (vivo) { if (d && d.html) { setHtml(d.html); setEjSubido(true) } else setError('No se pudo cargar el ejemplo.') } })
+        .catch(() => { if (vivo) setError('No se pudo cargar el ejemplo.') })
+      return () => { vivo = false }
+    }
     fetch(RUTA_API.replace(/\/api$/, '') + '/plantillas-html/' + publica + '.html')
       .then((r) => { if (!r.ok) throw new Error('x'); return r.text() })
       .then((t) => { if (vivo) setHtml(t.replace('{{TITULO}}', () => publica).replace('/*CONTENIDO*/', () => '{}')) })
       .catch(() => { if (vivo) setError('No se pudo cargar la plantilla.') })
     return () => { vivo = false }
-  }, [publica])
+  }, [publica, cats])
   useEffect(() => {
     if (!ruta) return
     let vivo = true
@@ -214,7 +222,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
             <button className="btn sec sm" onClick={() => setFull(!full)}>{full ? 'Cerrar pantalla completa' : 'Pantalla completa'}</button>
           </div>
           {error && <div className="msg bad" role="alert">{error}</div>}
-          {publica && html && <p className="vp-nota aviso">Esta variante <b>no tiene un ejemplo con contenido</b>: sola se ve vacía, porque n8n le pone el título y el contenido de cada recurso. Esto es la plantilla tal cual.</p>}
+          {publica && html && !ejSubido && <p className="vp-nota aviso">Esta variante <b>no tiene un ejemplo con contenido</b>: sola se ve vacía, porque n8n le pone el título y el contenido de cada recurso. Esto es la plantilla tal cual.</p>}
           <div className="pl2-caja" ref={caja} style={full ? { maxWidth: 'calc((100vh - 130px) * 16 / 9)' } : undefined}>
             {!html && !error && <p className="help" style={{ padding: 18 }}>Cargando…</p>}
             {html && <iframe sandbox="allow-scripts" title={'Plantilla ' + titulo} srcDoc={html} style={{ width: 1280, height: 720, transform: `scale(${esc})` }} />}

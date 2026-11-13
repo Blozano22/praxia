@@ -250,11 +250,14 @@ test('una plantilla puede traer su contenido de ejemplo entre /*CONTENIDO*/ y /*
   assert.ok(servida.includes('/*CONTENIDO*/</script>') && !servida.includes('Mi ejemplo') && !servida.includes('FIN-CONTENIDO'))
   const ej = (await (await dani('GET', '/plantillas/subidas/con-ejemplo/ejemplo')).json()).html
   assert.ok(ej.includes('Mi ejemplo') && !ej.includes('{{TITULO}}') && !ej.includes('/*CONTENIDO*/') && !ej.includes('uno </script>'))
+  const lista = (await (await dani('GET', '/plantillas/categorias')).json()).subidas
+  assert.equal(lista['con-ejemplo'].ejemplo, true)
   assert.equal((await dani('POST', '/plantillas/subidas', { nombre: 'ej-malo', html: con('{ no es json }') })).status, 400)
   assert.equal((await dani('POST', '/plantillas/subidas', { nombre: 'ej-lista', html: con('[1,2]') })).status, 400)
   // sin ejemplo: la vista previa no tiene HTML propio
   assert.equal((await dani('POST', '/plantillas/subidas', { nombre: 'sin-ejemplo', html: PLANTILLA() })).status, 201)
   assert.equal((await (await dani('GET', '/plantillas/subidas/sin-ejemplo/ejemplo')).json()).html, null)
+  assert.equal((await (await dani('GET', '/plantillas/categorias')).json()).subidas['sin-ejemplo'].ejemplo, false)
   assert.equal((await dani('GET', '/plantillas/subidas/no-hay/ejemplo')).status, 404)
   for (const n of ['con-ejemplo', 'sin-ejemplo']) assert.equal((await dani('DELETE', '/plantillas/subidas/' + n)).status, 200)
 })
