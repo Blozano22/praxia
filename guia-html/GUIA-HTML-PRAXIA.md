@@ -52,6 +52,8 @@ Reglas de las marcas:
 
 - No uses nunca `/*CSS*/`, `/*LIB*/` ni `/*TEMAJS*/`: son marcas internas del sistema. La plantilla debe ser **autónoma** (su propio CSS y su propio JavaScript).
 - No dejes ningún otro `/*…*/` o `{{…}}` suelto con apariencia de marca.
+- **No escribas el texto de una marca en ningún otro sitio**, ni siquiera en un comentario HTML, un comentario de código o un texto visible (por ejemplo «aquí va {{TITULO}}»): Praxia cuenta todas las apariciones y rechaza el archivo si hay más de una.
+- El título visible no lleva marca: sale del JSON (`titulo`).
 - El contenido de ejemplo debe ser un **objeto JSON válido** (`{ … }`, no una lista). Si no es JSON válido, Praxia rechaza la subida y dice por qué.
 - Dentro del ejemplo evita escribir la secuencia `</script>`.
 
