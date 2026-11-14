@@ -224,7 +224,7 @@ var NIVELES = {
 - **Un solo archivo** `.html`, de menos de **1,5 MB**, con `<html lang="es">`, `<meta charset="utf-8">` y `<meta name="viewport" content="width=device-width,initial-scale=1">`.
 - **Todo dentro del archivo:** CSS en `<style>`, JavaScript en `<script>`. Sin librerías externas, sin CDN, sin fuentes externas (Praxia ya añade la tipografía de la marca).
 - Las imágenes vienen del JSON como URL (con su texto alternativo) o son SVG en línea. Si no hay imagen, la plantilla debe verse bien igual.
-- La plantilla corre **aislada** en un iframe protegido (sandbox): funcionan los scripts, pero **no** uses `localStorage`, `sessionStorage`, cookies, `window.parent`, ni llamadas a la API de Praxia. Si guardas algo, envuélvelo en `try/catch`.
+- La plantilla corre **aislada** en un iframe protegido (sandbox): funcionan los scripts, pero **no** uses `localStorage`, `sessionStorage`, cookies, ni llamadas a la API de Praxia, y de `window.parent` no leas ni escribas nada. **Única excepción prevista** (hoy en pausa): `window.parent.postMessage(…)` con el mensaje de resultado para la nota, dentro de `try/catch` (apartado 3.2 de la versión con calificación). Si guardas algo, envuélvelo en `try/catch`.
 - No uses `alert()`, `confirm()` ni `prompt()`.
 - Sin llamadas de red (`fetch`, `XMLHttpRequest`).
 - **El JavaScript no debe fallar si falta un campo** del JSON: revisa que existan (`CFG.bloques || []`) antes de recorrerlos.
