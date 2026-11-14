@@ -42,7 +42,7 @@ before(async () => {
   const { hashClave } = await import('../src/seguridad.js')
   const { Q } = await import('../src/consultas.js')
   pool = db.pool
-  for (const [n, c, r] of [['Admin', 'admin@u.co', 'admin'], ['Dani', 'dani@u.co', 'disenador'], ['Ana', 'ana@u.co', 'docente'], ['Edi', 'edi@u.co', 'editor_html']]) await pool.query(Q.usuarioCrear, [n, c, await hashClave(CLAVE), [r]])
+  for (const [n, c, r] of [['Admin', 'admin@u.co', ['admin', 'disenador']], ['Dani', 'dani@u.co', 'disenador'], ['Ana', 'ana@u.co', 'docente'], ['Edi', 'edi@u.co', 'editor_html']]) await pool.query(Q.usuarioCrear, [n, c, await hashClave(CLAVE), [r].flat()])
   servidor = crearApp().listen(0)
   base = 'http://127.0.0.1:' + servidor.address().port
 })

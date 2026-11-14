@@ -41,8 +41,8 @@ before(async () => {
   const { hashClave } = await import('../src/seguridad.js')
   const { Q } = await import('../src/consultas.js')
   pool = db.pool
-  for (const [nombre, correo, rol] of [['Dani', 'dani@u.co', 'disenador'], ['Dora', 'dora@u.co', 'disenador'], ['Admin', 'admin@u.co', 'admin'], ['Ana', 'ana@u.co', 'docente']]) {
-    await pool.query(Q.usuarioCrear, [nombre, correo, await hashClave(CLAVE), [rol]])
+  for (const [nombre, correo, rol] of [['Dani', 'dani@u.co', 'disenador'], ['Dora', 'dora@u.co', 'disenador'], ['Admin', 'admin@u.co', 'admin'], ['Ana', 'ana@u.co', 'docente'], ['Mixta', 'mixta@u.co', ['admin', 'disenador']]]) {
+    await pool.query(Q.usuarioCrear, [nombre, correo, await hashClave(CLAVE), [rol].flat()])
   }
   servidor = crearApp().listen(0)
   base = 'http://127.0.0.1:' + servidor.address().port
@@ -156,26 +156,18 @@ test('cambiar un estado ya aprobado o rechazado exige confirmarlo', async () => 
   assert.equal((await enviar(dani, 'mapa', 'aprobada', 'Me arrepentí', { confirmadoCambio: true })).status, 201)
 })
 
-test('el administrador que aprueba o rechaza debe confirmar que es algo del diseñador, y queda registrado como administrador', async () => {
+test('un administrador sin rol de diseñador no decide sobre las plantillas; con los dos roles actúa como diseñador', async () => {
   const admin = await entrar('admin@u.co')
-  const sin = await enviar(admin, 'flujo', 'aprobada', 'Aprobada por mí')
-  assert.equal(sin.status, 409)
-  const a = await sin.json()
-  assert.equal(a.requiereConfirmacion, 'admin'); assert.match(a.error, /diseñador/)
-  assert.equal((await enviar(admin, 'flujo', 'rechazada', 'La rechazo yo')).status, 409)
-  assert.equal((await enviar(admin, 'flujo', 'revision', 'Pido cambios yo', { docUrl: DOC })).status, 409)
-  const ok = await enviar(admin, 'flujo', 'aprobada', 'Aprobada por mí', { confirmadoAdmin: true })
+  // el administrador solo no ve ni decide sobre las plantillas
+  assert.equal((await admin('GET', '/plantillas/revisiones')).status, 403)
+  for (const estado of ['aprobada', 'rechazada']) assert.equal((await enviar(admin, 'flujo', estado, 'x')).status, 403, estado)
+  assert.equal((await enviar(admin, 'flujo', 'revision', 'x', { docUrl: DOC })).status, 403)
+  // quien tiene además el rol de diseñador decide como diseñador, sin advertencia de administrador
+  const mixta = await entrar('mixta@u.co')
+  const ok = await enviar(mixta, 'flujo', 'aprobada', 'Aprobada')
   assert.equal(ok.status, 201)
   const f = await ok.json()
-  assert.equal(f.usuario, 'Admin'); assert.equal(f.rol, 'administrador'); assert.equal(f.estado, 'aprobada')
-  // sobre algo ya aprobado necesita las dos confirmaciones (primero la de administrador, luego la del cambio)
-  const dos = await enviar(admin, 'flujo', 'rechazada', 'Ahora la rechazo', { confirmadoAdmin: true })
-  assert.equal(dos.status, 409); assert.equal((await dos.json()).requiereConfirmacion, 'cambio')
-  assert.equal((await enviar(admin, 'flujo', 'rechazada', 'Ahora la rechazo', { confirmadoAdmin: true, confirmadoCambio: true })).status, 201)
-  // el diseñador, en cambio, no tiene la advertencia de administrador
-  const dani = await entrar('dani@u.co')
-  const d = await (await enviar(dani, 'crucigrama', 'aprobada', 'Aprobada')).json()
-  assert.equal(d.rol, 'disenador')
+  assert.equal(f.usuario, 'Mixta'); assert.equal(f.rol, 'disenador'); assert.equal(f.estado, 'aprobada')
 })
 
 test('dos personas decidiendo a la vez sobre lo mismo se atienden una tras otra', async () => {
