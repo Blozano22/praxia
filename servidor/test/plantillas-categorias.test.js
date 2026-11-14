@@ -330,6 +330,35 @@ test('rol «editor_html»: ve la galería y sube variantes con vista previa, per
   assert.equal((await dani('DELETE', '/plantillas/subidas/' + nombre)).status, 200)
 })
 
+test('formaciones por categoría: salen del catálogo, aparecen en el índice y se editan solo quien revisa', async () => {
+  const dani = await entrar('dani@u.co')
+  const ana = await entrar('ana@u.co')
+  // punto de partida: el catálogo de IDs ya trae para qué formaciones sirve cada categoría
+  const j = await (await dani('GET', '/plantillas/categorias')).json()
+  assert.deepEqual(j.formaciones['G-01'].map((x) => x.formacion), ['tecnologico', 'profesional', 'especializacion', 'doctorado'])
+  assert.deepEqual(j.formaciones['G-01'].map((x) => x.prioridad), ['P', 'P', 'C', 'C'])
+  assert.deepEqual(j.formaciones['G-06'].map((x) => x.formacion), ['tecnologico', 'profesional', 'especializacion']) // micro-learning no va en doctorado
+  // el índice público lo trae por categoría, sin romper lo que ya leía n8n
+  const ix = await indice()
+  assert.deepEqual(ix.categorias.find((c) => c.id === 'G-09').formaciones, [{ formacion: 'tecnologico', prioridad: 'P' }, { formacion: 'profesional', prioridad: 'P' }, { formacion: 'especializacion', prioridad: 'C' }, { formacion: 'doctorado', prioridad: 'C' }])
+  assert.ok(Array.isArray(ix.categorias.find((c) => c.id === 'G-09').variantes))
+  // editar: solo quien revisa; se valida
+  assert.equal((await ana('PUT', '/plantillas/categorias/G-09/formaciones', { formaciones: [] })).status, 403)
+  assert.equal((await dani('PUT', '/plantillas/categorias/Z-99/formaciones', { formaciones: [] })).status, 404)
+  assert.equal((await dani('PUT', '/plantillas/categorias/G-09/formaciones', { formaciones: [{ formacion: 'bachillerato', prioridad: 'P' }] })).status, 400)
+  assert.equal((await dani('PUT', '/plantillas/categorias/G-09/formaciones', { formaciones: [{ formacion: 'doctorado' }, { formacion: 'doctorado' }] })).status, 400)
+  assert.equal((await dani('PUT', '/plantillas/categorias/G-09/formaciones', { formaciones: [{ formacion: 'doctorado', prioridad: 'C' }, { formacion: 'tecnologico' }] })).status, 200)
+  const k = await (await dani('GET', '/plantillas/categorias')).json()
+  assert.deepEqual(k.formaciones['G-09'], [{ formacion: 'tecnologico', prioridad: 'P' }, { formacion: 'doctorado', prioridad: 'C' }])
+  // volver a migrar no pisa lo editado
+  assert.deepEqual((await indice()).categorias.find((c) => c.id === 'G-09').formaciones.map((x) => x.formacion), ['tecnologico', 'doctorado'])
+  // una categoría sin formaciones sale con la lista vacía
+  assert.equal((await dani('PUT', '/plantillas/categorias/G-09/formaciones', { formaciones: [] })).status, 200)
+  assert.deepEqual((await indice()).categorias.find((c) => c.id === 'G-09').formaciones, [])
+  // se restablece para no afectar otras pruebas
+  assert.equal((await dani('PUT', '/plantillas/categorias/G-09/formaciones', { formaciones: [{ formacion: 'tecnologico' }, { formacion: 'profesional' }, { formacion: 'especializacion', prioridad: 'C' }, { formacion: 'doctorado', prioridad: 'C' }] })).status, 200)
+})
+
 test('borrar una categoría deja sus plantillas sin categoría; si falla la base de datos se entrega el archivo del build tal cual', async () => {
   const dani = await entrar('dani@u.co')
   assert.equal((await dani('DELETE', '/plantillas/categorias/G-20')).status, 200)

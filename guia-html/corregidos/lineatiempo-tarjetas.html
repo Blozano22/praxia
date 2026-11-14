@@ -518,7 +518,7 @@ var CIAN='#14A4C9', GRIS='#C8C8C8', BLANCO='#FFFFFF', NEGRO='#161616';
 function lum(h){ var c=[1,3,5].map(function(i){ var v=parseInt(h.substr(i,2),16)/255; return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4); }); return .2126*c[0]+.7152*c[1]+.0722*c[2]; }
 function rgba(h,a){ return 'rgba('+[1,3,5].map(function(i){return parseInt(h.substr(i,2),16);}).join(',')+','+a+')'; }
 function normNivel(v){ v=String(v==null?'':v).toLowerCase(); v=ALIAS[v]||v; return NIVELES[v]?v:''; }
-function pickNivel(){ var q=''; try{ q=normNivel(new URLSearchParams(location.search).get('nivel')); }catch(e){} return q||normNivel(OVA.meta&&OVA.meta.nivel)||'tecnologia'; }
+function pickNivel(){ var q=''; try{ q=normNivel((window.__NIVEL||new URLSearchParams(location.search).get('nivel'))); }catch(e){} return q||normNivel(OVA.meta&&OVA.meta.nivel)||'tecnologia'; }
 var TONOS=['claro','base','oscuro'];  /* los hitos alternan estos tonos; un hito puede fijar el suyo con "tone" */
 function applyPalette(){
   var p=NIVELES[pickNivel()], base=p.base, osc=p.oscuro;

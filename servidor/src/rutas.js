@@ -344,13 +344,21 @@ export const nombresPlantillasPublicadas = () => {
     return (j.plantillas || []).map((p) => p.nombre).filter((n) => typeof n === 'string')
   } catch { return [] }
 }
+const FORMACIONES = ['tecnologico', 'profesional', 'especializacion', 'doctorado']
+// { 'G-01': [{ formacion: 'tecnologico', prioridad: 'P' }, …] }: para qué formaciones sirve cada categoría (en el orden de las formaciones).
+const formacionesPorCategoria = (filas) => {
+  const m = {}
+  for (const f of filas) (m[f.categoria] = m[f.categoria] || []).push({ formacion: f.formacion, prioridad: f.prioridad })
+  for (const k of Object.keys(m)) m[k].sort((a, b) => FORMACIONES.indexOf(a.formacion) - FORMACIONES.indexOf(b.formacion))
+  return m
+}
 rutas.get('/plantillas/categorias', exigirSesion, exigirPermiso('plantillas.ver'), async (req, res, next) => {
   try {
-    const [c, a, u, o] = await Promise.all([sinUsuario(Q.categoriasListar), sinUsuario(Q.categoriasAsignaciones), sinUsuario(Q.subidasListar), sinUsuario(Q.ocultasListar)])
+    const [c, a, u, o, fo] = await Promise.all([sinUsuario(Q.categoriasListar), sinUsuario(Q.categoriasAsignaciones), sinUsuario(Q.subidasListar), sinUsuario(Q.ocultasListar), sinUsuario(Q.formacionesListar)])
     const eliminadas = new Set(o.rows.filter((x) => x.eliminada).map((x) => x.plantilla))
     const plantillas = [...new Set([...nombresPlantillasPublicadas(), ...u.rows.map((x) => x.nombre)])].filter((n) => !eliminadas.has(n)).sort()
     res.json({
-      categorias: c.rows, asignaciones: Object.fromEntries(a.rows.map((x) => [x.plantilla, x.categoria])), plantillas, ocultas: o.rows.filter((x) => !x.eliminada).map((x) => x.plantilla),
+      categorias: c.rows, formaciones: formacionesPorCategoria(fo.rows), asignaciones: Object.fromEntries(a.rows.map((x) => [x.plantilla, x.categoria])), plantillas, ocultas: o.rows.filter((x) => !x.eliminada).map((x) => x.plantilla),
       subidas: Object.fromEntries(u.rows.map((x) => [x.nombre, { por: x.por, actualizado: x.actualizado, ejemplo: !!x.ejemplo }]))
     })
   } catch (e) { next(e) }
@@ -377,6 +385,20 @@ rutas.delete('/plantillas/categorias/:id', exigirSesion, exigirPermiso('plantill
     const r = await sinUsuario(Q.categoriaBorrar, [req.paramsOk.id]) // sus plantillas quedan sin categoría
     if (!r.rowCount) return res.status(404).json({ error: 'No encontrado' })
     await auditar(req.usuario.id, 'plantilla_categoria_borrar', 'plantilla_categoria', req.paramsOk.id, req)
+    res.json({ ok: true })
+  } catch (e) { next(e) }
+})
+const CuerpoFormaciones = z.object({ formaciones: z.array(z.object({ formacion: z.enum(FORMACIONES), prioridad: z.enum(['P', 'C']).default('P') }).strict()).max(4) }).strict()
+  .refine((b) => new Set(b.formaciones.map((x) => x.formacion)).size === b.formaciones.length)
+rutas.put('/plantillas/categorias/:id/formaciones', exigirSesion, exigirPermiso('plantillas.revisar'), validar(z.object({ id: IdCategoria }), 'params'), validar(CuerpoFormaciones, 'body'), async (req, res, next) => {
+  try {
+    const { id } = req.paramsOk
+    if (!(await sinUsuario(Q.categoriasListar)).rows.some((c) => c.id === id)) return res.status(404).json({ error: 'No encontrado' })
+    await conTransaccion(async (c) => {
+      await c.query(Q.formacionesBorrar, [id])
+      for (const f of req.bodyOk.formaciones) await c.query(Q.formacionPoner, [id, f.formacion, f.prioridad])
+    })
+    await auditar(req.usuario.id, 'plantilla_categoria_formaciones', 'plantilla_categoria', id, req)
     res.json({ ok: true })
   } catch (e) { next(e) }
 })

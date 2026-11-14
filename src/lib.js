@@ -19,7 +19,7 @@ const CFG=JSON.parse(document.getElementById('contenido').textContent.replace(/\
    Sin nivel no se toca nada (queda la paleta base que armó la plataforma, la de Tecnológico). Valores: tecnologia, profesional (alias licenciatura), especializacion, doctorado. */
 (function(){
   var N={tecnologia:['#00665F','#142749'],profesional:['#1C45B4','#151B3B'],licenciatura:['#1C45B4','#151B3B'],especializacion:['#08A6CB','#151B3B'],doctorado:['#22335D','#151B3B']};
-  var q=null;try{q=new URLSearchParams(location.search).get('nivel')}catch(e){}
+  var q=null;try{q=(window.__NIVEL||new URLSearchParams(location.search).get('nivel'))}catch(e){}
   var k=String(q||CFG.nivel||(CFG.meta&&CFG.meta.nivel)||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
   if(!N[k])return;
   var base=N[k][0],osc=N[k][1];

@@ -317,6 +317,39 @@ CREATE TABLE IF NOT EXISTS plantilla_categoria (
 );
 CREATE INDEX IF NOT EXISTS plantilla_categoria_ix ON plantilla_categoria (categoria);
 
+-- Para qué formaciones sirve cada categoría (tecnológico, profesional, especialización, doctorado) y con qué prioridad: P = prioritaria, C = complementaria.
+-- Sale del catálogo de formatos por nivel (estructura metodológica de cada formación). n8n puede elegir las categorías de la formación del curso.
+CREATE TABLE IF NOT EXISTS plantilla_categoria_formacion (
+  categoria text NOT NULL REFERENCES plantilla_categorias(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  formacion text NOT NULL CHECK (formacion IN ('tecnologico', 'profesional', 'especializacion', 'doctorado')),
+  prioridad text NOT NULL DEFAULT 'P' CHECK (prioridad IN ('P', 'C')),
+  PRIMARY KEY (categoria, formacion)
+);
+-- Punto de partida (solo la primera vez, mientras no haya ninguna fila): lo que el catálogo de formatos dice de cada categoría del catálogo de IDs.
+INSERT INTO plantilla_categoria_formacion (categoria, formacion, prioridad)
+SELECT v.c, v.f, v.p FROM (VALUES
+  ('G-00','tecnologico','P'), ('G-00','profesional','P'), ('G-00','especializacion','P'), ('G-00','doctorado','P'),
+  ('G-01','tecnologico','P'), ('G-01','profesional','P'), ('G-01','especializacion','C'), ('G-01','doctorado','C'),
+  ('G-02','tecnologico','P'), ('G-02','profesional','P'), ('G-02','especializacion','C'), ('G-02','doctorado','C'),
+  ('G-03','tecnologico','P'), ('G-03','profesional','P'), ('G-03','especializacion','P'), ('G-03','doctorado','C'),
+  ('G-04','tecnologico','C'), ('G-04','profesional','P'), ('G-04','especializacion','C'), ('G-04','doctorado','P'),
+  ('G-05','tecnologico','P'), ('G-05','profesional','P'), ('G-05','especializacion','P'), ('G-05','doctorado','P'),
+  ('G-06','tecnologico','P'), ('G-06','profesional','P'), ('G-06','especializacion','C'),
+  ('G-07','tecnologico','C'), ('G-07','profesional','P'), ('G-07','especializacion','P'), ('G-07','doctorado','P'),
+  ('G-08','tecnologico','P'), ('G-08','profesional','P'), ('G-08','especializacion','P'), ('G-08','doctorado','P'),
+  ('G-09','tecnologico','P'), ('G-09','profesional','P'), ('G-09','especializacion','C'), ('G-09','doctorado','C'),
+  ('G-10','tecnologico','P'), ('G-10','profesional','P'), ('G-10','especializacion','C'),
+  ('G-11','tecnologico','C'), ('G-11','profesional','P'), ('G-11','especializacion','C'), ('G-11','doctorado','P'),
+  ('G-12','tecnologico','C'), ('G-12','profesional','P'), ('G-12','especializacion','C'), ('G-12','doctorado','C'),
+  ('POS-01','especializacion','P'), ('POS-02','especializacion','P'), ('POS-03','especializacion','P'), ('POS-04','doctorado','P'),
+  ('POS-05','especializacion','P'), ('POS-06','especializacion','P'), ('POS-07','especializacion','P'), ('POS-08','especializacion','P'),
+  ('POS-09','especializacion','P'), ('POS-10','doctorado','P'), ('POS-11','doctorado','P'), ('POS-12','doctorado','P'),
+  ('POS-13','doctorado','P'), ('POS-14','doctorado','P'),
+  ('PRE-01','tecnologico','P'), ('PRE-02','tecnologico','P'), ('PRE-03','tecnologico','P'), ('PRE-04','tecnologico','P'),
+  ('PRE-05','profesional','P'), ('PRE-06','profesional','P'), ('PRE-07','profesional','P'), ('PRE-08','profesional','P'), ('PRE-09','profesional','P')
+) AS v(c, f, p)
+WHERE NOT EXISTS (SELECT 1 FROM plantilla_categoria_formacion) AND EXISTS (SELECT 1 FROM plantilla_categorias WHERE id = v.c);
+
 -- Punto de partida (solo la primera vez, mientras no haya ninguna categoría): el catálogo de IDs que ya usa el flujo de matrices y las
 -- plantillas cuyo nombre indica sin duda su tipo. Lo demás queda sin categoría para asignarlo desde la pantalla «Plantillas HTML».
 INSERT INTO plantilla_categorias (id, nombre)
@@ -406,7 +439,7 @@ BEGIN
       RAISE NOTICE 'Sin permiso para dar permisos sobre configuracion (es de otro usuario); se dejan como están.';
     END;
     GRANT SELECT, INSERT, UPDATE ON plantilla_historial TO ova_app;
-    GRANT SELECT, INSERT, UPDATE, DELETE ON plantilla_categorias, plantilla_categoria, plantilla_subidas, plantilla_ocultas TO ova_app;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON plantilla_categorias, plantilla_categoria, plantilla_categoria_formacion, plantilla_subidas, plantilla_ocultas TO ova_app;
     GRANT SELECT, INSERT, UPDATE, DELETE ON pipeline_origen, pipeline_ejecuciones, pipeline_matrices, pipeline_recursos, pipeline_eventos TO ova_app;
     GRANT USAGE, SELECT ON SEQUENCE plantilla_historial_id_seq TO ova_app;
     GRANT USAGE, SELECT ON SEQUENCE enlaces_id_seq, auditoria_id_seq TO ova_app;
