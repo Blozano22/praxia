@@ -80,11 +80,11 @@ export default function PlantillaPropia({ nombre, info, cats, categoriaActual, f
   const cancelar = () => { setModo(''); setError(''); setConflicto(null); setArchivo(null); setDestino('') }
   const esEsquema = (e) => !!(e && e.datos && e.datos.requiereConfirmacion === 'esquema')
 
-  const mover = async (forzar = false) => {
+  const mover = async () => {
     if (!destino || ocupado) return
     setOcupado(true); setError(''); setConflicto(null)
     try {
-      const r = await api('POST', '/plantillas/subidas/' + encodeURIComponent(nombre) + '/mover', { categoria: destino, ...(formMUsada ? { formacion: formMUsada } : {}), ...(forzar ? { esquemaDistinto: true } : {}) })
+      const r = await api('POST', '/plantillas/subidas/' + encodeURIComponent(nombre) + '/mover', { categoria: destino, ...(formMUsada ? { formacion: formMUsada } : {}) })
       await onCambio({ tipo: 'mover', nuevo: r && r.nombre, mensaje: 'Plantilla movida' + (r && r.nombre ? ': ' + verNombre(r.nombre) : '') })
       setModo('')
     } catch (e) {
@@ -99,12 +99,11 @@ export default function PlantillaPropia({ nombre, info, cats, categoriaActual, f
     try { setArchivo({ nombre: f.name, bytes: f.size, html: await f.text() }); setError('') } catch { setError('No se pudo leer el archivo.') }
   }
   const distinto = prev.estado === 'ok' && !!prev.esquema && !prev.esquema.coincide
-  const reemplazar = async (forzar = false) => {
-    if (!archivo || prev.estado !== 'ok' || ocupado) return
-    if (distinto && !(puedeRevisar && forzar)) return
+  const reemplazar = async () => {
+    if (!archivo || prev.estado !== 'ok' || ocupado || distinto) return
     setOcupado(true); setError(''); setConflicto(null)
     try {
-      await api('PUT', '/plantillas/subidas/' + encodeURIComponent(nombre), { html: archivo.html, ...(formRUsada ? { formacion: formRUsada } : {}), ...(forzar ? { esquemaDistinto: true } : {}) })
+      await api('PUT', '/plantillas/subidas/' + encodeURIComponent(nombre), { html: archivo.html, ...(formRUsada ? { formacion: formRUsada } : {}) })
       await onCambio({ tipo: 'reemplazar', mensaje: 'Plantilla reemplazada' })
       cancelar()
     } catch (e) {
@@ -139,11 +138,10 @@ export default function PlantillaPropia({ nombre, info, cats, categoriaActual, f
       </div>
 
       {conflicto && (
-        <div className={'pg-conflicto' + (puedeRevisar ? ' amb' : '')} role="alert">
-          <b>{puedeRevisar ? 'Los campos no coinciden con los de la categoría' : 'No se puede: los campos no coinciden'}</b>
+        <div className="pg-conflicto" role="alert">
+          <b>No se puede: los campos no coinciden</b>
           <span>{conflicto.mensaje}</span>
           <DetalleCampos faltan={conflicto.faltan} sobran={conflicto.sobran} referencia={conflicto.referencia} abierto />
-          {puedeRevisar && <button type="button" className="btn sm" disabled={ocupado} onClick={() => (conflicto.accion === 'mover' ? mover(true) : reemplazar(true))}>Hacerlo de todos modos</button>}
         </div>
       )}
 
@@ -155,7 +153,7 @@ export default function PlantillaPropia({ nombre, info, cats, categoriaActual, f
           {elegido && <p className="pg-aviso">Cambiará su nombre a <b>{elegido.id}-V##</b>: el número lo asigna el servidor. Su historial de revisión se traslada con ella.</p>}
           <div className="pg-propia-fin">
             <button type="button" className="btn sec sm" disabled={ocupado} onClick={cancelar}>Cancelar</button>
-            <button type="button" className="btn sm" disabled={ocupado || !destino || (compartidaM && !formMUsada)} onClick={() => mover(false)}>{ocupado ? 'Moviendo…' : 'Mover'}</button>
+            <button type="button" className="btn sm" disabled={ocupado || !destino || (compartidaM && !formMUsada)} onClick={() => mover()}>{ocupado ? 'Moviendo…' : 'Mover'}</button>
           </div>
         </div>
       )}
@@ -171,9 +169,9 @@ export default function PlantillaPropia({ nombre, info, cats, categoriaActual, f
           {prev.estado === 'revisando' && <p className="sv-revisando" role="status"><span className="sv-giro" aria-hidden="true" />Revisando…</p>}
           {prev.estado === 'error' && <div className="msg bad" role="alert">{prev.mensaje}</div>}
           {distinto && (
-            <div className={'pg-conflicto' + (puedeRevisar ? ' amb' : '')} role="alert">
-              <b>{puedeRevisar ? 'Campos distintos' : 'Campos distintos: no se puede reemplazar'}</b>
-              <span>No usa los mismos campos que las demás de {categoriaActual || 'la categoría'}{formRUsada ? ' en ' + NOMBRE_FORMACION[formRUsada] : ''}{puedeRevisar ? '. Puede reemplazarla de todos modos.' : '.'}</span>
+            <div className="pg-conflicto" role="alert">
+              <b>Campos distintos: no se puede reemplazar</b>
+              <span>No usa los mismos campos que las demás de {categoriaActual || 'la categoría'}{formRUsada ? ' en ' + NOMBRE_FORMACION[formRUsada] : ''}.</span>
               <DetalleCampos faltan={prev.esquema.faltan} sobran={prev.esquema.sobran} referencia={prev.esquema.referencia} />
             </div>
           )}
@@ -187,7 +185,7 @@ export default function PlantillaPropia({ nombre, info, cats, categoriaActual, f
           )}
           <div className="pg-propia-fin">
             <button type="button" className="btn sec sm" disabled={ocupado} onClick={cancelar}>Cancelar</button>
-            <button type="button" className="btn sm" disabled={ocupado || !archivo || prev.estado !== 'ok' || (compartidaR && !formRUsada) || (distinto && !puedeRevisar)} onClick={() => reemplazar(distinto)}>{ocupado ? 'Reemplazando…' : distinto ? 'Reemplazar de todos modos' : 'Reemplazar'}</button>
+            <button type="button" className="btn sm" disabled={ocupado || !archivo || prev.estado !== 'ok' || (compartidaR && !formRUsada) || distinto} onClick={() => reemplazar()}>{ocupado ? 'Reemplazando…' : 'Reemplazar'}</button>
           </div>
         </div>
       )}

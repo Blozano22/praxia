@@ -448,8 +448,14 @@ const HtmlSubido = z.string().min(1).max(MAX_HTML + 4096)
 // El nombre sale solo del ID de la categoría y del orden de subida: G-08 → g-08-v01, g-08-v02… (minúsculas, que es como se guardan y se sirven los nombres).
 // Quien llama puede mandar «nombre» (uso interno); la pantalla no lo manda. Sin categoría no hay ID de dónde sacar el nombre.
 const FormacionSubida = z.enum(FORMACIONES)
-const CuerpoSubir = z.object({ nombre: NombreSubida.optional(), html: HtmlSubido, categoria: IdCategoria.nullish(), formacion: FormacionSubida.nullish(), esquemaDistinto: z.boolean().optional() }).strict()
-const nombreVariante = (cat, n) => cat.toLowerCase() + '-v' + String(n).padStart(2, '0')
+const CuerpoSubir = z.object({ nombre: NombreSubida.optional(), html: HtmlSubido, categoria: IdCategoria.nullish(), formacion: FormacionSubida.nullish() }).strict()
+// Nombre de una variante: «g-08-v01» (categoría de una sola formación) o «g-09-tec-v01» (categoría compartida: cada formación numera las suyas).
+const ABREV_FORMACION = { tecnologico: 'tec', profesional: 'pre', especializacion: 'esp', doctorado: 'doc' }
+const nombreVariante = (cat, n, formacion) => cat.toLowerCase() + (formacion ? '-' + ABREV_FORMACION[formacion] : '') + '-v' + String(n).padStart(2, '0')
+// Siguiente número de la categoría (o de su formación, si es compartida); no se reutiliza. «ejecuta» es una función (consulta, parámetros).
+const numeroSiguiente = async (ejecuta, categoria, fo) => (fo && fo.compartida && fo.formacion
+  ? (await ejecuta(Q.categoriaSiguienteVarianteFormacion, [categoria, fo.formacion])).rows[0].n
+  : (await ejecuta(Q.categoriaSiguienteVariante, [categoria])).rows[0].n)
 
 // Todas las variantes de una categoría usan los mismos campos de contenido (los de su ejemplo): la categoría define los campos y la variante solo cambia el diseño.
 // Se compara con la variante subida más antigua de la categoría que tenga ejemplo; devuelve null si no hay con qué comparar.
@@ -479,8 +485,6 @@ const errorEsquema = (categoria, cmp) => ({
     [cmp.faltan.length ? 'le faltan ' + resumenCampos(cmp.faltan) : '', cmp.sobran.length ? 'le sobran ' + resumenCampos(cmp.sobran) : ''].filter(Boolean).join('; ') + '. Todas las variantes de una categoría (y formación) usan los mismos campos y solo cambia el diseño.',
   requiereConfirmacion: 'esquema', faltan: cmp.faltan, sobran: cmp.sobran, referencia: cmp.referencia
 })
-// Quien revisa puede aceptar una variante con campos distintos si lo confirma (queda marcada en el índice: esquema_ok = false).
-const aceptaEsquemaDistinto = (req) => !!(req.bodyOk && req.bodyOk.esquemaDistinto) && req.usuario.permisos.has('plantillas.revisar')
 rutas.post('/plantillas/subidas', exigirSesion, exigirAlguno('plantillas.revisar', 'plantillas.subir'), limiteSubir, validar(CuerpoSubir, 'body'), async (req, res, next) => {
   try {
     const { html } = req.bodyOk
@@ -494,15 +498,15 @@ rutas.post('/plantillas/subidas', exigirSesion, exigirAlguno('plantillas.revisar
     const fo = await formacionDeSubida(categoria, req.bodyOk.formacion || armada.ficha.formacion || null)
     if (fo.falta || fo.invalida) return res.status(400).json(errorFormacion(categoria, fo))
     const cmp = await compararConCategoria(categoria, '', armada.esquema, fo.comparar)
-    if (cmp && !cmp.coincide && !aceptaEsquemaDistinto(req)) return res.status(409).json(errorEsquema(categoria, cmp))
+    if (cmp && !cmp.coincide) return res.status(409).json(errorEsquema(categoria, cmp))
     const esq = armada.esquema ? JSON.stringify(armada.esquema) : null
     let r = null
     if (nombre) r = await sinUsuario(Q.subidaCrear, [nombre, html, armada.html, req.usuario.id, req.usuario.nombre, esq, fo.formacion])
     else {
       // Número de variante: contador de la categoría (no se reutiliza). Si el nombre ya existiera (se subió a mano con ese nombre), se pasa al siguiente.
       for (let i = 0; i < 20 && !(r && r.rowCount); i++) {
-        const n = (await sinUsuario(Q.categoriaSiguienteVariante, [categoria])).rows[0].n
-        nombre = nombreVariante(categoria, n)
+        const n = await numeroSiguiente(sinUsuario, categoria, fo)
+        nombre = nombreVariante(categoria, n, fo.compartida ? fo.formacion : null)
         r = await sinUsuario(Q.subidaCrear, [nombre, html, armada.html, req.usuario.id, req.usuario.nombre, esq, fo.formacion])
       }
     }
@@ -525,10 +529,14 @@ rutas.post('/plantillas/subidas/previa', exigirSesion, exigirAlguno('plantillas.
     // «reemplaza»: al reemplazar una variante, ella misma no cuenta como referencia (igual que hace el PUT al guardar)
     const cmp = categoria && !fo.falta && !fo.invalida ? await compararConCategoria(categoria, req.bodyOk.reemplaza || '', armada.esquema, fo.comparar) : null
     let nombre = null
+    const nombres = {} // categoría compartida: el nombre que le tocaría en cada formación (la pantalla cambia de formación sin pedir otra revisión)
     if (categoria) {
       const c = (await sinUsuario(Q.categoriaSiguiente, [categoria])).rows[0]
       if (!c) return res.status(404).json({ error: 'No existe esa categoría.' })
-      nombre = nombreVariante(categoria, c.siguiente_variante)
+      if (fo.compartida) {
+        for (const f of fo.formaciones) nombres[f] = nombreVariante(categoria, (await sinUsuario(Q.categoriaSiguienteFormacion, [categoria, f])).rows[0].siguiente_variante, f)
+        nombre = fo.formacion ? nombres[fo.formacion] || null : null
+      } else nombre = nombreVariante(categoria, c.siguiente_variante)
     }
     const vacia = armada.html.replace('{{TITULO}}', () => 'Vista previa').replace('/*CONTENIDO*/', () => '{}')
     const avisos = []
@@ -546,7 +554,7 @@ rutas.post('/plantillas/subidas/previa', exigirSesion, exigirAlguno('plantillas.
         esquemas[f] = c ? { coincide: c.coincide, faltan: c.faltan, sobran: c.sobran, referencia: c.referencia } : null
       }
     }
-    res.json({ ok: true, esquemas, conEjemplo: !!armada.ejemplo, html: armada.ejemplo || vacia, nombre, ficha: armada.ficha, categoriaUsada: categoria, formacionUsada: fo.formacion, requiereFormacion: !!(fo.falta || fo.invalida), formaciones: fo.formaciones, avisos, esquema: cmp ? { coincide: cmp.coincide, faltan: cmp.faltan, sobran: cmp.sobran, referencia: cmp.referencia } : null })
+    res.json({ ok: true, esquemas, nombres, conEjemplo: !!armada.ejemplo, html: armada.ejemplo || vacia, nombre, ficha: armada.ficha, categoriaUsada: categoria, formacionUsada: fo.formacion, requiereFormacion: !!(fo.falta || fo.invalida), formaciones: fo.formaciones, avisos, esquema: cmp ? { coincide: cmp.coincide, faltan: cmp.faltan, sobran: cmp.sobran, referencia: cmp.referencia } : null })
   } catch (e) { next(e) }
 })
 // Quien revisa puede cambiar cualquier plantilla subida; quien solo sube (Editor HTML) puede reemplazar, mover o eliminar únicamente las que subió él.
@@ -559,7 +567,7 @@ const soloLoPropio = async (req, res, next) => {
     next()
   } catch (e) { next(e) }
 }
-rutas.put('/plantillas/subidas/:nombre', exigirSesion, exigirAlguno('plantillas.revisar', 'plantillas.subir'), limiteSubir, validar(z.object({ nombre: NombreSubida }), 'params'), soloLoPropio, validar(z.object({ html: HtmlSubido, formacion: FormacionSubida.nullish(), esquemaDistinto: z.boolean().optional() }).strict(), 'body'), async (req, res, next) => {
+rutas.put('/plantillas/subidas/:nombre', exigirSesion, exigirAlguno('plantillas.revisar', 'plantillas.subir'), limiteSubir, validar(z.object({ nombre: NombreSubida }), 'params'), soloLoPropio, validar(z.object({ html: HtmlSubido, formacion: FormacionSubida.nullish() }).strict(), 'body'), async (req, res, next) => {
   try {
     const armada = armarSubida(req.bodyOk.html)
     if (!armada.ok) return res.status(400).json({ error: armada.error })
@@ -569,7 +577,7 @@ rutas.put('/plantillas/subidas/:nombre', exigirSesion, exigirAlguno('plantillas.
     const fo = await formacionDeSubida(enCat && enCat.categoria, req.bodyOk.formacion || armada.ficha.formacion || (actual && actual.formacion) || null)
     if (fo.falta || fo.invalida) return res.status(400).json(errorFormacion(enCat.categoria, fo))
     const cmp = await compararConCategoria(enCat && enCat.categoria, req.paramsOk.nombre, armada.esquema, fo.comparar)
-    if (cmp && !cmp.coincide && !aceptaEsquemaDistinto(req)) return res.status(409).json(errorEsquema(enCat.categoria, cmp))
+    if (cmp && !cmp.coincide) return res.status(409).json(errorEsquema(enCat.categoria, cmp))
     const r = await sinUsuario(Q.subidaReemplazar, [req.paramsOk.nombre, req.bodyOk.html, armada.html, req.usuario.id, req.usuario.nombre, armada.esquema ? JSON.stringify(armada.esquema) : null, fo.formacion])
     if (!r.rowCount) return res.status(404).json({ error: 'No hay una plantilla subida con ese nombre (las del sistema no se reemplazan desde aquí).' })
     await auditar(req.usuario.id, 'plantilla_reemplazar', 'plantilla', req.paramsOk.nombre, req)
@@ -578,7 +586,7 @@ rutas.put('/plantillas/subidas/:nombre', exigirSesion, exigirAlguno('plantillas.
 })
 // Mover una plantilla subida a otra categoría: como el nombre sale del ID de la categoría, se le da el siguiente nombre de la categoría nueva (g-09-v03 → g-10-v01)
 // y se traslada con ella su categoría y su historial de revisión.
-rutas.post('/plantillas/subidas/:nombre/mover', exigirSesion, exigirAlguno('plantillas.revisar', 'plantillas.subir'), limiteSubir, validar(z.object({ nombre: NombreSubida }), 'params'), soloLoPropio, validar(z.object({ categoria: IdCategoria, formacion: FormacionSubida.nullish(), esquemaDistinto: z.boolean().optional() }).strict(), 'body'), async (req, res, next) => {
+rutas.post('/plantillas/subidas/:nombre/mover', exigirSesion, exigirAlguno('plantillas.revisar', 'plantillas.subir'), limiteSubir, validar(z.object({ nombre: NombreSubida }), 'params'), soloLoPropio, validar(z.object({ categoria: IdCategoria, formacion: FormacionSubida.nullish() }).strict(), 'body'), async (req, res, next) => {
   try {
     const { nombre } = req.paramsOk
     const { categoria } = req.bodyOk
@@ -589,12 +597,12 @@ rutas.post('/plantillas/subidas/:nombre/mover', exigirSesion, exigirAlguno('plan
     const fo = await formacionDeSubida(categoria, req.bodyOk.formacion || (propio && propio.formacion) || null)
     if (fo.falta || fo.invalida) return res.status(400).json(errorFormacion(categoria, fo))
     const cmp = await compararConCategoria(categoria, nombre, propio && propio.esquema, fo.comparar)
-    if (cmp && !cmp.coincide && !aceptaEsquemaDistinto(req)) return res.status(409).json(errorEsquema(categoria, cmp))
+    if (cmp && !cmp.coincide) return res.status(409).json(errorEsquema(categoria, cmp))
     let nuevo = null
     await conTransaccion(async (c) => {
       for (let i = 0; i < 20 && !nuevo; i++) {
-        const n = (await c.query(Q.categoriaSiguienteVariante, [categoria])).rows[0].n
-        const cand = nombreVariante(categoria, n)
+        const n = await numeroSiguiente((q, p) => c.query(q, p), categoria, fo)
+        const cand = nombreVariante(categoria, n, fo.compartida ? fo.formacion : null)
         if ((await c.query(Q.subidaDueno, [cand])).rowCount) continue // ese nombre ya existe (se subió a mano): se prueba el siguiente
         nuevo = cand
       }

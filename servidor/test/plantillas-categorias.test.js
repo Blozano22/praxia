@@ -264,28 +264,28 @@ test('una plantilla puede traer su contenido de ejemplo entre /*CONTENIDO*/ y /*
   for (const n of ['con-ejemplo', 'sin-ejemplo']) assert.equal((await dani('DELETE', '/plantillas/subidas/' + n)).status, 200)
 })
 
-test('el nombre de una plantilla subida sale del ID de la categoría y del orden de subida (g-09-v01, g-09-v02…) y el número no se reutiliza', async () => {
+test('el nombre de una plantilla subida sale del ID de la categoría y del orden de subida (g-09-tec-v01, g-09-tec-v02… en una categoría compartida cada formación numera las suyas) y el número no se reutiliza', async () => {
   const dani = await entrar('dani@u.co')
   const ana = await entrar('ana@u.co')
   const sube = (cuerpo) => dani('POST', '/plantillas/subidas', { html: PLANTILLA(), ...cuerpo })
   const r1 = await sube({ categoria: 'G-09' })
-  assert.equal(r1.status, 201); assert.equal((await r1.json()).nombre, 'g-09-v01')
-  assert.equal((await (await sube({ categoria: 'G-09' })).json()).nombre, 'g-09-v02')
-  assert.equal((await (await sube({ categoria: 'G-01' })).json()).nombre, 'g-01-v01') // cada categoría lleva su propia cuenta
+  assert.equal(r1.status, 201); assert.equal((await r1.json()).nombre, 'g-09-tec-v01')
+  assert.equal((await (await sube({ categoria: 'G-09' })).json()).nombre, 'g-09-tec-v02')
+  assert.equal((await (await sube({ categoria: 'G-01' })).json()).nombre, 'g-01-tec-v01') // cada categoría lleva su propia cuenta
   // se entrega con ese nombre y queda en su categoría
-  assert.equal((await fetch(base + '/plantillas-html/g-09-v01.html')).status, 200)
+  assert.equal((await fetch(base + '/plantillas-html/g-09-tec-v01.html')).status, 200)
   const j = await (await dani('GET', '/plantillas/categorias')).json()
-  assert.equal(j.asignaciones['g-09-v01'], 'G-09')
+  assert.equal(j.asignaciones['g-09-tec-v01'], 'G-09')
   // al eliminar no se reutiliza el número
-  assert.equal((await dani('DELETE', '/plantillas/subidas/g-09-v02')).status, 200)
-  assert.equal((await (await sube({ categoria: 'G-09' })).json()).nombre, 'g-09-v03')
+  assert.equal((await dani('DELETE', '/plantillas/subidas/g-09-tec-v02')).status, 200)
+  assert.equal((await (await sube({ categoria: 'G-09' })).json()).nombre, 'g-09-tec-v03')
   // sin categoría ni nombre no hay de dónde sacar el nombre; sin permiso, tampoco
   assert.equal((await sube({})).status, 400)
   assert.equal((await ana('POST', '/plantillas/subidas', { html: PLANTILLA(), categoria: 'G-09' })).status, 403)
   // quien manda el nombre a mano lo conserva, y si ya existe el nombre automático se pasa al siguiente
-  assert.equal((await sube({ nombre: 'g-09-v04', categoria: 'G-09' })).status, 201)
-  assert.equal((await (await sube({ categoria: 'G-09' })).json()).nombre, 'g-09-v05')
-  for (const n of ['g-09-v01', 'g-09-v03', 'g-09-v04', 'g-09-v05', 'g-01-v01']) assert.equal((await dani('DELETE', '/plantillas/subidas/' + n)).status, 200)
+  assert.equal((await sube({ nombre: 'g-09-tec-v04', categoria: 'G-09' })).status, 201)
+  assert.equal((await (await sube({ categoria: 'G-09' })).json()).nombre, 'g-09-tec-v05')
+  for (const n of ['g-09-tec-v01', 'g-09-tec-v03', 'g-09-tec-v04', 'g-09-tec-v05', 'g-01-tec-v01']) assert.equal((await dani('DELETE', '/plantillas/subidas/' + n)).status, 200)
 })
 
 test('rol «editor_html»: ve la galería y sube variantes con vista previa, pero no ve las categorías para n8n ni aprueba, rechaza o manda a revisión', async () => {
@@ -307,7 +307,7 @@ test('rol «editor_html»: ve la galería y sube variantes con vista previa, per
   const previa = await edi('POST', '/plantillas/subidas/previa', { html, categoria: 'G-09' })
   assert.equal(previa.status, 200)
   const pj = await previa.json()
-  assert.equal(pj.ok, true); assert.equal(pj.conEjemplo, false); assert.match(pj.nombre, /^g-09-v\d\d$/); assert.ok(pj.html.includes('<html'))
+  assert.equal(pj.ok, true); assert.equal(pj.conEjemplo, false); assert.match(pj.nombre, /^g-09-tec-v\d\d$/); assert.ok(pj.html.includes('<html'))
   assert.equal((await fetch(base + '/plantillas-html/' + pj.nombre + '.html')).status, 404) // la previa no guarda
   const conEj = '<!doctype html><html lang="es"><head><meta charset="utf-8"><title>{{TITULO}}</title></head><body><script type="application/json" id="contenido">/*CONTENIDO*/{"titulo":"Con ejemplo"}/*FIN-CONTENIDO*/</script></body></html>'
   const pj2 = await (await edi('POST', '/plantillas/subidas/previa', { html: conEj })).json()
@@ -376,7 +376,7 @@ test('subir varios archivos seguidos a la misma categoría: cada uno con su nomb
   assert.equal(nombres.length, 3)
   const nums = nombres.map((n) => Number(/-v(\d+)$/.exec(n)[1]))
   assert.deepEqual(nums, [nums[0], nums[0] + 1, nums[0] + 2]) // en el orden en que se subieron, sin huecos
-  assert.ok(nombres.every((n) => n.startsWith('g-10-v')))
+  assert.ok(nombres.every((n) => n.startsWith('g-10-tec-v')))
   for (let i = 0; i < 40; i++) assert.equal((await dani('POST', '/plantillas/subidas/previa', { html: bueno, categoria: 'G-10' })).status, 200, 'revisión ' + i)
   for (const n of nombres) assert.equal((await dani('DELETE', '/plantillas/subidas/' + n)).status, 200)
 })
@@ -407,7 +407,7 @@ test('cada editor puede reemplazar, mover y eliminar solo las plantillas que sub
   const mv = await edi('POST', '/plantillas/subidas/' + suya + '/mover', { categoria: 'G-10' })
   assert.equal(mv.status, 200)
   const nuevo = (await mv.json()).nombre
-  assert.match(nuevo, /^g-10-v\d\d$/)
+  assert.match(nuevo, /^g-10-tec-v\d\d$/)
   assert.equal((await fetch(base + '/plantillas-html/' + suya + '.html')).status, 404) // el nombre viejo ya no existe
   assert.equal((await fetch(base + '/plantillas-html/' + nuevo + '.html')).status, 200)
   const j = await (await edi('GET', '/plantillas/categorias')).json()
@@ -420,7 +420,7 @@ test('cada editor puede reemplazar, mover y eliminar solo las plantillas que sub
   // quien revisa cambia cualquiera
   assert.equal((await dani('POST', '/plantillas/subidas/' + deEdu + '/mover', { categoria: 'G-10' })).status, 200)
   const movida = (await (await dani('GET', '/plantillas/categorias')).json()).asignaciones
-  const enG10 = Object.keys(movida).find((n) => movida[n] === 'G-10' && n.startsWith('g-10-v'))
+  const enG10 = Object.keys(movida).find((n) => movida[n] === 'G-10' && n.startsWith('g-10-tec-v'))
   assert.ok(enG10)
   assert.equal((await dani('DELETE', '/plantillas/subidas/' + enG10)).status, 200)
 })
@@ -441,9 +441,12 @@ test('las variantes de una categoría usan los mismos campos de contenido; el í
   assert.equal(r3.status, 409)
   const d3 = await r3.json()
   assert.equal(d3.requiereConfirmacion, 'esquema'); assert.ok(d3.faltan.length && d3.sobran.length); assert.equal(d3.referencia, n1); assert.match(d3.error, /mismos campos/)
-  // el editor no puede forzarla; quien revisa sí, y queda marcada
-  assert.equal((await sube(B, { esquemaDistinto: true })).status, 409)
-  const r4 = await sube(B, { esquemaDistinto: true }, dani); assert.equal(r4.status, 201); const n4 = (await r4.json()).nombre
+  // nadie puede forzarla (ni quien revisa): el campo ya no existe
+  assert.equal((await sube(B, { esquemaDistinto: true })).status, 400)
+  assert.equal((await sube(B, {}, dani)).status, 409)
+  // una variante que quedó con campos distintos (subida antes de esta regla) se marca en el índice: se simula cambiando sus campos guardados
+  const r4 = await sube(A2); assert.equal(r4.status, 201); const n4 = (await r4.json()).nombre
+  await pool.query('UPDATE plantilla_subidas SET esquema = $2::jsonb WHERE nombre = $1', [n4, JSON.stringify(['pasos:[]'])])
   // la vista previa avisa antes de subir
   const pv = await (await edi('POST', '/plantillas/subidas/previa', { html: con(B), categoria: 'G-11' })).json()
   assert.equal(pv.esquema.coincide, false); assert.equal(pv.esquema.referencia, n1)
@@ -465,7 +468,7 @@ test('las variantes de una categoría usan los mismos campos de contenido; el í
   assert.equal(v2.find((x) => x.nombre === n1).estado, 'aprobada'); assert.match(v2.find((x) => x.nombre === n1).fecha_estado, /^\d{4}-\d\d-\d\dT/)
   assert.equal(v2.find((x) => x.nombre === n4).estado, 'rechazada')
   for (const n of [n1, n4]) assert.equal((await dani('DELETE', '/plantillas/subidas/' + n)).status, 200)
-  const mov = Object.keys((await (await dani('GET', '/plantillas/categorias')).json()).asignaciones).find((n) => n.startsWith('g-10-v'))
+  const mov = Object.keys((await (await dani('GET', '/plantillas/categorias')).json()).asignaciones).find((n) => n.startsWith('g-10-tec-v'))
   // la única variante de una categoría se puede reemplazar por otra estructura: la vista previa no la cuenta como referencia de sí misma
   assert.ok(mov)
   const solo = await edi('POST', '/plantillas/subidas/previa', { html: con(B), categoria: 'G-10' })
@@ -500,7 +503,7 @@ test('la ficha de la plantilla puede decir su categoría y su formación: Praxia
   const con = (f) => '<!doctype html><html lang="es"><head><meta charset="utf-8">' + f + '<title>{{TITULO}}</title></head><body><script type="application/json" id="contenido">/*CONTENIDO*/{"titulo":"X","items":[{"a":"b"}]}/*FIN-CONTENIDO*/</script></body></html>'
   // la vista previa, sin categoría elegida, usa la de la ficha (nombre y comparación) y devuelve lo que leyó
   const pv = await (await edi('POST', '/plantillas/subidas/previa', { html: con(ficha('G-03', 'Especialización')) })).json()
-  assert.deepEqual(pv.ficha, { categoria: 'G-03', formacion: 'especializacion' }); assert.equal(pv.categoriaUsada, 'G-03'); assert.match(pv.nombre, /^g-03-v\d\d$/); assert.deepEqual(pv.avisos, [])
+  assert.deepEqual(pv.ficha, { categoria: 'G-03', formacion: 'especializacion' }); assert.equal(pv.categoriaUsada, 'G-03'); assert.match(pv.nombre, /^g-03-esp-v\d\d$/); assert.deepEqual(pv.avisos, [])
   // si elegiste otra categoría, avisa; y si la formación de la ficha no es de esa categoría (G-06 no es de doctorado), también
   const pv2 = await (await edi('POST', '/plantillas/subidas/previa', { html: con(ficha('G-03', 'tecnologico')), categoria: 'G-09' })).json()
   assert.ok(pv2.avisos.some((a) => /G-03/.test(a) && /G-09/.test(a)))
@@ -509,7 +512,7 @@ test('la ficha de la plantilla puede decir su categoría y su formación: Praxia
   // sin categoría en la petición, sube a la de la ficha y guarda la formación; sin ficha ni categoría se rechaza; con una categoría que no existe, 404
   const r = await edi('POST', '/plantillas/subidas', { html: con(ficha('G-03', 'Licenciatura')) })
   assert.equal(r.status, 201); const n = (await r.json()).nombre
-  assert.match(n, /^g-03-v\d\d$/)
+  assert.match(n, /^g-03-pre-v\d\d$/)
   const lista = await (await edi('GET', '/plantillas/categorias')).json()
   assert.equal(lista.asignaciones[n], 'G-03'); assert.equal(lista.subidas[n].formacion, 'profesional') // «licenciatura» es profesional
   assert.equal((await edi('POST', '/plantillas/subidas', { html: con('') })).status, 400)
@@ -560,6 +563,9 @@ test('en una categoría compartida cada formación tiene sus propios campos: se 
   const pvt = await (await edi('POST', '/plantillas/subidas/previa', { html: con(B), categoria: 'G-04' })).json()
   assert.equal(pvt.requiereFormacion, true); assert.equal(pvt.esquema, null)
   assert.equal(pvt.esquemas.tecnologico.coincide, false); assert.equal(pvt.esquemas.especializacion.coincide, true); assert.equal(pvt.esquemas.doctorado, null)
+  // cada formación numera sus propias variantes: la primera de Tecnológico y la primera de Especialización son V01 de la suya
+  assert.deepEqual(creadas, ['g-04-tec-v01', 'g-04-esp-v01', 'g-04-tec-v02', 'g-04-esp-v02'])
+  assert.deepEqual([pvt.nombres.tecnologico, pvt.nombres.especializacion, pvt.nombres.doctorado], ['g-04-tec-v03', 'g-04-esp-v03', 'g-04-doc-v01'])
   // el índice: cada variante coincide con la referencia de su propia formación
   const ix = await indice()
   const vs = ix.categorias.find((c) => c.id === 'G-04').variantes.filter((v) => creadas.includes(v.nombre))

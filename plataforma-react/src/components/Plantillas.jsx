@@ -181,8 +181,17 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
   // Con una formación elegida solo salen las categorías que la sirven (las sin categoría no aplican a ninguna).
   const gruposClase = useMemo(() => {
     if (!formacion || !cats) return gruposPorClase
-    const sirve = (id) => !!id && ((cats.formaciones || {})[id] || []).some((f) => f.formacion === formacion)
-    return { recurso: gruposPorClase.recurso.filter(([, , id]) => sirve(id)), actividad: gruposPorClase.actividad.filter(([, , id]) => sirve(id)) }
+    const deCat = (id) => (cats.formaciones || {})[id] || []
+    const sirve = (id) => !!id && deCat(id).some((f) => f.formacion === formacion)
+    // En una categoría compartida (sirve a 2 o más formaciones) cada formación tiene sus propias variantes y su propia numeración (G-09-TEC-V01…):
+    // solo salen las de la formación elegida. Las subidas sin formación (anteriores a esta regla) salen en todas.
+    const deFormacion = (id, items) => (deCat(id).length < 2 ? items : items.filter(([k]) => {
+      const n = k.startsWith('pub-') ? k.slice(4) : nombrePublico(k)
+      const f = n && cats.subidas && cats.subidas[n] ? cats.subidas[n].formacion : null
+      return !f || f === formacion
+    }))
+    const filtra = (l) => l.filter(([, , id]) => sirve(id)).map(([g, items, id]) => [g, deFormacion(id, items), id]).filter(([, items]) => items.length)
+    return { recurso: filtra(gruposPorClase.recurso), actividad: filtra(gruposPorClase.actividad) }
   }, [gruposPorClase, formacion, cats])
   const prioridadEn = (id) => { const f = formacion && cats ? ((cats.formaciones || {})[id] || []).find((x) => x.formacion === formacion) : null; return f ? f.prioridad : '' }
   const grupos = gruposClase[clase]

@@ -291,6 +291,10 @@ export const Q = Object.freeze({
   formacionesBorrar: `DELETE FROM plantilla_categoria_formacion WHERE categoria = $1`,
   formacionPoner: `INSERT INTO plantilla_categoria_formacion (categoria, formacion, prioridad) VALUES ($1, $2, $3)`,
   categoriaSiguiente: `SELECT siguiente_variante FROM plantilla_categorias WHERE id = $1`,
+  // Contador de una formación dentro de una categoría compartida (se crea al primer uso).
+  categoriaSiguienteFormacion: `SELECT coalesce((SELECT siguiente FROM plantilla_categoria_contador WHERE categoria = $1 AND formacion = $2), 1) AS siguiente_variante`,
+  categoriaSiguienteVarianteFormacion: `INSERT INTO plantilla_categoria_contador (categoria, formacion, siguiente) VALUES ($1, $2, 2)
+     ON CONFLICT (categoria, formacion) DO UPDATE SET siguiente = plantilla_categoria_contador.siguiente + 1 RETURNING siguiente - 1 AS n`,
   categoriaSiguienteVariante: `UPDATE plantilla_categorias SET siguiente_variante = siguiente_variante + 1 WHERE id = $1 RETURNING siguiente_variante - 1 AS n`,
   categoriaCrear: `INSERT INTO plantilla_categorias (id, nombre, tipo) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING RETURNING id`,
   categoriaRenombrar: `UPDATE plantilla_categorias SET nombre = coalesce($2, nombre), tipo = coalesce($3, tipo) WHERE id = $1 RETURNING id`,

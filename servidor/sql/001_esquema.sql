@@ -313,6 +313,13 @@ CREATE TABLE IF NOT EXISTS plantilla_categorias (
 ALTER TABLE plantilla_categorias ADD COLUMN IF NOT EXISTS tipo text NOT NULL DEFAULT 'recurso' CHECK (tipo IN ('recurso', 'actividad'));
 -- Número de la próxima variante que se suba a la categoría: la plantilla se llama «<id>-v01», «<id>-v02»… en el orden en que se suben (no se reutiliza al eliminar).
 ALTER TABLE plantilla_categorias ADD COLUMN IF NOT EXISTS siguiente_variante integer NOT NULL DEFAULT 1 CHECK (siguiente_variante >= 1);
+-- En una categoría que sirve a varias formaciones cada formación numera sus propias variantes: «<id>-tec-v01», «<id>-esp-v01»… (tampoco se reutiliza al eliminar).
+CREATE TABLE IF NOT EXISTS plantilla_categoria_contador (
+  categoria text NOT NULL REFERENCES plantilla_categorias(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  formacion text NOT NULL CHECK (formacion IN ('tecnologico', 'profesional', 'especializacion', 'doctorado')),
+  siguiente integer NOT NULL DEFAULT 1 CHECK (siguiente >= 1),
+  PRIMARY KEY (categoria, formacion)
+);
 -- Qué categoría tiene cada plantilla publicada (por su nombre de archivo). Sin fila = sin categoría.
 CREATE TABLE IF NOT EXISTS plantilla_categoria (
   plantilla text PRIMARY KEY CHECK (plantilla ~ '^[a-z0-9-]{1,80}$'),
@@ -448,7 +455,7 @@ BEGIN
       RAISE NOTICE 'Sin permiso para dar permisos sobre configuracion (es de otro usuario); se dejan como están.';
     END;
     GRANT SELECT, INSERT, UPDATE ON plantilla_historial TO ova_app;
-    GRANT SELECT, INSERT, UPDATE, DELETE ON plantilla_categorias, plantilla_categoria, plantilla_categoria_formacion, plantilla_subidas, plantilla_ocultas TO ova_app;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON plantilla_categorias, plantilla_categoria, plantilla_categoria_formacion, plantilla_categoria_contador, plantilla_subidas, plantilla_ocultas TO ova_app;
     GRANT SELECT, INSERT, UPDATE, DELETE ON pipeline_origen, pipeline_ejecuciones, pipeline_matrices, pipeline_recursos, pipeline_eventos TO ova_app;
     GRANT USAGE, SELECT ON SEQUENCE plantilla_historial_id_seq TO ova_app;
     GRANT USAGE, SELECT ON SEQUENCE enlaces_id_seq, auditoria_id_seq TO ova_app;

@@ -47,7 +47,6 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
   const [error, setError] = useState('')
   const [abierto, setAbierto] = useState('') // id del archivo cuya vista previa está abierta
   const [fichaCat, setFichaCat] = useState('') // categoría que se preseleccionó porque la ficha del archivo la decía
-  const [aceptarDistintos, setAceptarDistintos] = useState(false) // solo quien revisa: subir aunque los campos no coincidan con los de la categoría
   const [arrastrando, setArrastrando] = useState(false)
   const [esc, setEsc] = useState(0.4)
   const entrada = useRef(null)
@@ -67,7 +66,7 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
         let res
         try {
           const r = await api('POST', '/plantillas/subidas/previa', { html: i.html, ...(categoria ? { categoria } : {}) }) // sin formación: la respuesta trae la comparación de cada formación y no hay que volver a pedirla al cambiar
-          res = { fase: 'ok', conEjemplo: !!r.conEjemplo, html: r.html || '', nombre: r.nombre || null, esquema: r.esquema || null, esquemas: r.esquemas || {}, ficha: r.ficha || null, avisos: Array.isArray(r.avisos) ? r.avisos : [], requiereFormacion: !!r.requiereFormacion }
+          res = { fase: 'ok', conEjemplo: !!r.conEjemplo, html: r.html || '', nombre: r.nombre || null, nombres: r.nombres || {}, esquema: r.esquema || null, esquemas: r.esquemas || {}, ficha: r.ficha || null, avisos: Array.isArray(r.avisos) ? r.avisos : [], requiereFormacion: !!r.requiereFormacion }
         } catch (e) { res = { fase: 'error', mensaje: e.message || 'No se pudo revisar el archivo.' } }
         if (!vigente) return
         cache.current.set(k, res)
@@ -141,10 +140,11 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
   // Comparación de campos que vale: en una categoría compartida, la de la formación elegida (sin formación no se compara); si no, la de la categoría.
   const esquemaDe = (rv) => (!rv || rv.fase !== 'ok' ? null : compartida ? ((rv.esquemas || {})[formUsada] || null) : rv.esquema)
   const distinto = (i) => { const e = esquemaDe(revs[i.id]); return !!e && !e.coincide }
-  const nDistintos = items.filter((i) => !i.errorLocal && distinto(i)).length
-  const validos = items.filter((i) => !i.errorLocal && revs[i.id] && revs[i.id].fase === 'ok' && (!distinto(i) || (puedeRevisar && aceptarDistintos)))
+  const validos = items.filter((i) => !i.errorLocal && revs[i.id] && revs[i.id].fase === 'ok' && !distinto(i))
   const revisando = items.some((i) => !i.errorLocal && (!revs[i.id] || revs[i.id].fase === 'revisando'))
-  const primero = validos.length ? revs[validos[0].id].nombre : null
+  // nombre que anuncia la revisión: en una categoría compartida, el de la formación elegida (cada formación numera las suyas: G-09-TEC-V01…)
+  const nombreDe = (rv) => (compartida ? ((rv.nombres || {})[formUsada] || null) : rv.nombre)
+  const primero = validos.length ? nombreDe(revs[validos[0].id]) : null
   // Sin categoría elegida se puede subir si todos los archivos válidos la traen en su ficha (el servidor usa esa).
   const categoriaPorFicha = !categoria && validos.length > 0 && validos.every((i) => revs[i.id].ficha && revs[i.id].ficha.categoria)
   const anunciado = (i) => { const k = validos.indexOf(i); return k < 0 ? null : nombreEn(primero, k) }
@@ -162,7 +162,7 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
       setAvance({ n: n + 1, total: lista.length })
       setEnvio((p) => ({ ...p, [i.id]: { fase: 'subiendo' } }))
       try {
-        const r = await api('POST', '/plantillas/subidas', { html: i.html, ...(categoria ? { categoria } : {}), ...(formUsada ? { formacion: formUsada } : {}), ...(distinto(i) && puedeRevisar && aceptarDistintos ? { esquemaDistinto: true } : {}) })
+        const r = await api('POST', '/plantillas/subidas', { html: i.html, ...(categoria ? { categoria } : {}), ...(formUsada ? { formacion: formUsada } : {}) })
         hechos++
         setEnvio((p) => ({ ...p, [i.id]: { fase: 'subido', real: (r && r.nombre) || anunciado(i) } }))
       } catch (err) {
@@ -177,7 +177,7 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
 
   const subidos = items.filter((i) => envio[i.id] && envio[i.id].fase === 'subido')
   const fallidos = items.filter((i) => envio[i.id] && envio[i.id].fase === 'no_subido')
-  const conErrores = items.filter((i) => i.errorLocal || (revs[i.id] && revs[i.id].fase === 'error') || (distinto(i) && !(puedeRevisar && aceptarDistintos))).length
+  const conErrores = items.filter((i) => i.errorLocal || (revs[i.id] && revs[i.id].fase === 'error') || distinto(i)).length
   const etiquetaSubir = validos.length > 1 ? 'Subir ' + validos.length + ' archivos' : 'Subir variante'
 
   const estadoDe = (i) => {
@@ -189,8 +189,7 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
     if (rv.fase === 'error') return { k: 'error', t: 'Error', m: rv.mensaje }
     if (faltaFormacion) return { k: 'campos', t: 'Falta la formación', m: 'Elija arriba la formación del grupo.' }
     if (distinto(i)) {
-      const sube = puedeRevisar && aceptarDistintos
-      return { k: puedeRevisar ? 'campos' : 'error', t: 'Campos distintos', m: 'No usa los mismos campos que las demás de ' + (categoria || 'la categoría') + (formUsada ? ' en ' + NOMBRE_FORMACION[formUsada] : '') + (puedeRevisar && !sube ? '. Marque «Subir aunque los campos sean distintos» para enviarla.' : puedeRevisar ? '. Se subirá de todos modos.' : '. No se puede subir.'), esq: esquemaDe(rv) }
+      return { k: 'error', t: 'Campos distintos', m: 'No usa los mismos campos que las demás de ' + (categoria || 'la categoría') + (formUsada ? ' en ' + NOMBRE_FORMACION[formUsada] : '') + '. Ajuste los campos del archivo a los de esa formación: no se puede subir.', esq: esquemaDe(rv) }
     }
     return { k: 'listo', t: 'Listo' }
   }
@@ -272,9 +271,6 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
             </ul>
           )}
 
-          {puedeRevisar && nDistintos > 0 && fase === 'edicion' && (
-            <label className="sv-acepta"><input type="checkbox" checked={aceptarDistintos} onChange={(e) => setAceptarDistintos(e.target.checked)} disabled={ocupado} />Subir aunque los campos sean distintos <small>({nDistintos} {nDistintos === 1 ? 'archivo' : 'archivos'})</small></label>
-          )}
           {ocupado && <p className="sv-revisando" role="status"><span className="sv-giro" aria-hidden="true" />Subiendo {avance.n} de {avance.total}…</p>}
           {fase === 'terminado' && (
             <div className={'sv-resumen' + (fallidos.length + conErrores ? ' mal' : '')} role="status">
