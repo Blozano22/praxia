@@ -426,7 +426,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
         </aside>
       </div>
       )}
-      {subiendo && cats && <SubirVariante cats={cats} formacion={formacion} categoriaInicial={codigoActual ? codigoActual.id : ''} onCerrar={() => setSubiendo(false)} onSubida={async (nombre) => { await recargarCats(); if (aviso) aviso('Plantilla subida' + (nombre ? ': ' + verNombre(nombre) : '')) }} />}
+      {subiendo && cats && <SubirVariante cats={cats} formacion={formacion} categoriaInicial={codigoActual ? codigoActual.id : ''} onCerrar={() => setSubiendo(false)} onSubida={async (r) => { await recargarCats(); if (aviso && r) aviso(r.subidos === 1 && !r.errores ? 'Plantilla subida' : r.subidos + (r.subidos === 1 ? ' plantilla subida' : ' plantillas subidas') + (r.errores ? ', ' + r.errores + ' con error' : '')) }} />}
     </div>
   )
 }
