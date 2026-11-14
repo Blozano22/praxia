@@ -42,7 +42,7 @@ before(async () => {
   const { hashClave } = await import('../src/seguridad.js')
   const { Q } = await import('../src/consultas.js')
   pool = db.pool
-  for (const [n, c, r] of [['Admin', 'admin@u.co', ['admin', 'disenador']], ['Dani', 'dani@u.co', 'disenador'], ['Ana', 'ana@u.co', 'docente'], ['Edi', 'edi@u.co', 'editor_html']]) await pool.query(Q.usuarioCrear, [n, c, await hashClave(CLAVE), [r].flat()])
+  for (const [n, c, r] of [['Admin', 'admin@u.co', ['admin', 'disenador']], ['Dani', 'dani@u.co', 'disenador'], ['Ana', 'ana@u.co', 'docente'], ['Edi', 'edi@u.co', 'editor_html'], ['Edu', 'edu@u.co', 'editor_html']]) await pool.query(Q.usuarioCrear, [n, c, await hashClave(CLAVE), [r].flat()])
   servidor = crearApp().listen(0)
   base = 'http://127.0.0.1:' + servidor.address().port
 })
@@ -318,13 +318,11 @@ test('rol «editor_html»: ve la galería y sube variantes con vista previa, per
   assert.equal(sube.status, 201); const nombre = (await sube.json()).nombre
   assert.equal(nombre, pj.nombre) // el nombre que anunció la vista previa es el que se le da
   assert.equal((await fetch(base + '/plantillas-html/' + nombre + '.html')).status, 200)
-  // lo demás sigue siendo de quien revisa: categorías, asignación, ocultar, eliminar, reemplazar
+  // lo demás sigue siendo de quien revisa: categorías, asignación, ocultar y eliminar las del sistema (lo propio se cambia, ver la prueba siguiente)
   assert.equal((await edi('POST', '/plantillas/categorias', { id: 'G-77', nombre: 'Nueva' })).status, 403)
   assert.equal((await edi('PUT', '/plantillas/asignacion/acordeon', { categoria: 'G-09' })).status, 403)
   assert.equal((await edi('PUT', '/plantillas/ocultas/acordeon-3', { oculta: true })).status, 403)
   assert.equal((await edi('DELETE', '/plantillas/sistema/acordeon-3')).status, 403)
-  assert.equal((await edi('PUT', '/plantillas/subidas/' + nombre, { html })).status, 403)
-  assert.equal((await edi('DELETE', '/plantillas/subidas/' + nombre)).status, 403)
   // no puede aprobar, rechazar, mandar a revisión ni marcar como corregida
   for (const estado of ['aprobada', 'rechazada', 'revision', 'corregida']) assert.equal((await edi('POST', '/plantillas/revisiones', { plantilla: 'acordeon', estado, observacion: 'x' })).status, 403, estado)
   assert.equal((await dani('DELETE', '/plantillas/subidas/' + nombre)).status, 200)
@@ -379,6 +377,50 @@ test('subir varios archivos seguidos a la misma categoría: cada uno con su nomb
   assert.ok(nombres.every((n) => n.startsWith('g-10-v')))
   for (let i = 0; i < 40; i++) assert.equal((await dani('POST', '/plantillas/subidas/previa', { html: bueno, categoria: 'G-10' })).status, 200, 'revisión ' + i)
   for (const n of nombres) assert.equal((await dani('DELETE', '/plantillas/subidas/' + n)).status, 200)
+})
+
+test('cada editor puede reemplazar, mover y eliminar solo las plantillas que subió; quien revisa, cualquiera', async () => {
+  const edi = await entrar('edi@u.co')
+  const edu = await entrar('edu@u.co')
+  const dani = await entrar('dani@u.co')
+  const ana = await entrar('ana@u.co')
+  const html = PLANTILLA()
+  const suya = (await (await edi('POST', '/plantillas/subidas', { html, categoria: 'G-09' })).json()).nombre
+  const deEdu = (await (await edu('POST', '/plantillas/subidas', { html, categoria: 'G-09' })).json()).nombre
+  // la lista le dice cuáles son suyas
+  const lista = (await (await edi('GET', '/plantillas/categorias')).json()).subidas
+  assert.equal(lista[suya].propia, true); assert.equal(lista[deEdu].propia, false)
+  // lo ajeno no se toca: ni reemplazar, ni mover, ni eliminar
+  assert.equal((await edi('PUT', '/plantillas/subidas/' + deEdu, { html })).status, 403)
+  assert.equal((await edi('POST', '/plantillas/subidas/' + deEdu + '/mover', { categoria: 'G-10' })).status, 403)
+  assert.equal((await edi('DELETE', '/plantillas/subidas/' + deEdu)).status, 403)
+  assert.equal((await ana('DELETE', '/plantillas/subidas/' + suya)).status, 403)
+  assert.equal((await edi('DELETE', '/plantillas/subidas/no-existe')).status, 404)
+  // lo propio sí: reemplazar
+  assert.equal((await edi('PUT', '/plantillas/subidas/' + suya, { html })).status, 200)
+  // mover: cambia de categoría y de nombre (el nombre lleva el ID de la categoría) y arrastra su historial
+  assert.equal((await edi('POST', '/plantillas/subidas/' + suya + '/mover', { categoria: 'G-09' })).status, 400) // ya está ahí
+  assert.equal((await edi('POST', '/plantillas/subidas/' + suya + '/mover', { categoria: 'Z-99' })).status, 404)
+  await pool.query("INSERT INTO plantilla_historial (plantilla, estado, observacion, usuario_nombre, rol) VALUES ($1, 'revision', 'cambios', 'Dani', 'disenador')", ['pub-' + suya])
+  const mv = await edi('POST', '/plantillas/subidas/' + suya + '/mover', { categoria: 'G-10' })
+  assert.equal(mv.status, 200)
+  const nuevo = (await mv.json()).nombre
+  assert.match(nuevo, /^g-10-v\d\d$/)
+  assert.equal((await fetch(base + '/plantillas-html/' + suya + '.html')).status, 404) // el nombre viejo ya no existe
+  assert.equal((await fetch(base + '/plantillas-html/' + nuevo + '.html')).status, 200)
+  const j = await (await edi('GET', '/plantillas/categorias')).json()
+  assert.equal(j.asignaciones[nuevo], 'G-10'); assert.equal(j.asignaciones[suya], undefined)
+  assert.equal((await pool.query("SELECT count(*)::int AS n FROM plantilla_historial WHERE plantilla = $1", ['pub-' + nuevo])).rows[0].n, 1)
+  assert.equal((await pool.query("SELECT count(*)::int AS n FROM plantilla_historial WHERE plantilla = $1", ['pub-' + suya])).rows[0].n, 0)
+  // eliminar lo propio
+  assert.equal((await edi('DELETE', '/plantillas/subidas/' + nuevo)).status, 200)
+  assert.equal((await fetch(base + '/plantillas-html/' + nuevo + '.html')).status, 404)
+  // quien revisa cambia cualquiera
+  assert.equal((await dani('POST', '/plantillas/subidas/' + deEdu + '/mover', { categoria: 'G-10' })).status, 200)
+  const movida = (await (await dani('GET', '/plantillas/categorias')).json()).asignaciones
+  const enG10 = Object.keys(movida).find((n) => movida[n] === 'G-10' && n.startsWith('g-10-v'))
+  assert.ok(enG10)
+  assert.equal((await dani('DELETE', '/plantillas/subidas/' + enG10)).status, 200)
 })
 
 test('borrar una categoría deja sus plantillas sin categoría; si falla la base de datos se entrega el archivo del build tal cual', async () => {

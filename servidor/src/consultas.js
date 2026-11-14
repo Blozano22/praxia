@@ -298,11 +298,14 @@ export const Q = Object.freeze({
   categoriaAsignar: `INSERT INTO plantilla_categoria (plantilla, categoria) VALUES ($1, $2) ON CONFLICT (plantilla) DO UPDATE SET categoria = EXCLUDED.categoria, actualizado = now()`,
   categoriaQuitar: `DELETE FROM plantilla_categoria WHERE plantilla = $1`,
   // ---- plantillas HTML subidas desde la pantalla
-  subidasListar: `SELECT nombre, subida_nombre AS por, creado, actualizado, position('/*FIN-CONTENIDO*/' in html_crudo) > 0 AS ejemplo FROM plantilla_subidas ORDER BY nombre`,
+  subidasListar: `SELECT nombre, subida_nombre AS por, subida_por, creado, actualizado, position('/*FIN-CONTENIDO*/' in html_crudo) > 0 AS ejemplo FROM plantilla_subidas ORDER BY nombre`,
   subidaHtml: `SELECT html FROM plantilla_subidas WHERE nombre = $1`,
   subidaCrudo: `SELECT html_crudo FROM plantilla_subidas WHERE nombre = $1`,
   subidaCrear: `INSERT INTO plantilla_subidas (nombre, html_crudo, html, subida_por, subida_nombre) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (nombre) DO NOTHING RETURNING nombre`,
   subidaReemplazar: `UPDATE plantilla_subidas SET html_crudo = $2, html = $3, subida_por = $4, subida_nombre = $5, actualizado = now() WHERE nombre = $1 RETURNING nombre`,
+  subidaDueno: `SELECT subida_por FROM plantilla_subidas WHERE nombre = $1`,
+  subidaRenombrar: `UPDATE plantilla_subidas SET nombre = $2, actualizado = now() WHERE nombre = $1 RETURNING nombre`,
+  historialRenombrar: `UPDATE plantilla_historial SET plantilla = $2 WHERE plantilla = $1`,
   subidaBorrar: `DELETE FROM plantilla_subidas WHERE nombre = $1 RETURNING nombre`,
   // ---- plantillas del sistema quitadas de n8n
   ocultasListar: `SELECT plantilla, eliminada FROM plantilla_ocultas ORDER BY plantilla`,

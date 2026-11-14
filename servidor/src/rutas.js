@@ -359,7 +359,7 @@ rutas.get('/plantillas/categorias', exigirSesion, exigirPermiso('plantillas.ver'
     const plantillas = [...new Set([...nombresPlantillasPublicadas(), ...u.rows.map((x) => x.nombre)])].filter((n) => !eliminadas.has(n)).sort()
     res.json({
       categorias: c.rows, formaciones: formacionesPorCategoria(fo.rows), asignaciones: Object.fromEntries(a.rows.map((x) => [x.plantilla, x.categoria])), plantillas, ocultas: o.rows.filter((x) => !x.eliminada).map((x) => x.plantilla),
-      subidas: Object.fromEntries(u.rows.map((x) => [x.nombre, { por: x.por, actualizado: x.actualizado, ejemplo: !!x.ejemplo }]))
+      subidas: Object.fromEntries(u.rows.map((x) => [x.nombre, { por: x.por, actualizado: x.actualizado, ejemplo: !!x.ejemplo, propia: x.subida_por === req.usuario.id }]))
     })
   } catch (e) { next(e) }
 })
@@ -490,7 +490,17 @@ rutas.post('/plantillas/subidas/previa', exigirSesion, exigirAlguno('plantillas.
     res.json({ ok: true, conEjemplo: !!armada.ejemplo, html: armada.ejemplo || vacia, nombre })
   } catch (e) { next(e) }
 })
-rutas.put('/plantillas/subidas/:nombre', exigirSesion, exigirPermiso('plantillas.revisar'), limiteSubir, validar(z.object({ nombre: NombreSubida }), 'params'), validar(z.object({ html: HtmlSubido }).strict(), 'body'), async (req, res, next) => {
+// Quien revisa puede cambiar cualquier plantilla subida; quien solo sube (Editor HTML) puede reemplazar, mover o eliminar únicamente las que subió él.
+const soloLoPropio = async (req, res, next) => {
+  try {
+    if (req.usuario.permisos.has('plantillas.revisar')) return next()
+    const f = (await sinUsuario(Q.subidaDueno, [req.paramsOk.nombre])).rows[0]
+    if (!f) return res.status(404).json({ error: 'No hay una plantilla subida con ese nombre.' })
+    if (!req.usuario.permisos.has('plantillas.subir') || f.subida_por !== req.usuario.id) return res.status(403).json({ error: 'Solo puedes cambiar las plantillas que subiste tú.' })
+    next()
+  } catch (e) { next(e) }
+}
+rutas.put('/plantillas/subidas/:nombre', exigirSesion, exigirAlguno('plantillas.revisar', 'plantillas.subir'), limiteSubir, validar(z.object({ nombre: NombreSubida }), 'params'), soloLoPropio, validar(z.object({ html: HtmlSubido }).strict(), 'body'), async (req, res, next) => {
   try {
     const armada = armarSubida(req.bodyOk.html)
     if (!armada.ok) return res.status(400).json({ error: armada.error })
@@ -499,6 +509,36 @@ rutas.put('/plantillas/subidas/:nombre', exigirSesion, exigirPermiso('plantillas
     await auditar(req.usuario.id, 'plantilla_reemplazar', 'plantilla', req.paramsOk.nombre, req)
     res.json({ ok: true })
   } catch (e) { next(e) }
+})
+// Mover una plantilla subida a otra categoría: como el nombre sale del ID de la categoría, se le da el siguiente nombre de la categoría nueva (g-09-v03 → g-10-v01)
+// y se traslada con ella su categoría y su historial de revisión.
+rutas.post('/plantillas/subidas/:nombre/mover', exigirSesion, exigirAlguno('plantillas.revisar', 'plantillas.subir'), limiteSubir, validar(z.object({ nombre: NombreSubida }), 'params'), soloLoPropio, validar(z.object({ categoria: IdCategoria }).strict(), 'body'), async (req, res, next) => {
+  try {
+    const { nombre } = req.paramsOk
+    const { categoria } = req.bodyOk
+    if (!(await sinUsuario(Q.categoriasListar)).rows.some((c) => c.id === categoria)) return res.status(404).json({ error: 'No existe esa categoría.' })
+    const actual = (await sinUsuario(Q.categoriasAsignaciones)).rows.find((x) => x.plantilla === nombre)
+    if (actual && actual.categoria === categoria) return res.status(400).json({ error: 'Ya está en esa categoría.' })
+    let nuevo = null
+    await conTransaccion(async (c) => {
+      for (let i = 0; i < 20 && !nuevo; i++) {
+        const n = (await c.query(Q.categoriaSiguienteVariante, [categoria])).rows[0].n
+        const cand = nombreVariante(categoria, n)
+        if ((await c.query(Q.subidaDueno, [cand])).rowCount) continue // ese nombre ya existe (se subió a mano): se prueba el siguiente
+        nuevo = cand
+      }
+      if (!nuevo) throw Object.assign(new Error('sin nombre libre'), { sinNombre: true })
+      await c.query(Q.subidaRenombrar, [nombre, nuevo])
+      await c.query(Q.categoriaQuitar, [nombre])
+      await c.query(Q.categoriaAsignar, [nuevo, categoria])
+      await c.query(Q.historialRenombrar, ['pub-' + nombre, 'pub-' + nuevo])
+    })
+    await auditar(req.usuario.id, 'plantilla_mover', 'plantilla', nombre + ' → ' + nuevo, req)
+    res.json({ nombre: nuevo })
+  } catch (e) {
+    if (e.sinNombre) return res.status(409).json({ error: 'No se pudo asignar un nombre libre en esa categoría.' })
+    next(e)
+  }
 })
 // Vista previa de una plantilla subida: si traía contenido de ejemplo, el HTML con ese contenido puesto (se arma al pedirlo desde el HTML original guardado).
 rutas.get('/plantillas/subidas/:nombre/ejemplo', exigirSesion, exigirPermiso('plantillas.ver'), validar(z.object({ nombre: NombreSubida }), 'params'), async (req, res, next) => {
@@ -509,7 +549,7 @@ rutas.get('/plantillas/subidas/:nombre/ejemplo', exigirSesion, exigirPermiso('pl
     res.json({ html: armada.ok ? armada.ejemplo : null })
   } catch (e) { next(e) }
 })
-rutas.delete('/plantillas/subidas/:nombre', exigirSesion, exigirPermiso('plantillas.revisar'), validar(z.object({ nombre: NombreSubida }), 'params'), async (req, res, next) => {
+rutas.delete('/plantillas/subidas/:nombre', exigirSesion, exigirAlguno('plantillas.revisar', 'plantillas.subir'), validar(z.object({ nombre: NombreSubida }), 'params'), soloLoPropio, async (req, res, next) => {
   try {
     const r = await sinUsuario(Q.subidaBorrar, [req.paramsOk.nombre])
     if (!r.rowCount) return res.status(404).json({ error: 'No hay una plantilla subida con ese nombre.' })
