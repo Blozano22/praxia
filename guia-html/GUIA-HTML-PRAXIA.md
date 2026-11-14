@@ -1998,5 +1998,21 @@ Fuente: «Estructura RED - Doctorado» (hojas RED, Actividades y Evaluaciones). 
   > - Retroalimentación por opción
 
 
+#### — Resúmenes gráficos
+- Categoría: Recursos de lectura y profundización académica · Uso recomendado: Prioritaria
+- Nota: en el Excel de estructura esta fila no indica el tipo de recurso; por decisión del 14-11-2026 **es un recurso HTML** (categoría POS-14).
+- **Estructura:**
+  > Título académico → Propósito de aprendizaje → Introducción y contextualización científica → Identificación de conceptos fundamentales → Selección y jerarquización de información relevante → Bloque 1: Fundamentación teórica y conceptual → Bloque 2: Organización gráfica de categorías y relaciones → Bloque 3: Síntesis comparativa de enfoques científicos → Bloque 4: Representación de hallazgos y evidencias investigativas → Bloque 5: Interpretación crítica e implicaciones científicas → Síntesis integradora → Referencias bibliográficas en APA 7.
+- **Extensión / límites:**
+  > • 1 resumen gráfico digital de 2 a 3 páginas.
+  > • Título principal: máximo 90 caracteres.
+  > • Introducción: 60–90 palabras.
+  > • 5 bloques de desarrollo académico.
+  > • Desarrollo por bloque: 70–100 palabras.
+  > • 3 a 5 elementos visuales: diagramas, tablas, esquemas o gráficos.
+  > • 1 análisis comparativo de enfoques o evidencias científicas.
+  > • Síntesis crítica: 100–150 palabras.
+  > • Mínimo 3 referencias académicas en APA 7.
+
 ### Recursos que NO son HTML (no van en esta guía)
-Emparejamiento, Resúmenes gráficos.
+Emparejamiento.
