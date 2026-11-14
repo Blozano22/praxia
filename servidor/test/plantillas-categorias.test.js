@@ -359,6 +359,28 @@ test('formaciones por categoría: salen del catálogo, aparecen en el índice y 
   assert.equal((await dani('PUT', '/plantillas/categorias/G-09/formaciones', { formaciones: [{ formacion: 'tecnologico' }, { formacion: 'profesional' }, { formacion: 'especializacion', prioridad: 'C' }, { formacion: 'doctorado', prioridad: 'C' }] })).status, 200)
 })
 
+test('subir varios archivos seguidos a la misma categoría: cada uno con su nombre en orden, y uno que falla no frena a los demás', async () => {
+  const dani = await entrar('dani@u.co')
+  const bueno = PLANTILLA()
+  const archivos = [bueno, '<html><body>sin marcas</body></html>', bueno, bueno]
+  const nombres = []
+  const errores = []
+  // la pantalla sube uno tras otro (revisión y subida de cada uno); 40 peticiones en un minuto no deben toparse con el tope
+  for (const html of archivos) {
+    const previa = await dani('POST', '/plantillas/subidas/previa', { html, categoria: 'G-10' })
+    if (previa.status !== 200) { errores.push(previa.status); continue }
+    const r = await dani('POST', '/plantillas/subidas', { html, categoria: 'G-10' })
+    assert.equal(r.status, 201); nombres.push((await r.json()).nombre)
+  }
+  assert.deepEqual(errores, [400])
+  assert.equal(nombres.length, 3)
+  const nums = nombres.map((n) => Number(/-v(\d+)$/.exec(n)[1]))
+  assert.deepEqual(nums, [nums[0], nums[0] + 1, nums[0] + 2]) // en el orden en que se subieron, sin huecos
+  assert.ok(nombres.every((n) => n.startsWith('g-10-v')))
+  for (let i = 0; i < 40; i++) assert.equal((await dani('POST', '/plantillas/subidas/previa', { html: bueno, categoria: 'G-10' })).status, 200, 'revisión ' + i)
+  for (const n of nombres) assert.equal((await dani('DELETE', '/plantillas/subidas/' + n)).status, 200)
+})
+
 test('borrar una categoría deja sus plantillas sin categoría; si falla la base de datos se entrega el archivo del build tal cual', async () => {
   const dani = await entrar('dani@u.co')
   assert.equal((await dani('DELETE', '/plantillas/categorias/G-20')).status, 200)

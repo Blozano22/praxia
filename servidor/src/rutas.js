@@ -441,7 +441,8 @@ rutas.delete('/plantillas/sistema/:nombre', exigirSesion, exigirPermiso('plantil
 })
 
 // Subir plantillas nuevas desde la pantalla. Se arman y validan igual que las del build; no pueden pisar una del sistema.
-const limiteSubir = rateLimit({ windowMs: 60 * 1000, limit: 30, keyGenerator: (req) => (req.usuario ? 'u:' + req.usuario.id : ipKeyGenerator(req.ip)), standardHeaders: true, legacyHeaders: false })
+// Una subida de varios archivos manda, por cada uno, una revisión y una subida (hasta 20 archivos): el tope por minuto lo permite con holgura.
+const limiteSubir = rateLimit({ windowMs: 60 * 1000, limit: 120, keyGenerator: (req) => (req.usuario ? 'u:' + req.usuario.id : ipKeyGenerator(req.ip)), standardHeaders: true, legacyHeaders: false })
 const NombreSubida = z.string().regex(/^[a-z0-9-]{1,80}$/)
 const HtmlSubido = z.string().min(1).max(MAX_HTML + 4096)
 // El nombre sale solo del ID de la categoría y del orden de subida: G-08 → g-08-v01, g-08-v02… (minúsculas, que es como se guardan y se sirven los nombres).
