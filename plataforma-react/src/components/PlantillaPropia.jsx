@@ -102,6 +102,7 @@ export default function PlantillaPropia({ nombre, info, cats, categoriaActual, f
   return (
     <div className="card pg-propia">
       <h4>{propia ? 'Esta plantilla la subiste tú' : 'Subida por ' + ((info && info.por) || 'otra persona')}</h4>
+      {info && info.formacion && <p className="pg-formacion">Formación: <b>{NOMBRE_FORMACION[info.formacion] || info.formacion}</b></p>}
       <p className="help">Puedes cambiarla de categoría, reemplazar su archivo o eliminarla. <b>{verNombre(nombre)}</b></p>
       {error && <div className="msg bad" role="alert">{error}</div>}
 

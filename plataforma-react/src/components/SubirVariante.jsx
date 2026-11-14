@@ -38,6 +38,7 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
   const [aviso, setAviso] = useState('')
   const [error, setError] = useState('')
   const [abierto, setAbierto] = useState('') // id del archivo cuya vista previa está abierta
+  const [fichaCat, setFichaCat] = useState('') // categoría que se preseleccionó porque la ficha del archivo la decía
   const [aceptarDistintos, setAceptarDistintos] = useState(false) // solo quien revisa: subir aunque los campos no coincidan con los de la categoría
   const [arrastrando, setArrastrando] = useState(false)
   const [esc, setEsc] = useState(0.4)
@@ -58,7 +59,7 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
         let res
         try {
           const r = await api('POST', '/plantillas/subidas/previa', { html: i.html, ...(categoria ? { categoria } : {}) })
-          res = { fase: 'ok', conEjemplo: !!r.conEjemplo, html: r.html || '', nombre: r.nombre || null, esquema: r.esquema || null }
+          res = { fase: 'ok', conEjemplo: !!r.conEjemplo, html: r.html || '', nombre: r.nombre || null, esquema: r.esquema || null, ficha: r.ficha || null, avisos: Array.isArray(r.avisos) ? r.avisos : [] }
         } catch (e) { res = { fase: 'error', mensaje: e.message || 'No se pudo revisar el archivo.' } }
         if (!vigente) return
         cache.current.set(k, res)
@@ -67,6 +68,18 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
     })()
     return () => { vigente = false }
   }, [items, categoria])
+
+  // Si no hay categoría elegida y el primer archivo con ficha trae «Categoría Praxia», se preselecciona (nunca se cambia una ya elegida).
+  useEffect(() => {
+    if (categoria || fichaCat) return
+    const con = items.find((i) => revs[i.id] && revs[i.id].fase === 'ok' && revs[i.id].ficha && revs[i.id].ficha.categoria)
+    if (!con) return
+    const id = revs[con.id].ficha.categoria
+    const c = cats.categorias.find((x) => x.id === id)
+    if (!c) return
+    if (soloFormacion && formacion && !sirve(c)) setSoloFormacion(false)
+    setCategoria(id); setFichaCat(id)
+  }, [revs]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const el = marco.current
@@ -114,12 +127,14 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
   const validos = items.filter((i) => !i.errorLocal && revs[i.id] && revs[i.id].fase === 'ok' && (!distinto(i) || (puedeRevisar && aceptarDistintos)))
   const revisando = items.some((i) => !i.errorLocal && (!revs[i.id] || revs[i.id].fase === 'revisando'))
   const primero = validos.length ? revs[validos[0].id].nombre : null
+  // Sin categoría elegida se puede subir si todos los archivos válidos la traen en su ficha (el servidor usa esa).
+  const categoriaPorFicha = !categoria && validos.length > 0 && validos.every((i) => revs[i.id].ficha && revs[i.id].ficha.categoria)
   const anunciado = (i) => { const k = validos.indexOf(i); return k < 0 ? null : nombreEn(primero, k) }
 
   // Sube UNO TRAS OTRO, en el orden de la lista y esperando cada respuesta (así los números salen en orden). Una que falla no detiene las demás.
   const subirTodo = async (e) => {
     e.preventDefault()
-    if (!categoria || !validos.length || revisando || ocupado || fase === 'terminado') return
+    if ((!categoria && !categoriaPorFicha) || !validos.length || revisando || ocupado || fase === 'terminado') return
     setFase('subiendo'); setError(''); setAbierto('')
     const lista = [...validos]
     let hechos = 0
@@ -128,7 +143,7 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
       setAvance({ n: n + 1, total: lista.length })
       setEnvio((p) => ({ ...p, [i.id]: { fase: 'subiendo' } }))
       try {
-        const r = await api('POST', '/plantillas/subidas', { html: i.html, categoria, ...(distinto(i) && puedeRevisar && aceptarDistintos ? { esquemaDistinto: true } : {}) })
+        const r = await api('POST', '/plantillas/subidas', { html: i.html, ...(categoria ? { categoria } : {}), ...(distinto(i) && puedeRevisar && aceptarDistintos ? { esquemaDistinto: true } : {}) })
         hechos++
         setEnvio((p) => ({ ...p, [i.id]: { fase: 'subido', real: (r && r.nombre) || anunciado(i) } }))
       } catch (err) {
@@ -178,6 +193,7 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
               <p className="sv-filtro">Solo categorías de {NOMBRE_FORMACION[formacion]}{visibles.length === 0 ? ': ninguna todavía' : ''}. <button type="button" className="sv-enlace" onClick={() => setSoloFormacion(false)} disabled={ocupado}>Ver todas</button></p>
             )}
             <small>{categoria ? 'El nombre se genera solo: ' + categoria.toLowerCase() + '-v01, -v02… según el orden de subida. Todos los archivos van a esta categoría.' : 'El nombre se genera solo con el ID de la categoría: G-08-V01…'}</small>
+            {fichaCat && categoria === fichaCat && <small className="sv-ficha">La ficha del archivo dice {fichaCat}.</small>}
             <small>Todas las variantes de una categoría usan los mismos campos; solo cambia el diseño.</small>
           </div>
 
@@ -202,9 +218,10 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
                   <li key={i.id} className={'sv-fila ' + st.k}>
                     <span className="sv-n">{n + 1}</span>
                     <div className="sv-fila-tx">
-                      <b title={i.nombre}>{i.nombre}</b>
+                      <b title={i.nombre}>{i.nombre}{rv && rv.ficha && rv.ficha.formacion && <em className="sv-form" title="Formación que dice la ficha del archivo">{NOMBRE_FORMACION[rv.ficha.formacion] || rv.ficha.formacion}</em>}</b>
                       <small>{kb(i.bytes)}{nombre ? (envio[i.id] && envio[i.id].fase === 'subido' ? ' · guardado como ' : ' · se guardará como ') : ''}{nombre && <strong>{verNombre(nombre)}</strong>}</small>
                       {st.m && <span className={'sv-fila-err' + (st.k === 'campos' ? ' amb' : '')}>{st.m}</span>}
+                      {rv && rv.fase === 'ok' && !envio[i.id] && (rv.avisos || []).map((a, k) => <span key={k} className="sv-fila-aviso">{a}</span>)}
                       {st.esq && <DetalleCampos faltan={st.esq.faltan} sobran={st.esq.sobran} referencia={st.esq.referencia} />}
                     </div>
                     <span className={'sv-est ' + st.k}>{st.k === 'revisando' || st.k === 'subiendo' ? <span className="sv-giro" aria-hidden="true" /> : null}{st.t}</span>
@@ -246,7 +263,7 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
             ? <button type="button" className="btn" onClick={onCerrar}>Cerrar</button>
             : <>
               <button type="button" className="btn sec" onClick={onCerrar} disabled={ocupado}>Cancelar</button>
-              <button type="submit" className="btn" disabled={ocupado || !categoria || !validos.length || revisando}>{ocupado ? 'Subiendo ' + avance.n + ' de ' + avance.total + '…' : etiquetaSubir}</button>
+              <button type="submit" className="btn" disabled={ocupado || (!categoria && !categoriaPorFicha) || !validos.length || revisando}>{ocupado ? 'Subiendo ' + avance.n + ' de ' + avance.total + '…' : etiquetaSubir}</button>
             </>}
         </footer>
       </form>

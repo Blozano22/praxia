@@ -425,3 +425,9 @@
 .pg-conflicto{display:flex;flex-direction:column;gap:6px;align-items:flex-start;padding:10px 12px;border-radius:12px;background:#fdf3f2;border:1px solid #f0cbc7;font-size:.82rem;line-height:1.45;color:#7a1f19}
 .pg-conflicto.amb{background:#fff8e1;border-color:#f0dfa8;color:#6b4a00}
 .pg-conflicto b{color:inherit;font-size:.85rem}.pg-conflicto .dc-detalle{color:inherit}
+
+/* Ficha del archivo: formación, avisos y categoría preseleccionada */
+.sv-form{margin-left:8px;padding:1px 8px;border-radius:99px;background:#e8eefb;color:var(--nav);font-style:normal;font-size:.68rem;font-weight:800;vertical-align:middle}
+.sv-fila-aviso{font-size:.78rem;font-weight:600;line-height:1.4;color:#6b4a00;background:#fff8e1;border-radius:6px;padding:3px 8px;margin-top:2px}
+.sv-campo small.sv-ficha{color:#145c3b;font-weight:700}
+.pg-formacion{margin:0;font-size:.85rem;color:var(--muted)}.pg-formacion b{color:var(--nav)}
