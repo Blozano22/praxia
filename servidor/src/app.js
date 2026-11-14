@@ -8,7 +8,7 @@ import path from 'node:path'
 import { config } from './config.js'
 import { exigirCabecera } from './seguridad.js'
 import { rutas } from './rutas.js'
-import { CABECERAS_AISLADAS } from './plantillas/subidas.js'
+import { CABECERAS_AISLADAS, compararEsquemas } from './plantillas/subidas.js'
 import { rutasBibliografia } from './bibliografia/rutas.js'
 import { rutasGuiones } from './guiones/rutas.js'
 import { rutasUnidades } from './unidades/rutas.js'
@@ -60,17 +60,27 @@ export function crearApp() {
     let base = { marcas: { titulo: '{{TITULO}}', contenido: '/*CONTENIDO*/' }, total: 0, plantillas: [] }
     if (config.carpetaWeb) { try { base = JSON.parse(fs.readFileSync(path.join(config.carpetaWeb, 'plantillas-html', 'plantillas.json'), 'utf8')) } catch { /* sin build: solo las subidas */ } }
     try {
-      const [c, a, u, o, fo] = await Promise.all([sinUsuario(Q.categoriasListar), sinUsuario(Q.categoriasAsignaciones), sinUsuario(Q.subidasListar), sinUsuario(Q.ocultasListar), sinUsuario(Q.formacionesListar)])
+      const [c, a, u, o, fo, es] = await Promise.all([sinUsuario(Q.categoriasListar), sinUsuario(Q.categoriasAsignaciones), sinUsuario(Q.subidasListar), sinUsuario(Q.ocultasListar), sinUsuario(Q.formacionesListar), sinUsuario(Q.estadosListar).catch(() => ({ rows: [] }))])
       const de = Object.fromEntries(a.rows.map((x) => [x.plantilla, x.categoria]))
       const ocultas = new Set(o.rows.map((x) => x.plantilla)) // plantillas del sistema quitadas de n8n desde la pantalla
       const delBuild = (base.plantillas || []).filter((p) => !u.rows.some((x) => x.nombre === p.nombre) && !ocultas.has(p.nombre))
       const todas = [...delBuild, ...u.rows.map((x) => ({ nombre: x.nombre, archivo: x.nombre + '.html', subida: true }))].sort((x, y) => x.nombre.localeCompare(y.nombre))
       const tipoDe = Object.fromEntries(c.rows.map((k) => [k.id, k.tipo]))
-      const plantillas = todas.map((p) => ({ ...p, id_catalogo: de[p.nombre] || null, tipo: tipoDe[de[p.nombre]] || null }))
+      // Estado de revisión de cada plantilla (aprobada | en_revision | rechazada) y desde cuándo: el último paso del historial; sin historial, en_revision.
+      // Las subidas se identifican en el historial como «pub-<nombre>»; las del sistema, por su nombre.
+      const ultimo = Object.fromEntries(es.rows.map((x) => [x.plantilla, x]))
+      const ESTADO = { aprobada: 'aprobada', rechazada: 'rechazada', revision: 'en_revision', corregida: 'en_revision' }
+      const estadoDe = (n) => { const f = ultimo['pub-' + n] || ultimo[n]; return f ? { estado: ESTADO[f.estado] || 'en_revision', fecha_estado: new Date(f.creado).toISOString() } : { estado: 'en_revision', fecha_estado: null } }
+      // ¿Los campos de la variante coinciden con los de su categoría? (la referencia es la subida más antigua de la categoría con ejemplo); null si no hay con qué comparar
+      const refDe = {}
+      for (const x of [...u.rows].sort((p, q) => new Date(p.creado) - new Date(q.creado) || p.nombre.localeCompare(q.nombre))) if (x.esquema && de[x.nombre] && !refDe[de[x.nombre]]) refDe[de[x.nombre]] = x.esquema
+      const esqDe = Object.fromEntries(u.rows.map((x) => [x.nombre, x.esquema]))
+      const esquemaOk = (n) => (esqDe[n] && refDe[de[n]] ? compararEsquemas(refDe[de[n]], esqDe[n]).coincide : null)
+      const plantillas = todas.map((p) => ({ ...p, id_catalogo: de[p.nombre] || null, tipo: tipoDe[de[p.nombre]] || null, ...estadoDe(p.nombre), esquema_ok: esquemaOk(p.nombre) }))
       const ORDEN_FORMACIONES = ['tecnologico', 'profesional', 'especializacion', 'doctorado']
       const formacionesDe = (id) => fo.rows.filter((x) => x.categoria === id).map((x) => ({ formacion: x.formacion, prioridad: x.prioridad })).sort((p, q) => ORDEN_FORMACIONES.indexOf(p.formacion) - ORDEN_FORMACIONES.indexOf(q.formacion)) // para qué formaciones sirve la categoría (P prioritaria, C complementaria)
-      const categorias = c.rows.map((k) => ({ id: k.id, nombre: k.nombre, tipo: k.tipo, formaciones: formacionesDe(k.id), variantes: plantillas.filter((p) => p.id_catalogo === k.id).map(({ nombre, archivo }) => ({ nombre, archivo })) }))
-      res.json({ ...base, total: plantillas.length, plantillas, categorias, sin_categoria: plantillas.filter((p) => !p.id_catalogo).map(({ nombre, archivo }) => ({ nombre, archivo })) })
+      const categorias = c.rows.map((k) => ({ id: k.id, nombre: k.nombre, tipo: k.tipo, formaciones: formacionesDe(k.id), variantes: plantillas.filter((p) => p.id_catalogo === k.id).map(({ nombre, archivo, estado, fecha_estado, esquema_ok }) => ({ nombre, archivo, estado, fecha_estado, esquema_ok })) }))
+      res.json({ ...base, total: plantillas.length, plantillas, categorias, sin_categoria: plantillas.filter((p) => !p.id_catalogo).map(({ nombre, archivo, estado, fecha_estado }) => ({ nombre, archivo, estado, fecha_estado })) })
     } catch { res.json(base) }
   })
   // Una plantilla subida desde la pantalla se entrega AISLADA (sandbox sin allow-same-origin): sus scripts corren, pero no pueden usar la sesión de Praxia.

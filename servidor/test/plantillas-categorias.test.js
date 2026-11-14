@@ -110,7 +110,7 @@ test('el índice público sale agrupado por categoría, sin sesión, y conserva 
   const acordeon = j.categorias.find((c) => c.id === 'G-09')
   assert.deepEqual(acordeon.variantes.map((v) => v.nombre), ['acordeon', 'acordeon-2', 'acordeon-3'])
   assert.equal(acordeon.nombre, 'Acordeón')
-  assert.deepEqual(j.categorias.find((c) => c.id === 'G-20').variantes, [{ nombre: 'crucigrama', archivo: 'crucigrama.html' }])
+  assert.deepEqual(j.categorias.find((c) => c.id === 'G-20').variantes.map(({ nombre, archivo }) => ({ nombre, archivo })), [{ nombre: 'crucigrama', archivo: 'crucigrama.html' }])
   assert.deepEqual(j.sin_categoria.map((p) => p.nombre), ['nueva-plantilla']) // la que se dejó sin categoría
   assert.equal(j.categorias.find((c) => c.id === 'G-01').variantes.length, 0) // categoría sin variantes todavía
 })
@@ -135,7 +135,7 @@ test('subir una plantilla desde la pantalla: se arma como las del build, queda e
   const ix = await indice()
   const p = ix.plantillas.find((x) => x.nombre === 'tarjetas-repaso')
   assert.deepEqual([p.archivo, p.id_catalogo, p.subida], ['tarjetas-repaso.html', 'G-10', true])
-  assert.deepEqual(ix.categorias.find((c) => c.id === 'G-10').variantes, [{ nombre: 'tarjetas-repaso', archivo: 'tarjetas-repaso.html' }])
+  assert.deepEqual(ix.categorias.find((c) => c.id === 'G-10').variantes.map(({ nombre, archivo }) => ({ nombre, archivo })), [{ nombre: 'tarjetas-repaso', archivo: 'tarjetas-repaso.html' }])
   assert.equal(ix.total, NOMBRES.length + 1)
 })
 
@@ -421,6 +421,50 @@ test('cada editor puede reemplazar, mover y eliminar solo las plantillas que sub
   const enG10 = Object.keys(movida).find((n) => movida[n] === 'G-10' && n.startsWith('g-10-v'))
   assert.ok(enG10)
   assert.equal((await dani('DELETE', '/plantillas/subidas/' + enG10)).status, 200)
+})
+
+test('las variantes de una categoría usan los mismos campos de contenido; el índice dice el estado de cada una y si sus campos coinciden', async () => {
+  const dani = await entrar('dani@u.co')
+  const edi = await entrar('edi@u.co')
+  const con = (campos) => '<!doctype html><html lang="es"><head><meta charset="utf-8"><title>{{TITULO}}</title></head><body><script type="application/json" id="contenido">/*CONTENIDO*/' + JSON.stringify(campos) + '/*FIN-CONTENIDO*/</script></body></html>'
+  const A = { titulo: 'A', bloques: [{ titulo: 'x', texto: 'y' }], nivel: 'tecnologia' }
+  const A2 = { titulo: 'Otro', bloques: [{ titulo: 'm', texto: 'n' }, { titulo: 'o', texto: 'p' }] } // mismos campos (cambian los valores y la cantidad; «nivel» no cuenta)
+  const B = { titulo: 'B', pasos: [{ nombre: 'x' }] } // campos distintos
+  const sube = (campos, extra = {}, quien = edi) => quien('POST', '/plantillas/subidas', { html: con(campos), categoria: 'G-11', ...extra })
+  // la primera de la categoría fija los campos; la segunda con los mismos entra
+  const r1 = await sube(A); assert.equal(r1.status, 201); const n1 = (await r1.json()).nombre
+  const r2 = await sube(A2); assert.equal(r2.status, 201); const n2 = (await r2.json()).nombre
+  // una con campos distintos se rechaza, con el detalle, y no se guarda
+  const r3 = await sube(B)
+  assert.equal(r3.status, 409)
+  const d3 = await r3.json()
+  assert.equal(d3.requiereConfirmacion, 'esquema'); assert.ok(d3.faltan.length && d3.sobran.length); assert.equal(d3.referencia, n1); assert.match(d3.error, /mismos campos/)
+  // el editor no puede forzarla; quien revisa sí, y queda marcada
+  assert.equal((await sube(B, { esquemaDistinto: true })).status, 409)
+  const r4 = await sube(B, { esquemaDistinto: true }, dani); assert.equal(r4.status, 201); const n4 = (await r4.json()).nombre
+  // la vista previa avisa antes de subir
+  const pv = await (await edi('POST', '/plantillas/subidas/previa', { html: con(B), categoria: 'G-11' })).json()
+  assert.equal(pv.esquema.coincide, false); assert.equal(pv.esquema.referencia, n1)
+  assert.equal((await (await edi('POST', '/plantillas/subidas/previa', { html: con(A2), categoria: 'G-11' })).json()).esquema.coincide, true)
+  assert.equal((await (await edi('POST', '/plantillas/subidas/previa', { html: con(A2) })).json()).esquema, null) // sin categoría no hay con qué comparar
+  // reemplazar y mover también respetan los campos
+  assert.equal((await edi('PUT', '/plantillas/subidas/' + n2, { html: con(B) })).status, 409)
+  assert.equal((await edi('PUT', '/plantillas/subidas/' + n2, { html: con(A) })).status, 200)
+  assert.equal((await edi('POST', '/plantillas/subidas/' + n2 + '/mover', { categoria: 'G-10' })).status, 200) // G-10 no tiene variantes con ejemplo: entra sin problema
+  // el índice: estado por variante (sin historial = en_revision) y si los campos coinciden con los de su categoría
+  const ix = await indice()
+  const v = ix.categorias.find((c) => c.id === 'G-11').variantes
+  const e1 = v.find((x) => x.nombre === n1); const e4 = v.find((x) => x.nombre === n4)
+  assert.equal(e1.estado, 'en_revision'); assert.equal(e1.fecha_estado, null); assert.equal(e1.esquema_ok, true); assert.equal(e4.esquema_ok, false)
+  assert.equal(e1.archivo, n1 + '.html') // el nombre del índice es el de la dirección pública
+  assert.equal((await fetch(base + '/plantillas-html/' + n1 + '.html')).status, 200)
+  await pool.query("INSERT INTO plantilla_historial (plantilla, estado, observacion, usuario_nombre, rol) VALUES ($1, 'aprobada', 'ok', 'Dani', 'disenador'), ($2, 'rechazada', 'no', 'Dani', 'disenador'), ($3, 'corregida', 'ya', 'Dani', 'disenador')", ['pub-' + n1, 'pub-' + n4, 'pub-' + n1 + 'x'])
+  const v2 = (await indice()).categorias.find((c) => c.id === 'G-11').variantes
+  assert.equal(v2.find((x) => x.nombre === n1).estado, 'aprobada'); assert.match(v2.find((x) => x.nombre === n1).fecha_estado, /^\d{4}-\d\d-\d\dT/)
+  assert.equal(v2.find((x) => x.nombre === n4).estado, 'rechazada')
+  for (const n of [n1, n4]) assert.equal((await dani('DELETE', '/plantillas/subidas/' + n)).status, 200)
+  const mov = Object.keys((await (await dani('GET', '/plantillas/categorias')).json()).asignaciones).find((n) => n.startsWith('g-10-v'))
+  if (mov) assert.equal((await dani('DELETE', '/plantillas/subidas/' + mov)).status, 200)
 })
 
 test('borrar una categoría deja sus plantillas sin categoría; si falla la base de datos se entrega el archivo del build tal cual', async () => {

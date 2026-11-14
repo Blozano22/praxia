@@ -381,6 +381,9 @@ CREATE TABLE IF NOT EXISTS plantilla_subidas (
   actualizado   timestamptz NOT NULL DEFAULT now()
 );
 
+-- Campos del JSON de ejemplo de la plantilla subida (lista de rutas con su tipo), para comprobar que las variantes de una categoría usan los mismos campos.
+ALTER TABLE plantilla_subidas ADD COLUMN IF NOT EXISTS esquema jsonb;
+
 -- Plantillas del sistema (las del build) que se quitaron de n8n desde la pantalla: no salen en el índice ni se descargan. Reversible.
 CREATE TABLE IF NOT EXISTS plantilla_ocultas (
   plantilla  text PRIMARY KEY CHECK (plantilla ~ '^[a-z0-9-]{1,80}$'),

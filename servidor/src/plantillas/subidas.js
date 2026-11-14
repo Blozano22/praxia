@@ -35,12 +35,14 @@ export function armarSubida(crudo) {
 
   let plantilla = crudo
   let ejemplo = null
+  let esquema = null
   const m = RE_EJEMPLO.exec(crudo)
   if (m) {
     const cuerpo = m[1].trim()
     let datos
     try { datos = JSON.parse(cuerpo) } catch (e) { return { ok: false, error: 'El contenido de ejemplo (entre /*CONTENIDO*/ y ' + MARCA_FIN + ') no es un JSON válido: ' + e.message } }
     if (!datos || typeof datos !== 'object' || Array.isArray(datos)) return { ok: false, error: 'El contenido de ejemplo debe ser un objeto JSON ({ … }).' }
+    esquema = esquemaDe(datos)
     plantilla = crudo.replace(RE_EJEMPLO, () => MARCA_CONTENIDO) // n8n recibe la plantilla sin el ejemplo
     const titulo = typeof datos.titulo === 'string' && datos.titulo.trim() ? datos.titulo.trim() : 'Ejemplo'
     ejemplo = armar(crudo.replace(RE_EJEMPLO, () => cuerpo.replace(/<\//g, '<\\/')))
@@ -55,7 +57,27 @@ export function armarSubida(crudo) {
   for (const marca of MARCAS_INTERNAS) {
     if (html.includes(marca)) return { ok: false, error: 'Quedó sin reemplazar ' + marca + ': esa marca la arma el sistema y no puede repetirse.' }
   }
-  return { ok: true, html, ejemplo }
+  return { ok: true, html, ejemplo, esquema: ejemplo ? esquema : null }
+}
+
+// Campos del contenido de ejemplo: lista ordenada de rutas con su tipo («bloques[].titulo:texto»). Dos variantes de la misma categoría deben tener la misma.
+// «nivel» y «meta.nivel» no cuentan: la formación es opcional en cualquier plantilla.
+const IGNORAR_CAMPOS = new Set(['nivel', 'meta.nivel'])
+export function esquemaDe(datos) {
+  const out = new Set()
+  const visitar = (v, ruta) => {
+    if (v === null || v === undefined) return
+    if (Array.isArray(v)) { out.add(ruta + ':[]'); for (const x of v) visitar(x, ruta + '[]'); return }
+    if (typeof v === 'object') { if (ruta) out.add(ruta + ':{}'); for (const k of Object.keys(v)) visitar(v[k], ruta ? ruta + '.' + k : k); return }
+    out.add(ruta + ':' + (typeof v === 'number' ? 'numero' : typeof v === 'boolean' ? 'booleano' : 'texto'))
+  }
+  visitar(datos, '')
+  return [...out].filter((p) => !IGNORAR_CAMPOS.has(p.split(':')[0])).sort()
+}
+export function compararEsquemas(referencia, nuevo) {
+  const r = new Set(referencia), n = new Set(nuevo)
+  const faltan = referencia.filter((p) => !n.has(p)), sobran = nuevo.filter((p) => !r.has(p))
+  return { coincide: !faltan.length && !sobran.length, faltan, sobran }
 }
 
 // Cabeceras con las que se entrega una plantilla subida: aislada del resto de la plataforma.
