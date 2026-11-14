@@ -2,11 +2,20 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '../lib/api.js'
 import { ListaCategorias, kb, MAX_BYTES } from './CategoriasPlantillas.jsx'
 import { verNombre } from '../lib/nombres.js'
+import { NOMBRE_FORMACION, conFormacion } from '../lib/formaciones.js'
 
 // Ventana «Subir variante»: una plantilla HTML nueva en una categoría. El nombre lo genera el servidor (ID de la categoría + orden: g-08-v01…).
 // Se abre desde la galería de diseños; al subir, la galería recarga las categorías y muestra el nombre que se le dio.
-export default function SubirVariante({ cats, categoriaInicial = '', onCerrar, onSubida }) {
-  const [categoria, setCategoria] = useState(categoriaInicial)
+export default function SubirVariante({ cats, formacion = '', categoriaInicial = '', onCerrar, onSubida }) {
+  // Con una formación elegida en la galería, solo se ofrecen las categorías que la sirven (con su prioridad P / C); «Ver todas» quita el filtro.
+  const [soloFormacion, setSoloFormacion] = useState(!!formacion)
+  const prioridad = (c) => { const f = ((cats.formaciones || {})[c.id] || []).find((x) => x.formacion === formacion); return f ? f.prioridad : '' }
+  const sirve = (c) => !!prioridad(c)
+  const visibles = soloFormacion && formacion ? cats.categorias.filter(sirve) : cats.categorias
+  const [categoria, setCategoria] = useState(() => {
+    const ok = !formacion || sirve(cats.categorias.find((c) => c.id === categoriaInicial) || { id: '' })
+    return ok ? categoriaInicial : ''
+  })
   const [archivo, setArchivo] = useState({ nombre: '', bytes: 0, html: '' })
   const [error, setError] = useState('')
   const [ocupado, setOcupado] = useState(false)
@@ -72,7 +81,10 @@ export default function SubirVariante({ cats, categoriaInicial = '', onCerrar, o
           {error && <div className="msg bad" role="alert">{error}</div>}
           <div className="sv-campo">
             <span className="sv-lbl">Categoría</span>
-            <ListaCategorias valor={categoria} categorias={cats.categorias} ocupado={ocupado} onChange={setCategoria} etiqueta="Categoría" vacio="Elegir categoría…" />
+            <ListaCategorias valor={categoria} categorias={visibles} ocupado={ocupado} onChange={setCategoria} etiqueta="Categoría" vacio="Elegir categoría…" insignia={soloFormacion && formacion ? prioridad : undefined} />
+            {soloFormacion && formacion && (
+              <p className="sv-filtro">Solo categorías de {NOMBRE_FORMACION[formacion]}{visibles.length === 0 ? ': ninguna todavía' : ''}. <button type="button" className="sv-enlace" onClick={() => setSoloFormacion(false)}>Ver todas</button></p>
+            )}
             <small>{categoria ? 'El nombre se genera solo: ' + categoria.toLowerCase() + '-v01, -v02… según el orden de subida.' : 'El nombre se genera solo con el ID de la categoría: G-08-V01…'}</small>
           </div>
           <input ref={entrada} type="file" accept=".html,.htm,text/html" hidden onChange={(e) => { const f = e.target.files[0]; e.target.value = ''; leer(f) }} />
@@ -90,7 +102,7 @@ export default function SubirVariante({ cats, categoriaInicial = '', onCerrar, o
             <div className="sv-prev">
               <p className={'sv-nota' + (prev.conEjemplo ? '' : ' aviso')}>{prev.conEjemplo ? 'Se muestra con el contenido de ejemplo que trae el archivo.' : 'No trae contenido de ejemplo: se verá vacía en la galería.'}</p>
               <div className="sv-marco" ref={marco}>
-                <iframe sandbox="allow-scripts" title="Vista previa del archivo" srcDoc={prev.html} style={{ width: 1280, height: 720, transform: `scale(${esc})` }} />
+                <iframe sandbox="allow-scripts" title="Vista previa del archivo" srcDoc={conFormacion(prev.html, formacion)} style={{ width: 1280, height: 720, transform: `scale(${esc})` }} />
               </div>
               {prev.nombre
                 ? <p className="sv-nombre">Se guardará como <b>{verNombre(prev.nombre)}</b></p>

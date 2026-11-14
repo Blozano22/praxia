@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { verNombre } from '../lib/nombres.js'
 import { api } from '../lib/api.js'
+import { FORMACIONES, NOMBRE_FORMACION, PRIORIDAD } from '../lib/formaciones.js'
 import VistaPlantilla from './VistaPlantilla.jsx'
 import './categorias.css'
 
@@ -11,6 +12,49 @@ const RE_ID = /^[A-Z]{1,4}-[0-9]{2,3}$/
 export const MAX_BYTES = 1536 * 1024
 const TIPOS = { recurso: ['Recursos', 'Recurso'], actividad: ['Actividades', 'Actividad de autoaprendizaje'] }
 export const kb = (b) => (b < 1024 * 1024 ? Math.max(1, Math.round(b / 1024)) + ' KB' : (b / 1024 / 1024).toFixed(1) + ' MB')
+
+// Etiquetas de las formaciones a las que sirve una categoría (con P / C: prioritaria o complementaria).
+export function EtiquetasFormacion({ lista, vacio = true }) {
+  if (!lista || !lista.length) return vacio ? <div className="cat-forms"><span className="cat-form-ninguna">Sin formaciones asignadas</span></div> : null
+  return (
+    <div className="cat-forms" aria-label="Formaciones de la categoría">
+      {lista.map((f) => {
+        const info = FORMACIONES.find((x) => x.id === f.formacion)
+        return (
+          <span key={f.formacion} className="cat-form-et" title={NOMBRE_FORMACION[f.formacion] + ' · ' + (PRIORIDAD[f.prioridad] || f.prioridad)}>
+            <i style={{ background: info ? info.base : '#8590a8' }} aria-hidden="true" />
+            {NOMBRE_FORMACION[f.formacion] || f.formacion}
+            <b className={'cat-form-pc ' + f.prioridad}>{f.prioridad}</b>
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
+// Casillas de formación con su prioridad (para editar una categoría).
+function EditorFormaciones({ valor, onChange }) {
+  return (
+    <fieldset className="cat-ren-formaciones">
+      <legend>Formaciones a las que sirve</legend>
+      {FORMACIONES.map((f) => {
+        const on = !!valor[f.id]
+        return (
+          <div key={f.id} className={'cat-ef' + (on ? ' on' : '')}>
+            <label>
+              <input type="checkbox" checked={on} onChange={(e) => { const n = { ...valor }; if (e.target.checked) n[f.id] = 'P'; else delete n[f.id]; onChange(n) }} />
+              <i style={{ background: f.base }} aria-hidden="true" />
+              <span>{f.nombre}</span>
+            </label>
+            <div className="cs-seg chico" role="radiogroup" aria-label={'Prioridad en ' + f.nombre}>
+              {['P', 'C'].map((pr) => <button key={pr} type="button" role="radio" aria-checked={valor[f.id] === pr} disabled={!on} className={valor[f.id] === pr ? 'on' : ''} title={PRIORIDAD[pr]} onClick={() => onChange({ ...valor, [f.id]: pr })}>{pr}</button>)}
+            </div>
+          </div>
+        )
+      })}
+    </fieldset>
+  )
+}
 
 // Fila compacta de «Sin categoría»: nombre · Ver | categoría · Ocultar (una sola línea).
 const I_ETQ = <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z" /><circle cx="7.5" cy="7.5" r="1" /></svg>
@@ -34,7 +78,7 @@ function Seg({ valor, onChange, opciones, etiqueta, chico }) {
 }
 
 // Lista desplegable propia para elegir una categoría: con búsqueda, grupos (Recursos / Actividades) y el ID de cada una.
-export function ListaCategorias({ valor, categorias, onChange, etiqueta, vacio, conVacio, ocupado }) {
+export function ListaCategorias({ valor, categorias, onChange, etiqueta, vacio, conVacio, ocupado, insignia }) {
   const [abierta, setAbierta] = useState(false)
   const [q, setQ] = useState('')
   const caja = useRef(null)
@@ -72,6 +116,7 @@ export function ListaCategorias({ valor, categorias, onChange, etiqueta, vacio, 
                     <button key={c.id} type="button" role="option" aria-selected={c.id === valor} className={'cs-op' + (c.id === valor ? ' sel' : '')} onClick={() => elegir(c.id)}>
                       <span className="cs-op-id">{c.id}</span>
                       <span className="cs-op-n">{c.nombre}</span>
+                      {insignia && insignia(c) && <span className={'pg-pc ' + insignia(c)} title={insignia(c) === 'P' ? 'Prioritaria para esta formación' : 'Complementaria para esta formación'}>{insignia(c)}</span>}
                       {c.id === valor && I_CHECK_OP}
                     </button>
                   ))}
@@ -162,7 +207,12 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
   const asignar = (plantilla, categoria) => hacer(() => api('PUT', '/plantillas/asignacion/' + encodeURIComponent(plantilla), { categoria }))
   const asignarTodas = () => hacer(async () => { for (const n of sin) await api('PUT', '/plantillas/asignacion/' + encodeURIComponent(n), { categoria: paraTodas }); setParaTodas('') }, 'Categoría asignada a ' + sin.length + (sin.length === 1 ? ' plantilla' : ' plantillas'))
   const crear = () => hacer(async () => { await api('POST', '/plantillas/categorias', { id: nueva.id.trim().toUpperCase(), nombre: nueva.nombre.trim(), tipo: nueva.tipo }); setVer(nueva.tipo); setNueva(null) }, 'Categoría creada')
-  const guardarEdicion = () => hacer(async () => { await api('PUT', '/plantillas/categorias/' + edit.id, { nombre: edit.nombre.trim(), tipo: edit.tipo }); if (edit.tipo !== ver) setVer(edit.tipo); setEdit(null) }, 'Cambios guardados')
+  const guardarEdicion = () => hacer(async () => {
+    await api('PUT', '/plantillas/categorias/' + edit.id, { nombre: edit.nombre.trim(), tipo: edit.tipo })
+    await api('PUT', '/plantillas/categorias/' + edit.id + '/formaciones', { formaciones: FORMACIONES.filter((f) => edit.formaciones && edit.formaciones[f.id]).map((f) => ({ formacion: f.id, prioridad: edit.formaciones[f.id] })) })
+    if (edit.tipo !== ver) setVer(edit.tipo)
+    setEdit(null)
+  }, 'Cambios guardados')
   const quitar = (id) => hacer(async () => { await api('DELETE', '/plantillas/categorias/' + id); setBorrar('') }, 'Categoría eliminada')
 
   const ocultas = useMemo(() => new Set(d ? d.ocultas || [] : []), [d])
@@ -252,16 +302,18 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
                           <button className="btn sm" type="submit" disabled={ocupado || !edit.nombre.trim()}>Guardar</button>
                           <button className="btn sec sm" type="button" onClick={() => setEdit(null)}>Cancelar</button>
                         </div>
+                        <EditorFormaciones valor={edit.formaciones || {}} onChange={(formaciones) => setEdit({ ...edit, formaciones })} />
                       </form>
                     ) : (
                       <h3>{c.nombre}</h3>
                     )}
                     {!(edit && edit.id === c.id) && <span className="cat-cuenta" title={n + (n === 1 ? ' variante' : ' variantes')}><b>{n}</b><small>{n === 1 ? 'variante' : 'variantes'}</small></span>}
                   </header>
+                  {!(edit && edit.id === c.id) && <EtiquetasFormacion lista={(d.formaciones || {})[c.id]} />}
                   {puedeCambiar && !(edit && edit.id === c.id) && (
                     <div className="cat-acc">
                       <button className="btn sec sm" aria-expanded={gestionando === c.id} onClick={() => setGestionando(gestionando === c.id ? '' : c.id)}>{gestionando === c.id ? 'Cerrar variantes' : 'Gestionar variantes'}</button>
-                      <button className="btn sec sm" onClick={() => setEdit({ id: c.id, nombre: c.nombre, tipo: c.tipo })}>Editar</button>
+                      <button className="btn sec sm" onClick={() => setEdit({ id: c.id, nombre: c.nombre, tipo: c.tipo, formaciones: Object.fromEntries(((d.formaciones || {})[c.id] || []).map((f) => [f.formacion, f.prioridad])) })}>Editar</button>
                       {borrar === c.id
                         ? <><button className="btn danger sm" disabled={ocupado} onClick={() => quitar(c.id)}>Sí, eliminar</button><button className="btn sec sm" onClick={() => setBorrar('')}>No</button></>
                         : <button className="btn danger sm" onClick={() => setBorrar(c.id)}>Eliminar</button>}

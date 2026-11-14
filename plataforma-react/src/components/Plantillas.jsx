@@ -4,6 +4,7 @@ import Titulo from './Titulo.jsx'
 import RevisionPlantilla, { ESTADO } from './RevisionPlantilla.jsx'
 import CategoriasPlantillas from './CategoriasPlantillas.jsx'
 import SubirVariante from './SubirVariante.jsx'
+import { FORMACIONES, NOMBRE_FORMACION, conFormacion } from '../lib/formaciones.js'
 import { api, RUTA_API } from '../lib/api.js'
 import { CARGA, CATALOGO, ejemploDe, nombrePublico } from '../lib/ejemplos.js'
 
@@ -78,6 +79,7 @@ function SelectorCategoria({ opciones, actual, onElegir, deshabilitado }) {
       <button type="button" className="pg-dd-btn" aria-haspopup="listbox" aria-expanded={abierto} disabled={deshabilitado} onClick={() => setAbierto(!abierto)}>
         {o.id && <span className="pg-id">{o.id}</span>}
         <span className="pg-dd-n">{o.nombre}</span>
+        {o.pc && <span className={'pg-pc ' + o.pc} title={o.pc === 'P' ? 'Prioritaria para esta formación' : 'Complementaria para esta formación'}>{o.pc}</span>}
         <span className="pg-dd-v">{nd(o.n)}</span>
         {o.c.total > 0 && <ChipRevision c={o.c} />}
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
@@ -90,6 +92,7 @@ function SelectorCategoria({ opciones, actual, onElegir, deshabilitado }) {
               <button key={x.i} type="button" role="option" aria-selected={x.i === actual} className={'pg-op' + (x.i === actual ? ' sel' : '')} onClick={() => { onElegir(x.i); setAbierto(false); setQ('') }}>
                 {x.id && <span className="pg-id">{x.id}</span>}
                 <span className="pg-op-n">{x.nombre}</span>
+                {x.pc && <span className={'pg-pc ' + x.pc} title={x.pc === 'P' ? 'Prioritaria para esta formación' : 'Complementaria para esta formación'}>{x.pc}</span>}
                 <span className="pg-op-v">{nd(x.n)}</span>
                 <ChipRevision c={x.c} />
               </button>
@@ -109,6 +112,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
   const [vista, setVista] = useState('galeria') // galeria | categorias (las categorías que usa n8n)
   const [tipo, setTipo] = useState(() => (gruposTodos.find(([g]) => !esActividad(g)) || gruposTodos[0])[1][0][0])
   const [q, setQ] = useState('')
+  const [formacion, setFormacion] = useState('') // '' = todas; si no, el id de la formación (tecnologico, profesional…): filtra las categorías y colorea la vista previa
   const [full, setFull] = useState(false)
   const [html, setHtml] = useState('')
   const [error, setError] = useState('')
@@ -172,7 +176,14 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
     ;['recurso', 'actividad'].forEach((t) => { if (sin[t].length) res[t].push(['Sin categoría', sin[t]]) })
     return res
   }, [cats, activas, gruposTodos, revisiones])
-  const grupos = gruposPorClase[clase]
+  // Con una formación elegida solo salen las categorías que la sirven (las sin categoría no aplican a ninguna).
+  const gruposClase = useMemo(() => {
+    if (!formacion || !cats) return gruposPorClase
+    const sirve = (id) => !!id && ((cats.formaciones || {})[id] || []).some((f) => f.formacion === formacion)
+    return { recurso: gruposPorClase.recurso.filter(([, , id]) => sirve(id)), actividad: gruposPorClase.actividad.filter(([, , id]) => sirve(id)) }
+  }, [gruposPorClase, formacion, cats])
+  const prioridadEn = (id) => { const f = formacion && cats ? ((cats.formaciones || {})[id] || []).find((x) => x.formacion === formacion) : null; return f ? f.prioridad : '' }
+  const grupos = gruposClase[clase]
   // si el diseño elegido ya no está en lo que se muestra (cambió la clase o llegaron las categorías), se elige el primero
   useEffect(() => { if (grupos.length && !grupos.some(([, l]) => l.some(([k]) => k === tipo))) setTipo(grupos[0][1][0][0]) }, [grupos]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -231,7 +242,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
   const res = busca ? todos.filter((t) => (t.n + ' ' + t.g).toLowerCase().includes(busca)) : null
   const elegir = (k) => { setTipo(k); setQ('') }
 
-  const abrir = () => { const u = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' })); window.open(u, '_blank', 'noopener'); setTimeout(() => URL.revokeObjectURL(u), 60000) }
+  const abrir = () => { const u = URL.createObjectURL(new Blob([conFormacion(html, formacion)], { type: 'text/html;charset=utf-8' })); window.open(u, '_blank', 'noopener'); setTimeout(() => URL.revokeObjectURL(u), 60000) }
   const bajar = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' })); a.download = nombre; document.body.append(a); a.click(); a.remove() }
 
   // ---- Estado de revisión de cada categoría: qué diseños ya se revisaron (aprobados) y cuáles faltan.
@@ -242,15 +253,19 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
     c.completa = c.total > 0 && c.pend === 0
     return c
   }
-  const detalleRev = (c) => [
-    c.aprobada && c.aprobada + (c.aprobada === 1 ? ' aprobada' : ' aprobadas'),
-    c.revision && c.revision + ' en revisión',
-    c.corregida && c.corregida + (c.corregida === 1 ? ' corregida' : ' corregidas'),
-    c.rechazada && c.rechazada + (c.rechazada === 1 ? ' rechazada' : ' rechazadas'),
-    c.nada && c.nada + ' sin revisar'
-  ].filter(Boolean).join(' · ')
+  // Detalle de lo que falta, sin repetir lo que ya dicen la etiqueta («Faltan N») y «X de N aprobadas»: solo se muestra si hay algo más que contar
+  // (diseños en revisión, corregidos o rechazados); si lo único que falta es revisar, no se escribe otra vez.
+  const detalleRev = (c) => {
+    const otros = [
+      c.revision && c.revision + ' en revisión',
+      c.corregida && c.corregida + (c.corregida === 1 ? ' corregida' : ' corregidas'),
+      c.rechazada && c.rechazada + (c.rechazada === 1 ? ' rechazada' : ' rechazadas')
+    ].filter(Boolean)
+    if (!otros.length) return ''
+    return [...otros, c.nada && c.nada + ' sin revisar'].filter(Boolean).join(' · ')
+  }
   const resumenCat = resumenDe(lista)
-  const opcionesCat = grupos.map(([g, l, id], i) => ({ i, id: id || '', nombre: corto(g), n: l.length, c: resumenDe(l) }))
+  const opcionesCat = grupos.map(([g, l, id], i) => ({ i, id: id || '', nombre: corto(g), n: l.length, c: resumenDe(l), pc: id ? prioridadEn(id) : '' }))
   const irACategoria = (i) => { const [, l] = grupos[(i + grupos.length) % grupos.length]; setQ(''); setTipo(l[0][0]) }
   const [subiendo, setSubiendo] = useState(false)
   const recargarCats = () => api('GET', '/plantillas/categorias').then(setCats).catch(() => {})
@@ -302,9 +317,24 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
           <span className="pg-lb">Clase de HTML</span>
           <div className="pg-seg" role="tablist" aria-label="Clase de HTML">
             {['recurso', 'actividad'].map((c) => {
-              const g = gruposPorClase[c]
+              const g = gruposClase[c]
               const total = g.reduce((a, [, l]) => a + l.length, 0)
               return <button key={c} type="button" role="tab" aria-selected={clase === c} className={clase === c ? 'on' : ''} disabled={!g.length} onClick={() => { setClase(c); setQ('') }}>{CLASES[c]} <span>· {total}</span></button>
+            })}
+          </div>
+        </div>
+        <div className="pg-forma">
+          <span className="pg-lb">Formación</span>
+          <div className="pg-chips" role="radiogroup" aria-label="Formación">
+            <button type="button" role="radio" aria-checked={!formacion} className={'pg-chipf' + (!formacion ? ' on' : '')} onClick={() => setFormacion('')}>Todas</button>
+            {FORMACIONES.map((f) => {
+              const on = formacion === f.id
+              return (
+                <button key={f.id} type="button" role="radio" aria-checked={on} className={'pg-chipf' + (on ? ' on' : '')} style={on ? { background: f.base, borderColor: f.base } : undefined} onClick={() => { setFormacion(f.id); setQ('') }}>
+                  {on ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" /></svg> : <i style={{ background: f.base }} aria-hidden="true" />}
+                  {f.nombre}
+                </button>
+              )
             })}
           </div>
         </div>
@@ -318,6 +348,12 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
         </div>
       </div>
 
+      {grupos.length === 0 ? (
+        <div className="card pg-vacio">
+          <b>{formacion ? 'Ninguna categoría de ' + CLASES[clase].toLowerCase() + ' sirve a ' + (NOMBRE_FORMACION[formacion] || 'esta formación') + ' todavía.' : 'Todavía no hay diseños en esta clase.'}</b>
+          <span>{formacion ? 'Pruebe con otra formación o con «Todas». Quien administra las categorías puede asignarlas en «Categorías para n8n».' : ''}</span>
+        </div>
+      ) : (
       <div className="pl2-cuerpo">
         <section className={'pl2-prev' + (full ? ' full' : '')} aria-label="Vista previa">
           <div className="pl2-barra">
@@ -331,9 +367,9 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
           {publica && html && !ejSubido && <p className="vp-nota aviso">Esta variante <b>no tiene un ejemplo con contenido</b>: sola se ve vacía, porque n8n le pone el título y el contenido de cada recurso. Esto es la plantilla tal cual.</p>}
           <div className="pl2-caja" ref={caja} style={full ? { maxWidth: 'calc((100vh - 130px) * 16 / 9)' } : undefined}>
             {!html && !error && <p className="help" style={{ padding: 18 }}>Cargando…</p>}
-            {html && <iframe sandbox="allow-scripts" title={'Plantilla ' + verNombre(titulo)} srcDoc={html} style={{ width: 1280, height: 720, transform: `scale(${esc})` }} />}
+            {html && <iframe sandbox="allow-scripts" title={'Plantilla ' + verNombre(titulo)} srcDoc={conFormacion(html, formacion)} style={{ width: 1280, height: 720, transform: `scale(${esc})` }} />}
           </div>
-          {!full && <p className="help pl2-pie">Se ve a 1280 × 720, sin barras de desplazamiento, con la paleta de la institución.</p>}
+          {!full && <p className="help pl2-pie">{formacion ? 'Se ve con los colores de ' + NOMBRE_FORMACION[formacion] + '. Los diseños antiguos, que traen su propio ejemplo fijo, no cambian de color.' : 'Se ve a 1280 × 720, sin barras de desplazamiento, con la paleta de la institución.'}</p>}
           {!full && <RevisionPlantilla key={tipo} plantilla={tipo} titulo={verNombre(titulo)} historial={deTipo(tipo)} puedeRevisar={puedeRevisar} puedeCorregir={puedeCorregir} yo={yo} aviso={aviso} onNueva={(r) => setRevisiones((l) => [r, ...l])} onEditada={(r) => setRevisiones((l) => l.map((x) => (x.id === r.id ? r : x)))} />}
         </section>
 
@@ -347,7 +383,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
                   <span>{resumenCat.aprobada} de {resumenCat.total} aprobadas</span>
                 </div>
                 <div className="pg-rev-barra" role="img" aria-label={resumenCat.aprobada + ' de ' + resumenCat.total + ' aprobadas'}><i style={{ width: (resumenCat.total ? (resumenCat.aprobada / resumenCat.total) * 100 : 0) + '%' }} /></div>
-                <small>{detalleRev(resumenCat)}</small>
+                {detalleRev(resumenCat) && <small>{detalleRev(resumenCat)}</small>}
               </div>
             )}
             {!res && (
@@ -361,10 +397,12 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
               <button key={t.k} className={t.k === tipo ? 'on' : ''} onClick={() => elegir(t.k)}>
                 <span className="pl2-n">{res ? '•' : i + 1}</span>
                 <span><b>{verNombre(t.n)}</b>{res && <small>{t.g}</small>}</span>
-                {t.sinEj && <span className="pl2-sinej" title="No hay un diseño de ejemplo con contenido para esta plantilla">sin ejemplo</span>}
-                {deTipo(t.k)[0]
-                  ? <span className={'pill rv-mini ' + ESTADO[deTipo(t.k)[0].estado].clase}>{ESTADO[deTipo(t.k)[0].estado].texto}</span>
-                  : <span className="pill rv-mini pg-sinrev">Sin revisar</span>}
+                <span className="pg-etqs">
+                  {t.sinEj && <span className="pl2-sinej" title="No hay un diseño de ejemplo con contenido para esta plantilla">sin ejemplo</span>}
+                  {deTipo(t.k)[0]
+                    ? <span className={'pill rv-mini ' + ESTADO[deTipo(t.k)[0].estado].clase}>{ESTADO[deTipo(t.k)[0].estado].texto}</span>
+                    : <span className="pill rv-mini pg-sinrev">Sin revisar</span>}
+                </span>
               </button>
             ))}
             {res && res.length === 0 && <p className="help">No hay plantillas con esa palabra. Pruebe con «acordeón» o «tiempo».</p>}
@@ -387,7 +425,8 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
           </div>
         </aside>
       </div>
-      {subiendo && cats && <SubirVariante cats={cats} categoriaInicial={codigoActual ? codigoActual.id : ''} onCerrar={() => setSubiendo(false)} onSubida={async (nombre) => { await recargarCats(); if (aviso) aviso('Plantilla subida' + (nombre ? ': ' + verNombre(nombre) : '')) }} />}
+      )}
+      {subiendo && cats && <SubirVariante cats={cats} formacion={formacion} categoriaInicial={codigoActual ? codigoActual.id : ''} onCerrar={() => setSubiendo(false)} onSubida={async (nombre) => { await recargarCats(); if (aviso) aviso('Plantilla subida' + (nombre ? ': ' + verNombre(nombre) : '')) }} />}
     </div>
   )
 }
