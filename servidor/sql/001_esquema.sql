@@ -48,12 +48,14 @@ INSERT INTO rol_permisos (rol_id, permiso_id) VALUES
   (1,6), (1,7),
   (2,1), (2,2), (2,3), (2,4), (2,5),
   (3,1), (3,2), (3,3), (3,4),
-  (1,8), (2,8), (3,8), (4,8),
+  (1,8), (2,8), (4,8),
   (1,9), (4,9),
   (1,10),
-  (1,11), (2,11), (3,11), (4,11),
+  (1,11), (2,11), (4,11),
   (5,8), (5,12)
   ON CONFLICT DO NOTHING;
+-- El docente no ve las plantillas HTML: se le quitan los permisos de verlas que tenía antes (la migración se puede repetir).
+DELETE FROM rol_permisos WHERE rol_id = 3 AND permiso_id IN (8, 11);
 
 -- ---------------------------------------------------------------- usuarios
 CREATE TABLE IF NOT EXISTS usuarios (

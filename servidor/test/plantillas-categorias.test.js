@@ -72,7 +72,7 @@ test('punto de partida: el catálogo ya está creado, las plantillas de nombre i
 test('quién puede: ver, cualquiera que vea las plantillas; cambiar, quien las revisa (diseñador y administrador), y sin sesión nada', async () => {
   assert.equal((await fetch(base + '/api/plantillas/categorias', { headers: { 'x-ova': '1' } })).status, 401)
   const ana = await entrar('ana@u.co')
-  assert.equal((await ana('GET', '/plantillas/categorias')).status, 200)
+  assert.equal((await ana('GET', '/plantillas/categorias')).status, 403) // el docente no ve las plantillas HTML
   assert.equal((await ana('POST', '/plantillas/categorias', { id: 'G-20', nombre: 'Nueva' })).status, 403)
   assert.equal((await ana('PUT', '/plantillas/asignacion/crucigrama', { categoria: 'G-09' })).status, 403)
   assert.equal((await ana('DELETE', '/plantillas/categorias/G-09')).status, 403)
@@ -297,7 +297,7 @@ test('rol «editor_html»: ve la galería y sube variantes con vista previa, per
   assert.ok(yo.permisos.includes('plantillas.ver') && yo.permisos.includes('plantillas.subir'))
   for (const p of ['plantillas.revisar', 'plantillas.corregir', 'plantillas.categorias']) assert.equal(yo.permisos.includes(p), false, p)
   const yoDani = await (await dani('GET', '/auth/yo')).json()
-  assert.ok(yoDani.permisos.includes('plantillas.categorias')); assert.equal((await (await ana('GET', '/auth/yo')).json()).permisos.includes('plantillas.categorias'), true)
+  assert.ok(yoDani.permisos.includes('plantillas.categorias')); assert.equal((await (await ana('GET', '/auth/yo')).json()).permisos.includes('plantillas.categorias'), false) // el docente no ve nada de las plantillas
   // ve la galería (categorías, revisiones) en solo lectura
   assert.equal((await edi('GET', '/plantillas/categorias')).status, 200)
   assert.equal((await edi('GET', '/plantillas/revisiones')).status, 200)

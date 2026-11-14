@@ -68,8 +68,8 @@ const enviar = (c, plantilla, estado, observacion, extra = {}) => c('POST', '/pl
 const historial = async (c, plantilla) => (await (await c('GET', '/plantillas/revisiones')).json()).filter((x) => x.plantilla === plantilla)
 
 test('las decisiones de la primera versión se copian al historial nuevo al migrar', async () => {
-  const ana = await entrar('ana@u.co')
-  const h = await historial(ana, 'antigua')
+  const dani = await entrar('dani@u.co')
+  const h = await historial(dani, 'antigua')
   assert.equal(h.length, 1)
   assert.equal(h[0].estado, 'aprobada'); assert.equal(h[0].usuario, 'Persona Antigua'); assert.equal(h[0].rol, 'disenador'); assert.equal(h[0].editadoEn, null)
 })
@@ -88,7 +88,7 @@ test('el diseñador pide cambios, la solicitud queda registrada y solo la ve (no
   const f = await r.json()
   assert.equal(f.estado, 'revision'); assert.equal(f.docUrl, DOC); assert.equal(f.usuario, 'Dani'); assert.equal(f.rol, 'disenador'); assert.equal(f.editadoEn, null)
   assert.equal((await enviar(ana, 'lectura', 'aprobada', '')).status, 403) // un docente no decide
-  assert.equal((await ana('GET', '/plantillas/revisiones')).status, 200) // pero sí ve
+  assert.equal((await ana('GET', '/plantillas/revisiones')).status, 403) // el docente no ve las plantillas
 })
 
 test('quien envió la solicitud puede editarla (queda marcada con quién y cuándo); nadie más', async () => {
