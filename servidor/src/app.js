@@ -63,7 +63,10 @@ export function crearApp() {
       const [c, a, u, o, fo, es] = await Promise.all([sinUsuario(Q.categoriasListar), sinUsuario(Q.categoriasAsignaciones), sinUsuario(Q.subidasListar), sinUsuario(Q.ocultasListar), sinUsuario(Q.formacionesListar), sinUsuario(Q.estadosListar).catch(() => ({ rows: [] }))])
       const de = Object.fromEntries(a.rows.map((x) => [x.plantilla, x.categoria]))
       const ocultas = new Set(o.rows.map((x) => x.plantilla)) // plantillas del sistema quitadas de n8n desde la pantalla
-      const delBuild = (base.plantillas || []).filter((p) => !u.rows.some((x) => x.nombre === p.nombre) && !ocultas.has(p.nombre))
+      // Praxia es la única fuente del catálogo: el índice lista solo las plantillas SUBIDAS desde la pantalla (las del sistema son archivos del código que usa la propia
+      // plataforma y no se ofrecen a n8n). PLANTILLAS_INDICE_SOLO_SUBIDAS=0 devuelve el comportamiento anterior (subidas y las del build que no estén quitadas).
+      const soloSubidas = process.env.PLANTILLAS_INDICE_SOLO_SUBIDAS !== '0'
+      const delBuild = soloSubidas ? [] : (base.plantillas || []).filter((p) => !u.rows.some((x) => x.nombre === p.nombre) && !ocultas.has(p.nombre))
       const todas = [...delBuild, ...u.rows.map((x) => ({ nombre: x.nombre, archivo: x.nombre + '.html', subida: true }))].sort((x, y) => x.nombre.localeCompare(y.nombre))
       const tipoDe = Object.fromEntries(c.rows.map((k) => [k.id, k.tipo]))
       // Estado de revisión de cada plantilla (aprobada | en_revision | rechazada) y desde cuándo: el último paso del historial; sin historial, en_revision.

@@ -4,6 +4,7 @@ import { api } from '../lib/api.js'
 import { ListaCategorias, kb, MAX_BYTES } from './CategoriasPlantillas.jsx'
 import { verNombre } from '../lib/nombres.js'
 import { NOMBRE_FORMACION, conFormacion } from '../lib/formaciones.js'
+import DetalleCampos from './DetalleCampos.jsx'
 
 const MAX_ARCHIVOS = 20
 
@@ -18,7 +19,7 @@ function nombreEn(primero, k) {
 
 // Ventana «Subir variante»: una o varias plantillas HTML (hasta 20) a la MISMA categoría. El nombre de cada una lo genera el servidor
 // (ID de la categoría + orden: g-08-v01…). Se revisan una por una, sin guardarlas, y se suben UNA TRAS OTRA en el orden de la lista.
-export default function SubirVariante({ cats, formacion = '', categoriaInicial = '', onCerrar, onSubida }) {
+export default function SubirVariante({ cats, formacion = '', categoriaInicial = '', puedeRevisar = false, onCerrar, onSubida }) {
   // Con una formación elegida en la galería, solo se ofrecen las categorías que la sirven (con su prioridad P / C); «Ver todas» quita el filtro.
   const [soloFormacion, setSoloFormacion] = useState(!!formacion)
   const prioridad = (c) => { const f = ((cats.formaciones || {})[c.id] || []).find((x) => x.formacion === formacion); return f ? f.prioridad : '' }
@@ -37,6 +38,7 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
   const [aviso, setAviso] = useState('')
   const [error, setError] = useState('')
   const [abierto, setAbierto] = useState('') // id del archivo cuya vista previa está abierta
+  const [aceptarDistintos, setAceptarDistintos] = useState(false) // solo quien revisa: subir aunque los campos no coincidan con los de la categoría
   const [arrastrando, setArrastrando] = useState(false)
   const [esc, setEsc] = useState(0.4)
   const entrada = useRef(null)
@@ -56,7 +58,7 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
         let res
         try {
           const r = await api('POST', '/plantillas/subidas/previa', { html: i.html, ...(categoria ? { categoria } : {}) })
-          res = { fase: 'ok', conEjemplo: !!r.conEjemplo, html: r.html || '', nombre: r.nombre || null }
+          res = { fase: 'ok', conEjemplo: !!r.conEjemplo, html: r.html || '', nombre: r.nombre || null, esquema: r.esquema || null }
         } catch (e) { res = { fase: 'error', mensaje: e.message || 'No se pudo revisar el archivo.' } }
         if (!vigente) return
         cache.current.set(k, res)
@@ -107,7 +109,9 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
     setAbierto((p) => (p === id ? '' : p)); setAviso('')
   }
 
-  const validos = items.filter((i) => !i.errorLocal && revs[i.id] && revs[i.id].fase === 'ok')
+  const distinto = (i) => !!(revs[i.id] && revs[i.id].fase === 'ok' && revs[i.id].esquema && !revs[i.id].esquema.coincide)
+  const nDistintos = items.filter((i) => !i.errorLocal && distinto(i)).length
+  const validos = items.filter((i) => !i.errorLocal && revs[i.id] && revs[i.id].fase === 'ok' && (!distinto(i) || (puedeRevisar && aceptarDistintos)))
   const revisando = items.some((i) => !i.errorLocal && (!revs[i.id] || revs[i.id].fase === 'revisando'))
   const primero = validos.length ? revs[validos[0].id].nombre : null
   const anunciado = (i) => { const k = validos.indexOf(i); return k < 0 ? null : nombreEn(primero, k) }
@@ -124,7 +128,7 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
       setAvance({ n: n + 1, total: lista.length })
       setEnvio((p) => ({ ...p, [i.id]: { fase: 'subiendo' } }))
       try {
-        const r = await api('POST', '/plantillas/subidas', { html: i.html, categoria })
+        const r = await api('POST', '/plantillas/subidas', { html: i.html, categoria, ...(distinto(i) && puedeRevisar && aceptarDistintos ? { esquemaDistinto: true } : {}) })
         hechos++
         setEnvio((p) => ({ ...p, [i.id]: { fase: 'subido', real: (r && r.nombre) || anunciado(i) } }))
       } catch (err) {
@@ -139,7 +143,7 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
 
   const subidos = items.filter((i) => envio[i.id] && envio[i.id].fase === 'subido')
   const fallidos = items.filter((i) => envio[i.id] && envio[i.id].fase === 'no_subido')
-  const conErrores = items.filter((i) => i.errorLocal || (revs[i.id] && revs[i.id].fase === 'error')).length
+  const conErrores = items.filter((i) => i.errorLocal || (revs[i.id] && revs[i.id].fase === 'error') || (distinto(i) && !(puedeRevisar && aceptarDistintos))).length
   const etiquetaSubir = validos.length > 1 ? 'Subir ' + validos.length + ' archivos' : 'Subir variante'
 
   const estadoDe = (i) => {
@@ -149,6 +153,10 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
     const rv = revs[i.id]
     if (!rv || rv.fase === 'revisando') return { k: 'revisando', t: 'Revisando…' }
     if (rv.fase === 'error') return { k: 'error', t: 'Error', m: rv.mensaje }
+    if (distinto(i)) {
+      const sube = puedeRevisar && aceptarDistintos
+      return { k: puedeRevisar ? 'campos' : 'error', t: 'Campos distintos', m: 'No usa los mismos campos que las demás de ' + (categoria || 'la categoría') + (puedeRevisar && !sube ? '. Marque «Subir aunque los campos sean distintos» para enviarla.' : puedeRevisar ? '. Se subirá de todos modos.' : '. No se puede subir.'), esq: rv.esquema }
+    }
     return { k: 'listo', t: 'Listo' }
   }
 
@@ -170,6 +178,7 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
               <p className="sv-filtro">Solo categorías de {NOMBRE_FORMACION[formacion]}{visibles.length === 0 ? ': ninguna todavía' : ''}. <button type="button" className="sv-enlace" onClick={() => setSoloFormacion(false)} disabled={ocupado}>Ver todas</button></p>
             )}
             <small>{categoria ? 'El nombre se genera solo: ' + categoria.toLowerCase() + '-v01, -v02… según el orden de subida. Todos los archivos van a esta categoría.' : 'El nombre se genera solo con el ID de la categoría: G-08-V01…'}</small>
+            <small>Todas las variantes de una categoría usan los mismos campos; solo cambia el diseño.</small>
           </div>
 
           <input ref={entrada} type="file" multiple accept=".html,.htm,text/html" hidden onChange={(e) => { const f = Array.from(e.target.files) /* se copia antes de vaciar el campo */; e.target.value = ''; elegir(f) }} />
@@ -195,7 +204,8 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
                     <div className="sv-fila-tx">
                       <b title={i.nombre}>{i.nombre}</b>
                       <small>{kb(i.bytes)}{nombre ? (envio[i.id] && envio[i.id].fase === 'subido' ? ' · guardado como ' : ' · se guardará como ') : ''}{nombre && <strong>{verNombre(nombre)}</strong>}</small>
-                      {st.m && <span className="sv-fila-err">{st.m}</span>}
+                      {st.m && <span className={'sv-fila-err' + (st.k === 'campos' ? ' amb' : '')}>{st.m}</span>}
+                      {st.esq && <DetalleCampos faltan={st.esq.faltan} sobran={st.esq.sobran} referencia={st.esq.referencia} />}
                     </div>
                     <span className={'sv-est ' + st.k}>{st.k === 'revisando' || st.k === 'subiendo' ? <span className="sv-giro" aria-hidden="true" /> : null}{st.t}</span>
                     {puedeVer && <button type="button" className="sv-ver" aria-expanded={abierto === i.id} onClick={() => setAbierto(abierto === i.id ? '' : i.id)}>{abierto === i.id ? 'Ocultar' : 'Ver'}</button>}
@@ -214,6 +224,9 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
             </ul>
           )}
 
+          {puedeRevisar && nDistintos > 0 && fase === 'edicion' && (
+            <label className="sv-acepta"><input type="checkbox" checked={aceptarDistintos} onChange={(e) => setAceptarDistintos(e.target.checked)} disabled={ocupado} />Subir aunque los campos sean distintos <small>({nDistintos} {nDistintos === 1 ? 'archivo' : 'archivos'})</small></label>
+          )}
           {ocupado && <p className="sv-revisando" role="status"><span className="sv-giro" aria-hidden="true" />Subiendo {avance.n} de {avance.total}…</p>}
           {fase === 'terminado' && (
             <div className={'sv-resumen' + (fallidos.length + conErrores ? ' mal' : '')} role="status">

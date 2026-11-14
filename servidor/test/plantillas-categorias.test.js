@@ -37,6 +37,7 @@ before(async () => {
   process.env.DATABASE_URL = `postgres://ova_app:appclave@localhost:${PUERTO_PG}/ova`
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex')
   process.env.CARPETA_WEB = web
+  process.env.PLANTILLAS_INDICE_SOLO_SUBIDAS = '0' // estas pruebas parten de un índice con las plantillas del build; la prueba de «solo subidas» lo cambia a propósito
   const { crearApp } = await import('../src/app.js')
   const db = await import('../src/db.js')
   const { hashClave } = await import('../src/seguridad.js')
@@ -465,6 +466,24 @@ test('las variantes de una categoría usan los mismos campos de contenido; el í
   for (const n of [n1, n4]) assert.equal((await dani('DELETE', '/plantillas/subidas/' + n)).status, 200)
   const mov = Object.keys((await (await dani('GET', '/plantillas/categorias')).json()).asignaciones).find((n) => n.startsWith('g-10-v'))
   if (mov) assert.equal((await dani('DELETE', '/plantillas/subidas/' + mov)).status, 200)
+})
+
+test('el índice público lista solo las plantillas subidas desde Praxia (Praxia es la única fuente), sin las del sistema', async () => {
+  const dani = await entrar('dani@u.co')
+  const sube = await dani('POST', '/plantillas/subidas', { html: PLANTILLA(), categoria: 'G-12' })
+  assert.equal(sube.status, 201); const nombre = (await sube.json()).nombre
+  delete process.env.PLANTILLAS_INDICE_SOLO_SUBIDAS // comportamiento por defecto
+  try {
+    const ix = await indice()
+    assert.deepEqual(ix.plantillas.map((p) => p.nombre), [nombre])
+    assert.equal(ix.total, 1)
+    assert.deepEqual(ix.categorias.find((c) => c.id === 'G-12').variantes.map((v) => v.nombre), [nombre])
+    assert.deepEqual(ix.categorias.find((c) => c.id === 'G-09').variantes, []) // las del sistema ya no salen
+    assert.deepEqual(ix.sin_categoria, [])
+    assert.ok(ix.marcas && ix.marcas.titulo === '{{TITULO}}') // lo demás del índice sigue igual
+    assert.equal((await fetch(base + '/plantillas-html/' + nombre + '.html')).status, 200)
+  } finally { process.env.PLANTILLAS_INDICE_SOLO_SUBIDAS = '0' }
+  assert.equal((await dani('DELETE', '/plantillas/subidas/' + nombre)).status, 200)
 })
 
 test('borrar una categoría deja sus plantillas sin categoría; si falla la base de datos se entrega el archivo del build tal cual', async () => {

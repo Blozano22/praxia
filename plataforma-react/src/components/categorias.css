@@ -410,3 +410,18 @@
 .pg-aviso{margin:0;font-size:.82rem;line-height:1.5;color:#44506b}.pg-aviso b{color:var(--nav)}.pg-aviso.mal{color:#7a1f19}.pg-aviso.mal b{color:#7a1f19}
 .pg-propia-fin{display:flex;justify-content:flex-end;gap:8px}
 .pg-propia .sv-zona{padding:14px}
+
+/* Campos distintos a los de la categoría */
+.sv-est.campos{background:#fff1c9;color:#6b4a00}
+.sv-fila.campos{background:#fffaea}
+.sv-fila-err.amb{color:#6b4a00}
+.dc-detalle{margin-top:4px;font-size:.78rem;color:#44506b}
+.dc-detalle summary{cursor:pointer;font-weight:700;color:var(--nav)}
+.dc-detalle p{margin:4px 0 0;line-height:1.45;word-break:break-word}.dc-detalle b{color:var(--nav)}
+.sv-acepta{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;background:#fff8e1;border:1px solid #f0dfa8;font-size:.85rem;font-weight:700;color:#6b4a00;cursor:pointer}
+.sv-acepta input{width:16px;height:16px;accent-color:var(--nav)}.sv-acepta small{font-weight:600;opacity:.8}
+.pg-campos{display:inline-block;padding:1px 8px;border-radius:99px;background:#fff1c9;color:#6b4a00;font-size:.64rem;font-weight:800;line-height:1.5;white-space:nowrap}
+
+.pg-conflicto{display:flex;flex-direction:column;gap:6px;align-items:flex-start;padding:10px 12px;border-radius:12px;background:#fdf3f2;border:1px solid #f0cbc7;font-size:.82rem;line-height:1.45;color:#7a1f19}
+.pg-conflicto.amb{background:#fff8e1;border-color:#f0dfa8;color:#6b4a00}
+.pg-conflicto b{color:inherit;font-size:.85rem}.pg-conflicto .dc-detalle{color:inherit}

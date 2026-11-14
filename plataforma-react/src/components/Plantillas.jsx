@@ -412,6 +412,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
                 <span className="pl2-n">{res ? '•' : i + 1}</span>
                 <span><b>{verNombre(t.n)}</b>{res && <small>{t.g}</small>}</span>
                 <span className="pg-etqs">
+                  {cats && cats.subidas && cats.subidas[t.k.startsWith('pub-') ? t.k.slice(4) : nombrePublico(t.k)] && cats.subidas[t.k.startsWith('pub-') ? t.k.slice(4) : nombrePublico(t.k)].esquemaOk === false && <span className="pg-campos" title="No usa los mismos campos que las demás de su categoría">Campos distintos</span>}
                   {t.sinEj && <span className="pl2-sinej" title="No hay un diseño de ejemplo con contenido para esta plantilla">sin ejemplo</span>}
                   {deTipo(t.k)[0]
                     ? <span className={'pill rv-mini ' + ESTADO[deTipo(t.k)[0].estado].clase}>{ESTADO[deTipo(t.k)[0].estado].texto}</span>
@@ -427,7 +428,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
               </button>
             )}
           </div>
-          {puedeGestionarSub && <PlantillaPropia nombre={nSub} info={infoSub} cats={cats} categoriaActual={codigoActual ? codigoActual.id : ''} formacion={formacion} onCambio={alCambiarSub} />}
+          {puedeGestionarSub && <PlantillaPropia puedeRevisar={puedeRevisar} nombre={nSub} info={infoSub} cats={cats} categoriaActual={codigoActual ? codigoActual.id : ''} formacion={formacion} onCambio={alCambiarSub} />}
           <div className="card pl2-uso">
             <h4>Usar esta plantilla</h4>
             <button className="btn" disabled={!html} onClick={abrir}>Abrir en pestaña</button>
@@ -441,7 +442,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
         </aside>
       </div>
       )}
-      {subiendo && cats && <SubirVariante cats={cats} formacion={formacion} categoriaInicial={codigoActual ? codigoActual.id : ''} onCerrar={() => setSubiendo(false)} onSubida={async (r) => { await recargarCats(); if (aviso && r) aviso(r.subidos === 1 && !r.errores ? 'Plantilla subida' : r.subidos + (r.subidos === 1 ? ' plantilla subida' : ' plantillas subidas') + (r.errores ? ', ' + r.errores + ' con error' : '')) }} />}
+      {subiendo && cats && <SubirVariante cats={cats} formacion={formacion} puedeRevisar={puedeRevisar} categoriaInicial={codigoActual ? codigoActual.id : ''} onCerrar={() => setSubiendo(false)} onSubida={async (r) => { await recargarCats(); if (aviso && r) aviso(r.subidos === 1 && !r.errores ? 'Plantilla subida' : r.subidos + (r.subidos === 1 ? ' plantilla subida' : ' plantillas subidas') + (r.errores ? ', ' + r.errores + ' con error' : '')) }} />}
     </div>
   )
 }
