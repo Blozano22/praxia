@@ -138,7 +138,7 @@ De esa forma el agente solo toca el JSON, nunca el HTML, y la plantilla sigue fu
 
 ### 5.1 bis Mismos campos dentro de una categoría
 
-Todas las variantes de una categoría (por ejemplo G-12, línea de tiempo) usan **los mismos campos de contenido**: la categoría define los campos y la variante solo cambia el diseño. Praxia lo comprueba al subir con el contenido de ejemplo: si los campos (nombres, listas y tipos) no coinciden con los de las demás variantes de la categoría, la subida se rechaza y dice qué campos faltan o sobran. Si vas a hacer un diseño con campos distintos, es una categoría distinta. El campo `nivel` (formación) no cuenta.
+Todas las variantes de una categoría (por ejemplo G-12, línea de tiempo) usan **los mismos campos de contenido**: la categoría define los campos y la variante solo cambia el diseño. Praxia lo comprueba al subir con el contenido de ejemplo: si los campos (nombres, listas y tipos) no coinciden con los de las demás variantes de la categoría, la subida se rechaza y dice qué campos faltan o sobran. En las categorías que sirven a varias formaciones (las generales, `G-xx`), cada formación tiene sus propios campos: la comparación es solo con las variantes de **la misma formación**, y por eso la ficha debe decir `Formación:` (tecnologico, profesional, especializacion o doctorado). Si vas a hacer un diseño con campos distintos dentro de la misma formación, es una categoría distinta. El campo `nivel` (formación) no cuenta.
 
 ### 5.2 Respeta los límites del recurso
 

@@ -304,9 +304,10 @@ export const Q = Object.freeze({
   subidaCrear: `INSERT INTO plantilla_subidas (nombre, html_crudo, html, subida_por, subida_nombre, esquema, formacion) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7) ON CONFLICT (nombre) DO NOTHING RETURNING nombre`,
   subidaReemplazar: `UPDATE plantilla_subidas SET html_crudo = $2, html = $3, subida_por = $4, subida_nombre = $5, esquema = $6::jsonb, formacion = coalesce($7, formacion), actualizado = now() WHERE nombre = $1 RETURNING nombre`,
   esquemaReferencia: `SELECT s.nombre, s.esquema FROM plantilla_subidas s JOIN plantilla_categoria pc ON pc.plantilla = s.nombre
-     WHERE pc.categoria = $1 AND s.esquema IS NOT NULL AND s.nombre <> $2 ORDER BY s.creado, s.nombre LIMIT 1`,
+     WHERE pc.categoria = $1 AND s.esquema IS NOT NULL AND s.nombre <> $2 AND ($3::text IS NULL OR s.formacion = $3::text) ORDER BY s.creado, s.nombre LIMIT 1`,
   estadosListar: `SELECT DISTINCT ON (plantilla) plantilla, estado, creado FROM plantilla_historial ORDER BY plantilla, creado DESC, id DESC`,
-  subidaEsquema: `SELECT esquema FROM plantilla_subidas WHERE nombre = $1`,
+  subidaEsquema: `SELECT esquema, formacion FROM plantilla_subidas WHERE nombre = $1`,
+  subidaFormacionPoner: `UPDATE plantilla_subidas SET formacion = $2 WHERE nombre = $1`,
   subidaDueno: `SELECT subida_por FROM plantilla_subidas WHERE nombre = $1`,
   subidaRenombrar: `UPDATE plantilla_subidas SET nombre = $2, actualizado = now() WHERE nombre = $1 RETURNING nombre`,
   historialRenombrar: `UPDATE plantilla_historial SET plantilla = $2 WHERE plantilla = $1`,

@@ -116,7 +116,8 @@ test('el índice público sale agrupado por categoría, sin sesión, y conserva 
   assert.equal(j.categorias.find((c) => c.id === 'G-01').variantes.length, 0) // categoría sin variantes todavía
 })
 
-const PLANTILLA = (extra = '') => '<!doctype html><html lang="es"><head><meta charset="utf-8"><title>{{TITULO}}</title><style>/*CSS*/</style></head><body><div id="app"></div><script>const D=/*CONTENIDO*/;</script>' + extra + '</body></html>'
+// Las categorías del catálogo sirven a varias formaciones, y en ellas cada variante debe decir a cuál pertenece: por defecto la ficha dice «Tecnológico».
+const PLANTILLA = (extra = '') => '<!doctype html><html lang="es"><head><meta charset="utf-8"><!-- Formación: tecnologico --><title>{{TITULO}}</title><style>/*CSS*/</style></head><body><div id="app"></div><script>const D=/*CONTENIDO*/;</script>' + extra + '</body></html>'
 
 test('subir una plantilla desde la pantalla: se arma como las del build, queda en el índice con su categoría y se entrega aislada', async () => {
   const dani = await entrar('dani@u.co')
@@ -427,7 +428,7 @@ test('cada editor puede reemplazar, mover y eliminar solo las plantillas que sub
 test('las variantes de una categoría usan los mismos campos de contenido; el índice dice el estado de cada una y si sus campos coinciden', async () => {
   const dani = await entrar('dani@u.co')
   const edi = await entrar('edi@u.co')
-  const con = (campos) => '<!doctype html><html lang="es"><head><meta charset="utf-8"><title>{{TITULO}}</title></head><body><script type="application/json" id="contenido">/*CONTENIDO*/' + JSON.stringify(campos) + '/*FIN-CONTENIDO*/</script></body></html>'
+  const con = (campos) => '<!doctype html><html lang="es"><head><meta charset="utf-8"><!-- Formación: tecnologico --><title>{{TITULO}}</title></head><body><script type="application/json" id="contenido">/*CONTENIDO*/' + JSON.stringify(campos) + '/*FIN-CONTENIDO*/</script></body></html>'
   const A = { titulo: 'A', bloques: [{ titulo: 'x', texto: 'y' }], nivel: 'tecnologia' }
   const A2 = { titulo: 'Otro', bloques: [{ titulo: 'm', texto: 'n' }, { titulo: 'o', texto: 'p' }] } // mismos campos (cambian los valores y la cantidad; «nivel» no cuenta)
   const B = { titulo: 'B', pasos: [{ nombre: 'x' }] } // campos distintos
@@ -519,11 +520,59 @@ test('la ficha de la plantilla puede decir su categoría y su formación: Praxia
     const v = (await indice()).categorias.find((c) => c.id === 'G-03').variantes.find((x) => x.nombre === n)
     assert.equal(v.formacion, 'profesional')
   } finally { process.env.PLANTILLAS_INDICE_SOLO_SUBIDAS = '0' }
-  // una variante con la ficha sin formación queda con null
-  const sin = (await (await edi('POST', '/plantillas/subidas', { html: con('<!-- sin ficha -->'), categoria: 'G-03' })).json()).nombre
-  assert.equal((await (await edi('GET', '/plantillas/categorias')).json()).subidas[sin].formacion, null)
+  // una categoría compartida (G-03 sirve a varias formaciones) exige la formación: sin ficha ni elección se rechaza, con el motivo; elegida en la pantalla, se guarda
+  const sinF = await edi('POST', '/plantillas/subidas', { html: con('<!-- sin ficha -->'), categoria: 'G-03' })
+  assert.equal(sinF.status, 400); const dsf = await sinF.json(); assert.equal(dsf.requiereFormacion, true); assert.ok(dsf.formaciones.length >= 2)
+  const pvs = await (await edi('POST', '/plantillas/subidas/previa', { html: con('<!-- sin ficha -->'), categoria: 'G-03' })).json()
+  assert.equal(pvs.requiereFormacion, true); assert.equal(pvs.formacionUsada, null)
+  const elegida = await edi('POST', '/plantillas/subidas', { html: con('<!-- sin ficha -->'), categoria: 'G-03', formacion: 'doctorado' })
+  assert.equal(elegida.status, 201); const sin = (await elegida.json()).nombre
+  assert.equal((await (await edi('GET', '/plantillas/categorias')).json()).subidas[sin].formacion, 'doctorado')
+  // la elegida en la pantalla manda sobre la de la ficha (y avisa en la vista previa); una formación que la categoría no sirve se rechaza (G-06 no es de doctorado)
+  const pvc = await (await edi('POST', '/plantillas/subidas/previa', { html: con(ficha('G-03', 'tecnologico')), categoria: 'G-03', formacion: 'doctorado' })).json()
+  assert.equal(pvc.formacionUsada, 'doctorado'); assert.ok(pvc.avisos.some((a) => /tecnologico/.test(a) && /doctorado/.test(a)))
+  assert.equal((await edi('POST', '/plantillas/subidas', { html: con(''), categoria: 'G-06', formacion: 'doctorado' })).status, 400)
   const dani = await entrar('dani@u.co')
   for (const x of [n, sin]) assert.equal((await dani('DELETE', '/plantillas/subidas/' + x)).status, 200)
+})
+
+test('en una categoría compartida cada formación tiene sus propios campos: se compara solo con la misma formación; en las de una formación, con toda la categoría', async () => {
+  const dani = await entrar('dani@u.co')
+  const edi = await entrar('edi@u.co')
+  const con = (campos, form) => '<!doctype html><html lang="es"><head><meta charset="utf-8">' + (form ? '<!-- Formación: ' + form + ' -->' : '') + '<title>{{TITULO}}</title></head><body><script type="application/json" id="contenido">/*CONTENIDO*/' + JSON.stringify(campos) + '/*FIN-CONTENIDO*/</script></body></html>'
+  const A = { titulo: 'A', bloques: [{ titulo: 'x', texto: 'y' }] }
+  const B = { titulo: 'B', pasos: [{ nombre: 'x' }] }
+  const creadas = []
+  const sube = async (campos, form, extra = {}) => { const r = await edi('POST', '/plantillas/subidas', { html: con(campos, form), categoria: 'G-04', ...extra }); if (r.status === 201) creadas.push((await r.json()).nombre); return r }
+  // tecnologico fija A; especializacion puede fijar B sin chocar con la de tecnologico
+  assert.equal((await sube(A, 'tecnologico')).status, 201)
+  assert.equal((await sube(B, 'especializacion')).status, 201)
+  // dentro de la misma formación sí se exige lo mismo
+  const mal = await sube(B, 'tecnologico'); assert.equal(mal.status, 409); assert.equal((await mal.json()).requiereConfirmacion, 'esquema')
+  assert.equal((await sube(A, 'especializacion')).status, 409)
+  assert.equal((await sube({ ...A, titulo: 'otro' }, 'tecnologico')).status, 201)
+  // la formación elegida en la pantalla manda sobre la de la ficha
+  assert.equal((await sube(B, 'tecnologico', { formacion: 'especializacion' })).status, 201)
+  // la vista previa compara con la formación que se vaya a usar
+  const pv = await (await edi('POST', '/plantillas/subidas/previa', { html: con(B, 'tecnologico'), categoria: 'G-04', formacion: 'especializacion' })).json()
+  assert.equal(pv.esquema.coincide, true)
+  // el índice: cada variante coincide con la referencia de su propia formación
+  const ix = await indice()
+  const vs = ix.categorias.find((c) => c.id === 'G-04').variantes.filter((v) => creadas.includes(v.nombre))
+  assert.equal(vs.length, 4); assert.ok(vs.every((v) => v.esquema_ok === true))
+  assert.deepEqual(vs.map((v) => v.formacion).sort(), ['especializacion', 'especializacion', 'tecnologico', 'tecnologico'])
+  // reemplazar también compara dentro de la formación
+  assert.equal((await edi('PUT', '/plantillas/subidas/' + creadas[0], { html: con(B, 'tecnologico') })).status, 409)
+  assert.equal((await edi('PUT', '/plantillas/subidas/' + creadas[1], { html: con(B, 'especializacion') })).status, 200)
+  // una variante sin formación en una categoría compartida (como las subidas antes de este cambio) no sirve de referencia a nadie y pide formación al reemplazarla
+  await pool.query('UPDATE plantilla_subidas SET formacion = NULL WHERE nombre = $1', [creadas[1]])
+  assert.equal((await edi('PUT', '/plantillas/subidas/' + creadas[1], { html: con(B) })).status, 400)
+  assert.equal((await edi('PUT', '/plantillas/subidas/' + creadas[1], { html: con(B), formacion: 'especializacion' })).status, 200) // la de especialización más antigua con campos es la otra B: coincide
+  // una categoría de una sola formación se compara con toda la categoría, venga la formación que venga
+  assert.equal((await dani('PUT', '/plantillas/categorias/G-04/formaciones', { formaciones: [{ formacion: 'tecnologico' }] })).status, 200)
+  const solo = await sube(B, 'tecnologico'); assert.equal(solo.status, 409)
+  assert.equal((await dani('PUT', '/plantillas/categorias/G-04/formaciones', { formaciones: [{ formacion: 'tecnologico', prioridad: 'P' }, { formacion: 'profesional', prioridad: 'P' }, { formacion: 'especializacion', prioridad: 'C' }, { formacion: 'doctorado', prioridad: 'C' }] })).status, 200)
+  for (const n of creadas) assert.equal((await dani('DELETE', '/plantillas/subidas/' + n)).status, 200)
 })
 
 test('borrar una categoría deja sus plantillas sin categoría; si falla la base de datos se entrega el archivo del build tal cual', async () => {

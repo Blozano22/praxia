@@ -74,12 +74,15 @@ export function crearApp() {
       const ultimo = Object.fromEntries(es.rows.map((x) => [x.plantilla, x]))
       const ESTADO = { aprobada: 'aprobada', rechazada: 'rechazada', revision: 'en_revision', corregida: 'en_revision' }
       const estadoDe = (n) => { const f = ultimo['pub-' + n] || ultimo[n]; return f ? { estado: ESTADO[f.estado] || 'en_revision', fecha_estado: new Date(f.creado).toISOString() } : { estado: 'en_revision', fecha_estado: null } }
-      // ¿Los campos de la variante coinciden con los de su categoría? (la referencia es la subida más antigua de la categoría con ejemplo); null si no hay con qué comparar
+      // ¿Los campos de la variante coinciden con los de su categoría? La referencia es la subida más antigua con ejemplo de la categoría; si la categoría sirve a varias
+      // formaciones, de la categoría Y la formación de la variante (las que no tienen formación no se comparan). null si no hay con qué comparar.
+      const compartidas = new Set(Object.entries(fo.rows.reduce((m, x) => ({ ...m, [x.categoria]: (m[x.categoria] || 0) + 1 }), {})).filter(([, n]) => n >= 2).map(([k]) => k))
+      const formDe = Object.fromEntries(u.rows.map((x) => [x.nombre, x.formacion || null])) // formación de la variante (elegida al subirla o según su ficha)
+      const claveRef = (n) => (de[n] ? (compartidas.has(de[n]) ? (formDe[n] ? de[n] + '|' + formDe[n] : null) : de[n]) : null)
       const refDe = {}
-      for (const x of [...u.rows].sort((p, q) => new Date(p.creado) - new Date(q.creado) || p.nombre.localeCompare(q.nombre))) if (x.esquema && de[x.nombre] && !refDe[de[x.nombre]]) refDe[de[x.nombre]] = x.esquema
+      for (const x of [...u.rows].sort((p, q) => new Date(p.creado) - new Date(q.creado) || p.nombre.localeCompare(q.nombre))) { const k = claveRef(x.nombre); if (x.esquema && k && !refDe[k]) refDe[k] = x.esquema }
       const esqDe = Object.fromEntries(u.rows.map((x) => [x.nombre, x.esquema]))
-      const formDe = Object.fromEntries(u.rows.map((x) => [x.nombre, x.formacion || null])) // formación de la variante, según su ficha
-      const esquemaOk = (n) => (esqDe[n] && refDe[de[n]] ? compararEsquemas(refDe[de[n]], esqDe[n]).coincide : null)
+      const esquemaOk = (n) => { const k = claveRef(n); return esqDe[n] && k && refDe[k] ? compararEsquemas(refDe[k], esqDe[n]).coincide : null }
       const plantillas = todas.map((p) => ({ ...p, id_catalogo: de[p.nombre] || null, tipo: tipoDe[de[p.nombre]] || null, ...estadoDe(p.nombre), esquema_ok: esquemaOk(p.nombre), formacion: formDe[p.nombre] || null }))
       const ORDEN_FORMACIONES = ['tecnologico', 'profesional', 'especializacion', 'doctorado']
       const formacionesDe = (id) => fo.rows.filter((x) => x.categoria === id).map((x) => ({ formacion: x.formacion, prioridad: x.prioridad })).sort((p, q) => ORDEN_FORMACIONES.indexOf(p.formacion) - ORDEN_FORMACIONES.indexOf(q.formacion)) // para qué formaciones sirve la categoría (P prioritaria, C complementaria)

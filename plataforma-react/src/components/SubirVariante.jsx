@@ -30,6 +30,14 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
     return ok ? categoriaInicial : ''
   })
 
+  // En una categoría que sirve a varias formaciones, cada formación tiene sus propios campos: hay que elegir a cuál pertenece el grupo que se sube.
+  // Se preselecciona la formación elegida en la galería; si no, la que diga la ficha del primer archivo.
+  const [formSel, setFormSel] = useState(formacion || '')
+  const [formManual, setFormManual] = useState(false) // true cuando la persona eligió la formación: ya no se cambia sola
+  const formsDe = (id) => ((cats.formaciones || {})[id] || []).map((x) => x.formacion)
+  const formsCat = categoria ? formsDe(categoria) : []
+  const compartida = formsCat.length >= 2
+  const formUsada = compartida && formsCat.includes(formSel) ? formSel : '' // lo que se envía al servidor
   const [items, setItems] = useState([]) // archivos en el orden en que se eligieron: { id, nombre, bytes, html, errorLocal }
   const [revs, setRevs] = useState({}) // revisión de cada uno: { fase: 'revisando'|'ok'|'aviso'|'error', conEjemplo, html, nombre, mensaje }
   const [envio, setEnvio] = useState({}) // estado de la subida de cada uno: { fase: 'subiendo'|'subido'|'no_subido', real, mensaje }
@@ -51,15 +59,15 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
   useEffect(() => {
     let vigente = true
     const lista = items.filter((i) => !i.errorLocal)
-    setRevs(Object.fromEntries(lista.map((i) => [i.id, cache.current.get(categoria + '|' + i.id) || { fase: 'revisando' }])))
+    setRevs(Object.fromEntries(lista.map((i) => [i.id, cache.current.get(categoria + '|' + formUsada + '|' + i.id) || { fase: 'revisando' }])))
     ;(async () => {
       for (const i of lista) {
-        const k = categoria + '|' + i.id
+        const k = categoria + '|' + formUsada + '|' + i.id
         if (cache.current.has(k)) continue
         let res
         try {
-          const r = await api('POST', '/plantillas/subidas/previa', { html: i.html, ...(categoria ? { categoria } : {}) })
-          res = { fase: 'ok', conEjemplo: !!r.conEjemplo, html: r.html || '', nombre: r.nombre || null, esquema: r.esquema || null, ficha: r.ficha || null, avisos: Array.isArray(r.avisos) ? r.avisos : [] }
+          const r = await api('POST', '/plantillas/subidas/previa', { html: i.html, ...(categoria ? { categoria } : {}), ...(formUsada ? { formacion: formUsada } : {}) })
+          res = { fase: 'ok', conEjemplo: !!r.conEjemplo, html: r.html || '', nombre: r.nombre || null, esquema: r.esquema || null, ficha: r.ficha || null, avisos: Array.isArray(r.avisos) ? r.avisos : [], requiereFormacion: !!r.requiereFormacion }
         } catch (e) { res = { fase: 'error', mensaje: e.message || 'No se pudo revisar el archivo.' } }
         if (!vigente) return
         cache.current.set(k, res)
@@ -67,7 +75,15 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
       }
     })()
     return () => { vigente = false }
-  }, [items, categoria])
+  }, [items, categoria, formUsada])
+
+  // Formación del grupo: la de la galería si la categoría la sirve; si no, la que diga la ficha del primer archivo que la traiga (nunca se cambia una elegida a mano).
+  useEffect(() => {
+    if (!compartida || formManual) return
+    const deFicha = items.map((i) => revs[i.id] && revs[i.id].ficha && revs[i.id].ficha.formacion).find((f) => f && formsCat.includes(f))
+    const nueva = formsCat.includes(formacion) ? formacion : (deFicha || '')
+    if (nueva !== formSel) setFormSel(nueva)
+  }, [categoria, revs, items]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Si no hay categoría elegida y el primer archivo con ficha trae «Categoría Praxia», se preselecciona (nunca se cambia una ya elegida).
   useEffect(() => {
@@ -132,9 +148,10 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
   const anunciado = (i) => { const k = validos.indexOf(i); return k < 0 ? null : nombreEn(primero, k) }
 
   // Sube UNO TRAS OTRO, en el orden de la lista y esperando cada respuesta (así los números salen en orden). Una que falla no detiene las demás.
+  const faltaFormacion = compartida && !formUsada // categoría compartida sin formación elegida
   const subirTodo = async (e) => {
     e.preventDefault()
-    if ((!categoria && !categoriaPorFicha) || !validos.length || revisando || ocupado || fase === 'terminado') return
+    if ((!categoria && !categoriaPorFicha) || !validos.length || revisando || ocupado || fase === 'terminado' || faltaFormacion) return
     setFase('subiendo'); setError(''); setAbierto('')
     const lista = [...validos]
     let hechos = 0
@@ -143,7 +160,7 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
       setAvance({ n: n + 1, total: lista.length })
       setEnvio((p) => ({ ...p, [i.id]: { fase: 'subiendo' } }))
       try {
-        const r = await api('POST', '/plantillas/subidas', { html: i.html, ...(categoria ? { categoria } : {}), ...(distinto(i) && puedeRevisar && aceptarDistintos ? { esquemaDistinto: true } : {}) })
+        const r = await api('POST', '/plantillas/subidas', { html: i.html, ...(categoria ? { categoria } : {}), ...(formUsada ? { formacion: formUsada } : {}), ...(distinto(i) && puedeRevisar && aceptarDistintos ? { esquemaDistinto: true } : {}) })
         hechos++
         setEnvio((p) => ({ ...p, [i.id]: { fase: 'subido', real: (r && r.nombre) || anunciado(i) } }))
       } catch (err) {
@@ -170,7 +187,7 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
     if (rv.fase === 'error') return { k: 'error', t: 'Error', m: rv.mensaje }
     if (distinto(i)) {
       const sube = puedeRevisar && aceptarDistintos
-      return { k: puedeRevisar ? 'campos' : 'error', t: 'Campos distintos', m: 'No usa los mismos campos que las demás de ' + (categoria || 'la categoría') + (puedeRevisar && !sube ? '. Marque «Subir aunque los campos sean distintos» para enviarla.' : puedeRevisar ? '. Se subirá de todos modos.' : '. No se puede subir.'), esq: rv.esquema }
+      return { k: puedeRevisar ? 'campos' : 'error', t: 'Campos distintos', m: 'No usa los mismos campos que las demás de ' + (categoria || 'la categoría') + (formUsada ? ' en ' + NOMBRE_FORMACION[formUsada] : '') + (puedeRevisar && !sube ? '. Marque «Subir aunque los campos sean distintos» para enviarla.' : puedeRevisar ? '. Se subirá de todos modos.' : '. No se puede subir.'), esq: rv.esquema }
     }
     return { k: 'listo', t: 'Listo' }
   }
@@ -194,8 +211,19 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
             )}
             <small>{categoria ? 'El nombre se genera solo: ' + categoria.toLowerCase() + '-v01, -v02… según el orden de subida. Todos los archivos van a esta categoría.' : 'El nombre se genera solo con el ID de la categoría: G-08-V01…'}</small>
             {fichaCat && categoria === fichaCat && <small className="sv-ficha">La ficha del archivo dice {fichaCat}.</small>}
-            <small>Todas las variantes de una categoría usan los mismos campos; solo cambia el diseño.</small>
+            <small>{compartida ? 'Todas las variantes de una misma formación usan los mismos campos; solo cambia el diseño.' : 'Todas las variantes de una categoría usan los mismos campos; solo cambia el diseño.'}</small>
           </div>
+          {compartida && (
+            <div className="sv-campo">
+              <span className="sv-lbl" id="sv-form-lbl">Formación</span>
+              <div className="sv-formas" role="radiogroup" aria-labelledby="sv-form-lbl">
+                {formsCat.map((f) => (
+                  <button key={f} type="button" role="radio" aria-checked={formUsada === f} className={'sv-forma' + (formUsada === f ? ' on' : '')} disabled={ocupado || fase === 'terminado'} onClick={() => { setFormSel(f); setFormManual(true) }}>{NOMBRE_FORMACION[f] || f}</button>
+                ))}
+              </div>
+              <small className={faltaFormacion ? 'sv-form-falta' : undefined}>{faltaFormacion ? categoria + ' sirve para varias formaciones: elija a cuál pertenece este grupo. Cada formación tiene sus propios campos.' : 'Todo el grupo se sube como ' + NOMBRE_FORMACION[formUsada] + ' y se compara solo con las variantes de esa formación.'}</small>
+            </div>
+          )}
 
           <input ref={entrada} type="file" multiple accept=".html,.htm,text/html" hidden onChange={(e) => { const f = Array.from(e.target.files) /* se copia antes de vaciar el campo */; e.target.value = ''; elegir(f) }} />
           <button type="button" className={'sv-zona' + (arrastrando ? ' sobre' : '') + (items.length ? ' lleno' : '')} disabled={ocupado} onClick={() => entrada.current.click()}
@@ -231,7 +259,7 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
                       <div className="sv-prev">
                         <p className={'sv-nota' + (rv.conEjemplo ? '' : ' aviso')}>{rv.conEjemplo ? 'Se muestra con el contenido de ejemplo que trae el archivo.' : 'No trae contenido de ejemplo: se verá vacía en la galería.'}</p>
                         <div className="sv-marco" ref={marco}>
-                          <iframe sandbox="allow-scripts" title={'Vista previa de ' + i.nombre} srcDoc={conFormacion(rv.html, formacion)} style={marcoPlantilla(esc)} />
+                          <iframe sandbox="allow-scripts" title={'Vista previa de ' + i.nombre} srcDoc={conFormacion(rv.html, formUsada || formacion)} style={marcoPlantilla(esc)} />
                         </div>
                       </div>
                     )}
@@ -263,7 +291,7 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
             ? <button type="button" className="btn" onClick={onCerrar}>Cerrar</button>
             : <>
               <button type="button" className="btn sec" onClick={onCerrar} disabled={ocupado}>Cancelar</button>
-              <button type="submit" className="btn" disabled={ocupado || (!categoria && !categoriaPorFicha) || !validos.length || revisando}>{ocupado ? 'Subiendo ' + avance.n + ' de ' + avance.total + '…' : etiquetaSubir}</button>
+              <button type="submit" className="btn" disabled={ocupado || (!categoria && !categoriaPorFicha) || !validos.length || revisando || faltaFormacion}>{ocupado ? 'Subiendo ' + avance.n + ' de ' + avance.total + '…' : etiquetaSubir}</button>
             </>}
         </footer>
       </form>

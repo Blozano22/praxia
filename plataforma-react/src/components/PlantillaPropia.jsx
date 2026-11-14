@@ -6,6 +6,19 @@ import { NOMBRE_FORMACION, conFormacion } from '../lib/formaciones.js'
 import { marcoPlantilla } from '../lib/vista.js'
 import DetalleCampos from './DetalleCampos.jsx'
 
+// Selector de formación (cuando la categoría sirve a varias, cada formación tiene sus propios campos y hay que decir a cuál pertenece la plantilla).
+function ElegirFormacion({ lista, valor, onChange, ocupado, etiqueta }) {
+  return (
+    <div className="sv-campo">
+      <span className="sv-lbl">{etiqueta}</span>
+      <div className="sv-formas" role="radiogroup" aria-label={etiqueta}>
+        {lista.map((f) => <button key={f} type="button" role="radio" aria-checked={valor === f} className={'sv-forma' + (valor === f ? ' on' : '')} disabled={ocupado} onClick={() => onChange(f)}>{NOMBRE_FORMACION[f] || f}</button>)}
+      </div>
+      {!valor && <small className="sv-form-falta">Elija la formación: cada una tiene sus propios campos.</small>}
+    </div>
+  )
+}
+
 // Panel de una plantilla SUBIDA (la propia, o cualquiera si se revisa): mover a otra categoría, reemplazar el archivo y eliminarla.
 // Solo se muestra para plantillas subidas; las del sistema no tienen nada de esto.
 export default function PlantillaPropia({ nombre, info, cats, categoriaActual, formacion = '', puedeRevisar = false, onCambio }) {
@@ -16,7 +29,9 @@ export default function PlantillaPropia({ nombre, info, cats, categoriaActual, f
   // mover
   const [destino, setDestino] = useState('')
   const [soloFormacion, setSoloFormacion] = useState(!!formacion)
+  const [formM, setFormM] = useState('') // formación con la que queda al mover a una categoría compartida
   // reemplazar
+  const [formR, setFormR] = useState('') // formación al reemplazar, si su categoría es compartida
   const [archivo, setArchivo] = useState(null) // { nombre, bytes, html }
   const [prev, setPrev] = useState({ estado: 'nada' }) // nada | revisando | ok | error
   const [esc, setEsc] = useState(0.2)
@@ -24,7 +39,18 @@ export default function PlantillaPropia({ nombre, info, cats, categoriaActual, f
   const marco = useRef(null)
 
   // al cambiar de plantilla el panel vuelve a su estado de reposo
-  useEffect(() => { setModo(''); setError(''); setConflicto(null); setDestino(''); setArchivo(null); setPrev({ estado: 'nada' }) }, [nombre])
+  useEffect(() => { setModo(''); setError(''); setConflicto(null); setDestino(''); setArchivo(null); setPrev({ estado: 'nada' }); setFormR((info && info.formacion) || formacion || '') }, [nombre]) // eslint-disable-line react-hooks/exhaustive-deps
+  const formsDe = (id) => ((cats.formaciones || {})[id] || []).map((x) => x.formacion)
+  const formsM = destino ? formsDe(destino) : []
+  const compartidaM = formsM.length >= 2
+  const formMUsada = compartidaM && formsM.includes(formM) ? formM : ''
+  useEffect(() => { // al elegir destino se preselecciona la formación que ya tenía la plantilla, o la de la galería
+    const f = formsDe(destino)
+    setFormM(f.includes(info && info.formacion) ? info.formacion : f.includes(formacion) ? formacion : '')
+  }, [destino]) // eslint-disable-line react-hooks/exhaustive-deps
+  const formsR = categoriaActual ? formsDe(categoriaActual) : []
+  const compartidaR = formsR.length >= 2
+  const formRUsada = compartidaR && formsR.includes(formR) ? formR : ''
 
   const prioridad = (c) => { const f = ((cats.formaciones || {})[c.id] || []).find((x) => x.formacion === formacion); return f ? f.prioridad : '' }
   const base = cats.categorias.filter((c) => c.id !== categoriaActual)
@@ -35,11 +61,11 @@ export default function PlantillaPropia({ nombre, info, cats, categoriaActual, f
     if (!archivo) { setPrev({ estado: 'nada' }); return undefined }
     let vigente = true
     setPrev({ estado: 'revisando' })
-    api('POST', '/plantillas/subidas/previa', { html: archivo.html, ...(categoriaActual ? { categoria: categoriaActual, reemplaza: nombre } : {}) })
+    api('POST', '/plantillas/subidas/previa', { html: archivo.html, ...(categoriaActual ? { categoria: categoriaActual, reemplaza: nombre } : {}), ...(formRUsada ? { formacion: formRUsada } : {}) })
       .then((r) => { if (vigente) setPrev({ estado: 'ok', conEjemplo: !!r.conEjemplo, html: r.html || '', esquema: r.esquema || null }) })
       .catch((e) => { if (vigente) setPrev({ estado: 'error', mensaje: e.message || 'No se pudo revisar el archivo.' }) })
     return () => { vigente = false }
-  }, [archivo, categoriaActual, nombre])
+  }, [archivo, categoriaActual, nombre, formRUsada])
   useEffect(() => {
     const el = marco.current
     if (!el) return undefined
@@ -58,7 +84,7 @@ export default function PlantillaPropia({ nombre, info, cats, categoriaActual, f
     if (!destino || ocupado) return
     setOcupado(true); setError(''); setConflicto(null)
     try {
-      const r = await api('POST', '/plantillas/subidas/' + encodeURIComponent(nombre) + '/mover', { categoria: destino, ...(forzar ? { esquemaDistinto: true } : {}) })
+      const r = await api('POST', '/plantillas/subidas/' + encodeURIComponent(nombre) + '/mover', { categoria: destino, ...(formMUsada ? { formacion: formMUsada } : {}), ...(forzar ? { esquemaDistinto: true } : {}) })
       await onCambio({ tipo: 'mover', nuevo: r && r.nombre, mensaje: 'Plantilla movida' + (r && r.nombre ? ': ' + verNombre(r.nombre) : '') })
       setModo('')
     } catch (e) {
@@ -78,7 +104,7 @@ export default function PlantillaPropia({ nombre, info, cats, categoriaActual, f
     if (distinto && !(puedeRevisar && forzar)) return
     setOcupado(true); setError(''); setConflicto(null)
     try {
-      await api('PUT', '/plantillas/subidas/' + encodeURIComponent(nombre), { html: archivo.html, ...(forzar ? { esquemaDistinto: true } : {}) })
+      await api('PUT', '/plantillas/subidas/' + encodeURIComponent(nombre), { html: archivo.html, ...(formRUsada ? { formacion: formRUsada } : {}), ...(forzar ? { esquemaDistinto: true } : {}) })
       await onCambio({ tipo: 'reemplazar', mensaje: 'Plantilla reemplazada' })
       cancelar()
     } catch (e) {
@@ -125,10 +151,11 @@ export default function PlantillaPropia({ nombre, info, cats, categoriaActual, f
         <div className="pg-propia-panel">
           <ListaCategorias valor={destino} categorias={visibles} ocupado={ocupado} onChange={setDestino} etiqueta="Categoría de destino" vacio="Elegir categoría…" insignia={soloFormacion && formacion ? prioridad : undefined} />
           {soloFormacion && formacion && <p className="sv-filtro">Solo categorías de {NOMBRE_FORMACION[formacion]}. <button type="button" className="sv-enlace" onClick={() => setSoloFormacion(false)} disabled={ocupado}>Ver todas</button></p>}
+          {compartidaM && <ElegirFormacion lista={formsM} valor={formMUsada} onChange={setFormM} ocupado={ocupado} etiqueta="Formación en la categoría de destino" />}
           {elegido && <p className="pg-aviso">Cambiará su nombre a <b>{elegido.id}-V##</b>: el número lo asigna el servidor. Su historial de revisión se traslada con ella.</p>}
           <div className="pg-propia-fin">
             <button type="button" className="btn sec sm" disabled={ocupado} onClick={cancelar}>Cancelar</button>
-            <button type="button" className="btn sm" disabled={ocupado || !destino} onClick={() => mover(false)}>{ocupado ? 'Moviendo…' : 'Mover'}</button>
+            <button type="button" className="btn sm" disabled={ocupado || !destino || (compartidaM && !formMUsada)} onClick={() => mover(false)}>{ocupado ? 'Moviendo…' : 'Mover'}</button>
           </div>
         </div>
       )}
@@ -140,12 +167,13 @@ export default function PlantillaPropia({ nombre, info, cats, categoriaActual, f
             <b>{archivo ? archivo.nombre : 'Elegir archivo HTML'}</b>
             <span>{archivo ? kb(archivo.bytes) + ' · pulse para cambiarlo' : 'Reemplaza el contenido de ' + verNombre(nombre) + ' · hasta 1,5 MB'}</span>
           </button>
+          {compartidaR && <ElegirFormacion lista={formsR} valor={formRUsada} onChange={setFormR} ocupado={ocupado} etiqueta="Formación de esta plantilla" />}
           {prev.estado === 'revisando' && <p className="sv-revisando" role="status"><span className="sv-giro" aria-hidden="true" />Revisando…</p>}
           {prev.estado === 'error' && <div className="msg bad" role="alert">{prev.mensaje}</div>}
           {distinto && (
             <div className={'pg-conflicto' + (puedeRevisar ? ' amb' : '')} role="alert">
               <b>{puedeRevisar ? 'Campos distintos' : 'Campos distintos: no se puede reemplazar'}</b>
-              <span>No usa los mismos campos que las demás de {categoriaActual || 'la categoría'}{puedeRevisar ? '. Puede reemplazarla de todos modos.' : '.'}</span>
+              <span>No usa los mismos campos que las demás de {categoriaActual || 'la categoría'}{formRUsada ? ' en ' + NOMBRE_FORMACION[formRUsada] : ''}{puedeRevisar ? '. Puede reemplazarla de todos modos.' : '.'}</span>
               <DetalleCampos faltan={prev.esquema.faltan} sobran={prev.esquema.sobran} referencia={prev.esquema.referencia} />
             </div>
           )}
@@ -153,13 +181,13 @@ export default function PlantillaPropia({ nombre, info, cats, categoriaActual, f
             <div className="sv-prev">
               <p className={'sv-nota' + (prev.conEjemplo ? '' : ' aviso')}>{prev.conEjemplo ? 'Se muestra con el contenido de ejemplo que trae el archivo.' : 'No trae contenido de ejemplo: se verá vacía en la galería.'}</p>
               <div className="sv-marco" ref={marco}>
-                <iframe sandbox="allow-scripts" title="Vista previa del archivo nuevo" srcDoc={conFormacion(prev.html, formacion)} style={marcoPlantilla(esc)} />
+                <iframe sandbox="allow-scripts" title="Vista previa del archivo nuevo" srcDoc={conFormacion(prev.html, formRUsada || formacion)} style={marcoPlantilla(esc)} />
               </div>
             </div>
           )}
           <div className="pg-propia-fin">
             <button type="button" className="btn sec sm" disabled={ocupado} onClick={cancelar}>Cancelar</button>
-            <button type="button" className="btn sm" disabled={ocupado || !archivo || prev.estado !== 'ok' || (distinto && !puedeRevisar)} onClick={() => reemplazar(distinto)}>{ocupado ? 'Reemplazando…' : distinto ? 'Reemplazar de todos modos' : 'Reemplazar'}</button>
+            <button type="button" className="btn sm" disabled={ocupado || !archivo || prev.estado !== 'ok' || (compartidaR && !formRUsada) || (distinto && !puedeRevisar)} onClick={() => reemplazar(distinto)}>{ocupado ? 'Reemplazando…' : distinto ? 'Reemplazar de todos modos' : 'Reemplazar'}</button>
           </div>
         </div>
       )}
