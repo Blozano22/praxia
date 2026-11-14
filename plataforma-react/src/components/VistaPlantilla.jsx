@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { marcoPlantilla } from '../lib/vista.js'
 import { verNombre } from '../lib/nombres.js'
 import { api, RUTA_API } from '../lib/api.js'
 import { cargarEjemplo } from '../lib/ejemplos.js'
@@ -77,7 +78,7 @@ export default function VistaPlantilla({ nombre, categoria = null, subida = fals
           {error && <div className="msg bad" role="alert">{error}</div>}
           {!html && !error && <p className="help vp-carga">Cargando…</p>}
           <div className="vp-marco" ref={caja} hidden={!html}>
-            {html && <iframe sandbox="allow-scripts" title={'Vista previa de ' + nombre} srcDoc={html} style={{ width: 1280, height: 720, transform: `scale(${esc})` }} />}
+            {html && <iframe sandbox="allow-scripts" title={'Vista previa de ' + nombre} srcDoc={html} style={marcoPlantilla(esc)} />}
           </div>
         </div>
       </div>

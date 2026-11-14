@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { reducir } from '../lib/vista.js'
 import { construirHtml, descargar, NOMBRES } from '../lib/render.js'
 import { clone, uid } from '../lib/util.js'
 
@@ -20,7 +21,7 @@ export function Tarjeta({ r, onAbrir, onDescargar, onDuplicar, onEliminar }) {
   return (
     <div className="card rc fade">
       <div className="pvw" ref={pv} style={{ height: esc.h }} onClick={onAbrir}>
-        <iframe sandbox="allow-scripts" tabIndex={-1} aria-hidden="true" srcDoc={html} title="Vista previa" style={{ transform: `scale(${esc.s})` }} />
+        <iframe sandbox="allow-scripts" tabIndex={-1} aria-hidden="true" srcDoc={html} title="Vista previa" style={reducir(esc.s)} />
         <div className="ov" />
       </div>
       <div className="bd">

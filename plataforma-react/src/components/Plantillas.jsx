@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { marcoPlantilla } from '../lib/vista.js'
 import { verNombre } from '../lib/nombres.js'
 import Titulo from './Titulo.jsx'
 import RevisionPlantilla, { ESTADO } from './RevisionPlantilla.jsx'
@@ -367,7 +368,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
           {publica && html && !ejSubido && <p className="vp-nota aviso">Esta variante <b>no tiene un ejemplo con contenido</b>: sola se ve vacía, porque n8n le pone el título y el contenido de cada recurso. Esto es la plantilla tal cual.</p>}
           <div className="pl2-caja" ref={caja} style={full ? { maxWidth: 'calc((100vh - 130px) * 16 / 9)' } : undefined}>
             {!html && !error && <p className="help" style={{ padding: 18 }}>Cargando…</p>}
-            {html && <iframe sandbox="allow-scripts" title={'Plantilla ' + verNombre(titulo)} srcDoc={conFormacion(html, formacion)} style={{ width: 1280, height: 720, transform: `scale(${esc})` }} />}
+            {html && <iframe sandbox="allow-scripts" title={'Plantilla ' + verNombre(titulo)} srcDoc={conFormacion(html, formacion)} style={marcoPlantilla(esc)} />}
           </div>
           {!full && <p className="help pl2-pie">{formacion ? 'Se ve con los colores de ' + NOMBRE_FORMACION[formacion] + '. Los diseños antiguos, que traen su propio ejemplo fijo, no cambian de color.' : 'Se ve a 1280 × 720, sin barras de desplazamiento, con la paleta de la institución.'}</p>}
           {!full && <RevisionPlantilla key={tipo} plantilla={tipo} titulo={verNombre(titulo)} historial={deTipo(tipo)} puedeRevisar={puedeRevisar} puedeCorregir={puedeCorregir} yo={yo} aviso={aviso} onNueva={(r) => setRevisiones((l) => [r, ...l])} onEditada={(r) => setRevisiones((l) => l.map((x) => (x.id === r.id ? r : x)))} />}

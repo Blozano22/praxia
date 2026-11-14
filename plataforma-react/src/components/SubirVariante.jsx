@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { marcoPlantilla } from '../lib/vista.js'
 import { api } from '../lib/api.js'
 import { ListaCategorias, kb, MAX_BYTES } from './CategoriasPlantillas.jsx'
 import { verNombre } from '../lib/nombres.js'
@@ -203,7 +204,7 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
                       <div className="sv-prev">
                         <p className={'sv-nota' + (rv.conEjemplo ? '' : ' aviso')}>{rv.conEjemplo ? 'Se muestra con el contenido de ejemplo que trae el archivo.' : 'No trae contenido de ejemplo: se verá vacía en la galería.'}</p>
                         <div className="sv-marco" ref={marco}>
-                          <iframe sandbox="allow-scripts" title={'Vista previa de ' + i.nombre} srcDoc={conFormacion(rv.html, formacion)} style={{ width: 1280, height: 720, transform: `scale(${esc})` }} />
+                          <iframe sandbox="allow-scripts" title={'Vista previa de ' + i.nombre} srcDoc={conFormacion(rv.html, formacion)} style={marcoPlantilla(esc)} />
                         </div>
                       </div>
                     )}
