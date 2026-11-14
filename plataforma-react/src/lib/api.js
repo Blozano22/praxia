@@ -19,7 +19,7 @@ export async function api(metodo, ruta, cuerpo) {
   })
   let datos = null
   try { datos = await r.json() } catch { /* sin cuerpo */ }
-  if (!r.ok) throw new ErrorApi(r.status, (datos && datos.error) || 'Error ' + r.status, datos)
+  if (!r.ok) throw new ErrorApi(r.status, (datos && datos.error) || (r.status === 429 ? 'Demasiadas peticiones seguidas: espere un minuto y vuelva a intentarlo.' : 'Error ' + r.status), datos)
   return datos
 }
 

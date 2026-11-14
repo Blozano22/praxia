@@ -556,6 +556,10 @@ test('en una categoría compartida cada formación tiene sus propios campos: se 
   // la vista previa compara con la formación que se vaya a usar
   const pv = await (await edi('POST', '/plantillas/subidas/previa', { html: con(B, 'tecnologico'), categoria: 'G-04', formacion: 'especializacion' })).json()
   assert.equal(pv.esquema.coincide, true)
+  // sin formación elegida, la vista previa trae la comparación de cada formación (así la pantalla cambia de formación sin pedir otra revisión)
+  const pvt = await (await edi('POST', '/plantillas/subidas/previa', { html: con(B), categoria: 'G-04' })).json()
+  assert.equal(pvt.requiereFormacion, true); assert.equal(pvt.esquema, null)
+  assert.equal(pvt.esquemas.tecnologico.coincide, false); assert.equal(pvt.esquemas.especializacion.coincide, true); assert.equal(pvt.esquemas.doctorado, null)
   // el índice: cada variante coincide con la referencia de su propia formación
   const ix = await indice()
   const vs = ix.categorias.find((c) => c.id === 'G-04').variantes.filter((v) => creadas.includes(v.nombre))

@@ -59,15 +59,15 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
   useEffect(() => {
     let vigente = true
     const lista = items.filter((i) => !i.errorLocal)
-    setRevs(Object.fromEntries(lista.map((i) => [i.id, cache.current.get(categoria + '|' + formUsada + '|' + i.id) || { fase: 'revisando' }])))
+    setRevs(Object.fromEntries(lista.map((i) => [i.id, cache.current.get(categoria + '|' + i.id) || { fase: 'revisando' }])))
     ;(async () => {
       for (const i of lista) {
-        const k = categoria + '|' + formUsada + '|' + i.id
+        const k = categoria + '|' + i.id
         if (cache.current.has(k)) continue
         let res
         try {
-          const r = await api('POST', '/plantillas/subidas/previa', { html: i.html, ...(categoria ? { categoria } : {}), ...(formUsada ? { formacion: formUsada } : {}) })
-          res = { fase: 'ok', conEjemplo: !!r.conEjemplo, html: r.html || '', nombre: r.nombre || null, esquema: r.esquema || null, ficha: r.ficha || null, avisos: Array.isArray(r.avisos) ? r.avisos : [], requiereFormacion: !!r.requiereFormacion }
+          const r = await api('POST', '/plantillas/subidas/previa', { html: i.html, ...(categoria ? { categoria } : {}) }) // sin formación: la respuesta trae la comparación de cada formación y no hay que volver a pedirla al cambiar
+          res = { fase: 'ok', conEjemplo: !!r.conEjemplo, html: r.html || '', nombre: r.nombre || null, esquema: r.esquema || null, esquemas: r.esquemas || {}, ficha: r.ficha || null, avisos: Array.isArray(r.avisos) ? r.avisos : [], requiereFormacion: !!r.requiereFormacion }
         } catch (e) { res = { fase: 'error', mensaje: e.message || 'No se pudo revisar el archivo.' } }
         if (!vigente) return
         cache.current.set(k, res)
@@ -75,7 +75,7 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
       }
     })()
     return () => { vigente = false }
-  }, [items, categoria, formUsada])
+  }, [items, categoria])
 
   // Formación del grupo: la de la galería si la categoría la sirve; si no, la que diga la ficha del primer archivo que la traiga (nunca se cambia una elegida a mano).
   useEffect(() => {
@@ -138,7 +138,9 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
     setAbierto((p) => (p === id ? '' : p)); setAviso('')
   }
 
-  const distinto = (i) => !!(revs[i.id] && revs[i.id].fase === 'ok' && revs[i.id].esquema && !revs[i.id].esquema.coincide)
+  // Comparación de campos que vale: en una categoría compartida, la de la formación elegida (sin formación no se compara); si no, la de la categoría.
+  const esquemaDe = (rv) => (!rv || rv.fase !== 'ok' ? null : compartida ? ((rv.esquemas || {})[formUsada] || null) : rv.esquema)
+  const distinto = (i) => { const e = esquemaDe(revs[i.id]); return !!e && !e.coincide }
   const nDistintos = items.filter((i) => !i.errorLocal && distinto(i)).length
   const validos = items.filter((i) => !i.errorLocal && revs[i.id] && revs[i.id].fase === 'ok' && (!distinto(i) || (puedeRevisar && aceptarDistintos)))
   const revisando = items.some((i) => !i.errorLocal && (!revs[i.id] || revs[i.id].fase === 'revisando'))
@@ -185,9 +187,10 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
     const rv = revs[i.id]
     if (!rv || rv.fase === 'revisando') return { k: 'revisando', t: 'Revisando…' }
     if (rv.fase === 'error') return { k: 'error', t: 'Error', m: rv.mensaje }
+    if (faltaFormacion) return { k: 'campos', t: 'Falta la formación', m: 'Elija arriba la formación del grupo.' }
     if (distinto(i)) {
       const sube = puedeRevisar && aceptarDistintos
-      return { k: puedeRevisar ? 'campos' : 'error', t: 'Campos distintos', m: 'No usa los mismos campos que las demás de ' + (categoria || 'la categoría') + (formUsada ? ' en ' + NOMBRE_FORMACION[formUsada] : '') + (puedeRevisar && !sube ? '. Marque «Subir aunque los campos sean distintos» para enviarla.' : puedeRevisar ? '. Se subirá de todos modos.' : '. No se puede subir.'), esq: rv.esquema }
+      return { k: puedeRevisar ? 'campos' : 'error', t: 'Campos distintos', m: 'No usa los mismos campos que las demás de ' + (categoria || 'la categoría') + (formUsada ? ' en ' + NOMBRE_FORMACION[formUsada] : '') + (puedeRevisar && !sube ? '. Marque «Subir aunque los campos sean distintos» para enviarla.' : puedeRevisar ? '. Se subirá de todos modos.' : '. No se puede subir.'), esq: esquemaDe(rv) }
     }
     return { k: 'listo', t: 'Listo' }
   }
@@ -249,7 +252,7 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
                       <b title={i.nombre}>{i.nombre}{rv && rv.ficha && rv.ficha.formacion && <em className="sv-form" title="Formación que dice la ficha del archivo">{NOMBRE_FORMACION[rv.ficha.formacion] || rv.ficha.formacion}</em>}</b>
                       <small>{kb(i.bytes)}{nombre ? (envio[i.id] && envio[i.id].fase === 'subido' ? ' · guardado como ' : ' · se guardará como ') : ''}{nombre && <strong>{verNombre(nombre)}</strong>}</small>
                       {st.m && <span className={'sv-fila-err' + (st.k === 'campos' ? ' amb' : '')}>{st.m}</span>}
-                      {rv && rv.fase === 'ok' && !envio[i.id] && (rv.avisos || []).map((a, k) => <span key={k} className="sv-fila-aviso">{a}</span>)}
+                      {rv && rv.fase === 'ok' && !envio[i.id] && [...(rv.avisos || []), ...(formUsada && rv.ficha && rv.ficha.formacion && rv.ficha.formacion !== formUsada ? ['La ficha dice formación ' + rv.ficha.formacion + ' y la vas a subir como ' + formUsada + '.'] : [])].map((a, k) => <span key={k} className="sv-fila-aviso">{a}</span>)}
                       {st.esq && <DetalleCampos faltan={st.esq.faltan} sobran={st.esq.sobran} referencia={st.esq.referencia} />}
                     </div>
                     <span className={'sv-est ' + st.k}>{st.k === 'revisando' || st.k === 'subiendo' ? <span className="sv-giro" aria-hidden="true" /> : null}{st.t}</span>

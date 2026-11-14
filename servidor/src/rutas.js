@@ -442,7 +442,7 @@ rutas.delete('/plantillas/sistema/:nombre', exigirSesion, exigirPermiso('plantil
 
 // Subir plantillas nuevas desde la pantalla. Se arman y validan igual que las del build; no pueden pisar una del sistema.
 // Una subida de varios archivos manda, por cada uno, una revisión y una subida (hasta 20 archivos): el tope por minuto lo permite con holgura.
-const limiteSubir = rateLimit({ windowMs: 60 * 1000, limit: 120, keyGenerator: (req) => (req.usuario ? 'u:' + req.usuario.id : ipKeyGenerator(req.ip)), standardHeaders: true, legacyHeaders: false })
+const limiteSubir = rateLimit({ windowMs: 60 * 1000, limit: 240, keyGenerator: (req) => (req.usuario ? 'u:' + req.usuario.id : ipKeyGenerator(req.ip)), standardHeaders: true, legacyHeaders: false })
 const NombreSubida = z.string().regex(/^[a-z0-9-]{1,80}$/)
 const HtmlSubido = z.string().min(1).max(MAX_HTML + 4096)
 // El nombre sale solo del ID de la categoría y del orden de subida: G-08 → g-08-v01, g-08-v02… (minúsculas, que es como se guardan y se sirven los nombres).
@@ -537,8 +537,16 @@ rutas.post('/plantillas/subidas/previa', exigirSesion, exigirAlguno('plantillas.
       if (fo.formaciones.length && !fo.formaciones.includes(armada.ficha.formacion)) avisos.push('La ficha dice formación ' + armada.ficha.formacion + ', pero ' + categoria + ' no está marcada para esa formación.')
       else if (req.bodyOk.formacion && req.bodyOk.formacion !== armada.ficha.formacion) avisos.push('La ficha dice formación ' + armada.ficha.formacion + ' y la vas a subir como ' + req.bodyOk.formacion + '.')
     }
-    if (categoria && (fo.falta || fo.invalida)) avisos.push(errorFormacion(categoria, fo).error)
-    res.json({ ok: true, conEjemplo: !!armada.ejemplo, html: armada.ejemplo || vacia, nombre, ficha: armada.ficha, categoriaUsada: categoria, formacionUsada: fo.formacion, requiereFormacion: !!(fo.falta || fo.invalida), formaciones: fo.formaciones, avisos, esquema: cmp ? { coincide: cmp.coincide, faltan: cmp.faltan, sobran: cmp.sobran, referencia: cmp.referencia } : null })
+    if (categoria && fo.invalida) avisos.push(errorFormacion(categoria, fo).error)
+    // En una categoría compartida la pantalla puede cambiar de formación sin volver a pedir la revisión: se devuelve la comparación de cada formación.
+    const esquemas = {}
+    if (categoria && fo.compartida && armada.esquema) {
+      for (const f of fo.formaciones) {
+        const c = await compararConCategoria(categoria, req.bodyOk.reemplaza || '', armada.esquema, f)
+        esquemas[f] = c ? { coincide: c.coincide, faltan: c.faltan, sobran: c.sobran, referencia: c.referencia } : null
+      }
+    }
+    res.json({ ok: true, esquemas, conEjemplo: !!armada.ejemplo, html: armada.ejemplo || vacia, nombre, ficha: armada.ficha, categoriaUsada: categoria, formacionUsada: fo.formacion, requiereFormacion: !!(fo.falta || fo.invalida), formaciones: fo.formaciones, avisos, esquema: cmp ? { coincide: cmp.coincide, faltan: cmp.faltan, sobran: cmp.sobran, referencia: cmp.referencia } : null })
   } catch (e) { next(e) }
 })
 // Quien revisa puede cambiar cualquier plantilla subida; quien solo sube (Editor HTML) puede reemplazar, mover o eliminar únicamente las que subió él.
