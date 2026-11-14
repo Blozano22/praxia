@@ -31,7 +31,7 @@ const { pool } = await import('../src/db.js')
 const { hashClave } = await import('../src/seguridad.js')
 const { Q } = await import('../src/consultas.js')
 const clave = 'ClaveDemo2026'
-for (const [n, c, r] of [['Administradora', 'admin@demo.co', 'admin'], ['Ana Docente', 'ana@demo.co', 'docente'], ['Beto Coordinador', 'beto@demo.co', 'coordinador'], ['Dani Diseñador', 'dani@demo.co', 'disenador']]) {
+for (const [n, c, r] of [['Administradora', 'admin@demo.co', 'admin'], ['Ana Docente', 'ana@demo.co', 'docente'], ['Beto Coordinador', 'beto@demo.co', 'coordinador'], ['Dani Diseñador', 'dani@demo.co', 'disenador'], ['Edi Editor', 'edi@demo.co', 'editor_html'], ['Edu Editor', 'edu@demo.co', 'editor_html']]) {
   await pool.query(Q.usuarioCrear, [n, c, await hashClave(clave), [r]])
 }
 const { crearApp } = await import('../src/app.js')

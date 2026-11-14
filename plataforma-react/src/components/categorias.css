@@ -396,3 +396,17 @@
 .sv-resumen{display:flex;flex-direction:column;gap:4px;padding:12px 14px;border-radius:12px;background:#f1faf5;border:1px solid #b5dcc9;color:#145c3b;font-size:.85rem}
 .sv-resumen b{font-size:.95rem;color:var(--nav)}.sv-resumen.mal{background:#fff8e1;border-color:#f0dfa8;color:#6b4a00}
 .sv-zona:disabled{opacity:.6;cursor:not-allowed}
+
+/* Panel de la plantilla subida: mover, reemplazar, eliminar */
+.pg-propia{padding:16px;display:flex;flex-direction:column;gap:10px}
+.pg-propia h4{margin:0;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.pg-propia .help{margin:0}
+.pg-propia-acc{display:flex;flex-direction:column;gap:6px}
+.pg-propia-acc .btn{justify-content:flex-start;min-height:40px}
+.pg-propia-acc .btn.act{border-color:var(--nav);background:#eef2fa}
+.pg-propia-acc .btn.peligro{color:#a82d26;border-color:#f0cbc7}.pg-propia-acc .btn.peligro:hover:not(:disabled){background:#fdecea;border-color:#c43b32}
+.pg-propia-panel{display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:12px;background:#f8faff;border:1px solid #e0e8f3}
+.pg-propia-panel.pel{background:#fdf3f2;border-color:#f0cbc7}
+.pg-aviso{margin:0;font-size:.82rem;line-height:1.5;color:#44506b}.pg-aviso b{color:var(--nav)}.pg-aviso.mal{color:#7a1f19}.pg-aviso.mal b{color:#7a1f19}
+.pg-propia-fin{display:flex;justify-content:flex-end;gap:8px}
+.pg-propia .sv-zona{padding:14px}

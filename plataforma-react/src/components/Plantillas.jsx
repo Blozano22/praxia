@@ -5,6 +5,7 @@ import Titulo from './Titulo.jsx'
 import RevisionPlantilla, { ESTADO } from './RevisionPlantilla.jsx'
 import CategoriasPlantillas from './CategoriasPlantillas.jsx'
 import SubirVariante from './SubirVariante.jsx'
+import PlantillaPropia from './PlantillaPropia.jsx'
 import { FORMACIONES, NOMBRE_FORMACION, conFormacion } from '../lib/formaciones.js'
 import { api, RUTA_API } from '../lib/api.js'
 import { CARGA, CATALOGO, ejemploDe, nombrePublico } from '../lib/ejemplos.js'
@@ -270,6 +271,18 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
   const irACategoria = (i) => { const [, l] = grupos[(i + grupos.length) % grupos.length]; setQ(''); setTipo(l[0][0]) }
   const [subiendo, setSubiendo] = useState(false)
   const recargarCats = () => api('GET', '/plantillas/categorias').then(setCats).catch(() => {})
+  // Plantilla SUBIDA que se está viendo (la propia, o cualquiera si se revisa): se puede mover, reemplazar o eliminar. Las del sistema no.
+  const nSub = publica || nombrePublico(tipo) || ''
+  const infoSub = cats && nSub && cats.subidas ? cats.subidas[nSub] : null
+  const puedeGestionarSub = !!infoSub && (infoSub.propia || puedeRevisar)
+  const alCambiarSub = async ({ tipo: accion, nuevo, mensaje }) => {
+    const siguiente = lista.length > 1 ? lista[(pos + 1) % lista.length][0] : null // para dejar seleccionado el diseño que sigue si se elimina
+    await recargarCats()
+    api('GET', '/plantillas/revisiones').then(setRevisiones).catch(() => {}) // mover traslada el historial de revisión
+    if (accion === 'mover' && nuevo) setTipo('pub-' + nuevo)
+    if (accion === 'eliminar' && siguiente) setTipo(siguiente)
+    if (aviso && mensaje) aviso(mensaje)
+  }
   const puedeSubir = (puedeRevisar || puedeSubirVariante) && !!cats // quien revisa o quien tiene el rol de editor HTML
 
   const pestanas = (
@@ -414,6 +427,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
               </button>
             )}
           </div>
+          {puedeGestionarSub && <PlantillaPropia nombre={nSub} info={infoSub} cats={cats} categoriaActual={codigoActual ? codigoActual.id : ''} formacion={formacion} onCambio={alCambiarSub} />}
           <div className="card pl2-uso">
             <h4>Usar esta plantilla</h4>
             <button className="btn" disabled={!html} onClick={abrir}>Abrir en pestaña</button>
