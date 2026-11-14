@@ -78,11 +78,12 @@ export function crearApp() {
       const refDe = {}
       for (const x of [...u.rows].sort((p, q) => new Date(p.creado) - new Date(q.creado) || p.nombre.localeCompare(q.nombre))) if (x.esquema && de[x.nombre] && !refDe[de[x.nombre]]) refDe[de[x.nombre]] = x.esquema
       const esqDe = Object.fromEntries(u.rows.map((x) => [x.nombre, x.esquema]))
+      const formDe = Object.fromEntries(u.rows.map((x) => [x.nombre, x.formacion || null])) // formación de la variante, según su ficha
       const esquemaOk = (n) => (esqDe[n] && refDe[de[n]] ? compararEsquemas(refDe[de[n]], esqDe[n]).coincide : null)
-      const plantillas = todas.map((p) => ({ ...p, id_catalogo: de[p.nombre] || null, tipo: tipoDe[de[p.nombre]] || null, ...estadoDe(p.nombre), esquema_ok: esquemaOk(p.nombre) }))
+      const plantillas = todas.map((p) => ({ ...p, id_catalogo: de[p.nombre] || null, tipo: tipoDe[de[p.nombre]] || null, ...estadoDe(p.nombre), esquema_ok: esquemaOk(p.nombre), formacion: formDe[p.nombre] || null }))
       const ORDEN_FORMACIONES = ['tecnologico', 'profesional', 'especializacion', 'doctorado']
       const formacionesDe = (id) => fo.rows.filter((x) => x.categoria === id).map((x) => ({ formacion: x.formacion, prioridad: x.prioridad })).sort((p, q) => ORDEN_FORMACIONES.indexOf(p.formacion) - ORDEN_FORMACIONES.indexOf(q.formacion)) // para qué formaciones sirve la categoría (P prioritaria, C complementaria)
-      const categorias = c.rows.map((k) => ({ id: k.id, nombre: k.nombre, tipo: k.tipo, formaciones: formacionesDe(k.id), variantes: plantillas.filter((p) => p.id_catalogo === k.id).map(({ nombre, archivo, estado, fecha_estado, esquema_ok }) => ({ nombre, archivo, estado, fecha_estado, esquema_ok })) }))
+      const categorias = c.rows.map((k) => ({ id: k.id, nombre: k.nombre, tipo: k.tipo, formaciones: formacionesDe(k.id), variantes: plantillas.filter((p) => p.id_catalogo === k.id).map(({ nombre, archivo, estado, fecha_estado, esquema_ok, formacion }) => ({ nombre, archivo, estado, fecha_estado, esquema_ok, formacion })) }))
       res.json({ ...base, total: plantillas.length, plantillas, categorias, sin_categoria: plantillas.filter((p) => !p.id_catalogo).map(({ nombre, archivo, estado, fecha_estado }) => ({ nombre, archivo, estado, fecha_estado })) })
     } catch { res.json(base) }
   })

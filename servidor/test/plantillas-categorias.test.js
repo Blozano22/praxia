@@ -486,6 +486,39 @@ test('el índice público lista solo las plantillas subidas desde Praxia (Praxia
   assert.equal((await dani('DELETE', '/plantillas/subidas/' + nombre)).status, 200)
 })
 
+test('la ficha de la plantilla puede decir su categoría y su formación: Praxia la preselecciona, avisa si no coincide y guarda la formación de la variante', async () => {
+  const edi = await entrar('edi@u.co')
+  const ficha = (cat, form) => ['<!--', '  FICHA', '  Categoría Praxia: ' + cat, '  Formación: ' + form, '-->'].join('\n')
+  const con = (f) => '<!doctype html><html lang="es"><head><meta charset="utf-8">' + f + '<title>{{TITULO}}</title></head><body><script type="application/json" id="contenido">/*CONTENIDO*/{"titulo":"X","items":[{"a":"b"}]}/*FIN-CONTENIDO*/</script></body></html>'
+  // la vista previa, sin categoría elegida, usa la de la ficha (nombre y comparación) y devuelve lo que leyó
+  const pv = await (await edi('POST', '/plantillas/subidas/previa', { html: con(ficha('G-03', 'Especialización')) })).json()
+  assert.deepEqual(pv.ficha, { categoria: 'G-03', formacion: 'especializacion' }); assert.equal(pv.categoriaUsada, 'G-03'); assert.match(pv.nombre, /^g-03-v\d\d$/); assert.deepEqual(pv.avisos, [])
+  // si elegiste otra categoría, avisa; y si la formación de la ficha no es de esa categoría (G-06 no es de doctorado), también
+  const pv2 = await (await edi('POST', '/plantillas/subidas/previa', { html: con(ficha('G-03', 'tecnologico')), categoria: 'G-09' })).json()
+  assert.ok(pv2.avisos.some((a) => /G-03/.test(a) && /G-09/.test(a)))
+  const pv3 = await (await edi('POST', '/plantillas/subidas/previa', { html: con(ficha('G-06', 'doctorado')), categoria: 'G-06' })).json()
+  assert.ok(pv3.avisos.some((a) => /doctorado/.test(a)))
+  // sin categoría en la petición, sube a la de la ficha y guarda la formación; sin ficha ni categoría se rechaza; con una categoría que no existe, 404
+  const r = await edi('POST', '/plantillas/subidas', { html: con(ficha('G-03', 'Licenciatura')) })
+  assert.equal(r.status, 201); const n = (await r.json()).nombre
+  assert.match(n, /^g-03-v\d\d$/)
+  const lista = await (await edi('GET', '/plantillas/categorias')).json()
+  assert.equal(lista.asignaciones[n], 'G-03'); assert.equal(lista.subidas[n].formacion, 'profesional') // «licenciatura» es profesional
+  assert.equal((await edi('POST', '/plantillas/subidas', { html: con('') })).status, 400)
+  assert.equal((await edi('POST', '/plantillas/subidas', { html: con(ficha('Z-99', 'doctorado')) })).status, 404)
+  // el índice trae la formación de cada variante (null si la ficha no la dice)
+  delete process.env.PLANTILLAS_INDICE_SOLO_SUBIDAS
+  try {
+    const v = (await indice()).categorias.find((c) => c.id === 'G-03').variantes.find((x) => x.nombre === n)
+    assert.equal(v.formacion, 'profesional')
+  } finally { process.env.PLANTILLAS_INDICE_SOLO_SUBIDAS = '0' }
+  // una variante con la ficha sin formación queda con null
+  const sin = (await (await edi('POST', '/plantillas/subidas', { html: con('<!-- sin ficha -->'), categoria: 'G-03' })).json()).nombre
+  assert.equal((await (await edi('GET', '/plantillas/categorias')).json()).subidas[sin].formacion, null)
+  const dani = await entrar('dani@u.co')
+  for (const x of [n, sin]) assert.equal((await dani('DELETE', '/plantillas/subidas/' + x)).status, 200)
+})
+
 test('borrar una categoría deja sus plantillas sin categoría; si falla la base de datos se entrega el archivo del build tal cual', async () => {
   const dani = await entrar('dani@u.co')
   assert.equal((await dani('DELETE', '/plantillas/categorias/G-20')).status, 200)

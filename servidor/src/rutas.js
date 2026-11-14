@@ -359,7 +359,7 @@ rutas.get('/plantillas/categorias', exigirSesion, exigirPermiso('plantillas.ver'
     const plantillas = [...new Set([...nombresPlantillasPublicadas(), ...u.rows.map((x) => x.nombre)])].filter((n) => !eliminadas.has(n)).sort()
     res.json({
       categorias: c.rows, formaciones: formacionesPorCategoria(fo.rows), asignaciones: Object.fromEntries(a.rows.map((x) => [x.plantilla, x.categoria])), plantillas, ocultas: o.rows.filter((x) => !x.eliminada).map((x) => x.plantilla),
-      subidas: Object.fromEntries(u.rows.map((x) => [x.nombre, { por: x.por, actualizado: x.actualizado, ejemplo: !!x.ejemplo, propia: x.subida_por === req.usuario.id }]))
+      subidas: Object.fromEntries(u.rows.map((x) => [x.nombre, { por: x.por, actualizado: x.actualizado, ejemplo: !!x.ejemplo, propia: x.subida_por === req.usuario.id, formacion: x.formacion || null }]))
     })
   } catch (e) { next(e) }
 })
@@ -447,7 +447,7 @@ const NombreSubida = z.string().regex(/^[a-z0-9-]{1,80}$/)
 const HtmlSubido = z.string().min(1).max(MAX_HTML + 4096)
 // El nombre sale solo del ID de la categoría y del orden de subida: G-08 → g-08-v01, g-08-v02… (minúsculas, que es como se guardan y se sirven los nombres).
 // Quien llama puede mandar «nombre» (uso interno); la pantalla no lo manda. Sin categoría no hay ID de dónde sacar el nombre.
-const CuerpoSubir = z.object({ nombre: NombreSubida.optional(), html: HtmlSubido, categoria: IdCategoria.nullish(), esquemaDistinto: z.boolean().optional() }).strict().refine((b) => b.nombre || b.categoria, { message: 'Elija la categoría de la plantilla: el nombre sale de su ID.' })
+const CuerpoSubir = z.object({ nombre: NombreSubida.optional(), html: HtmlSubido, categoria: IdCategoria.nullish(), esquemaDistinto: z.boolean().optional() }).strict()
 const nombreVariante = (cat, n) => cat.toLowerCase() + '-v' + String(n).padStart(2, '0')
 
 // Todas las variantes de una categoría usan los mismos campos de contenido (los de su ejemplo): la categoría define los campos y la variante solo cambia el diseño.
@@ -468,23 +468,25 @@ const errorEsquema = (categoria, cmp) => ({
 const aceptaEsquemaDistinto = (req) => !!(req.bodyOk && req.bodyOk.esquemaDistinto) && req.usuario.permisos.has('plantillas.revisar')
 rutas.post('/plantillas/subidas', exigirSesion, exigirAlguno('plantillas.revisar', 'plantillas.subir'), limiteSubir, validar(CuerpoSubir, 'body'), async (req, res, next) => {
   try {
-    const { html, categoria } = req.bodyOk
+    const { html } = req.bodyOk
     let nombre = req.bodyOk.nombre
     if (nombre && (NOMBRES_RESERVADOS.includes(nombre) || nombresPlantillasPublicadas().includes(nombre))) return res.status(409).json({ error: 'Ese nombre ya lo usa una plantilla del sistema. Elija otro.' })
-    if (categoria && !(await sinUsuario(Q.categoriasListar)).rows.some((c) => c.id === categoria)) return res.status(404).json({ error: 'No existe esa categoría.' })
     const armada = armarSubida(html)
     if (!armada.ok) return res.status(400).json({ error: armada.error })
+    const categoria = req.bodyOk.categoria || armada.ficha.categoria || null // si no se eligió categoría, se usa la que dice la ficha de la plantilla
+    if (!nombre && !categoria) return res.status(400).json({ error: 'Elija la categoría de la plantilla: el nombre sale de su ID.' })
+    if (categoria && !(await sinUsuario(Q.categoriasListar)).rows.some((c) => c.id === categoria)) return res.status(404).json({ error: 'No existe la categoría ' + categoria + (req.bodyOk.categoria ? '.' : ' (la dice la ficha de la plantilla).') })
     const cmp = await compararConCategoria(categoria, '', armada.esquema)
     if (cmp && !cmp.coincide && !aceptaEsquemaDistinto(req)) return res.status(409).json(errorEsquema(categoria, cmp))
     const esq = armada.esquema ? JSON.stringify(armada.esquema) : null
     let r = null
-    if (nombre) r = await sinUsuario(Q.subidaCrear, [nombre, html, armada.html, req.usuario.id, req.usuario.nombre, esq])
+    if (nombre) r = await sinUsuario(Q.subidaCrear, [nombre, html, armada.html, req.usuario.id, req.usuario.nombre, esq, armada.ficha.formacion])
     else {
       // Número de variante: contador de la categoría (no se reutiliza). Si el nombre ya existiera (se subió a mano con ese nombre), se pasa al siguiente.
       for (let i = 0; i < 20 && !(r && r.rowCount); i++) {
         const n = (await sinUsuario(Q.categoriaSiguienteVariante, [categoria])).rows[0].n
         nombre = nombreVariante(categoria, n)
-        r = await sinUsuario(Q.subidaCrear, [nombre, html, armada.html, req.usuario.id, req.usuario.nombre, esq])
+        r = await sinUsuario(Q.subidaCrear, [nombre, html, armada.html, req.usuario.id, req.usuario.nombre, esq, armada.ficha.formacion])
       }
     }
     if (!r || !r.rowCount) return res.status(409).json({ error: 'Ya hay una plantilla subida con ese nombre. Use «Reemplazar» para cambiarla.' })
@@ -497,9 +499,10 @@ rutas.post('/plantillas/subidas', exigirSesion, exigirAlguno('plantillas.revisar
 // vacía si no trae ejemplo) y el nombre que le tocaría en la categoría. Si no cumple las reglas, responde 400 con el motivo.
 rutas.post('/plantillas/subidas/previa', exigirSesion, exigirAlguno('plantillas.revisar', 'plantillas.subir'), limiteSubir, validar(z.object({ html: HtmlSubido, categoria: IdCategoria.nullish() }).strict(), 'body'), async (req, res, next) => {
   try {
-    const { html, categoria } = req.bodyOk
+    const { html } = req.bodyOk
     const armada = armarSubida(html)
     if (!armada.ok) return res.status(400).json({ error: armada.error })
+    const categoria = req.bodyOk.categoria || armada.ficha.categoria || null // sin categoría elegida, la de la ficha
     const cmp = categoria ? await compararConCategoria(categoria, '', armada.esquema) : null
     let nombre = null
     if (categoria) {
@@ -508,7 +511,13 @@ rutas.post('/plantillas/subidas/previa', exigirSesion, exigirAlguno('plantillas.
       nombre = nombreVariante(categoria, c.siguiente_variante)
     }
     const vacia = armada.html.replace('{{TITULO}}', () => 'Vista previa').replace('/*CONTENIDO*/', () => '{}')
-    res.json({ ok: true, conEjemplo: !!armada.ejemplo, html: armada.ejemplo || vacia, nombre, esquema: cmp ? { coincide: cmp.coincide, faltan: cmp.faltan, sobran: cmp.sobran, referencia: cmp.referencia } : null })
+    const avisos = []
+    if (req.bodyOk.categoria && armada.ficha.categoria && armada.ficha.categoria !== req.bodyOk.categoria) avisos.push('La ficha dice que es de ' + armada.ficha.categoria + ' y la vas a subir a ' + req.bodyOk.categoria + '.')
+    if (armada.ficha.formacion && categoria) {
+      const fs = (await sinUsuario(Q.formacionesListar)).rows.filter((x) => x.categoria === categoria).map((x) => x.formacion)
+      if (fs.length && !fs.includes(armada.ficha.formacion)) avisos.push('La ficha dice formación ' + armada.ficha.formacion + ', pero ' + categoria + ' no está marcada para esa formación.')
+    }
+    res.json({ ok: true, conEjemplo: !!armada.ejemplo, html: armada.ejemplo || vacia, nombre, ficha: armada.ficha, categoriaUsada: categoria, avisos, esquema: cmp ? { coincide: cmp.coincide, faltan: cmp.faltan, sobran: cmp.sobran, referencia: cmp.referencia } : null })
   } catch (e) { next(e) }
 })
 // Quien revisa puede cambiar cualquier plantilla subida; quien solo sube (Editor HTML) puede reemplazar, mover o eliminar únicamente las que subió él.
@@ -528,7 +537,7 @@ rutas.put('/plantillas/subidas/:nombre', exigirSesion, exigirAlguno('plantillas.
     const enCat = (await sinUsuario(Q.categoriasAsignaciones)).rows.find((x) => x.plantilla === req.paramsOk.nombre)
     const cmp = await compararConCategoria(enCat && enCat.categoria, req.paramsOk.nombre, armada.esquema)
     if (cmp && !cmp.coincide && !aceptaEsquemaDistinto(req)) return res.status(409).json(errorEsquema(enCat.categoria, cmp))
-    const r = await sinUsuario(Q.subidaReemplazar, [req.paramsOk.nombre, req.bodyOk.html, armada.html, req.usuario.id, req.usuario.nombre, armada.esquema ? JSON.stringify(armada.esquema) : null])
+    const r = await sinUsuario(Q.subidaReemplazar, [req.paramsOk.nombre, req.bodyOk.html, armada.html, req.usuario.id, req.usuario.nombre, armada.esquema ? JSON.stringify(armada.esquema) : null, armada.ficha.formacion])
     if (!r.rowCount) return res.status(404).json({ error: 'No hay una plantilla subida con ese nombre (las del sistema no se reemplazan desde aquí).' })
     await auditar(req.usuario.id, 'plantilla_reemplazar', 'plantilla', req.paramsOk.nombre, req)
     res.json({ ok: true })

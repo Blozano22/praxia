@@ -75,6 +75,22 @@ Reglas de las marcas:
 - El contenido de ejemplo debe ser un **objeto JSON válido** (`{ … }`, no una lista). Si no es JSON válido, Praxia rechaza la subida y dice por qué.
 - Dentro del ejemplo evita escribir la secuencia `</script>`.
 
+### 3.1 Ficha de la plantilla: categoría y formación
+
+Al inicio del `<head>`, en un comentario HTML, la plantilla lleva su **ficha**: los campos del JSON con sus límites y estas dos líneas, que Praxia lee al subirla:
+
+```html
+<!--
+  Categoría Praxia: G-12
+  Formación: especializacion
+  CAMPOS DEL JSON … (nombre, tipo, límites)
+-->
+```
+
+- **Categoría Praxia:** el ID de la categoría de destino (G-12, POS-10, PRE-03…). Praxia la **preselecciona** al subir; si la eliges distinta, avisa.
+- **Formación:** `tecnologico`, `profesional`, `especializacion` o `doctorado` (también acepta `licenciatura` como profesional). Praxia guarda la formación de **esa variante** y la muestra en el índice para n8n.
+- Si falta alguna de las dos líneas, la plantilla se sube igual (sin categoría preseleccionada o sin formación).
+
 Lectura del contenido en el JavaScript de la plantilla. **Debe quitar las dos marcas antes de leer el JSON**: así, al abrir el archivo suelto, la plantilla se ve con su contenido de ejemplo (si no se quitan, el JSON no es válido y la página sale vacía):
 
 ```js

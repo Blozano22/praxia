@@ -57,7 +57,17 @@ export function armarSubida(crudo) {
   for (const marca of MARCAS_INTERNAS) {
     if (html.includes(marca)) return { ok: false, error: 'Quedó sin reemplazar ' + marca + ': esa marca la arma el sistema y no puede repetirse.' }
   }
-  return { ok: true, html, ejemplo, esquema: ejemplo ? esquema : null }
+  return { ok: true, html, ejemplo, esquema: ejemplo ? esquema : null, ficha: leerFicha(crudo) }
+}
+
+// Lo que la ficha (comentario HTML al inicio) dice de la plantilla: «Categoría Praxia: G-12» y «Formación: especializacion».
+const ALIAS_FORMACION = { tecnologico: 'tecnologico', tecnologia: 'tecnologico', profesional: 'profesional', licenciatura: 'profesional', especializacion: 'especializacion', doctorado: 'doctorado' }
+export function leerFicha(crudo) {
+  const comentarios = [...String(crudo).matchAll(/<!--([\s\S]*?)-->/g)].map((m) => m[1]).join(String.fromCharCode(10))
+  const c = /Categor[ií]a\s+Praxia\s*:\s*([A-Za-z]{1,4}-\d{2,3})/i.exec(comentarios)
+  const f = /Formaci[oó]n\s*:\s*([A-Za-zÁÉÍÓÚáéíóúñÑ]+)/i.exec(comentarios)
+  const forma = f ? ALIAS_FORMACION[f[1].normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()] : null
+  return { categoria: c ? c[1].toUpperCase() : null, formacion: forma || null }
 }
 
 // Campos del contenido de ejemplo: lista ordenada de rutas con su tipo («bloques[].titulo:texto»). Dos variantes de la misma categoría deben tener la misma.

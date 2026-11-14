@@ -383,6 +383,8 @@ CREATE TABLE IF NOT EXISTS plantilla_subidas (
 
 -- Campos del JSON de ejemplo de la plantilla subida (lista de rutas con su tipo), para comprobar que las variantes de una categoría usan los mismos campos.
 ALTER TABLE plantilla_subidas ADD COLUMN IF NOT EXISTS esquema jsonb;
+-- Formación de la variante (la dice la ficha de la plantilla: «Formación: especializacion»); null si no la dice.
+ALTER TABLE plantilla_subidas ADD COLUMN IF NOT EXISTS formacion text CHECK (formacion IN ('tecnologico', 'profesional', 'especializacion', 'doctorado'));
 
 -- Plantillas del sistema (las del build) que se quitaron de n8n desde la pantalla: no salen en el índice ni se descargan. Reversible.
 CREATE TABLE IF NOT EXISTS plantilla_ocultas (
