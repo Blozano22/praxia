@@ -35,11 +35,11 @@ export default function PlantillaPropia({ nombre, info, cats, categoriaActual, f
     if (!archivo) { setPrev({ estado: 'nada' }); return undefined }
     let vigente = true
     setPrev({ estado: 'revisando' })
-    api('POST', '/plantillas/subidas/previa', { html: archivo.html, ...(categoriaActual ? { categoria: categoriaActual } : {}) })
+    api('POST', '/plantillas/subidas/previa', { html: archivo.html, ...(categoriaActual ? { categoria: categoriaActual, reemplaza: nombre } : {}) })
       .then((r) => { if (vigente) setPrev({ estado: 'ok', conEjemplo: !!r.conEjemplo, html: r.html || '', esquema: r.esquema || null }) })
       .catch((e) => { if (vigente) setPrev({ estado: 'error', mensaje: e.message || 'No se pudo revisar el archivo.' }) })
     return () => { vigente = false }
-  }, [archivo, categoriaActual])
+  }, [archivo, categoriaActual, nombre])
   useEffect(() => {
     const el = marco.current
     if (!el) return undefined

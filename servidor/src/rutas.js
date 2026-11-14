@@ -497,13 +497,14 @@ rutas.post('/plantillas/subidas', exigirSesion, exigirAlguno('plantillas.revisar
 })
 // Vista previa ANTES de subir: valida y arma el archivo igual que la subida, pero sin guardarlo. Devuelve el HTML con el ejemplo puesto (o la plantilla
 // vacía si no trae ejemplo) y el nombre que le tocaría en la categoría. Si no cumple las reglas, responde 400 con el motivo.
-rutas.post('/plantillas/subidas/previa', exigirSesion, exigirAlguno('plantillas.revisar', 'plantillas.subir'), limiteSubir, validar(z.object({ html: HtmlSubido, categoria: IdCategoria.nullish() }).strict(), 'body'), async (req, res, next) => {
+rutas.post('/plantillas/subidas/previa', exigirSesion, exigirAlguno('plantillas.revisar', 'plantillas.subir'), limiteSubir, validar(z.object({ html: HtmlSubido, categoria: IdCategoria.nullish(), reemplaza: NombreSubida.nullish() }).strict(), 'body'), async (req, res, next) => {
   try {
     const { html } = req.bodyOk
     const armada = armarSubida(html)
     if (!armada.ok) return res.status(400).json({ error: armada.error })
     const categoria = req.bodyOk.categoria || armada.ficha.categoria || null // sin categoría elegida, la de la ficha
-    const cmp = categoria ? await compararConCategoria(categoria, '', armada.esquema) : null
+    // «reemplaza»: al reemplazar una variante, ella misma no cuenta como referencia (igual que hace el PUT al guardar)
+    const cmp = categoria ? await compararConCategoria(categoria, req.bodyOk.reemplaza || '', armada.esquema) : null
     let nombre = null
     if (categoria) {
       const c = (await sinUsuario(Q.categoriaSiguiente, [categoria])).rows[0]

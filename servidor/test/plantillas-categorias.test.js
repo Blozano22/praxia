@@ -465,6 +465,13 @@ test('las variantes de una categoría usan los mismos campos de contenido; el í
   assert.equal(v2.find((x) => x.nombre === n4).estado, 'rechazada')
   for (const n of [n1, n4]) assert.equal((await dani('DELETE', '/plantillas/subidas/' + n)).status, 200)
   const mov = Object.keys((await (await dani('GET', '/plantillas/categorias')).json()).asignaciones).find((n) => n.startsWith('g-10-v'))
+  // la única variante de una categoría se puede reemplazar por otra estructura: la vista previa no la cuenta como referencia de sí misma
+  assert.ok(mov)
+  const solo = await edi('POST', '/plantillas/subidas/previa', { html: con(B), categoria: 'G-10' })
+  assert.equal((await solo.json()).esquema.coincide, false) // como variante nueva sí chocaría con la que ya hay
+  const alReemplazar = await (await edi('POST', '/plantillas/subidas/previa', { html: con(B), categoria: 'G-10', reemplaza: mov })).json()
+  assert.equal(alReemplazar.esquema, null) // reemplazándola no hay con qué comparar
+  assert.equal((await edi('PUT', '/plantillas/subidas/' + mov, { html: con(B) })).status, 200)
   if (mov) assert.equal((await dani('DELETE', '/plantillas/subidas/' + mov)).status, 200)
 })
 
