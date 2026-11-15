@@ -30,6 +30,6 @@ export default defineConfig({
   base: './',
   plugins: [react(), escapaScript, viteSingleFile(), plantillasPublicas()],
   // En desarrollo, /api se reenvía al servidor Node para que la cookie de sesión sea del mismo origen.
-  server: { fs: { allow: ['..'] }, proxy: { '/api': { target: 'http://127.0.0.1:3002', changeOrigin: false }, '/plantillas-html': { target: 'http://127.0.0.1:3002', changeOrigin: false } } },
+  server: { fs: { allow: ['..'] }, proxy: { '/api': { target: 'http://127.0.0.1:3002', changeOrigin: false }, '/plantillas-html': { target: 'http://127.0.0.1:3002', changeOrigin: false }, '/plantillas/ver': { target: 'http://127.0.0.1:3002', changeOrigin: false, rewrite: (r) => r.replace(/^\/plantillas\/ver/, '/plantillas-html/ver') } } },
   build: { target: 'es2020' }
 })

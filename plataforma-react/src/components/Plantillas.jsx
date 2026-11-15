@@ -198,6 +198,17 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
   // si el diseño elegido ya no está en lo que se muestra (cambió la clase o llegaron las categorías), se elige el primero
   useEffect(() => { if (grupos.length && !grupos.some(([, l]) => l.some(([k]) => k === tipo))) setTipo(grupos[0][1][0][0]) }, [grupos]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Enlace corto y público para ver la variante con su ejemplo (para ponerlo en los guiones): sin «praxia» en la dirección (lo atiende el nginx).
+  const [copiado, setCopiado] = useState(false)
+  const copiarEnlace = async (nombre) => {
+    const url = location.origin + '/plantillas/ver/' + nombre
+    try {
+      if (navigator.clipboard && window.isSecureContext) await navigator.clipboard.writeText(url)
+      else { const t = document.createElement('textarea'); t.value = url; t.style.position = 'fixed'; t.style.opacity = '0'; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove() }
+      setCopiado(true); setTimeout(() => setCopiado(false), 1800)
+      if (aviso) aviso('Enlace copiado: ' + url)
+    } catch { if (aviso) aviso('No se pudo copiar el enlace.') }
+  }
   const publica = tipo.startsWith('pub-') ? tipo.slice(4) : '' // variante activa sin ejemplo: se carga la plantilla publicada tal cual
   useEffect(() => {
     if (!publica) return undefined
@@ -384,6 +395,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
             <button type="button" className="pg-flecha chica" aria-label="Diseño anterior" onClick={() => mover(-1)}><IcoFlecha izq /></button>
             <span className="pl2-pos">{pos + 1} / {lista.length}</span>
             <button type="button" className="pg-flecha chica" aria-label="Diseño siguiente" onClick={() => mover(1)}><IcoFlecha /></button>
+            {publica && ejSubido && <button type="button" className="btn sec sm" onClick={() => copiarEnlace(publica)} title={location.origin + '/plantillas/ver/' + publica}>{copiado ? '¡Enlace copiado!' : 'Copiar enlace'}</button>}
             <button className="btn sec sm" onClick={() => setFull(!full)}>{full ? 'Cerrar pantalla completa' : 'Pantalla completa'}</button>
           </div>
           {error && <div className="msg bad" role="alert">{error}</div>}
