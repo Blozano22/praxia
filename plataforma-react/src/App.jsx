@@ -253,6 +253,7 @@ export default function App() {
         <div className="brand" onClick={() => ir('dashboard')} role="link" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') ir('dashboard') }}><Praxia claro /><small>{LEMA}</small></div>
         <div className="sp" />
         {actual && vista !== 'dashboard' && <button className="btn sec sm" onClick={() => { setTab('syllabus'); ir('workspace') }}>{actual.curso.slice(0, 30)}</button>}
+        <span id="slot-revision" className="slot-revision" />{/* aquí se coloca el botón «Revisión» de Plantillas HTML: siempre visible, sin importar el scroll */}
         <span className="quien" title={yo.correo}>
           <span className="quien-av" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="8" r="4" /><path d="M4 21v-1a6 6 0 016-6h4a6 6 0 016 6v1" /></svg></span>
           <span className="quien-tx">{yo.nombre}<small title={resumenRoles(yo.roles).todos}>{NOMBRE_ROL[resumenRoles(yo.roles).principal]}{resumenRoles(yo.roles).otros > 0 && <i className="quien-mas">+{resumenRoles(yo.roles).otros}</i>}</small></span>

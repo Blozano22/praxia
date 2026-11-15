@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { marcoPlantilla } from '../lib/vista.js'
 import { verNombre } from '../lib/nombres.js'
 import Titulo from './Titulo.jsx'
@@ -6,6 +7,7 @@ import RevisionPlantilla, { ESTADO } from './RevisionPlantilla.jsx'
 import CategoriasPlantillas from './CategoriasPlantillas.jsx'
 import SubirVariante from './SubirVariante.jsx'
 import PlantillaPropia from './PlantillaPropia.jsx'
+import RevisionResumen from './RevisionResumen.jsx'
 import { FORMACIONES, NOMBRE_FORMACION, conFormacion } from '../lib/formaciones.js'
 import { api, RUTA_API } from '../lib/api.js'
 import { CARGA, CATALOGO, ejemploDe, nombrePublico } from '../lib/ejemplos.js'
@@ -260,6 +262,20 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
   const nombre = (publica || tipo.replace(/^o-/, '')) + '.html'
   const mover = (d) => { if (lista.length) setTipo(lista[(pos + d + lista.length) % lista.length][0]) }
   const todos = useMemo(() => grupos.flatMap(([g, l]) => l.map(([k, n, , sinEj]) => ({ k, n, g, sinEj }))), [grupos])
+  // Todas las plantillas de la galería con su estado de revisión (para el botón «Revisión»: conteo, «mis plantillas» y «general»).
+  const itemsRev = useMemo(() => {
+    const out = []
+    ;['recurso', 'actividad'].forEach((cl) => gruposPorClase[cl].forEach(([g, l, id]) => l.forEach(([k, n]) => {
+      const nom = k.startsWith('pub-') ? k.slice(4) : (nombrePublico(k) || '')
+      const info = cats && cats.subidas && nom ? cats.subidas[nom] : null
+      const r = revisiones.find((x) => x.plantilla === k) // la más nueva
+      out.push({ k, codigo: verNombre(n), clase: cl, cat: id || '', catNombre: corto(g), por: info ? info.por : '', propia: !!(info && info.propia), estado: r ? r.estado : 'nada', rev: r || {} })
+    })))
+    return out
+  }, [gruposPorClase, revisiones, cats])
+  const [slotRev, setSlotRev] = useState(null) // hueco del encabezado donde va el botón «Revisión»
+  useEffect(() => { setSlotRev(document.getElementById('slot-revision')) }, [])
+  const irADiseno = (i) => { setVista('galeria'); setClase(i.clase); setFormacion(''); setQ(''); setTipo(i.k) }
   const busca = q.trim().toLowerCase()
   const res = busca ? todos.filter((t) => (t.n + ' ' + t.g).toLowerCase().includes(busca)) : null
   const elegir = (k) => { setTipo(k); setQ('') }
@@ -330,6 +346,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
           <h1>Plantillas HTML</h1>
           <p className="lead">Así se ven los recursos que genera la plataforma. Elija la categoría y el diseño; puede abrirlo en una pestaña o descargarlo.</p>
         </Titulo>
+        {itemsRev.length > 0 && (slotRev ? createPortal(<RevisionResumen enHeader items={itemsRev} puedeRevisar={puedeRevisar} onIr={irADiseno} />, slotRev) : <RevisionResumen items={itemsRev} puedeRevisar={puedeRevisar} onIr={irADiseno} />)}
         {puedeSubir && (
           <button type="button" className="btn pg-subir" onClick={() => setSubiendo(true)}>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 20h16" /></svg>
