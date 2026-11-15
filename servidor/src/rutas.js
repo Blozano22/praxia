@@ -382,7 +382,8 @@ rutas.put('/plantillas/categorias/:id', exigirSesion, exigirPermiso('plantillas.
 })
 rutas.delete('/plantillas/categorias/:id', exigirSesion, exigirPermiso('plantillas.revisar'), validar(z.object({ id: IdCategoria }), 'params'), async (req, res, next) => {
   try {
-    const r = await sinUsuario(Q.categoriaBorrar, [req.paramsOk.id]) // sus plantillas quedan sin categoría
+    // sus plantillas quedan sin categoría y lo asignado con ellas en algún curso queda inválido
+    const r = await conTransaccion(async (c) => { await c.query(Q.asignInvalidarCategoria, [req.paramsOk.id]); return c.query(Q.categoriaBorrar, [req.paramsOk.id]) })
     if (!r.rowCount) return res.status(404).json({ error: 'No encontrado' })
     await auditar(req.usuario.id, 'plantilla_categoria_borrar', 'plantilla_categoria', req.paramsOk.id, req)
     res.json({ ok: true })
@@ -435,6 +436,7 @@ rutas.delete('/plantillas/sistema/:nombre', exigirSesion, exigirPermiso('plantil
     if (!nombresPlantillasPublicadas().includes(nombre)) return res.status(404).json({ error: 'No es una plantilla del sistema.' })
     await sinUsuario(Q.ocultaEliminar, [nombre, req.usuario.nombre])
     await sinUsuario(Q.categoriaQuitar, [nombre])
+    await sinUsuario(Q.asignInvalidarPlantilla, [nombre, 'plantilla_eliminada'])
     await auditar(req.usuario.id, 'plantilla_eliminar_sistema', 'plantilla', nombre, req)
     res.json({ ok: true })
   } catch (e) { next(e) }
@@ -612,6 +614,7 @@ rutas.post('/plantillas/subidas/:nombre/mover', exigirSesion, exigirAlguno('plan
       await c.query(Q.categoriaAsignar, [nuevo, categoria])
       await c.query(Q.historialRenombrar, ['pub-' + nombre, 'pub-' + nuevo])
       if (fo.formacion) await c.query(Q.subidaFormacionPoner, [nuevo, fo.formacion])
+      await c.query(Q.asignInvalidarPlantilla, [nombre, 'plantilla_movida_a_' + nuevo]) // lo asignado con ella en algún curso queda inválido (no se reasigna solo)
     })
     await auditar(req.usuario.id, 'plantilla_mover', 'plantilla', nombre + ' → ' + nuevo, req)
     res.json({ nombre: nuevo })
@@ -631,9 +634,15 @@ rutas.get('/plantillas/subidas/:nombre/ejemplo', exigirSesion, exigirPermiso('pl
 })
 rutas.delete('/plantillas/subidas/:nombre', exigirSesion, exigirAlguno('plantillas.revisar', 'plantillas.subir'), validar(z.object({ nombre: NombreSubida }), 'params'), soloLoPropio, async (req, res, next) => {
   try {
-    const r = await sinUsuario(Q.subidaBorrar, [req.paramsOk.nombre])
+    const r = await conTransaccion(async (c) => {
+      const borrada = await c.query(Q.subidaBorrar, [req.paramsOk.nombre])
+      if (borrada.rowCount) {
+        await c.query(Q.categoriaQuitar, [req.paramsOk.nombre])
+        await c.query(Q.asignInvalidarPlantilla, [req.paramsOk.nombre, 'plantilla_eliminada']) // lo asignado con ella en algún curso queda inválido
+      }
+      return borrada
+    })
     if (!r.rowCount) return res.status(404).json({ error: 'No hay una plantilla subida con ese nombre.' })
-    await sinUsuario(Q.categoriaQuitar, [req.paramsOk.nombre])
     await auditar(req.usuario.id, 'plantilla_eliminar', 'plantilla', req.paramsOk.nombre, req)
     res.json({ ok: true })
   } catch (e) { next(e) }

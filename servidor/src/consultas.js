@@ -316,6 +316,28 @@ export const Q = Object.freeze({
   subidaRenombrar: `UPDATE plantilla_subidas SET nombre = $2, actualizado = now() WHERE nombre = $1 RETURNING nombre`,
   historialRenombrar: `UPDATE plantilla_historial SET plantilla = $2 WHERE plantilla = $1`,
   subidaBorrar: `DELETE FROM plantilla_subidas WHERE nombre = $1 RETURNING nombre`,
+  // ---- asignación de variantes por curso (sql/005): las reparte Praxia entre las aprobadas de la formación, sin repetir en el curso
+  asignElegibles: `
+    SELECT s.nombre, s.formacion, s.creado,
+           coalesce((SELECT h.estado FROM plantilla_historial h WHERE h.plantilla = 'pub-' || s.nombre ORDER BY h.creado DESC, h.id DESC LIMIT 1), 'revision') AS ultimo
+      FROM plantilla_categoria pc JOIN plantilla_subidas s ON s.nombre = pc.plantilla
+     WHERE pc.categoria = $1 ORDER BY s.creado, s.nombre`,
+  asignUsadas: `SELECT plantilla FROM asignacion_variantes WHERE propietario_id = $1 AND proyecto_id = $2 AND categoria = $3 AND plantilla IS NOT NULL`,
+  asignExistentes: `
+    SELECT codigo, unidad, id_catalogo, id_base, categoria, formacion, plantilla, plantilla_anterior, estado, motivo, asignada_en FROM asignacion_variantes
+     WHERE propietario_id = $1 AND proyecto_id = $2 AND codigo = ANY($3::text[])`,
+  asignConsultar: `
+    SELECT codigo, unidad, id_catalogo, id_base, categoria, formacion, plantilla, plantilla_anterior, estado, motivo, asignada_en FROM asignacion_variantes
+     WHERE propietario_id = $1 AND proyecto_id = $2 AND ($3::integer IS NULL OR unidad = $3) AND ($4::text[] IS NULL OR codigo = ANY($4::text[])) ORDER BY unidad, codigo`,
+  asignGuardar: `
+    INSERT INTO asignacion_variantes (propietario_id, proyecto_id, codigo, unidad, id_catalogo, id_base, categoria, formacion, plantilla, plantilla_anterior, estado, motivo, trabajo_id, asignada_en)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, CASE WHEN $11 = 'asignada' THEN now() END)
+    ON CONFLICT (propietario_id, proyecto_id, codigo) DO UPDATE SET unidad = EXCLUDED.unidad, id_catalogo = EXCLUDED.id_catalogo, id_base = EXCLUDED.id_base, categoria = EXCLUDED.categoria,
+      formacion = EXCLUDED.formacion, plantilla = EXCLUDED.plantilla, plantilla_anterior = EXCLUDED.plantilla_anterior, estado = EXCLUDED.estado, motivo = EXCLUDED.motivo,
+      trabajo_id = EXCLUDED.trabajo_id, asignada_en = CASE WHEN EXCLUDED.estado = 'asignada' THEN now() ELSE asignacion_variantes.asignada_en END, actualizado = now()`,
+  // Si una plantilla se elimina o se mueve de categoría, o su categoría se elimina, lo asignado con ella queda INVÁLIDO (no se reasigna solo).
+  asignInvalidarPlantilla: `UPDATE asignacion_variantes SET plantilla_anterior = plantilla, plantilla = NULL, estado = 'invalida', motivo = $2, actualizado = now() WHERE plantilla = $1`,
+  asignInvalidarCategoria: `UPDATE asignacion_variantes SET plantilla_anterior = plantilla, plantilla = NULL, estado = 'invalida', motivo = 'categoria_eliminada', actualizado = now() WHERE categoria = $1 AND plantilla IS NOT NULL`,
   // ---- plantillas del sistema quitadas de n8n
   ocultasListar: `SELECT plantilla, eliminada FROM plantilla_ocultas ORDER BY plantilla`,
   ocultaEsta: `SELECT 1 FROM plantilla_ocultas WHERE plantilla = $1`,
