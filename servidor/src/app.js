@@ -8,7 +8,7 @@ import path from 'node:path'
 import { config } from './config.js'
 import { exigirCabecera } from './seguridad.js'
 import { rutas } from './rutas.js'
-import { CABECERAS_AISLADAS, compararEsquemas } from './plantillas/subidas.js'
+import { CABECERAS_AISLADAS, compararEsquemas, armarSubida } from './plantillas/subidas.js'
 import { rutasBibliografia } from './bibliografia/rutas.js'
 import { rutasGuiones } from './guiones/rutas.js'
 import { rutasUnidades } from './unidades/rutas.js'
@@ -89,6 +89,21 @@ export function crearApp() {
       const categorias = c.rows.map((k) => ({ id: k.id, nombre: k.nombre, tipo: k.tipo, formaciones: formacionesDe(k.id), variantes: plantillas.filter((p) => p.id_catalogo === k.id).map(({ nombre, archivo, estado, fecha_estado, esquema_ok, formacion }) => ({ nombre, archivo, estado, fecha_estado, esquema_ok, formacion })) }))
       res.json({ ...base, total: plantillas.length, plantillas, categorias, sin_categoria: plantillas.filter((p) => !p.id_catalogo).map(({ nombre, archivo, estado, fecha_estado }) => ({ nombre, archivo, estado, fecha_estado })) })
     } catch { res.json(base) }
+  })
+  // Enlace para VER una plantilla subida con su contenido de ejemplo (para ponerlo en guiones o compartirlo): público, sin sesión, aislado y de solo lectura.
+  // La ruta de siempre (/plantillas-html/<nombre>.html) sigue entregando el esqueleto sin ejemplo que descarga n8n; este arma el ejemplo al pedirlo, desde el original guardado.
+  const NIVEL_VER = { tecnologico: 'tecnologia', profesional: 'profesional', especializacion: 'especializacion', doctorado: 'doctorado' }
+  app.get(/^\/plantillas-html\/ver\/([a-z0-9-]{1,80})(?:\.html)?$/, async (req, res, next) => {
+    try {
+      const [f, e] = await Promise.all([sinUsuario(Q.subidaCrudo, [req.params[0]]), sinUsuario(Q.subidaEsquema, [req.params[0]])])
+      if (!f.rows[0]) return res.status(404).type('text/plain; charset=utf-8').send('No hay una plantilla con ese nombre.')
+      const armada = armarSubida(f.rows[0].html_crudo)
+      if (!armada.ok || !armada.ejemplo) return res.status(404).type('text/plain; charset=utf-8').send('Esta plantilla no trae contenido de ejemplo para mostrar.')
+      const nivel = NIVEL_VER[(e.rows[0] || {}).formacion]
+      const marca = nivel ? '<script>window.__NIVEL=' + JSON.stringify(nivel) + '</script>' : ''
+      const html = marca ? (/<head[^>]*>/i.test(armada.ejemplo) ? armada.ejemplo.replace(/<head[^>]*>/i, (m) => m + marca) : marca + armada.ejemplo) : armada.ejemplo
+      res.set(CABECERAS_AISLADAS).send(html)
+    } catch { next() }
   })
   // Una plantilla subida desde la pantalla se entrega AISLADA (sandbox sin allow-same-origin): sus scripts corren, pero no pueden usar la sesión de Praxia.
   app.get(/^\/plantillas-html\/([a-z0-9-]{1,80})\.html$/, async (req, res, next) => {

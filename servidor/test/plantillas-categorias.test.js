@@ -252,6 +252,14 @@ test('una plantilla puede traer su contenido de ejemplo entre /*CONTENIDO*/ y /*
   assert.ok(servida.includes('/*CONTENIDO*/</script>') && !servida.includes('Mi ejemplo') && !servida.includes('FIN-CONTENIDO'))
   const ej = (await (await dani('GET', '/plantillas/subidas/con-ejemplo/ejemplo')).json()).html
   assert.ok(ej.includes('Mi ejemplo') && !ej.includes('{{TITULO}}') && !ej.includes('/*CONTENIDO*/') && !ej.includes('uno </script>'))
+  // enlace público para VER la plantilla con su ejemplo (sin sesión, aislado); el de n8n sigue siendo el esqueleto
+  const ver = await fetch(base + '/plantillas-html/ver/con-ejemplo')
+  assert.equal(ver.status, 200)
+  assert.match(ver.headers.get('content-security-policy'), /sandbox/); assert.doesNotMatch(ver.headers.get('content-security-policy'), /allow-same-origin/)
+  const vh = await ver.text()
+  assert.ok(vh.includes('Mi ejemplo') && !vh.includes('{{TITULO}}') && !vh.includes('/*CONTENIDO*/'))
+  assert.equal((await fetch(base + '/plantillas-html/ver/con-ejemplo.html')).status, 200)
+  assert.equal((await fetch(base + '/plantillas-html/ver/no-existe')).status, 404)
   const lista = (await (await dani('GET', '/plantillas/categorias')).json()).subidas
   assert.equal(lista['con-ejemplo'].ejemplo, true)
   assert.equal((await dani('POST', '/plantillas/subidas', { nombre: 'ej-malo', html: con('{ no es json }') })).status, 400)
@@ -259,6 +267,7 @@ test('una plantilla puede traer su contenido de ejemplo entre /*CONTENIDO*/ y /*
   // sin ejemplo: la vista previa no tiene HTML propio
   assert.equal((await dani('POST', '/plantillas/subidas', { nombre: 'sin-ejemplo', html: PLANTILLA() })).status, 201)
   assert.equal((await (await dani('GET', '/plantillas/subidas/sin-ejemplo/ejemplo')).json()).html, null)
+  assert.equal((await fetch(base + '/plantillas-html/ver/sin-ejemplo')).status, 404) // sin ejemplo no hay nada que mostrar
   assert.equal((await (await dani('GET', '/plantillas/categorias')).json()).subidas['sin-ejemplo'].ejemplo, false)
   assert.equal((await dani('GET', '/plantillas/subidas/no-hay/ejemplo')).status, 404)
   for (const n of ['con-ejemplo', 'sin-ejemplo']) assert.equal((await dani('DELETE', '/plantillas/subidas/' + n)).status, 200)
