@@ -266,8 +266,8 @@ test('las direcciones se leen de «Conexión n8n» (tabla configuracion) y, si n
   assert.deepEqual([c.matrices, c.h5p], ['https://n8n.ejemplo.edu.co/webhook/m', 'https://n8n.ejemplo.edu.co/webhook/h'])
   assert.equal((await admin('PUT', '/config/n8n', { matrices: 'http://inseguro.test/x' })).status, 400)
   assert.equal((await ana('PUT', '/config/n8n', { matrices: 'https://n8n.ejemplo.edu.co/webhook/x' })).status, 403)
-  assert.equal((await admin('PUT', '/config/n8n', { matrices: '', h5p: '' })).status, 200)
-  assert.deepEqual(await (await admin('GET', '/config/n8n')).json(), { syllabus: '', guiones: '', matrices: '', h5p: '' })
+  assert.equal((await admin('PUT', '/config/n8n', { matrices: '', h5p: '', preparacion: '' })).status, 200)
+  assert.deepEqual(await (await admin('GET', '/config/n8n')).json(), { syllabus: '', guiones: '', matrices: '', h5p: '', preparacion: '' })
 })
 
 test('H5P: el máximo es opcional; sin él Praxia no lo envía a n8n (lo define n8n) y con él lo reenvía', async () => {

@@ -15,6 +15,7 @@ Regla de Roger, que Praxia garantiza **en la base de datos** (no depende del flu
 | Tabla `asignacion_variantes` + índices + permisos | `servidor/sql/005_asignacion_variantes.sql` |
 | Cómo deshacerlo | `servidor/sql/revertir/005_asignacion_variantes.down.sql` |
 | Endpoints para n8n (firmados) | `servidor/src/pipeline/asignaciones.js` |
+| Orden «preparar el curso» (Praxia → n8n) y su dirección configurable | `servidor/src/pipeline/lanzar.js`, `servidor/src/rutas.js`, pantalla «Conexión n8n» |
 | Consultas | `servidor/src/consultas.js` (`asign…`) |
 | Mover/eliminar plantilla o eliminar categoría marcan lo asignado como inválido | `servidor/src/rutas.js` |
 | Pruebas | `servidor/test/asignaciones.test.js` (101 pruebas del servidor pasan en total) |
@@ -42,6 +43,17 @@ const firma = crypto.createHmac('sha256', SECRETO).update(fecha + '.' + cuerpo).
 // POST {dominio de Praxia}/api/n8n/asignaciones/pedir
 // cabeceras: Content-Type: application/json, X-Praxia-Fecha: fecha, X-Praxia-Firma: firma · cuerpo: el mismo texto `cuerpo`
 ```
+
+### 3.0 Cómo empieza todo: la orden que Praxia le manda al flujo
+Praxia identifica persona y curso con un `trabajo_id` que ella misma registra al lanzar. Para la preparación lo hace así: `POST /api/proyectos/:id/pipeline/preparacion` (con sesión de la persona; cuerpo opcional `{ "unidades": [1,2], "forzar": false }`). Praxia valida el curso, registra el `trabajo_id` (etapa `preparacion`) y **llama por POST al webhook del flujo de preparación** (se configura en «Conexión n8n» → «Preparar el curso», o con la variable `N8N_PREPARACION_URL`; sin dirección, queda desactivado). El flujo debe responder enseguida (como los de matrices: un `200` con `{ "ejecucion_id": "…" }` opcional) y trabajar en segundo plano; `409` si ya hay una preparación en curso de ese curso y `400` con `{ "error": "…" }` si rechaza la orden.
+
+Cuerpo que recibe el webhook:
+```json
+{ "trabajo_id": "uuid", "proyecto_id": "…", "carpeta_raiz": "https://drive.google.com/drive/folders/…", "curso": "nombre del curso",
+  "formacion": "tecnologico", "syllabus_url": "https://docs.google.com/document/d/…", "bibliografia_id": "uuid",
+  "unidades": [1, 2], "forzar": false }
+```
+`formacion` es la del curso ya normalizada (`tecnologico`, `profesional`, `especializacion` o `doctorado`; si el curso no la dice, Praxia no lanza y avisa). `syllabus_url`, `bibliografia_id` y `unidades` solo van si existen. **Ese `trabajo_id` es el que el flujo usa en `pedir` y `consultar`.** (Falta, si se quiere, el botón en la pantalla del curso: hoy la orden existe como ruta del servidor.)
 
 ### 3.1 Pedir variantes
 `POST /api/n8n/asignaciones/pedir`
@@ -103,8 +115,7 @@ Si en Praxia se **elimina** la plantilla, se **mueve** a otra categoría (cambia
 4. **Catálogo de qué existe**: sigue saliendo del índice público `/plantillas-html/plantillas.json` (categorías, variantes, `estado`, `formacion`). No hace falta nada más para saber qué recursos hay disponibles.
 5. **Avisos a Praxia** (matrices, H5P): seguir mandando `codigo` en cada fila.
 
-### Pendiente de decidir con Roger
-- **De dónde sale el `trabajo_id`.** Praxia identifica persona y curso con un `trabajo_id` registrado en su tabla `pipeline_origen`. Hoy lo registra al lanzar guiones, matrices o H5P. La migración 005 ya admite la etapa `preparacion`, pero **Praxia aún no tiene la orden de «lanzar preparación»** que registre ese `trabajo_id` y se lo entregue al flujo. Hace falta definirla (lo más simple: igual que las demás órdenes, Praxia lo registra y lo manda en la orden a n8n).
+### Pendiente
 - **Fallo conocido de `pipeline_recursos`**: su clave es (curso, id de catálogo), así que el mismo `G-12-A` en dos unidades se pisa. Conviene cambiarla a clave por `codigo`. No se tocó.
 
 ## 5. Desplegar en el servidor y volver atrás

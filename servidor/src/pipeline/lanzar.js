@@ -11,6 +11,7 @@ import { Q } from '../consultas.js'
 import { publicar } from '../guiones/rutas.js'
 
 const RE_CARPETA = /^https:\/\/drive\.google\.com\/drive\/(?:u\/\d+\/)?folders\/[A-Za-z0-9_-]+/
+const RE_SYLLABUS = /^https:\/\/docs\.google\.com\/document\/d\/[A-Za-z0-9_-]+/
 const LISTAS = ['creada', 'omitida', 'reemplazada'] // estados de una matriz que ya se puede usar
 
 // Las direcciones de los webhooks las guarda el administrador en «Conexión n8n» (tabla configuracion); si no hay una guardada ahí,
@@ -21,6 +22,7 @@ async function urlConfigurada(clave, respaldo) {
 }
 export const urlMatrices = () => urlConfigurada('n8n.matrices', config.n8nMatricesUrl)
 export const urlH5p = () => urlConfigurada('n8n.h5p', config.n8nH5pUrl)
+export const urlPreparacion = () => urlConfigurada('n8n.preparacion', config.n8nPreparacionUrl)
 
 const Unidades = z.array(z.number().int().min(1).max(200)).min(1).max(50)
 export const EsquemaLanzarMatrices = z.object({ unidades: Unidades, forzar: z.boolean().default(false) }).strict()
@@ -29,6 +31,8 @@ export const EsquemaLanzarH5p = z.object({
   unidades: Unidades.optional(),
   reintentarErrores: z.boolean().default(false)
 }).strict()
+
+export const EsquemaLanzarPreparacion = z.object({ unidades: Unidades.optional(), forzar: z.boolean().default(false) }).strict()
 
 const falla = (codigo, error, extra = {}) => ({ codigo, cuerpo: { error, ...extra } })
 
@@ -145,4 +149,47 @@ export async function lanzarH5p({ usuario, proyectoId, maximo, unidades, reinten
   if (r.codigo !== 202) return r
   const ejecucion = r.ack && typeof r.ack.ejecucion_id === 'string' ? r.ack.ejecucion_id.slice(0, 100) : undefined
   return { codigo: 202, cuerpo: { trabajo_id: trabajoId, ...(maximo ? { maximo } : {}), ...(pedidas ? { unidades: pedidas } : {}), reintentarErrores, ...(ejecucion ? { ejecucion_id: ejecucion } : {}) } }
+}
+
+// Formación del curso (la que usa el catálogo de plantillas) a partir del nivel que trae el curso («Tecnológico», «Profesional», «Especialización»…). null si no se reconoce.
+export function formacionDeCurso(datos) {
+  const info = (datos && datos.info) || {}
+  const t = texto(info.nivel, 120) || texto(info.nivel_de_formacion, 120)
+  const s = t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  if (/tecnolog/.test(s)) return 'tecnologico'
+  if (/profesional|licenciatura|pregrado/.test(s)) return 'profesional'
+  if (/especializ/.test(s)) return 'especializacion'
+  if (/doctor/.test(s)) return 'doctorado'
+  return null
+}
+
+// «Preparar el curso»: ANTES de generar los guiones, n8n lee la estructura del curso y pide a Praxia la variante de plantilla de cada recurso
+// (POST /api/n8n/asignaciones/pedir, src/pipeline/asignaciones.js). Aquí Praxia solo valida, anota el origen (etapa «preparacion») y entrega la orden:
+// el trabajo_id que viaja a n8n es el que luego identifica persona y curso en esas peticiones.
+export async function lanzarPreparacion({ usuario, proyectoId, unidades, forzar, publicarFn = publicar }) {
+  const url = await urlPreparacion()
+  if (!url) return falla(503, 'La preparación del curso no está configurada en el servidor.')
+  const curso = await leerCurso(usuario, proyectoId)
+  if (curso.codigo) return curso
+  const formacion = formacionDeCurso(curso.datos)
+  if (!formacion) return falla(400, 'El curso no dice su formación (Tecnológico, Profesional, Especialización o Doctorado): se necesita para elegir las variantes de las plantillas.')
+  let pedidas = null
+  if (unidades) {
+    const aprobadas = new Set(((curso.datos.syllabus && curso.datos.syllabus.documentos) || []).filter((d) => d && d.aprobado).map((d) => Number(d.unidad)))
+    pedidas = [...new Set(unidades)].sort((a, b) => a - b)
+    const sin = pedidas.filter((u) => !aprobadas.has(u))
+    if (sin.length) return falla(400, 'Estas unidades no existen o no están aprobadas: ' + sin.join(', ') + '.')
+  }
+  const syllabus = texto(curso.datos.syllabusUrl, 600)
+  const bibliografia = texto(curso.datos.bibliografiaId, 60)
+  const trabajoId = await reservar({ usuarioId: usuario.id, proyectoId, carpeta: curso.carpeta, etapa: 'preparacion', unidad: pedidas && pedidas.length === 1 ? pedidas[0] : null })
+  if (!trabajoId) return falla(409, 'Ya se está preparando este curso. Espere a que termine.', { ya: true })
+  const r = await entregar({ url, minutos: 5, trabajoId, publicarFn, nombre: 'la preparación',
+    cuerpo: { trabajo_id: trabajoId, proyecto_id: proyectoId, carpeta_raiz: curso.carpeta, curso: texto(curso.datos.curso, 200), formacion,
+      ...(RE_SYLLABUS.test(syllabus) ? { syllabus_url: syllabus } : {}),
+      ...(/^[0-9a-f-]{36}$/i.test(bibliografia) ? { bibliografia_id: bibliografia } : {}),
+      ...(pedidas ? { unidades: pedidas } : {}), forzar } })
+  if (r.codigo !== 202) return r
+  const ejecucion = r.ack && typeof r.ack.ejecucion_id === 'string' ? r.ack.ejecucion_id.slice(0, 100) : undefined
+  return { codigo: 202, cuerpo: { trabajo_id: trabajoId, formacion, ...(pedidas ? { unidades: pedidas } : {}), forzar, ...(ejecucion ? { ejecucion_id: ejecucion } : {}) } }
 }

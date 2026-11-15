@@ -8,7 +8,7 @@ import { Q } from './consultas.js'
 import { config } from './config.js'
 import { extraerEnlaces } from './enlaces.js'
 import { armarSubida, compararEsquemas, MAX_HTML, NOMBRES_RESERVADOS } from './plantillas/subidas.js'
-import { EsquemaLanzarH5p, EsquemaLanzarMatrices, lanzarH5p, lanzarMatrices, urlH5p, urlMatrices } from './pipeline/lanzar.js'
+import { EsquemaLanzarH5p, EsquemaLanzarMatrices, EsquemaLanzarPreparacion, lanzarH5p, lanzarMatrices, lanzarPreparacion, urlH5p, urlMatrices, urlPreparacion } from './pipeline/lanzar.js'
 import { COOKIE, claveValida, compararClave, emitirSesion, exigirAlguno, exigirPermiso, exigirSesion, hashClave } from './seguridad.js'
 
 export const rutas = Router()
@@ -115,7 +115,7 @@ rutas.get('/proyectos/:id/pipeline', exigirSesion, exigirPermiso('proyectos.ver_
     const [m, r, e] = await Promise.all([sinUsuario(Q.pipeLeerMatrices, p), sinUsuario(Q.pipeLeerRecursos, p), sinUsuario(Q.pipeLeerEjecuciones, p)])
     // El plan de una corrida puede ser largo: se entrega el conteo y la lista de lo omitido con su motivo, no todos los recursos a generar.
     const ejecuciones = e.rows.map((x) => ({ ...x, plan: x.plan ? { aGenerar: (x.plan.a_generar || []).length, omitidas: (x.plan.omitidas || []).slice(0, 500) } : null }))
-    res.json({ matrices: m.rows, recursos: r.rows, ejecuciones, generado: new Date().toISOString(), puedeGenerarMatrices: Boolean(await urlMatrices()), puedeGenerarH5p: Boolean(await urlH5p()) })
+    res.json({ matrices: m.rows, recursos: r.rows, ejecuciones, generado: new Date().toISOString(), puedeGenerarMatrices: Boolean(await urlMatrices()), puedeGenerarH5p: Boolean(await urlH5p()), puedePreparar: Boolean(await urlPreparacion()) })
   } catch (err) { next(err) }
 })
 
@@ -136,6 +136,16 @@ rutas.post('/proyectos/:id/pipeline/h5p', exigirSesion, exigirPermiso('proyectos
     const { maximo, unidades, reintentarErrores } = req.bodyOk
     const r = await lanzarH5p({ usuario: req.usuario, proyectoId: req.paramsOk.id, maximo, unidades, reintentarErrores })
     if (r.codigo === 202) auditar(req.usuario.id, reintentarErrores ? 'h5p.reintentar' : 'h5p.generar', 'proyecto', req.paramsOk.id, req)
+    res.status(r.codigo).json(r.cuerpo)
+  } catch (err) { next(err) }
+})
+
+// Prepara el curso ANTES de generar los guiones: n8n lee su estructura y Praxia reparte las variantes de plantilla (ver src/pipeline/asignaciones.js).
+rutas.post('/proyectos/:id/pipeline/preparacion', exigirSesion, exigirPermiso('proyectos.crear'), limiteLanzar, validar(z.object({ id: IdProyecto }), 'params'), validar(EsquemaLanzarPreparacion, 'body'), async (req, res, next) => {
+  try {
+    const { unidades, forzar } = req.bodyOk
+    const r = await lanzarPreparacion({ usuario: req.usuario, proyectoId: req.paramsOk.id, unidades, forzar })
+    if (r.codigo === 202) auditar(req.usuario.id, forzar ? 'preparacion.rehacer' : 'preparacion.lanzar', 'proyecto', req.paramsOk.id, req)
     res.status(r.codigo).json(r.cuerpo)
   } catch (err) { next(err) }
 })
@@ -308,16 +318,16 @@ rutas.patch('/usuarios/:id/clave', ...admin, validar(z.object({ id: IdUsuario })
   })
 
 // ------------------------------------------------------------------ direcciones de n8n (compartidas por todas las personas)
-const CLAVES_N8N = { syllabus: 'n8n.syllabus', guiones: 'n8n.guiones', matrices: 'n8n.matrices', h5p: 'n8n.h5p' }
+const CLAVES_N8N = { syllabus: 'n8n.syllabus', guiones: 'n8n.guiones', matrices: 'n8n.matrices', h5p: 'n8n.h5p', preparacion: 'n8n.preparacion' }
 rutas.get('/config/n8n', exigirSesion, async (req, res, next) => {
   try {
     const f = (await sinUsuario(Q.configLeer, [Object.values(CLAVES_N8N)])).rows
     const v = (c) => (f.find((x) => x.clave === c) || {}).valor || ''
-    res.json({ syllabus: v(CLAVES_N8N.syllabus), guiones: v(CLAVES_N8N.guiones), matrices: v(CLAVES_N8N.matrices), h5p: v(CLAVES_N8N.h5p) }) // '' = la dirección original
+    res.json({ syllabus: v(CLAVES_N8N.syllabus), guiones: v(CLAVES_N8N.guiones), matrices: v(CLAVES_N8N.matrices), h5p: v(CLAVES_N8N.h5p), preparacion: v(CLAVES_N8N.preparacion) }) // '' = la dirección original
   } catch (e) { next(e) }
 })
 const UrlN8n = z.union([z.literal(''), z.string().trim().max(500).regex(/^https:\/\/\S+$/)])
-rutas.put('/config/n8n', ...admin, validar(z.object({ syllabus: UrlN8n.optional(), guiones: UrlN8n.optional(), matrices: UrlN8n.optional(), h5p: UrlN8n.optional() }).strict(), 'body'),
+rutas.put('/config/n8n', ...admin, validar(z.object({ syllabus: UrlN8n.optional(), guiones: UrlN8n.optional(), matrices: UrlN8n.optional(), h5p: UrlN8n.optional(), preparacion: UrlN8n.optional() }).strict(), 'body'),
   async (req, res, next) => {
     try {
       for (const [campo, clave] of Object.entries(CLAVES_N8N)) {
