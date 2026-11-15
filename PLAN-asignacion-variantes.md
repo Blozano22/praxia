@@ -53,7 +53,7 @@ Cuerpo que recibe el webhook:
   "formacion": "tecnologico", "syllabus_url": "https://docs.google.com/document/d/…", "bibliografia_id": "uuid",
   "unidades": [1, 2], "forzar": false }
 ```
-`formacion` es la del curso ya normalizada (`tecnologico`, `profesional`, `especializacion` o `doctorado`; si el curso no la dice, Praxia no lanza y avisa). `syllabus_url`, `bibliografia_id` y `unidades` solo van si existen. **Ese `trabajo_id` es el que el flujo usa en `pedir` y `consultar`.** (Falta, si se quiere, el botón en la pantalla del curso: hoy la orden existe como ruta del servidor.)
+`formacion` es la del curso ya normalizada (`tecnologico`, `profesional`, `especializacion` o `doctorado`; si el curso no la dice, Praxia no lanza y avisa). `syllabus_url`, `bibliografia_id` y `unidades` solo van si existen. **Ese `trabajo_id` es el que el flujo usa en `pedir` y `consultar`.**
 
 ### 3.1 Pedir variantes
 `POST /api/n8n/asignaciones/pedir`
