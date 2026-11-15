@@ -161,11 +161,12 @@ async function aplicar(c, ev, o, fecha, sec) {
         if (!g.rowCount) continue // un aviso más antiguo que lo que ya hay de esa unidad
         n++
         if (r.filas && estado !== 'error') {
-          // El «ID del recurso» de la matriz es el del catálogo (G-11-A…) y se repite entre temas; la fila se distingue por su código (U1-T2-R3 · G-11-A).
-          // Si en la unidad hay ids repetidos, cada fila se guarda con su código para no perder ninguna.
+          // El «ID del recurso» de la matriz es el del catálogo (G-11-A…) y se repite entre temas Y entre unidades; la fila se distingue por su código de posición
+          // (U1-T2-R3), único por curso. Por eso la clave de la fila es SIEMPRE el código cuando viene; sin código, el id (como antes). Las filas guardadas antes con el id
+          // como clave siguen funcionando (los avisos de H5P las encuentran por id) y se reemplazan solas cuando se vuelven a generar las matrices de su unidad.
           const repetidos = new Set(r.filas.map((f) => f.id)).size !== r.filas.length
           if (repetidos && r.filas.some((f) => !f.codigo)) console.warn('[avisos] matrices_fin con ids de fila repetidos y filas sin código (unidad ' + r.unidad + '): se perderán filas')
-          const claves = r.filas.map((f) => (repetidos && f.codigo ? f.codigo : f.id))
+          const claves = r.filas.map((f) => f.codigo || f.id)
           for (const [k, f] of r.filas.entries()) {
             await c.query(Q.pipeRecursoGuardar, [P, Y, claves[k], r.unidad, f.id_base || null, f.variante || null, f.alcance || null, f.tema ?? null, f.codigo || null, f.formato || null, f.titulo || null,
               f.con_actividad ?? null, f.generador || null, f.estado, f.observaciones || null, f.enlace_guion || null, f.enlace_recurso || null, null, fecha, sec])

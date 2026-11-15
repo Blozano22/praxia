@@ -146,3 +146,4 @@ export async function lanzarH5p({ usuario, proyectoId, maximo, unidades, reinten
   const ejecucion = r.ack && typeof r.ack.ejecucion_id === 'string' ? r.ack.ejecucion_id.slice(0, 100) : undefined
   return { codigo: 202, cuerpo: { trabajo_id: trabajoId, ...(maximo ? { maximo } : {}), ...(pedidas ? { unidades: pedidas } : {}), reintentarErrores, ...(ejecucion ? { ejecucion_id: ejecucion } : {}) } }
 }
+

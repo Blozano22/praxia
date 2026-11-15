@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import Titulo from './Titulo.jsx'
-import { cargarConfigN8n, guardarWebhook, guardarWebhookGuiones, guardarWebhookH5p, guardarWebhookMatrices, leerWebhook, leerWebhookGuiones, leerWebhookH5p, leerWebhookMatrices } from '../lib/syllabus.js'
+import { cargarConfigN8n, guardarWebhook, guardarWebhookGuiones, guardarWebhookH5p, guardarWebhookMatrices, guardarWebhookPreparacion, leerWebhook, leerWebhookGuiones, leerWebhookH5p, leerWebhookMatrices, leerWebhookPreparacion } from '../lib/syllabus.js'
 
 // Direcciones (webhooks) de n8n que usa la plataforma. Se guardan en el servidor: el cambio vale para todas las personas.
 const RE_URL = /^https:\/\/\S+$/
@@ -70,6 +70,8 @@ export default function Conexiones({ aviso }) {
           <div className="cx-lista2">
             <Conexion titulo="Crear las unidades" icono="capas" ayuda="Recibe el syllabus, la carpeta de destino y la bibliografía leída, y crea un documento por unidad. Solo crea la estructura."
               leer={leerWebhook} guardar={guardarWebhook} aviso={aviso} />
+            <Conexion titulo="Preparar el curso (variantes de plantillas)" icono="capas" ayuda="Se llama al pedir «Generar guiones»: lee las estructuras del curso y pide a Praxia la variante de plantilla de cada recurso. Praxia espera su respuesta (200 al terminar) antes de generar los guiones."
+              leer={leerWebhookPreparacion} guardar={guardarWebhookPreparacion} aviso={aviso} opcional sinDireccion="Falta la dirección: sin ella la preparación del curso queda desactivada." />
             <Conexion titulo="Crear los guiones de una unidad" icono="doc" ayuda="Recibe una unidad ya creada y arma sus guiones. Solo se usa al trabajar dentro de un syllabus."
               leer={leerWebhookGuiones} guardar={guardarWebhookGuiones} aviso={aviso} />
             <Conexion titulo="Generar las matrices de recursos" icono="tabla" ayuda="Recibe la orden de crear (o volver a crear) la matriz de una unidad, con su formación y sus guiones. Responde enseguida y avisa el resultado a Praxia."

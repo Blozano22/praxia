@@ -35,7 +35,7 @@ before(async () => {
   const dueno = new pg.Client({ connectionString: `postgres://postgres:duenio@localhost:${PUERTO_PG}/ova` })
   await dueno.connect()
   await dueno.query("CREATE ROLE ova_app LOGIN PASSWORD 'appclave' NOSUPERUSER NOBYPASSRLS")
-  for (const f of ['001_esquema.sql', '002_bibliografia.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
+  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
   await dueno.end()
   process.env.DATABASE_URL = `postgres://ova_app:appclave@localhost:${PUERTO_PG}/ova`
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex')
@@ -74,7 +74,7 @@ async function enviar(obj, opciones) {
 }
 const aviso = (evento, etapa, extra = {}, seg = 0) => ({ evento_id: eid(), evento, etapa, trabajo_id: T.ana, proyecto_id: 'curso-a', fecha_evento: t(seg), secuencia: seg, ...extra })
 const una = (persona, tabla, where = '1=1', val = []) => pool.query(`SELECT * FROM ${tabla} WHERE propietario_id = $1 AND ${where}`, [ids[persona], ...val]).then((r) => r.rows)
-const fila = (id, estado = 'PENDIENTE', extra = {}) => ({ id, id_base: 'b-' + id, codigo: 'U1-T1-' + id, formato: 'Línea de tiempo', titulo: 'Título ' + id, generador: 'H5P', estado, enlace_guion: DOC, ...extra })
+const fila = (id, estado = 'PENDIENTE', extra = {}) => ({ id, id_base: 'b-' + id, formato: 'Línea de tiempo', titulo: 'Título ' + id, generador: 'H5P', estado, enlace_guion: DOC, ...extra })
 
 test('la firma protege el receptor: sin firma, con firma mala, vencida o con el cuerpo alterado se rechaza', async () => {
   const ok = aviso('h5p_fin', 'h5p', { ejecucion_id: 'x1', resumen: { generados: 0, errores: 0, omitidos: 0 } })
@@ -329,4 +329,27 @@ test('el «ID del recurso» del catálogo se repite entre temas: ninguna fila se
   const despues = await una('ana', 'pipeline_recursos', 'proyecto_id = $2 AND unidad = 8', ['curso-a'])
   assert.deepEqual(despues.filter((x) => x.estado === 'GENERADO').map((x) => x.codigo), ['U8-T2-R1 · G-08-C'])
   assert.equal(despues.filter((x) => x.estado === 'PENDIENTE').length, 4)
+})
+
+test('el mismo «ID del recurso» en DOS unidades del curso no se pisa (la clave es el código de posición); lo guardado antes con el id como clave sigue funcionando y se reemplaza al regenerar su unidad', async () => {
+  const ahora = Date.now()
+  const comun = { etapa: 'matrices', trabajo_id: T.ana, proyecto_id: 'curso-a', ejecucion_id: 'rep-u' }
+  const f = (id, codigo) => ({ id, id_base: id.slice(0, 4), variante: id.slice(5), alcance: 'General', tema: 1, codigo, formato: 'Formato', titulo: 'T ' + codigo, con_actividad: false, generador: 'H5P', estado: 'PENDIENTE', observaciones: '', enlace_guion: DOC, enlace_recurso: '' })
+  const fin = (u, filas, sec) => ({ ...comun, evento_id: 'rep-u-fin-' + u + '-' + sec, evento: 'matrices_fin', secuencia: sec, fecha_evento: new Date(ahora - 5000 + sec * 1000).toISOString(), resultados: [{ unidad: u, formacion: 'Doctorado', resultado: 'creada', matriz: { id: 'hoja-u' + u, url: 'https://docs.google.com/spreadsheets/d/hoja-u' + u + '/edit', nombre: 'M' + u }, filas }] })
+  // filas con ids que se repiten ENTRE unidades (y ninguno repetido dentro de cada una): antes la de la 2.ª unidad pisaba a la de la 1.ª
+  assert.equal((await enviar(fin(21, [f('G-12-A', 'U21-T1-R1'), f('G-09-C', 'U21-T1-R2')], 1))).estado, 200)
+  assert.equal((await enviar(fin(22, [f('G-12-A', 'U22-T1-R1'), f('G-09-C', 'U22-T1-R2')], 2))).estado, 200)
+  const todas = await una('ana', 'pipeline_recursos', 'proyecto_id = $2 AND unidad IN (21, 22)', ['curso-a'])
+  assert.equal(todas.length, 4)
+  assert.deepEqual(todas.filter((x) => x.unidad === 21).map((x) => x.id).sort(), ['U21-T1-R1', 'U21-T1-R2'])
+  // una fila guardada ANTES con el id como clave (otra unidad, de una corrida anterior)
+  await pool.query("INSERT INTO pipeline_recursos (propietario_id, proyecto_id, id, unidad, codigo, estado, actualizado_en, secuencia) VALUES ($1, 'curso-a', 'G-05-A', 23, 'U23-T1-R1', 'PENDIENTE', now() - interval '1 day', 1)", [ids.ana])
+  const rec = { etapa: 'h5p', trabajo_id: T.ana, proyecto_id: 'curso-a', ejecucion_id: 'rep-u-h5p', unidad: 23, id: 'G-05-A', codigo: 'U23-T1-R1' }
+  assert.equal((await enviar({ ...rec, evento_id: 'rep-u-rec-0001', evento: 'h5p_recurso', estado: 'GENERADO', enlace_recurso: 'https://drive.google.com/file/d/vieja/view', secuencia: 5, fecha_evento: new Date(ahora - 1000).toISOString() })).estado, 200)
+  const vieja = await una('ana', 'pipeline_recursos', 'proyecto_id = $2 AND unidad = 23', ['curso-a'])
+  assert.equal(vieja.length, 1); assert.equal(vieja[0].id, 'G-05-A'); assert.equal(vieja[0].estado, 'GENERADO') // el aviso llegó a la fila vieja, sin crear otra
+  // al volver a generar las matrices de esa unidad, la fila vieja se reemplaza por la de clave nueva
+  assert.equal((await enviar(fin(23, [f('G-05-A', 'U23-T1-R1')], 6))).estado, 200)
+  const nueva = await una('ana', 'pipeline_recursos', 'proyecto_id = $2 AND unidad = 23', ['curso-a'])
+  assert.equal(nueva.length, 1); assert.equal(nueva[0].id, 'U23-T1-R1')
 })

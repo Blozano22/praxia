@@ -9,6 +9,8 @@ import { config } from './config.js'
 import { extraerEnlaces } from './enlaces.js'
 import { armarSubida, compararEsquemas, MAX_HTML, NOMBRES_RESERVADOS } from './plantillas/subidas.js'
 import { EsquemaLanzarH5p, EsquemaLanzarMatrices, lanzarH5p, lanzarMatrices, urlH5p, urlMatrices } from './pipeline/lanzar.js'
+import { urlPreparacion } from './pipeline/preparacion.js'
+import { invalidarAsignaciones } from './pipeline/asignaciones.js'
 import { COOKIE, claveValida, compararClave, emitirSesion, exigirAlguno, exigirPermiso, exigirSesion, hashClave } from './seguridad.js'
 
 export const rutas = Router()
@@ -115,7 +117,7 @@ rutas.get('/proyectos/:id/pipeline', exigirSesion, exigirPermiso('proyectos.ver_
     const [m, r, e] = await Promise.all([sinUsuario(Q.pipeLeerMatrices, p), sinUsuario(Q.pipeLeerRecursos, p), sinUsuario(Q.pipeLeerEjecuciones, p)])
     // El plan de una corrida puede ser largo: se entrega el conteo y la lista de lo omitido con su motivo, no todos los recursos a generar.
     const ejecuciones = e.rows.map((x) => ({ ...x, plan: x.plan ? { aGenerar: (x.plan.a_generar || []).length, omitidas: (x.plan.omitidas || []).slice(0, 500) } : null }))
-    res.json({ matrices: m.rows, recursos: r.rows, ejecuciones, generado: new Date().toISOString(), puedeGenerarMatrices: Boolean(await urlMatrices()), puedeGenerarH5p: Boolean(await urlH5p()) })
+    res.json({ matrices: m.rows, recursos: r.rows, ejecuciones, generado: new Date().toISOString(), puedeGenerarMatrices: Boolean(await urlMatrices()), puedeGenerarH5p: Boolean(await urlH5p()), puedePreparar: Boolean(await urlPreparacion()) })
   } catch (err) { next(err) }
 })
 
@@ -308,16 +310,16 @@ rutas.patch('/usuarios/:id/clave', ...admin, validar(z.object({ id: IdUsuario })
   })
 
 // ------------------------------------------------------------------ direcciones de n8n (compartidas por todas las personas)
-const CLAVES_N8N = { syllabus: 'n8n.syllabus', guiones: 'n8n.guiones', matrices: 'n8n.matrices', h5p: 'n8n.h5p' }
+const CLAVES_N8N = { syllabus: 'n8n.syllabus', guiones: 'n8n.guiones', matrices: 'n8n.matrices', h5p: 'n8n.h5p', preparacion: 'n8n.preparacion' }
 rutas.get('/config/n8n', exigirSesion, async (req, res, next) => {
   try {
     const f = (await sinUsuario(Q.configLeer, [Object.values(CLAVES_N8N)])).rows
     const v = (c) => (f.find((x) => x.clave === c) || {}).valor || ''
-    res.json({ syllabus: v(CLAVES_N8N.syllabus), guiones: v(CLAVES_N8N.guiones), matrices: v(CLAVES_N8N.matrices), h5p: v(CLAVES_N8N.h5p) }) // '' = la dirección original
+    res.json({ syllabus: v(CLAVES_N8N.syllabus), guiones: v(CLAVES_N8N.guiones), matrices: v(CLAVES_N8N.matrices), h5p: v(CLAVES_N8N.h5p), preparacion: v(CLAVES_N8N.preparacion) }) // '' = la dirección original
   } catch (e) { next(e) }
 })
 const UrlN8n = z.union([z.literal(''), z.string().trim().max(500).regex(/^https:\/\/\S+$/)])
-rutas.put('/config/n8n', ...admin, validar(z.object({ syllabus: UrlN8n.optional(), guiones: UrlN8n.optional(), matrices: UrlN8n.optional(), h5p: UrlN8n.optional() }).strict(), 'body'),
+rutas.put('/config/n8n', ...admin, validar(z.object({ syllabus: UrlN8n.optional(), guiones: UrlN8n.optional(), matrices: UrlN8n.optional(), h5p: UrlN8n.optional(), preparacion: UrlN8n.optional() }).strict(), 'body'),
   async (req, res, next) => {
     try {
       for (const [campo, clave] of Object.entries(CLAVES_N8N)) {
@@ -382,7 +384,8 @@ rutas.put('/plantillas/categorias/:id', exigirSesion, exigirPermiso('plantillas.
 })
 rutas.delete('/plantillas/categorias/:id', exigirSesion, exigirPermiso('plantillas.revisar'), validar(z.object({ id: IdCategoria }), 'params'), async (req, res, next) => {
   try {
-    const r = await sinUsuario(Q.categoriaBorrar, [req.paramsOk.id]) // sus plantillas quedan sin categoría
+    // sus plantillas quedan sin categoría y lo asignado con ellas en algún curso queda inválido
+    const r = await conTransaccion(async (c) => { await invalidarAsignaciones(c, Q.asignInvalidarCategoria, [req.paramsOk.id]); return c.query(Q.categoriaBorrar, [req.paramsOk.id]) })
     if (!r.rowCount) return res.status(404).json({ error: 'No encontrado' })
     await auditar(req.usuario.id, 'plantilla_categoria_borrar', 'plantilla_categoria', req.paramsOk.id, req)
     res.json({ ok: true })
@@ -435,6 +438,7 @@ rutas.delete('/plantillas/sistema/:nombre', exigirSesion, exigirPermiso('plantil
     if (!nombresPlantillasPublicadas().includes(nombre)) return res.status(404).json({ error: 'No es una plantilla del sistema.' })
     await sinUsuario(Q.ocultaEliminar, [nombre, req.usuario.nombre])
     await sinUsuario(Q.categoriaQuitar, [nombre])
+    await conTransaccion((c) => invalidarAsignaciones(c, Q.asignInvalidarPlantilla, [nombre, 'plantilla_eliminada']))
     await auditar(req.usuario.id, 'plantilla_eliminar_sistema', 'plantilla', nombre, req)
     res.json({ ok: true })
   } catch (e) { next(e) }
@@ -612,6 +616,7 @@ rutas.post('/plantillas/subidas/:nombre/mover', exigirSesion, exigirAlguno('plan
       await c.query(Q.categoriaAsignar, [nuevo, categoria])
       await c.query(Q.historialRenombrar, ['pub-' + nombre, 'pub-' + nuevo])
       if (fo.formacion) await c.query(Q.subidaFormacionPoner, [nuevo, fo.formacion])
+      await invalidarAsignaciones(c, Q.asignInvalidarPlantilla, [nombre, 'plantilla_movida_a_' + nuevo]) // lo asignado con ella en algún curso queda inválido (no se reasigna solo)
     })
     await auditar(req.usuario.id, 'plantilla_mover', 'plantilla', nombre + ' → ' + nuevo, req)
     res.json({ nombre: nuevo })
@@ -631,9 +636,15 @@ rutas.get('/plantillas/subidas/:nombre/ejemplo', exigirSesion, exigirPermiso('pl
 })
 rutas.delete('/plantillas/subidas/:nombre', exigirSesion, exigirAlguno('plantillas.revisar', 'plantillas.subir'), validar(z.object({ nombre: NombreSubida }), 'params'), soloLoPropio, async (req, res, next) => {
   try {
-    const r = await sinUsuario(Q.subidaBorrar, [req.paramsOk.nombre])
+    const r = await conTransaccion(async (c) => {
+      const borrada = await c.query(Q.subidaBorrar, [req.paramsOk.nombre])
+      if (borrada.rowCount) {
+        await c.query(Q.categoriaQuitar, [req.paramsOk.nombre])
+        await invalidarAsignaciones(c, Q.asignInvalidarPlantilla, [req.paramsOk.nombre, 'plantilla_eliminada']) // lo asignado con ella en algún curso queda inválido
+      }
+      return borrada
+    })
     if (!r.rowCount) return res.status(404).json({ error: 'No hay una plantilla subida con ese nombre.' })
-    await sinUsuario(Q.categoriaQuitar, [req.paramsOk.nombre])
     await auditar(req.usuario.id, 'plantilla_eliminar', 'plantilla', req.paramsOk.nombre, req)
     res.json({ ok: true })
   } catch (e) { next(e) }

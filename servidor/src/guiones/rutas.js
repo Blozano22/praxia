@@ -17,6 +17,7 @@ import { Q } from '../consultas.js'
 import { exigirPermiso, exigirSesion } from '../seguridad.js'
 import { armarPaquete } from '../bibliografia/rutas.js'
 import { registrarOrigen } from '../pipeline/eventos.js'
+import { asegurarAsignacion, ErrorPropio, exigirAprobadas } from '../pipeline/preparacion.js'
 
 export const rutasGuiones = Router()
 rutasGuiones.use(exigirSesion)
@@ -85,25 +86,30 @@ const resumenError = (estado, texto) => {
 }
 
 // Corre en segundo plano: no depende de la sesión ni de la página. Siempre deja el trabajo en «listo» o «error».
-async function correr(id, url, cuerpo) {
+// «antes» (opcional) es el paso previo de preparación del curso: devuelve campos que se añaden al pedido (las variantes asignadas) o lanza ErrorPropio.
+// El tiempo que gasta se descuenta del máximo, para que el trabajo entero no pase del límite tras el cual se da por perdido.
+async function correr(id, url, cuerpo, antes) {
   try {
-    const r = await publicar(url, cuerpo)
+    const inicio = Date.now()
+    const extra = antes ? (await antes()) || {} : {}
+    const restante = antes ? Math.max(1, config.n8nMinutosMaximo - (Date.now() - inicio) / 60000) : undefined
+    const r = await publicar(url, { ...cuerpo, ...extra }, restante)
     if (r.estado >= 200 && r.estado < 300) await sinUsuario(Q.guionTrabajoListo, [id, r.texto])
     else await sinUsuario(Q.guionTrabajoFallo, [id, resumenError(r.estado, r.texto)])
   } catch (e) {
     const causa = (e && (e.code || e.message)) || 'error'
-    await sinUsuario(Q.guionTrabajoFallo, [id, ('No se pudo completar con n8n: ' + causa).slice(0, 580)]).catch((x) => console.error('[guiones]', x && x.message))
+    await sinUsuario(Q.guionTrabajoFallo, [id, e instanceof ErrorPropio ? e.message.slice(0, 580) : ('No se pudo completar con n8n: ' + causa).slice(0, 580)]).catch((x) => console.error('[guiones]', x && x.message))
   }
 }
 
 // Lanza un trabajo ya validado (lo usan la ruta y las pruebas). Devuelve { id, creado } o { ya: true, id, creado } si había uno en curso.
-export async function lanzarTrabajo({ usuarioId, proyecto, unidad, cuerpo, url }) {
+export async function lanzarTrabajo({ usuarioId, proyecto, unidad, cuerpo, url, antes }) {
   const nuevo = (await sinUsuario(Q.guionTrabajoCrear, [usuarioId, proyecto, unidad])).rows[0]
   if (!nuevo) {
     const previo = (await sinUsuario(Q.guionTrabajoEnCurso, [usuarioId, proyecto, unidad])).rows[0]
     return { ya: true, id: previo && previo.id, creado: previo && previo.creado }
   }
-  setImmediate(() => { correr(nuevo.id, url, { trabajo_id: nuevo.id, ...cuerpo }) })
+  setImmediate(() => { correr(nuevo.id, url, { trabajo_id: nuevo.id, ...cuerpo }, antes) })
   return { id: nuevo.id, creado: nuevo.creado }
 }
 
@@ -115,12 +121,15 @@ const Nuevo = z.object({
   unidad: z.number().int().min(0).max(99),
   unidadUrl: z.string().max(500).regex(RE_DOC),
   syllabusUrl: z.string().max(500).regex(RE_DOC).optional(),
-  bibliografiaId: z.string().uuid()
+  bibliografiaId: z.string().uuid(),
+  reasignar: z.boolean().optional() // volver a repartir las variantes de plantilla de todo el curso (si no, se reutiliza lo ya asignado)
 }).strict()
 
 rutasGuiones.post('/trabajos', exigirPermiso('proyectos.crear'), limiteCrear, validar(Nuevo, 'body'), async (req, res, next) => {
   try {
-    const { proyecto, unidad, unidadUrl, syllabusUrl, bibliografiaId } = req.bodyOk
+    const { proyecto, unidad, unidadUrl, syllabusUrl, bibliografiaId, reasignar } = req.bodyOk
+    // Los guiones solo se generan con todas las unidades del curso aprobadas (la pantalla ya lo exige; aquí se exige también en el servidor).
+    try { await exigirAprobadas(req.usuario, proyecto) } catch (e) { if (e instanceof ErrorPropio) return res.status(409).json({ error: e.message }); throw e }
     // Los guiones se escriben con la bibliografía ya leída de ESA unidad; sin ella no se envía nada.
     const p = await armarPaquete(req.usuario, bibliografiaId, { unidad })
     if (p.codigo === 404) return res.status(404).json({ error: 'No se encontró la bibliografía leída de este syllabus.' })
@@ -133,7 +142,9 @@ rutasGuiones.post('/trabajos', exigirPermiso('proyectos.crear'), limiteCrear, va
     const cuerpoN8n = { unidad_url: unidadUrl, ...(syllabusUrl ? { syllabus_url: syllabusUrl } : {}), unidad, bibliografia: p.cuerpo, proyecto_id: proyecto, ...(carpeta ? { carpeta_raiz: carpeta } : {}) }
     const grande = paqueteGrande(cuerpoN8n)
     if (grande) return res.status(413).json({ error: grande })
-    const t = await lanzarTrabajo({ usuarioId: req.usuario.id, proyecto, unidad, url, cuerpo: cuerpoN8n })
+    // Antes de los guiones, si hay flujo de preparación: se asignan las variantes del curso y las de esta unidad viajan en el pedido (campo «asignaciones»).
+    const antes = () => asegurarAsignacion({ usuario: req.usuario, proyectoId: proyecto, unidad, reasignar: !!reasignar, publicarFn: publicar })
+    const t = await lanzarTrabajo({ usuarioId: req.usuario.id, proyecto, unidad, url, cuerpo: cuerpoN8n, antes })
     if (t.ya) return res.status(409).json({ ya: true, id: t.id, creado: t.creado, error: 'Ya hay una generación de guiones en curso para esta unidad.' })
     // Se anota a qué persona y curso pertenece este trabajo: los avisos que n8n mande después (matrices, H5P) se atribuyen con esto.
     try {
