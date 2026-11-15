@@ -30,6 +30,9 @@ export default function Workspace({ s, tab, setTab, unidadSel, setUnidadSel, rec
     ['matrices', '4', 'Matrices y H5P', faltan ? 'Apruebe las unidades' : 'Recursos H5P por unidad']
     // El paso «Recursos» queda fuera por ahora.
   ]
+  // Un paso se marca como listo (chulito) cuando su trabajo está terminado, sin importar en cuál paso se esté: así «Unidades» sigue con su chulito al volver al syllabus.
+  const guionesOk = docs.length > 0 && docs.every((d) => { const a = ((s.guionesUnidad || {})[d.unidad] || {}).archivos || []; return a.length > 0 && a.every((x) => x.aprobado) })
+  const completo = { syllabus: !!s.syllabusUrl, docs: docs.length > 0 && !faltan, unidades: guionesOk, matrices: false }
   if (faltan && (tab === 'unidades' || tab === 'recursos' || tab === 'matrices')) setTimeout(() => setTab('docs'), 0)
   // Al cambiar de paso el contenido se desliza: entra por la derecha al avanzar y por la izquierda al volver.
   const ORDEN = ['syllabus', 'docs', 'unidades', 'recursos', 'matrices']
@@ -104,10 +107,10 @@ export default function Workspace({ s, tab, setTab, unidadSel, setUnidadSel, rec
 
       <div className="stepper2" role="tablist">
         {pasos.map(([k, n, t, sub]) => (
-          <button key={k} role="tab" className={(tab === k ? 'on' : '') + (ORDEN.indexOf(k) < ORDEN.indexOf(tab) ? ' hecho' : '')} disabled={k === 'integracion' || ((k === 'unidades' || k === 'recursos' || k === 'matrices') && faltan)}
+          <button key={k} role="tab" className={(tab === k ? 'on' : '') + (completo[k] ? ' hecho' : '')} disabled={k === 'integracion' || ((k === 'unidades' || k === 'recursos' || k === 'matrices') && faltan)}
             title={k === 'integracion' ? 'La integración con el syllabus se habilitará más adelante' : ((k === 'unidades' || k === 'recursos' || k === 'matrices') && faltan ? 'Apruebe todas las unidades para habilitar este paso' : '')}
             onClick={() => irA(k)}>
-            <i>{ORDEN.indexOf(k) < ORDEN.indexOf(tab) ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" /></svg> : n}</i><span><b>{t}</b><small>{sub}</small></span>
+            <i>{completo[k] ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" /></svg> : n}</i><span><b>{t}</b><small>{sub}</small></span>
           </button>
         ))}
       </div>

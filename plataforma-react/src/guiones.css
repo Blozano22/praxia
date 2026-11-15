@@ -160,3 +160,6 @@
 .cx-est.cambio,.cx-est.falta{color:#7a5600}.cx-est.cambio i,.cx-est.falta i{background:#d99a00}
 .cx-est.mal{color:#b73d32}.cx-est.mal i{background:#d9534a}
 .cx-pie{max-width:1040px;margin:12px 0 0;font-size:.8rem;color:var(--muted)}
+
+/* Paso terminado y activo a la vez: círculo blanco con el chulito verde */
+.stepper2 button.on.hecho i{background:#fff;color:var(--brand)}
