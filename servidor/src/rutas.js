@@ -8,7 +8,8 @@ import { Q } from './consultas.js'
 import { config } from './config.js'
 import { extraerEnlaces } from './enlaces.js'
 import { armarSubida, compararEsquemas, MAX_HTML, NOMBRES_RESERVADOS } from './plantillas/subidas.js'
-import { EsquemaLanzarH5p, EsquemaLanzarMatrices, EsquemaLanzarPreparacion, lanzarH5p, lanzarMatrices, lanzarPreparacion, urlH5p, urlMatrices, urlPreparacion } from './pipeline/lanzar.js'
+import { EsquemaLanzarH5p, EsquemaLanzarMatrices, lanzarH5p, lanzarMatrices, urlH5p, urlMatrices } from './pipeline/lanzar.js'
+import { urlPreparacion } from './pipeline/preparacion.js'
 import { COOKIE, claveValida, compararClave, emitirSesion, exigirAlguno, exigirPermiso, exigirSesion, hashClave } from './seguridad.js'
 
 export const rutas = Router()
@@ -136,16 +137,6 @@ rutas.post('/proyectos/:id/pipeline/h5p', exigirSesion, exigirPermiso('proyectos
     const { maximo, unidades, reintentarErrores } = req.bodyOk
     const r = await lanzarH5p({ usuario: req.usuario, proyectoId: req.paramsOk.id, maximo, unidades, reintentarErrores })
     if (r.codigo === 202) auditar(req.usuario.id, reintentarErrores ? 'h5p.reintentar' : 'h5p.generar', 'proyecto', req.paramsOk.id, req)
-    res.status(r.codigo).json(r.cuerpo)
-  } catch (err) { next(err) }
-})
-
-// Prepara el curso ANTES de generar los guiones: n8n lee su estructura y Praxia reparte las variantes de plantilla (ver src/pipeline/asignaciones.js).
-rutas.post('/proyectos/:id/pipeline/preparacion', exigirSesion, exigirPermiso('proyectos.crear'), limiteLanzar, validar(z.object({ id: IdProyecto }), 'params'), validar(EsquemaLanzarPreparacion, 'body'), async (req, res, next) => {
-  try {
-    const { unidades, forzar } = req.bodyOk
-    const r = await lanzarPreparacion({ usuario: req.usuario, proyectoId: req.paramsOk.id, unidades, forzar })
-    if (r.codigo === 202) auditar(req.usuario.id, forzar ? 'preparacion.rehacer' : 'preparacion.lanzar', 'proyecto', req.paramsOk.id, req)
     res.status(r.codigo).json(r.cuerpo)
   } catch (err) { next(err) }
 })

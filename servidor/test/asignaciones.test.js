@@ -6,7 +6,6 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import crypto from 'node:crypto'
-import http from 'node:http'
 import { fileURLToPath } from 'node:url'
 import EmbeddedPostgres from 'embedded-postgres'
 import pg from 'pg'
@@ -19,9 +18,7 @@ const CLAVE = 'ClaveSegura123'
 const SECRETO = 'secreto-de-prueba-0123456789abcdef0123456789'
 const T = { ana: crypto.randomUUID(), beto: crypto.randomUUID() }
 
-let servidor, base, pool, dueno, n8n
-const recibidas = [] // lo que recibe el «n8n» simulado
-const CARPETA = 'https://drive.google.com/drive/folders/carpetaPrep1234'
+let servidor, base, pool, dueno
 const ids = {}
 
 before(async () => {
@@ -34,12 +31,6 @@ before(async () => {
   process.env.DATABASE_URL = `postgres://ova_app:appclave@localhost:${PUERTO_PG}/ova`
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex')
   process.env.N8N_EVENTOS_SECRETO = SECRETO
-  n8n = http.createServer((req, res) => {
-    const partes = []
-    req.on('data', (c) => partes.push(c))
-    req.on('end', () => { recibidas.push(JSON.parse(Buffer.concat(partes).toString('utf8') || '{}')); res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ejecucion_id: 'ej-1' })) })
-  }).listen(0)
-  process.env.N8N_PREPARACION_URL = 'http://127.0.0.1:' + n8n.address().port + '/webhook/preparacion'
   const { crearApp } = await import('../src/app.js')
   const db = await import('../src/db.js')
   const { hashClave } = await import('../src/seguridad.js')
@@ -56,7 +47,6 @@ before(async () => {
 })
 after(async () => {
   servidor && servidor.close()
-  n8n && n8n.close()
   pool && (await pool.end())
   dueno && (await dueno.end())
   await servidorPg.stop()
@@ -224,32 +214,4 @@ test('si la plantilla asignada se elimina, se mueve o su categoría se elimina, 
   // ninguna fila «asignada» apunta a una plantilla que ya no existe
   const colgadas = await dueno.query("SELECT a.codigo FROM asignacion_variantes a WHERE a.plantilla IS NOT NULL AND NOT EXISTS (SELECT 1 FROM plantilla_subidas s WHERE s.nombre = a.plantilla)")
   assert.equal(colgadas.rowCount, 0)
-})
-
-test('lanzar la preparación: Praxia valida el curso, anota el origen y entrega la orden; ese trabajo_id sirve enseguida para pedir variantes', async () => {
-  const ana = await entrar('ana@u.co')
-  const curso = (id, nivel) => ({ id, programa: 'P', curso: 'Curso ' + id, creado: Date.now(), syllabusUrl: 'https://docs.google.com/document/d/syllabusX1234', carpetaUrl: CARPETA, bibliografiaId: '00000000-0000-4000-8000-0000000000aa',
-    syllabus: { estado: 'listo', mensaje: '', documentos: [1, 2].map((u) => ({ unidad: u, nombre: 'U' + u, url: 'https://docs.google.com/document/d/g' + u + 'abcdefghij', aprobado: u === 1, visto: true, temas: [] })) }, recursos: [], guiones: [], info: nivel ? { nivel } : {} })
-  assert.equal((await ana('PUT', '/proyectos/curso-sin', curso('curso-sin'))).status, 200)
-  assert.equal((await ana('PUT', '/proyectos/curso-p', curso('curso-p', 'Especialización'))).status, 200)
-  assert.equal((await fetch(base + '/api/proyectos/curso-p/pipeline/preparacion', { method: 'POST', headers: { 'x-ova': '1', 'content-type': 'application/json' }, body: '{}' })).status, 401)
-  assert.equal((await ana('POST', '/proyectos/curso-sin/pipeline/preparacion', {})).status, 400) // sin formación no se pueden elegir variantes
-  assert.equal((await ana('POST', '/proyectos/curso-p/pipeline/preparacion', { extra: 1 })).status, 400)
-  assert.equal((await ana('POST', '/proyectos/curso-p/pipeline/preparacion', { unidades: [2] })).status, 400) // la 2 no está aprobada
-  assert.equal((await ana('POST', '/proyectos/no-existe/pipeline/preparacion', {})).status, 404)
-  assert.equal(recibidas.length, 0)
-  const r = await ana('POST', '/proyectos/curso-p/pipeline/preparacion', {})
-  assert.equal(r.status, 202)
-  const j = await r.json()
-  assert.equal(j.formacion, 'especializacion'); assert.equal(j.ejecucion_id, 'ej-1')
-  assert.deepEqual(recibidas[0], { trabajo_id: j.trabajo_id, proyecto_id: 'curso-p', carpeta_raiz: CARPETA, curso: 'Curso curso-p', formacion: 'especializacion',
-    syllabus_url: 'https://docs.google.com/document/d/syllabusX1234', bibliografia_id: '00000000-0000-4000-8000-0000000000aa', forzar: false })
-  assert.equal((await pool.query("SELECT etapa FROM pipeline_origen WHERE trabajo_id = $1 AND propietario_id = $2 AND proyecto_id = 'curso-p'", [j.trabajo_id, ids.ana])).rows[0].etapa, 'preparacion')
-  assert.equal((await ana('POST', '/proyectos/curso-p/pipeline/preparacion', {})).status, 409) // ya se está preparando
-  // lo que n8n hace después: con ese trabajo_id pide las variantes (el curso es el de Ana, la formación la del curso)
-  await categoria('TST-06', ['especializacion'])
-  await variante('tst-06-v01', 'TST-06', 'especializacion', 'aprobada')
-  const p = await pedir([rec('U1-T1-R1', 'TST-06')], { formacion: j.formacion }, j.trabajo_id)
-  assert.equal(p.estado, 200); assert.equal(p.datos.proyecto_id, 'curso-p'); assert.equal(p.datos.resultados[0].plantilla, 'tst-06-v01')
-  assert.equal((await consultar({}, j.trabajo_id)).datos.asignaciones[0].codigo, 'U1-T1-R1')
 })

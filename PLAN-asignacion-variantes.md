@@ -1,12 +1,20 @@
 # Asignación de variantes por curso: qué hicimos en Praxia y qué falta (para el flujo de n8n)
 
-Documento para quien construye el flujo nuevo («preparar curso antes de los guiones»). Praxia ya tiene la parte del servidor; el flujo, el orquestador de H5P y todo lo de n8n **no se tocó** y es de quien recibe este documento.
+Documento para quien construye el flujo nuevo de n8n («preparar el curso antes de los guiones»). Praxia ya tiene hecha toda su parte; el flujo, el orquestador de H5P, el flujo de guiones y todo lo de n8n **no se tocó** y es de quien recibe este documento.
 
-## 1. Qué cambió en las reglas
+## 1. Qué cambió y cómo funciona de punta a punta
 
-Antes de generar los guiones, un flujo lee la estructura completa del curso y **pide a Praxia una variante de plantilla para cada recurso**. Praxia **elige** (n8n no reparte) y guarda la asignación en su base de datos. Después, el orquestador de H5P **solo lee** la variante asignada.
+Antes de generar los guiones de un curso, se **asignan las variantes de plantilla de todos sus recursos**. Praxia **elige** las variantes (n8n no reparte) y las guarda; el flujo de n8n solo lee la estructura del curso, saca los recursos y se los pide a Praxia. Después, el orquestador de H5P **solo lee** la variante asignada.
 
-Regla de Roger, que Praxia garantiza **en la base de datos** (no depende del flujo): dentro de un curso, ningún recurso repite variante dentro de su categoría, ni en la misma unidad ni en otras. Solo cambia la variante, nunca la categoría. La asignación se hace una sola vez y los recursos se generan enseguida con ella.
+Regla de Roger, que Praxia garantiza **en la base de datos** (no depende del flujo): dentro de un curso, ningún recurso repite variante dentro de su categoría, ni en la misma unidad ni en otras. Solo cambia la variante, nunca la categoría. La asignación se hace una sola vez y los recursos se generan con ella.
+
+**El recorrido** (el disparador es el botón «Generar guiones» de siempre, que es por unidad):
+1. La persona pulsa «Generar guiones» en una unidad. Praxia **exige que todas las unidades del curso estén aprobadas** (si no, responde 409 y no llama a n8n).
+2. Si el curso aún no tiene variantes asignadas (o la unidad tiene algo pendiente o inválido), el trabajo en el servidor **llama al flujo de preparación y espera su respuesta** (sección 3.0).
+3. El flujo lee las estructuras del curso, saca los recursos y se los pide a Praxia con `pedir` (3.1). Cuando termina, **responde con un 200**. No entrega las variantes en la respuesta: ya quedaron guardadas en Praxia.
+4. Praxia lee de su base las variantes de **esa unidad**. Si a algún recurso no le tocó variante, el trabajo termina con un mensaje claro y **no** se generan guiones con huecos.
+5. Praxia llama al **flujo de guiones de siempre** para esa unidad, con un campo nuevo `asignaciones` con las variantes de la unidad (3.4). Todo lo demás (estados, resultado, guardado en el syllabus) funciona como hoy.
+6. Las demás unidades: al pulsar su botón, Praxia ya encuentra la asignación hecha y **no vuelve a llamar** al flujo de preparación.
 
 ## 2. Qué se hizo en Praxia (rama `feat/asignacion-variantes`)
 
@@ -15,10 +23,11 @@ Regla de Roger, que Praxia garantiza **en la base de datos** (no depende del flu
 | Tabla `asignacion_variantes` + índices + permisos | `servidor/sql/005_asignacion_variantes.sql` |
 | Cómo deshacerlo | `servidor/sql/revertir/005_asignacion_variantes.down.sql` |
 | Endpoints para n8n (firmados) | `servidor/src/pipeline/asignaciones.js` |
-| Orden «preparar el curso» (Praxia → n8n) y su dirección configurable | `servidor/src/pipeline/lanzar.js`, `servidor/src/rutas.js`, pantalla «Conexión n8n» |
+| Preparación dentro del trabajo de guiones (aprobación, llamada al flujo, variantes de la unidad) | `servidor/src/pipeline/preparacion.js`, `servidor/src/guiones/rutas.js` |
+| Dirección del flujo de preparación (configurable) | pantalla «Conexión n8n» → «Preparar el curso», o la variable `N8N_PREPARACION_URL` |
 | Consultas | `servidor/src/consultas.js` (`asign…`) |
 | Mover/eliminar plantilla o eliminar categoría marcan lo asignado como inválido | `servidor/src/rutas.js` |
-| Pruebas | `servidor/test/asignaciones.test.js` (101 pruebas del servidor pasan en total) |
+| Pruebas | `servidor/test/asignaciones.test.js`, `servidor/test/guiones-preparacion.test.js` (106 pruebas del servidor pasan en total) |
 | Documentación | `servidor/LEEME.md` (sección «Asignación de variantes por curso») |
 
 **No se aplicaron** las tablas `prep_*` ni `guion_recurso_plantillas` del paquete `praxia-bd-preparacion` (migraciones 003 y 004): no hacían falta para esto y su código no está en el repositorio. La migración 005 de Praxia es independiente; si más adelante esas tablas se necesitan, se aplican aparte.
@@ -44,16 +53,20 @@ const firma = crypto.createHmac('sha256', SECRETO).update(fecha + '.' + cuerpo).
 // cabeceras: Content-Type: application/json, X-Praxia-Fecha: fecha, X-Praxia-Firma: firma · cuerpo: el mismo texto `cuerpo`
 ```
 
-### 3.0 Cómo empieza todo: la orden que Praxia le manda al flujo
-Praxia identifica persona y curso con un `trabajo_id` que ella misma registra al lanzar. Para la preparación lo hace así: `POST /api/proyectos/:id/pipeline/preparacion` (con sesión de la persona; cuerpo opcional `{ "unidades": [1,2], "forzar": false }`). Praxia valida el curso, registra el `trabajo_id` (etapa `preparacion`) y **llama por POST al webhook del flujo de preparación** (se configura en «Conexión n8n» → «Preparar el curso», o con la variable `N8N_PREPARACION_URL`; sin dirección, queda desactivado). El flujo debe responder enseguida (como los de matrices: un `200` con `{ "ejecucion_id": "…" }` opcional) y trabajar en segundo plano; `409` si ya hay una preparación en curso de ese curso y `400` con `{ "error": "…" }` si rechaza la orden.
+### 3.0 La orden que Praxia le manda al flujo de preparación
+Praxia identifica persona y curso con un `trabajo_id` que ella misma registra (etapa `preparacion`) justo antes de llamar al flujo. **Llama por POST al webhook del flujo** (se configura en «Conexión n8n» → «Preparar el curso», o con la variable `N8N_PREPARACION_URL`; sin dirección, la preparación se omite y los guiones se generan como antes) y **espera la respuesta** (hasta 20 minutos). El flujo debe responder **200** cuando termine de asignar; cualquier otro código se muestra a la persona como error de la generación, con el `error` o `message` del cuerpo si lo trae.
 
 Cuerpo que recibe el webhook:
 ```json
 { "trabajo_id": "uuid", "proyecto_id": "…", "carpeta_raiz": "https://drive.google.com/drive/folders/…", "curso": "nombre del curso",
-  "formacion": "tecnologico", "syllabus_url": "https://docs.google.com/document/d/…", "bibliografia_id": "uuid",
-  "unidades": [1, 2], "forzar": false }
+  "formacion": "tecnologico", "syllabus_url": "https://docs.google.com/document/d/…",
+  "unidades_detalle": [ { "numero": 1, "nombre": "Unidad 1", "url": "https://docs.google.com/document/d/…" } ],
+  "forzar": false }
 ```
-`formacion` es la del curso ya normalizada (`tecnologico`, `profesional`, `especializacion` o `doctorado`; si el curso no la dice, Praxia no lanza y avisa). `syllabus_url`, `bibliografia_id` y `unidades` solo van si existen. **Ese `trabajo_id` es el que el flujo usa en `pedir` y `consultar`.**
+- `formacion`: la del curso, ya normalizada (`tecnologico`, `profesional`, `especializacion` o `doctorado`). Si el curso no la dice, Praxia no llama y avisa a la persona.
+- `unidades_detalle`: los documentos de **todas** las unidades del curso (la preparación solo se pide con todas aprobadas): las estructuras que hay que leer.
+- `forzar`: `true` cuando la persona pidió volver a repartir todo; el flujo debe pasarlo tal cual a `pedir` (3.1).
+- Ese `trabajo_id` es el que el flujo usa en `pedir` y `consultar`. No hay bibliografía en esta orden: sigue llegando al flujo de guiones como hoy.
 
 ### 3.1 Pedir variantes
 `POST /api/n8n/asignaciones/pedir`
@@ -107,16 +120,24 @@ Devuelve `{ "ok": true, "asignaciones": [ { "codigo", "unidad", "id_catalogo", "
 ### 3.3 Qué pasa si la plantilla desaparece
 Si en Praxia se **elimina** la plantilla, se **mueve** a otra categoría (cambia de nombre) o se elimina su **categoría**, todas las asignaciones que la usaban pasan a `invalida` en la misma operación, con `motivo` `plantilla_eliminada`, `plantilla_movida_a_<nuevo nombre>` o `categoria_eliminada`. Para repararlo, el flujo vuelve a llamar a `pedir` con esos códigos: se les da otra variante libre del curso.
 
+### 3.4 Lo que recibe el flujo de guiones
+El pedido de siempre al flujo de guiones lleva ahora, además, `asignaciones`: las variantes de **esa unidad** (todas con estado asignada; si alguna faltara, Praxia no llama):
+```json
+"asignaciones": [ { "codigo": "U1-T2-R3", "id_catalogo": "G-12-A", "id_base": "G-12", "categoria": "G-12", "formacion": "tecnologico", "plantilla": "g-12-tec-v02" } ]
+```
+Cuando la preparación no está configurada, el campo no existe y todo es como antes. **El flujo de guiones tiene que aceptar y usar este campo** (lo mantiene quien tenga ese flujo).
+
 ## 4. Lo que le toca al flujo nuevo (no está hecho)
 
 1. **Leer la estructura del curso** (unidades, temas, recursos con su código de posición `U1-T2-R3` / `U1-PRES`, su categoría general y la formación del curso).
-2. **Llamar a `pedir`** (el curso entero o por unidades) y guardar/usar el resultado; tratar los `pendiente`, `conflicto` y `error` (corregir y volver a pedir, o avisar a la persona).
+2. **Llamar a `pedir`** (3.1) con los recursos de **todas** las unidades en un solo pedido (o por unidades, da igual: Praxia serializa y no repite variantes). Los `pendiente`, `conflicto` y `error` no los resuelve el flujo: Praxia los lee después y le dice a la persona qué recurso quedó sin variante. Después, **responder 200**.
 3. **Orquestador de H5P**: dejar de repartir variantes y leer la asignada con `consultar`; generar solo lo `asignada`.
 4. **Catálogo de qué existe**: sigue saliendo del índice público `/plantillas-html/plantillas.json` (categorías, variantes, `estado`, `formacion`). No hace falta nada más para saber qué recursos hay disponibles.
 5. **Avisos a Praxia** (matrices, H5P): seguir mandando `codigo` en cada fila.
 
-### Pendiente
-- **Fallo conocido de `pipeline_recursos`**: su clave es (curso, id de catálogo), así que el mismo `G-12-A` en dos unidades se pisa. Conviene cambiarla a clave por `codigo`. No se tocó.
+### Dos detalles de cómo se comporta
+- **Volver a repartir** (por ejemplo si cambiaron las estructuras): la generación acepta `reasignar: true`; Praxia lo manda al flujo como `forzar: true`. Sin eso, se reutiliza lo ya asignado.
+- **Avisos de matrices y H5P**: la clave de cada fila ya es el `codigo` cuando viene (el mismo `G-12-A` en dos unidades no se pisa). Seguir mandando `codigo` en cada fila.
 
 ## 5. Desplegar en el servidor y volver atrás
 
