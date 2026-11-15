@@ -27,7 +27,7 @@ Regla de Roger, que Praxia garantiza **en la base de datos** (no depende del flu
 | Dirección del flujo de preparación (configurable) | pantalla «Conexión n8n» → «Preparar el curso», o la variable `N8N_PREPARACION_URL` |
 | Consultas | `servidor/src/consultas.js` (`asign…`) |
 | Mover/eliminar plantilla o eliminar categoría marcan lo asignado como inválido | `servidor/src/rutas.js` |
-| Pruebas | `servidor/test/asignaciones.test.js`, `servidor/test/guiones-preparacion.test.js` (106 pruebas del servidor pasan en total) |
+| Pruebas | `servidor/test/asignaciones.test.js`, `servidor/test/guiones-preparacion.test.js` (108 pruebas del servidor pasan en total) |
 | Documentación | `servidor/LEEME.md` (sección «Asignación de variantes por curso») |
 
 **No se aplicaron** las tablas `prep_*` ni `guion_recurso_plantillas` del paquete `praxia-bd-preparacion` (migraciones 003 y 004): no hacían falta para esto y su código no está en el repositorio. La migración 005 de Praxia es independiente; si más adelante esas tablas se necesitan, se aplican aparte.
@@ -140,6 +140,8 @@ Cuando la preparación no está configurada, el campo no existe y todo es como a
 - **Avisos de matrices y H5P**: la clave de cada fila ya es el `codigo` cuando viene (el mismo `G-12-A` en dos unidades no se pisa). Seguir mandando `codigo` en cada fila.
 
 ## 5. Desplegar en el servidor y volver atrás
+
+Servidor verificado: PostgreSQL 16.15 (la migración y el bloqueo por curso funcionan en esa versión).
 
 La migración **solo agrega** una tabla (y amplía una regla de `pipeline_origen` para admitir `preparacion`). **No cambia ni borra datos existentes.** Aun así, antes de tocar el servidor:
 
