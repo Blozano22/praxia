@@ -215,3 +215,24 @@ test('si la plantilla asignada se elimina, se mueve o su categoría se elimina, 
   const colgadas = await dueno.query("SELECT a.codigo FROM asignacion_variantes a WHERE a.plantilla IS NOT NULL AND NOT EXISTS (SELECT 1 FROM plantilla_subidas s WHERE s.nombre = a.plantilla)")
   assert.equal(colgadas.rowCount, 0)
 })
+
+test('una variante sin formación (subida antigua) solo se reparte si su categoría sirve a una sola formación; en una compartida no se sabe de cuál es', async () => {
+  await categoria('TST-07', ['tecnologico', 'profesional']) // categoría compartida
+  await variante('tst-07-v01', 'TST-07', null, 'aprobada') // sin formación
+  await variante('tst-07-v02', 'TST-07', 'tecnologico', 'aprobada')
+  const c = porCodigo((await pedir([rec('U3-T1-R1', 'TST-07'), rec('U3-T1-R2', 'TST-07')])).datos)
+  assert.equal(c['U3-T1-R1'].plantilla, 'tst-07-v02') // la que sí dice su formación
+  assert.equal(c['U3-T1-R2'].resultado, 'pendiente') // la otra no se usa: podría ser de profesional
+  await categoria('TST-08', ['tecnologico']) // categoría de una sola formación
+  await variante('tst-08-v01', 'TST-08', null, 'aprobada')
+  assert.equal(porCodigo((await pedir([rec('U3-T2-R1', 'TST-08')])).datos)['U3-T2-R1'].plantilla, 'tst-08-v01')
+})
+
+test('si se despliega el código antes de migrar (la tabla no existe), eliminar y mover plantillas siguen funcionando', async () => {
+  const dani = await entrar('dani@u.co')
+  await categoria('TST-09'); await variante('tst-09-v01', 'TST-09', 'tecnologico', 'aprobada'); await variante('tst-09-v02', 'TST-09', 'tecnologico', 'aprobada')
+  await dueno.query('DROP TABLE asignacion_variantes')
+  assert.equal((await dani('DELETE', '/plantillas/subidas/tst-09-v01')).status, 200)
+  assert.equal((await dani('POST', '/plantillas/subidas/tst-09-v02/mover', { categoria: 'TST-02', formacion: 'tecnologico' })).status, 200)
+  assert.equal((await dani('DELETE', '/plantillas/categorias/TST-09')).status, 200)
+})

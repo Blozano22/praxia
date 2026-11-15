@@ -104,7 +104,7 @@ Respuesta 200:
 - `conflicto` (`ya_asignada_en_otra_categoria`): ese código ya tiene variante de otra categoría; no se pisa sin `forzar`.
 - `error` (`categoria_inexistente`).
 
-Una variante es **elegible** si es de esa categoría, está **aprobada** (último estado de revisión) y es de la formación del curso (las subidas antiguas sin formación valen si la categoría sirve a esa formación, y se usan al final). Se asigna la más antigua libre. **Lo `pendiente` e `invalida` se vuelve a intentar en cada petición**; lo `asignada` no.
+Una variante es **elegible** si es de esa categoría, está **aprobada** (último estado de revisión) y es de la formación del curso (las subidas antiguas **sin formación guardada** solo valen si su categoría sirve a una única formación; en una categoría compartida entre formaciones no se reparten hasta que la variante tenga su formación). Se asigna la más antigua libre. **Lo `pendiente` e `invalida` se vuelve a intentar en cada petición**; lo `asignada` no.
 
 Otros códigos HTTP: 400 cuerpo inválido · 401 firma o fecha · 404 `trabajo_desconocido` · 409 `conflicto_concurrente` (reintentar) · 429 · 503 sin secreto configurado.
 
@@ -143,7 +143,7 @@ Cuando la preparación no está configurada, el campo no existe y todo es como a
 
 La migración **solo agrega** una tabla (y amplía una regla de `pipeline_origen` para admitir `preparacion`). **No cambia ni borra datos existentes.** Aun así, antes de tocar el servidor:
 
-**Orden obligatorio:** primero `db:migrar`, **después** reiniciar. Si el código nuevo corre sin la tabla, eliminar o mover plantillas falla.
+**Orden recomendado:** primero `db:migrar`, **después** reiniciar. Si por error se reinicia antes, eliminar y mover plantillas siguen funcionando (queda un aviso en el registro: «falta la tabla asignacion_variantes»), pero la asignación de variantes no puede guardar nada hasta migrar.
 
 ```bash
 # 0. Copia de seguridad (se puede restaurar si algo sale mal)

@@ -10,6 +10,7 @@ import { extraerEnlaces } from './enlaces.js'
 import { armarSubida, compararEsquemas, MAX_HTML, NOMBRES_RESERVADOS } from './plantillas/subidas.js'
 import { EsquemaLanzarH5p, EsquemaLanzarMatrices, lanzarH5p, lanzarMatrices, urlH5p, urlMatrices } from './pipeline/lanzar.js'
 import { urlPreparacion } from './pipeline/preparacion.js'
+import { invalidarAsignaciones } from './pipeline/asignaciones.js'
 import { COOKIE, claveValida, compararClave, emitirSesion, exigirAlguno, exigirPermiso, exigirSesion, hashClave } from './seguridad.js'
 
 export const rutas = Router()
@@ -384,7 +385,7 @@ rutas.put('/plantillas/categorias/:id', exigirSesion, exigirPermiso('plantillas.
 rutas.delete('/plantillas/categorias/:id', exigirSesion, exigirPermiso('plantillas.revisar'), validar(z.object({ id: IdCategoria }), 'params'), async (req, res, next) => {
   try {
     // sus plantillas quedan sin categoría y lo asignado con ellas en algún curso queda inválido
-    const r = await conTransaccion(async (c) => { await c.query(Q.asignInvalidarCategoria, [req.paramsOk.id]); return c.query(Q.categoriaBorrar, [req.paramsOk.id]) })
+    const r = await conTransaccion(async (c) => { await invalidarAsignaciones(c, Q.asignInvalidarCategoria, [req.paramsOk.id]); return c.query(Q.categoriaBorrar, [req.paramsOk.id]) })
     if (!r.rowCount) return res.status(404).json({ error: 'No encontrado' })
     await auditar(req.usuario.id, 'plantilla_categoria_borrar', 'plantilla_categoria', req.paramsOk.id, req)
     res.json({ ok: true })
@@ -437,7 +438,7 @@ rutas.delete('/plantillas/sistema/:nombre', exigirSesion, exigirPermiso('plantil
     if (!nombresPlantillasPublicadas().includes(nombre)) return res.status(404).json({ error: 'No es una plantilla del sistema.' })
     await sinUsuario(Q.ocultaEliminar, [nombre, req.usuario.nombre])
     await sinUsuario(Q.categoriaQuitar, [nombre])
-    await sinUsuario(Q.asignInvalidarPlantilla, [nombre, 'plantilla_eliminada'])
+    await conTransaccion((c) => invalidarAsignaciones(c, Q.asignInvalidarPlantilla, [nombre, 'plantilla_eliminada']))
     await auditar(req.usuario.id, 'plantilla_eliminar_sistema', 'plantilla', nombre, req)
     res.json({ ok: true })
   } catch (e) { next(e) }
@@ -615,7 +616,7 @@ rutas.post('/plantillas/subidas/:nombre/mover', exigirSesion, exigirAlguno('plan
       await c.query(Q.categoriaAsignar, [nuevo, categoria])
       await c.query(Q.historialRenombrar, ['pub-' + nombre, 'pub-' + nuevo])
       if (fo.formacion) await c.query(Q.subidaFormacionPoner, [nuevo, fo.formacion])
-      await c.query(Q.asignInvalidarPlantilla, [nombre, 'plantilla_movida_a_' + nuevo]) // lo asignado con ella en algún curso queda inválido (no se reasigna solo)
+      await invalidarAsignaciones(c, Q.asignInvalidarPlantilla, [nombre, 'plantilla_movida_a_' + nuevo]) // lo asignado con ella en algún curso queda inválido (no se reasigna solo)
     })
     await auditar(req.usuario.id, 'plantilla_mover', 'plantilla', nombre + ' → ' + nuevo, req)
     res.json({ nombre: nuevo })
@@ -639,7 +640,7 @@ rutas.delete('/plantillas/subidas/:nombre', exigirSesion, exigirAlguno('plantill
       const borrada = await c.query(Q.subidaBorrar, [req.paramsOk.nombre])
       if (borrada.rowCount) {
         await c.query(Q.categoriaQuitar, [req.paramsOk.nombre])
-        await c.query(Q.asignInvalidarPlantilla, [req.paramsOk.nombre, 'plantilla_eliminada']) // lo asignado con ella en algún curso queda inválido
+        await invalidarAsignaciones(c, Q.asignInvalidarPlantilla, [req.paramsOk.nombre, 'plantilla_eliminada']) // lo asignado con ella en algún curso queda inválido
       }
       return borrada
     })

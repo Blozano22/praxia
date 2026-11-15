@@ -55,11 +55,13 @@ function validar(esquema, req, res) {
 const unidadDe = (codigo) => Number(/^U(\d+)-/.exec(codigo)[1])
 
 // Variantes que pueden asignarse a un recurso: de esa categoría, aprobadas (salvo que se pida lo contrario) y de la formación del curso.
-// Las que no dicen su formación (subidas antiguas) también valen si la categoría sirve a esa formación, pero van después de las que sí la dicen.
+// Las que no dicen su formación (subidas antiguas) valen SOLO si la categoría sirve a una única formación (entonces es la de la categoría); en una categoría compartida
+// entre formaciones no se sabe de cuál es y no se reparten (habría que decirle su formación a la variante), y van después de las que sí la dicen.
 function elegibles(variantes, formacion, formacionesCategoria, soloAprobadas) {
   if (!variantes.length) return { lista: [], motivo: 'categoria_sin_variantes' }
   if (formacionesCategoria.length && !formacionesCategoria.includes(formacion)) return { lista: [], motivo: 'categoria_no_es_de_la_formacion' }
-  const deFormacion = variantes.filter((v) => v.formacion === formacion || !v.formacion)
+  const sinFormacionVale = formacionesCategoria.length <= 1
+  const deFormacion = variantes.filter((v) => v.formacion === formacion || (!v.formacion && sinFormacionVale))
   if (!deFormacion.length) return { lista: [], motivo: 'sin_variantes_de_la_formacion' }
   const validas = soloAprobadas ? deFormacion.filter((v) => v.ultimo === 'aprobada') : deFormacion
   if (!validas.length) return { lista: [], motivo: 'sin_variantes_aprobadas' }
@@ -77,7 +79,7 @@ rutasAsignaciones.post('/asignaciones/pedir', limite, async (req, res, next) => 
     if (!o) return res.status(404).json({ error: 'trabajo_desconocido' })
     const resultados = await conTransaccion(async (c) => {
       // Un curso a la vez: las unidades que se piden en paralelo esperan su turno y ven lo que acaba de asignar la anterior.
-      await c.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', ['asign:' + o.propietario_id + ':' + o.proyecto_id])
+      await c.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['asign:' + o.propietario_id + ':' + o.proyecto_id])
       const cats = new Set((await c.query(Q.categoriasListar)).rows.map((k) => k.id))
       const formDe = {}
       for (const x of (await c.query(Q.formacionesListar)).rows) (formDe[x.categoria] ||= []).push(x.formacion)
@@ -137,3 +139,15 @@ rutasAsignaciones.post('/asignaciones/consultar', limite, async (req, res, next)
     res.json({ ok: true, proyecto_id: o.proyecto_id, asignaciones: filas.map(forma) })
   } catch (e) { next(e) }
 })
+
+// Marca como inválido lo asignado a un curso con una plantilla que se elimina, se mueve o cuya categoría se elimina (tabla de sql/005). Si esa tabla aún no existe
+// (se desplegó el código antes de «npm run db:migrar») NO se rompe la gestión de plantillas: se avisa en el registro y se sigue. Va en un punto de guardado para que
+// el error no deje abortada la transacción de quien llama.
+export async function invalidarAsignaciones(c, texto, valores) {
+  await c.query('SAVEPOINT asignaciones')
+  try { await c.query(texto, valores); await c.query('RELEASE SAVEPOINT asignaciones') } catch (e) {
+    await c.query('ROLLBACK TO SAVEPOINT asignaciones')
+    if (e && e.code !== '42P01') throw e
+    console.warn('[asignación] falta la tabla asignacion_variantes: ejecute npm run db:migrar')
+  }
+}
