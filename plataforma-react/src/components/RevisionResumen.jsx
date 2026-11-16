@@ -100,7 +100,7 @@ export default function RevisionResumen({ items, clase = '', puedeRevisar, onIr,
     return 'Aún nadie la ha revisado' + quien
   }
   const filtros = vista === 'revisadas'
-    ? [['espera', 'Esperan tu revisión', nEspera, true], ['revision', 'Piden cambios', cRev.revision], ['rechazada', 'Rechazadas', cRev.rechazada], ['aprobada', 'Aprobadas', cRev.aprobada]]
+    ? [['espera', 'Esperan tu revisión', nEspera, nEspera > 0], ['corregida', 'Corregidas', cRev.corregida], ['revision', 'Piden cambios', cRev.revision], ['rechazada', 'Rechazadas', cRev.rechazada], ['aprobada', 'Aprobadas', cRev.aprobada]]
     : vista === 'general'
     ? [['falta', 'Faltan por revisar', c.falta, true], ['revision', 'Piden cambios', c.revision], ['corregida', 'Corregidas', c.corregida], ['rechazada', 'Rechazadas', c.rechazada], ['aprobada', 'Aprobadas', c.aprobada]]
     : [['revision', 'Piden cambios', c.revision, true], ['nada', 'Sin revisar', c.nada], ['corregida', 'Corregidas', c.corregida], ['rechazada', 'Rechazadas', c.rechazada], ['aprobada', 'Aprobadas', c.aprobada]]
