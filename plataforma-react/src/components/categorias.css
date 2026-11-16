@@ -552,3 +552,6 @@
 .cat-grupo:first-child{margin-top:0}
 .cat-grupo span{display:inline-grid;place-items:center;min-width:24px;height:22px;padding:0 7px;border-radius:99px;background:#eef1f7;color:#5b6783;font-size:.74rem}
 @media (max-width:620px){.cat-buscar{max-width:none;margin-left:0}}
+
+/* El tipo de la categoría nueva lo da la pestaña en la que se está (Recursos / Actividades): se muestra, no se elige */
+.cat-tipo-fijo{display:inline-flex;align-items:center;height:44px;padding:0 16px;border-radius:10px;background:#eef1f7;color:var(--nav);font-weight:800;font-size:.9rem;box-sizing:border-box}

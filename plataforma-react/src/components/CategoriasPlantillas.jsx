@@ -306,12 +306,12 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
             <div className="cat-barra">
               {!nueva && (
                 <>
-                  <button className="btn" onClick={() => setNueva({ id: '', nombre: '', tipo: ver, formaciones: {} })}>+ Nueva categoría</button>
+                  <button className="btn" onClick={() => setNueva({ id: '', nombre: '', tipo: ver, formaciones: {} })}>+ Nueva categoría de {ver === 'actividad' ? 'actividad' : 'recurso'}</button>
                 </>
               )}
               {nueva && (
                 <form className="card cat-form" onSubmit={(e) => { e.preventDefault(); if (idValido && !idRepetido && nueva.nombre.trim()) crear() }}>
-                  <div className="cat-campo"><span className="cat-lbl">¿Qué es?</span><Seg valor={nueva.tipo} onChange={(tipo) => setNueva({ ...nueva, tipo })} opciones={OPC_TIPO} etiqueta="¿Qué es?" /><small>{nueva.tipo === 'actividad' ? 'Una actividad de autoaprendizaje (como un crucigrama).' : 'Un tipo de HTML que n8n elige para mostrar contenido.'}</small></div>
+                  <div className="cat-campo"><span className="cat-lbl">Se crea como</span><span className="cat-tipo-fijo">{nueva.tipo === 'actividad' ? 'Actividad' : 'Recurso'}</span><small>{nueva.tipo === 'actividad' ? 'Una actividad de autoaprendizaje (como un crucigrama).' : 'Un tipo de HTML que n8n elige para mostrar contenido.'}</small></div>
                   <label>ID del catálogo
                     <input value={nueva.id} onChange={(e) => { const id = e.target.value; const fid = formacionDelId(id); setNueva({ ...nueva, id, ...(fid ? { formaciones: { [fid]: (nueva.formaciones || {})[fid] || 'P' } } : {}) }) }} placeholder={nueva.tipo === 'actividad' ? 'ACT-G-01' : 'G-13'} maxLength={16} aria-invalid={!!nueva.id && (!idValido || idRepetido)} />
                     <small className={nueva.id && (!idValido || idRepetido) ? 'mal' : ''}>{idRepetido ? 'Ya existe una categoría con ese ID.' : 'Letras y número: G-13, PRE-10, ACT-G-01, ACT-E-03-TEC…'}</small>

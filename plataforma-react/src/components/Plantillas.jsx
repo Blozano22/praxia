@@ -370,7 +370,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
             {['recurso', 'actividad'].map((c) => {
               const g = gruposClase[c]
               const total = g.reduce((a, [, l]) => a + l.length, 0)
-              return <button key={c} type="button" role="tab" aria-selected={clase === c} className={clase === c ? 'on' : ''} disabled={!g.length} onClick={() => { setClase(c); setQ('') }}>{CLASES[c]} <span>· {total}</span></button>
+              return <button key={c} type="button" role="tab" aria-selected={clase === c} className={clase === c ? 'on' : ''} onClick={() => { setClase(c); setQ('') }}>{CLASES[c]} <span>· {total}</span></button>
             })}
           </div>
         </div>
@@ -402,7 +402,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
       {grupos.length === 0 ? (
         <div className="card pg-vacio">
           <b>{formacion ? 'Ninguna categoría de ' + CLASES[clase].toLowerCase() + ' sirve a ' + (NOMBRE_FORMACION[formacion] || 'esta formación') + ' todavía.' : 'Todavía no hay diseños en esta clase.'}</b>
-          <span>{formacion ? 'Pruebe con otra formación o con «Todas». Quien administra las categorías puede asignarlas en «Categorías para n8n».' : ''}</span>
+          <span>{formacion ? 'Pruebe con otra formación o con «Todas». Quien administra las categorías puede asignarlas en «Categorías para n8n».' : (puedeSubir ? 'Suba la primera con «Subir variante»: aquí solo se ofrecen las categorías de ' + CLASES[clase].toLowerCase() + '.' : '')}</span>
         </div>
       ) : (
       <div className="pl2-cuerpo">
@@ -480,7 +480,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
         </aside>
       </div>
       )}
-      {subiendo && cats && <SubirVariante cats={cats} formacion={formacion} puedeRevisar={puedeRevisar} categoriaInicial={codigoActual ? codigoActual.id : ''} onCerrar={() => setSubiendo(false)} onSubida={async (r) => { await recargarCats(); if (aviso && r) aviso(r.subidos === 1 && !r.errores ? 'Plantilla subida' : r.subidos + (r.subidos === 1 ? ' plantilla subida' : ' plantillas subidas') + (r.errores ? ', ' + r.errores + ' con error' : '')) }} />}
+      {subiendo && cats && <SubirVariante cats={cats} clase={clase} formacion={formacion} puedeRevisar={puedeRevisar} categoriaInicial={codigoActual ? codigoActual.id : ''} onCerrar={() => setSubiendo(false)} onSubida={async (r) => { await recargarCats(); if (aviso && r) aviso(r.subidos === 1 && !r.errores ? 'Plantilla subida' : r.subidos + (r.subidos === 1 ? ' plantilla subida' : ' plantillas subidas') + (r.errores ? ', ' + r.errores + ' con error' : '')) }} />}
     </div>
   )
 }

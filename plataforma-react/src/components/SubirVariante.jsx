@@ -19,14 +19,17 @@ function nombreEn(primero, k) {
 
 // Ventana «Subir variante»: una o varias plantillas HTML (hasta 20) a la MISMA categoría. El nombre de cada una lo genera el servidor
 // (ID de la categoría + orden: g-08-v01…). Se revisan una por una, sin guardarlas, y se suben UNA TRAS OTRA en el orden de la lista.
-export default function SubirVariante({ cats, formacion = '', categoriaInicial = '', puedeRevisar = false, onCerrar, onSubida }) {
+export default function SubirVariante({ cats, clase = '', formacion = '', categoriaInicial = '', puedeRevisar = false, onCerrar, onSubida }) {
   // Con una formación elegida en la galería, solo se ofrecen las categorías que la sirven (con su prioridad P / C); «Ver todas» quita el filtro.
   const [soloFormacion, setSoloFormacion] = useState(!!formacion)
   const prioridad = (c) => { const f = ((cats.formaciones || {})[c.id] || []).find((x) => x.formacion === formacion); return f ? f.prioridad : '' }
   const sirve = (c) => !!prioridad(c)
-  const visibles = soloFormacion && formacion ? cats.categorias.filter(sirve) : cats.categorias
+  // Con una clase elegida en la galería (recursos o actividades) solo se ofrecen las categorías de esa clase.
+  const deLaClase = clase ? cats.categorias.filter((c) => c.tipo === clase) : cats.categorias
+  const visibles = soloFormacion && formacion ? deLaClase.filter(sirve) : deLaClase
   const [categoria, setCategoria] = useState(() => {
-    const ok = !formacion || sirve(cats.categorias.find((c) => c.id === categoriaInicial) || { id: '' })
+    const inicial = deLaClase.find((c) => c.id === categoriaInicial) || { id: '' }
+    const ok = !!inicial.id && (!formacion || sirve(inicial))
     return ok ? categoriaInicial : ''
   })
 
@@ -212,10 +215,10 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
 
   return (
     <div className="sv-fondo" onMouseDown={(e) => { if (e.target === e.currentTarget && !ocupado) onCerrar() }}>
-      <form className="sv-ventana" role="dialog" aria-modal="true" aria-label="Subir variante" onSubmit={subirTodo}>
+      <form className="sv-ventana" role="dialog" aria-modal="true" aria-label={'Subir variante' + (clase ? ' de ' + (clase === 'actividad' ? 'actividad' : 'recurso') : '')} onSubmit={subirTodo}>
         <header className="sv-cab">
           <span className="sv-ico" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 16V4M7 9l5-5 5 5M4 20h16" /></svg></span>
-          <h2>Subir variante</h2>
+          <h2>Subir variante{clase ? ' de ' + (clase === 'actividad' ? 'actividad' : 'recurso') : ''}</h2>
           <button type="button" className="sv-x" aria-label="Cerrar" onClick={onCerrar} disabled={ocupado} title={ocupado ? 'Espere a que termine la subida' : 'Cerrar'}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg></button>
         </header>
         <div className="sv-cuerpo">
