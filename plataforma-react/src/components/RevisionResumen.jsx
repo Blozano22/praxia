@@ -76,7 +76,7 @@ export default function RevisionResumen({ items, clase = '', puedeRevisar, onIr,
   const topCats = useMemo(() => {
     const m = {}
     items.forEach((i) => { if (i.cat && pendiente(i.estado)) { m[i.cat] = m[i.cat] || { id: i.cat, nombre: i.catNombre, n: 0 }; m[i.cat].n++ } })
-    return Object.values(m).sort((a, b) => b.n - a.n).slice(0, 4)
+    return Object.values(m).sort((a, b) => b.n - a.n).slice(0, 3)
   }, [items])
 
   // El botón muestra lo que le importa a cada rol: quien revisa, lo general; quien solo sube, lo suyo.
