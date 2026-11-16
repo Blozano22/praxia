@@ -335,7 +335,13 @@ rutas.put('/config/n8n', ...admin, validar(z.object({ syllabus: UrlN8n.optional(
 // ------------------------------------------------------------------ categorías de las plantillas HTML (para n8n)
 // Una categoría (ID del catálogo + nombre) reúne las variantes de un mismo tipo de recurso. Ver: quien ve las plantillas. Cambiar: quien las revisa.
 // Las plantillas existentes son las que publica el build (plantillas-html/plantillas.json); aquí solo se les asigna categoría.
-const IdCategoria = z.string().regex(/^[A-Z]{1,4}(-[A-Z]{1,4}){0,2}-[0-9]{2,3}$/) // «G-09», «PRE-05», «ACT-G-01», «ACT-E-TEC-03»
+// «G-09», «PRE-05», «ACT-G-01» (actividad general) y «ACT-E-03-TEC» (actividad específica: número y, al final, la formación TEC / PRO / ESP / DOC), como en el plan de trabajo.
+// Se sigue aceptando el orden anterior «ACT-E-TEC-03» para no romper lo ya creado.
+const IdCategoria = z.string().regex(/^(?:[A-Z]{1,4}(?:-[A-Z]{1,4}){0,2}-[0-9]{2,3}|ACT-E-[0-9]{2,3}-(?:TEC|PRO|ESP|DOC))$/)
+const FORMACION_DE_SUFIJO = { TEC: 'tecnologico', PRO: 'profesional', ESP: 'especializacion', DOC: 'doctorado' }
+// Formación que ya lleva el código de la categoría («ACT-E-03-TEC» → tecnologico); null si no la lleva (recursos y «ACT-G-01»).
+const formacionDelId = (id) => { const m = /^ACT-E-[0-9]{2,3}-(TEC|PRO|ESP|DOC)$/.exec(id || ''); return m ? FORMACION_DE_SUFIJO[m[1]] : null }
+const errorFormacionDelId = (id, otras) => ({ error: id + ' es una categoría de la formación ' + formacionDelId(id) + ' (la lleva en su código): no se puede marcar para ' + otras.join(', ') + '.' })
 const NombrePlantilla = z.string().regex(/^[a-z0-9-]{1,80}$/)
 const NombreCategoria = z.string().trim().min(1).max(120)
 const TipoPlantilla = z.enum(['recurso', 'actividad'])
@@ -371,7 +377,12 @@ const ListaFormaciones = z.array(z.object({ formacion: z.enum(FORMACIONES), prio
   .refine((l) => new Set(l.map((x) => x.formacion)).size === l.length)
 rutas.post('/plantillas/categorias', exigirSesion, exigirPermiso('plantillas.revisar'), validar(z.object({ id: IdCategoria, nombre: NombreCategoria, tipo: TipoPlantilla.default('recurso'), formaciones: ListaFormaciones.optional() }).strict(), 'body'), async (req, res, next) => {
   try {
-    const { id, nombre, tipo, formaciones = [] } = req.bodyOk
+    const { id, nombre, tipo } = req.bodyOk
+    let formaciones = req.bodyOk.formaciones || []
+    const fid = formacionDelId(id)
+    const otras = formaciones.filter((f) => fid && f.formacion !== fid).map((f) => f.formacion)
+    if (otras.length) return res.status(400).json(errorFormacionDelId(id, otras))
+    if (fid && !formaciones.length) formaciones = [{ formacion: fid, prioridad: 'P' }] // la formación que lleva el código queda marcada sola
     // la categoría y sus formaciones se guardan juntas: o queda todo o no queda nada
     const r = await conTransaccion(async (c) => {
       const x = await c.query(Q.categoriaCrear, [id, nombre, tipo])
@@ -404,6 +415,9 @@ rutas.put('/plantillas/categorias/:id/formaciones', exigirSesion, exigirPermiso(
   try {
     const { id } = req.paramsOk
     if (!(await sinUsuario(Q.categoriasListar)).rows.some((c) => c.id === id)) return res.status(404).json({ error: 'No encontrado' })
+    const fid = formacionDelId(id)
+    const otras = req.bodyOk.formaciones.filter((f) => fid && f.formacion !== fid).map((f) => f.formacion)
+    if (otras.length) return res.status(400).json(errorFormacionDelId(id, otras))
     await conTransaccion(async (c) => {
       await c.query(Q.formacionesBorrar, [id])
       for (const f of req.bodyOk.formaciones) await c.query(Q.formacionPoner, [id, f.formacion, f.prioridad])
@@ -463,12 +477,12 @@ const CuerpoSubir = z.object({ nombre: NombreSubida.optional(), html: HtmlSubido
 // Nombre de una variante: «g-08-v01» (categoría de una sola formación) o «g-09-tec-v01» (categoría compartida: cada formación numera las suyas).
 const ABREV_FORMACION = { tecnologico: 'tec', profesional: 'pre', especializacion: 'esp', doctorado: 'doc' }
 const nombreVariante = (cat, n, formacion) => cat.toLowerCase() + (formacion ? '-' + ABREV_FORMACION[formacion] : '') + '-v' + String(n).padStart(2, '0')
-// Categorías de ACTIVIDAD: el nombre sale del plan («ACT-G-01-TEC-P-V2»): categoría + formación (si el código de la categoría no la lleva ya, como «ACT-E-TEC-03») + tipo
+// Categorías de ACTIVIDAD: el nombre sale del plan («ACT-G-01-TEC-P-V2», «ACT-E-03-TEC-P-V1»): categoría + formación (si el código de la categoría no la lleva ya, como «ACT-E-03-TEC») + tipo
 // (c = calificable, p = práctica) + «v» y el número SIN ceros, y cada formación y tipo numera las suyas. Profesional se escribe «pro» (en los recursos es «pre»).
 const ABREV_ACTIVIDAD = { tecnologico: 'tec', profesional: 'pro', especializacion: 'esp', doctorado: 'doc' }
 const nombreActividad = (cat, formacion, calificable, n) => {
   const ab = ABREV_ACTIVIDAD[formacion]
-  const yaLleva = new RegExp('-' + ab.toUpperCase() + '-').test(cat)
+  const yaLleva = new RegExp('-' + ab.toUpperCase() + '(-|$)').test(cat)
   return cat.toLowerCase() + (yaLleva ? '' : '-' + ab) + '-' + (calificable ? 'c' : 'p') + '-v' + n
 }
 // ¿Es una categoría de actividades? y de qué tipo es la variante: lo elegido, lo que dice la ficha o lo que ya tenía (true calificable, false práctica).
@@ -504,6 +518,9 @@ const resumenCampos = (l) => l.slice(0, 4).map((p) => p.split(':')[0]).join(', '
 // Formación de una variante y con qué se compara. «pedida» es la elegida en la pantalla o, si no, la de la ficha.
 // Categoría compartida (2 o más formaciones): la formación es obligatoria y debe ser una de las marcadas. Si no, se guarda lo pedido (o la única formación de la categoría).
 const formacionDeSubida = async (categoria, pedida) => {
+  // «ACT-E-03-TEC» ya dice su formación: no hace falta marcarla en la categoría ni elegirla al subir (y no puede ser otra)
+  const fid = formacionDelId(categoria)
+  if (fid) return pedida && pedida !== fid ? { compartida: false, formaciones: [fid], formacion: pedida, invalida: true } : { compartida: false, formaciones: [fid], formacion: fid, comparar: null }
   const fs = categoria ? (await sinUsuario(Q.formacionesListar)).rows.filter((x) => x.categoria === categoria).map((x) => x.formacion).sort((p, q) => FORMACIONES.indexOf(p) - FORMACIONES.indexOf(q)) : []
   if (fs.length < 2) return { compartida: false, formaciones: fs, formacion: pedida || (fs.length === 1 ? fs[0] : null), comparar: null }
   if (!pedida) return { compartida: true, formaciones: fs, formacion: null, falta: true }

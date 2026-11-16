@@ -8,7 +8,10 @@ import './categorias.css'
 // Categorías de las plantillas publicadas (las que n8n descarga). Cada categoría es un tipo de HTML del catálogo (ID + nombre) y es un
 // «recurso» o una «actividad de autoaprendizaje». Aquí solo se ve CUÁNTAS variantes tiene cada una; quien revisa las plantillas puede crear
 // categorías y subir variantes nuevas (HTML) sin esperar a un despliegue.
-const RE_ID = /^[A-Z]{1,4}(-[A-Z]{1,4}){0,2}-[0-9]{2,3}$/ // G-09, PRE-05, ACT-G-01, ACT-E-TEC-03
+const RE_ID = /^([A-Z]{1,4}(-[A-Z]{1,4}){0,2}-[0-9]{2,3}|ACT-E-[0-9]{2,3}-(TEC|PRO|ESP|DOC))$/ // G-09, PRE-05, ACT-G-01, ACT-E-03-TEC
+// Las actividades específicas llevan su formación al final del código (ACT-E-03-TEC): esa es la única que se puede marcar.
+const FORM_DE_SUFIJO = { TEC: 'tecnologico', PRO: 'profesional', ESP: 'especializacion', DOC: 'doctorado' }
+const formacionDelId = (id) => { const m = /^ACT-E-[0-9]{2,3}-(TEC|PRO|ESP|DOC)$/.exec(String(id || '').trim().toUpperCase()); return m ? FORM_DE_SUFIJO[m[1]] : null }
 export const MAX_BYTES = 1536 * 1024
 const TIPOS = { recurso: ['Recursos', 'Recurso'], actividad: ['Actividades', 'Actividad de autoaprendizaje'] }
 export const kb = (b) => (b < 1024 * 1024 ? Math.max(1, Math.round(b / 1024)) + ' KB' : (b / 1024 / 1024).toFixed(1) + ' MB')
@@ -36,7 +39,7 @@ export function EtiquetasFormacion({ lista, vacio = true }) {
 const listaFormaciones = (v) => FORMACIONES.filter((f) => v && v[f.id]).map((f) => ({ formacion: f.id, prioridad: v[f.id] }))
 
 // Casillas de formación con su prioridad (para crear o editar una categoría).
-function EditorFormaciones({ valor, onChange }) {
+function EditorFormaciones({ valor, onChange, fija }) {
   return (
     <fieldset className="cat-ren-formaciones">
       <legend>Formaciones a las que sirve</legend>
@@ -45,7 +48,7 @@ function EditorFormaciones({ valor, onChange }) {
         return (
           <div key={f.id} className={'cat-ef' + (on ? ' on' : '')} style={{ '--fc': f.base }}>
             <label>
-              <input type="checkbox" checked={on} onChange={(e) => { const n = { ...valor }; if (e.target.checked) n[f.id] = 'P'; else delete n[f.id]; onChange(n) }} />
+              <input type="checkbox" checked={on} disabled={!!fija && fija !== f.id} title={fija && fija !== f.id ? 'El código de la categoría ya dice la formación' : undefined} onChange={(e) => { const n = { ...valor }; if (e.target.checked) n[f.id] = 'P'; else delete n[f.id]; onChange(n) }} />
               <i style={{ background: f.base }} aria-hidden="true" />
               <span>{f.nombre}</span>
             </label>
@@ -275,8 +278,8 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
                 <form className="card cat-form" onSubmit={(e) => { e.preventDefault(); if (idValido && !idRepetido && nueva.nombre.trim()) crear() }}>
                   <div className="cat-campo"><span className="cat-lbl">¿Qué es?</span><Seg valor={nueva.tipo} onChange={(tipo) => setNueva({ ...nueva, tipo })} opciones={OPC_TIPO} etiqueta="¿Qué es?" /><small>{nueva.tipo === 'actividad' ? 'Una actividad de autoaprendizaje (como un crucigrama).' : 'Un tipo de HTML que n8n elige para mostrar contenido.'}</small></div>
                   <label>ID del catálogo
-                    <input value={nueva.id} onChange={(e) => setNueva({ ...nueva, id: e.target.value })} placeholder={nueva.tipo === 'actividad' ? 'ACT-G-01' : 'G-13'} maxLength={16} aria-invalid={!!nueva.id && (!idValido || idRepetido)} />
-                    <small className={nueva.id && (!idValido || idRepetido) ? 'mal' : ''}>{idRepetido ? 'Ya existe una categoría con ese ID.' : 'Letras y número: G-13, PRE-10, ACT-G-01, ACT-E-TEC-03…'}</small>
+                    <input value={nueva.id} onChange={(e) => { const id = e.target.value; const fid = formacionDelId(id); setNueva({ ...nueva, id, ...(fid ? { formaciones: { [fid]: (nueva.formaciones || {})[fid] || 'P' } } : {}) }) }} placeholder={nueva.tipo === 'actividad' ? 'ACT-G-01' : 'G-13'} maxLength={16} aria-invalid={!!nueva.id && (!idValido || idRepetido)} />
+                    <small className={nueva.id && (!idValido || idRepetido) ? 'mal' : ''}>{idRepetido ? 'Ya existe una categoría con ese ID.' : 'Letras y número: G-13, PRE-10, ACT-G-01, ACT-E-03-TEC…'}</small>
                   </label>
                   <label>Nombre
                     <input value={nueva.nombre} onChange={(e) => setNueva({ ...nueva, nombre: e.target.value })} placeholder={nueva.tipo === 'actividad' ? 'Crucigrama' : 'Tarjetas de repaso'} maxLength={120} />
@@ -286,7 +289,7 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
                       <b>Formaciones <em>opcional</em></b>
                       <span>Marque para qué formaciones sirve esta categoría y si es <b>P</b> (prioritaria) o <b>C</b> (complementaria). Puede dejarlo en blanco y cambiarlo después con «Editar».</span>
                     </div>
-                    <EditorFormaciones valor={nueva.formaciones || {}} onChange={(formaciones) => setNueva({ ...nueva, formaciones })} />
+                    <EditorFormaciones valor={nueva.formaciones || {}} fija={formacionDelId(nueva.id)} onChange={(formaciones) => setNueva({ ...nueva, formaciones })} />
                   </div>
                   <div className="cat-form-acc">
                     <button className="btn" type="submit" disabled={ocupado || !idValido || idRepetido || !nueva.nombre.trim()}>Crear</button>
@@ -312,7 +315,7 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
                           <button className="btn sm" type="submit" disabled={ocupado || !edit.nombre.trim()}>Guardar</button>
                           <button className="btn sec sm" type="button" onClick={() => setEdit(null)}>Cancelar</button>
                         </div>
-                        <EditorFormaciones valor={edit.formaciones || {}} onChange={(formaciones) => setEdit({ ...edit, formaciones })} />
+                        <EditorFormaciones valor={edit.formaciones || {}} fija={formacionDelId(edit.id)} onChange={(formaciones) => setEdit({ ...edit, formaciones })} />
                       </form>
                     ) : (
                       <h3>{c.nombre}</h3>

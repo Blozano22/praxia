@@ -83,7 +83,7 @@ Cuerpo que recibe el webhook:
 }
 ```
 - `formacion`: `tecnologico` | `profesional` | `especializacion` | `doctorado` (la del curso).
-- `categoria`: el código **general** (`G-09`, `PRE-05`, `POS-11`), sin sufijos `-C/-A`. En las **actividades**, el código del plan (`ACT-G-01`, `ACT-E-TEC-03`) y además `calificable` por recurso (ver 3.5).
+- `categoria`: el código **general** (`G-09`, `PRE-05`, `POS-11`), sin sufijos `-C/-A`. En las **actividades**, el código del plan (`ACT-G-01`, `ACT-E-03-TEC`) y además `calificable` por recurso (ver 3.5).
 - `recursos`: de 1 a 500; los `codigo` no pueden repetirse dentro del pedido. Se puede pedir el curso entero o una unidad; las peticiones de un mismo curso se atienden **de una en una** (bloqueo por curso), así que unidades en paralelo no se pisan.
 - `forzar` (opcional): recalcula desde cero lo pedido. Sin él, lo ya asignado **no cambia** (idempotente).
 - `solo_aprobadas` (opcional, por defecto `true`): solo mientras aún no haya variantes aprobadas se puede poner `false`.
@@ -128,7 +128,7 @@ El pedido de siempre al flujo de guiones lleva ahora, además, `asignaciones`: l
 Cuando la preparación no está configurada, el campo no existe y todo es como antes. **El flujo de guiones tiene que aceptar y usar este campo** (lo mantiene quien tenga ese flujo).
 
 ### 3.5 Actividades: `calificable`, azar y repetición (cambio ya desplegado en Praxia)
-Las actividades (categorías `ACT-G-01`, `ACT-E-TEC-03`…, de tipo `actividad`) se piden con este mismo `pedir`, pero cada recurso debe decir si es **la calificable de su unidad** o una **práctica**.
+Las actividades (categorías `ACT-G-01`, `ACT-E-03-TEC`…, de tipo `actividad`) se piden con este mismo `pedir`, pero cada recurso debe decir si es **la calificable de su unidad** o una **práctica**.
 
 **Qué debe hacer el flujo**
 - **Leer, por unidad, la tabla de la estructura que indica cuál actividad es la calificable**, y marcar `calificable: true` solo en esa; las demás van con `calificable: false`.
@@ -142,7 +142,7 @@ Las actividades (categorías `ACT-G-01`, `ACT-E-TEC-03`…, de tipo `actividad`)
   "recursos": [
     { "codigo": "U1-T3-R1", "categoria": "ACT-G-01",     "unidad": 1, "calificable": true  },
     { "codigo": "U1-T1-R2", "categoria": "ACT-G-04",     "unidad": 1, "calificable": false },
-    { "codigo": "U1-T2-R1", "categoria": "ACT-E-TEC-03", "unidad": 1, "calificable": false }
+    { "codigo": "U1-T2-R1", "categoria": "ACT-E-03-TEC", "unidad": 1, "calificable": false }
   ]
 }
 ```
@@ -186,7 +186,7 @@ Los motivos de siempre siguen igual; con actividades se calculan **solo entre la
 |---|---|
 | `ACT-G-01-TEC-C-V1` | `act-g-01-tec-c-v1` |
 | `ACT-G-01-TEC-P-V2` | `act-g-01-tec-p-v2` |
-| `ACT-E-TEC-03-P-V1` | `act-e-tec-03-p-v1` |
+| `ACT-E-03-TEC-P-V1` | `act-e-03-tec-p-v1` |
 
 Profesional se escribe **`pro`** en las actividades (en los recursos es `pre`). El número de variante **no lleva ceros** (`v1`) y se cuenta por categoría, formación y tipo, en el orden en que se suben.
 

@@ -20,7 +20,7 @@ const limite = rateLimit({ windowMs: 60 * 1000, limit: 300, keyGenerator: (req) 
 
 const FORMACIONES = ['tecnologico', 'profesional', 'especializacion', 'doctorado']
 const Codigo = z.string().regex(/^U[0-9]{1,3}-(PRES|T[0-9]{1,2}-R[0-9]{1,3})$/)
-const Categoria = z.string().regex(/^[A-Za-z]{1,4}(-[A-Za-z]{1,4}){0,2}-[0-9]{2,3}$/).transform((s) => s.toUpperCase()) // «G-12», «PRE-05», «ACT-G-01», «ACT-E-TEC-03»
+const Categoria = z.string().regex(/^(?:[A-Za-z]{1,4}(?:-[A-Za-z]{1,4}){0,2}-[0-9]{2,3}|ACT-E-[0-9]{2,3}-(?:TEC|PRO|ESP|DOC))$/i).transform((s) => s.toUpperCase()) // «G-12», «PRE-05», «ACT-G-01», «ACT-E-03-TEC»
 const sinVacio = (v) => (typeof v === 'string' && v.trim() === '' ? null : v)
 const Opc = (esquema) => z.preprocess(sinVacio, esquema.nullish())
 

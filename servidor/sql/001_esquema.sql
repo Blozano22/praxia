@@ -309,9 +309,10 @@ CREATE TABLE IF NOT EXISTS plantilla_categorias (
   nombre text NOT NULL CHECK (char_length(nombre) BETWEEN 1 AND 120),
   creado timestamptz NOT NULL DEFAULT now()
 );
--- Los códigos de categoría admiten hasta tres bloques de letras («G-09», «PRE-05», «ACT-G-01», «ACT-E-TEC-03»). Se reemplaza la restricción antigua (idempotente).
+-- Los códigos de categoría admiten hasta tres bloques de letras («G-09», «PRE-05», «ACT-G-01», «ACT-E-TEC-03») y las actividades específicas del plan, con la formación al final («ACT-E-03-TEC»).
+-- Se reemplaza la restricción antigua (idempotente).
 ALTER TABLE plantilla_categorias DROP CONSTRAINT IF EXISTS plantilla_categorias_id_check;
-ALTER TABLE plantilla_categorias ADD CONSTRAINT plantilla_categorias_id_check CHECK (id ~ '^[A-Z]{1,4}(-[A-Z]{1,4}){0,2}-[0-9]{2,3}$');
+ALTER TABLE plantilla_categorias ADD CONSTRAINT plantilla_categorias_id_check CHECK (id ~ '^(?:[A-Z]{1,4}(-[A-Z]{1,4}){0,2}-[0-9]{2,3}|ACT-E-[0-9]{2,3}-(TEC|PRO|ESP|DOC))$');
 -- Hay dos clases de HTML: «recurso» (un recurso del curso: acordeón, línea de tiempo…) y «actividad» de autoaprendizaje (crucigrama…).
 ALTER TABLE plantilla_categorias ADD COLUMN IF NOT EXISTS tipo text NOT NULL DEFAULT 'recurso' CHECK (tipo IN ('recurso', 'actividad'));
 -- Número de la próxima variante que se suba a la categoría: la plantilla se llama «<id>-v01», «<id>-v02»… en el orden en que se suben (no se reutiliza al eliminar).

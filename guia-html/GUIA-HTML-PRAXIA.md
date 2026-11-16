@@ -90,7 +90,7 @@ Al inicio del `<head>`, en un comentario HTML, la plantilla lleva su **ficha**: 
 - **Categoría Praxia:** el ID de la categoría de destino (G-12, POS-10, PRE-03…). Praxia la **preselecciona** al subir; si la eliges distinta, avisa.
 - **Formación:** `tecnologico`, `profesional`, `especializacion` o `doctorado` (también acepta `licenciatura` como profesional). Praxia guarda la formación de **esa variante** y la muestra en el índice para n8n.
 - Si falta alguna de las dos líneas, la plantilla se sube igual (sin categoría preseleccionada o sin formación).
-- **Actividades:** la categoría puede ser `ACT-G-01` o `ACT-E-TEC-03`, y la ficha lleva además **`Tipo de actividad: calificable`** o **`práctica`**. En las actividades Praxia exige el tipo y nombra la variante como el plan: `act-g-01-tec-p-v2` (categoría, formación si el código no la lleva, `c`/`p`, `v` y número sin ceros, por orden de subida). Cada tipo tiene sus propios campos: la calificable puede llevar los de la nota y las prácticas no.
+- **Actividades:** la categoría puede ser `ACT-G-01` o `ACT-E-03-TEC`, y la ficha lleva además **`Tipo de actividad: calificable`** o **`práctica`**. En las actividades Praxia exige el tipo y nombra la variante como el plan: `act-g-01-tec-p-v2` (categoría, formación si el código no la lleva, `c`/`p`, `v` y número sin ceros, por orden de subida). Cada tipo tiene sus propios campos: la calificable puede llevar los de la nota y las prácticas no.
 
 Lectura del contenido en el JavaScript de la plantilla. **Debe quitar las dos marcas antes de leer el JSON**: así, al abrir el archivo suelto, la plantilla se ve con su contenido de ejemplo (si no se quitan, el JSON no es válido y la página sale vacía):
 

@@ -64,7 +64,7 @@ export function armarSubida(crudo) {
 const ALIAS_FORMACION = { tecnologico: 'tecnologico', tecnologia: 'tecnologico', profesional: 'profesional', licenciatura: 'profesional', especializacion: 'especializacion', doctorado: 'doctorado' }
 export function leerFicha(crudo) {
   const comentarios = [...String(crudo).matchAll(/<!--([\s\S]*?)-->/g)].map((m) => m[1]).join(String.fromCharCode(10))
-  const c = /Categor[ií]a\s+Praxia\s*:\s*([A-Za-z]{1,4}(?:-[A-Za-z]{1,4}){0,2}-\d{2,3})/i.exec(comentarios)
+  const c = /Categor[ií]a\s+Praxia\s*:\s*([A-Za-z]{1,4}(?:-[A-Za-z]{1,4}){0,2}-\d{2,3}(?:-(?:TEC|PRO|ESP|DOC)(?![A-Za-z]))?)/i.exec(comentarios)
   const t = /Tipo\s+de\s+actividad\s*:\s*(calificable|pr[aá]ctica)/i.exec(comentarios) // solo en las categorías de actividad
   const f = /Formaci[oó]n\s*:\s*([A-Za-zÁÉÍÓÚáéíóúñÑ]+)/i.exec(comentarios)
   const forma = f ? ALIAS_FORMACION[f[1].normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()] : null

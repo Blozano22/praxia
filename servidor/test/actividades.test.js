@@ -1,4 +1,4 @@
-// Actividades (categorías ACT-G-01, ACT-E-TEC-03…): códigos de categoría con varios bloques, tipo de variante (calificable «c» / práctica «p»), nombres como los del plan
+// Actividades (categorías ACT-G-01, ACT-E-03-TEC…): códigos de categoría con varios bloques, tipo de variante (calificable «c» / práctica «p»), nombres como los del plan
 // («act-g-01-tec-p-v2»), campos propios por formación y tipo, y asignación al curso (calificable marcada por n8n, azar entre las prácticas, repetición con aviso).
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
@@ -59,16 +59,16 @@ async function entrar(correo) {
 const html = (campos, ficha = '') => '<!doctype html><html lang="es"><head><meta charset="utf-8">' + (ficha ? '<!--\n' + ficha + '\n-->' : '') + '<title>{{TITULO}}</title></head><body><script type="application/json" id="contenido">/*CONTENIDO*/' + JSON.stringify(campos) + '/*FIN-CONTENIDO*/</script></body></html>'
 const indice = async () => (await fetch(base + '/plantillas-html/plantillas.json')).json()
 
-test('categorías de actividad con códigos «ACT-G-01» y «ACT-E-TEC-03», marcadas para sus formaciones', async () => {
+test('categorías de actividad con códigos «ACT-G-01» y «ACT-E-03-TEC», marcadas para sus formaciones', async () => {
   const dani = await entrar('dani@u.co')
   assert.equal((await dani('POST', '/plantillas/categorias', { id: 'ACT-G-01', nombre: 'Emparejamiento', tipo: 'actividad' })).status, 201)
-  assert.equal((await dani('POST', '/plantillas/categorias', { id: 'ACT-E-TEC-03', nombre: 'Emparejar normas con situaciones', tipo: 'actividad' })).status, 201)
+  assert.equal((await dani('POST', '/plantillas/categorias', { id: 'ACT-E-03-TEC', nombre: 'Emparejar normas con situaciones', tipo: 'actividad' })).status, 201)
   assert.equal((await dani('POST', '/plantillas/categorias', { id: 'ACT-G-03', nombre: 'Arrastre y suelte', tipo: 'actividad' })).status, 201)
   assert.equal((await dani('POST', '/plantillas/categorias', { id: 'ACT-E-TEC-AB-03', nombre: 'demasiados bloques', tipo: 'actividad' })).status, 400)
   assert.equal((await dani('PUT', '/plantillas/categorias/ACT-G-01/formaciones', { formaciones: [{ formacion: 'tecnologico' }, { formacion: 'profesional' }] })).status, 200)
-  assert.equal((await dani('PUT', '/plantillas/categorias/ACT-E-TEC-03/formaciones', { formaciones: [{ formacion: 'tecnologico' }] })).status, 200)
+  assert.equal((await dani('PUT', '/plantillas/categorias/ACT-E-03-TEC/formaciones', { formaciones: [{ formacion: 'tecnologico' }] })).status, 200)
   assert.equal((await dani('PUT', '/plantillas/categorias/ACT-G-03/formaciones', { formaciones: [{ formacion: 'tecnologico' }] })).status, 200)
-  const c = (await (await dani('GET', '/plantillas/categorias')).json()).categorias.find((x) => x.id === 'ACT-E-TEC-03')
+  const c = (await (await dani('GET', '/plantillas/categorias')).json()).categorias.find((x) => x.id === 'ACT-E-03-TEC')
   assert.equal(c.tipo, 'actividad')
   // crear una categoría ya con sus formaciones (una sola llamada); un valor repetido o desconocido no deja nada a medias
   const antes = (await (await dani('GET', '/plantillas/categorias')).json()).categorias.length
@@ -79,6 +79,32 @@ test('categorías de actividad con códigos «ACT-G-01» y «ACT-E-TEC-03», mar
   assert.equal(j.categorias.length, antes + 1)
   assert.deepEqual(j.formaciones['ACT-X-09'].map((f) => [f.formacion, f.prioridad]).sort(), [['profesional', 'C'], ['tecnologico', 'P']])
   assert.equal((await dani('DELETE', '/plantillas/categorias/ACT-X-09')).status, 200)
+  // «ACT-E-05-PRO» lleva la formación al final, como en el plan: queda marcada sola y no admite otra
+  assert.equal((await dani('POST', '/plantillas/categorias', { id: 'ACT-E-05-PRO', nombre: 'Específica profesional', tipo: 'actividad' })).status, 201)
+  assert.deepEqual((await (await dani('GET', '/plantillas/categorias')).json()).formaciones['ACT-E-05-PRO'].map((f) => [f.formacion, f.prioridad]), [['profesional', 'P']])
+  assert.equal((await dani('POST', '/plantillas/categorias', { id: 'ACT-E-06-DOC', nombre: 'Mal marcada', tipo: 'actividad', formaciones: [{ formacion: 'tecnologico' }] })).status, 400)
+  assert.equal((await dani('PUT', '/plantillas/categorias/ACT-E-05-PRO/formaciones', { formaciones: [{ formacion: 'profesional' }, { formacion: 'doctorado' }] })).status, 400)
+  assert.equal((await dani('POST', '/plantillas/categorias', { id: 'ACT-E-07-XYZ', nombre: 'formación inexistente', tipo: 'actividad' })).status, 400)
+  assert.equal((await dani('DELETE', '/plantillas/categorias/ACT-E-05-PRO')).status, 200)
+})
+
+test('una actividad específica «ACT-E-05-PRO» se sube sin elegir formación y el nombre sale igual que en el plan: act-e-05-pro-p-v1', async () => {
+  const dani = await entrar('dani@u.co')
+  assert.equal((await dani('POST', '/plantillas/categorias', { id: 'ACT-E-05-PRO', nombre: 'Específica profesional', tipo: 'actividad' })).status, 201)
+  const subir = async (cuerpo) => { const r = await dani('POST', '/plantillas/subidas', cuerpo); return { estado: r.status, ...(await r.json()) } }
+  const base1 = { titulo: 't', texto: 'x' }
+  const a = await subir({ html: html(base1), categoria: 'ACT-E-05-PRO', calificable: false })
+  assert.equal(a.estado, 201); assert.equal(a.nombre, 'act-e-05-pro-p-v1')
+  const b = await subir({ html: html(base1), categoria: 'ACT-E-05-PRO', calificable: true })
+  assert.equal(b.nombre, 'act-e-05-pro-c-v1')
+  assert.equal((await subir({ html: html(base1), categoria: 'ACT-E-05-PRO', calificable: false })).nombre, 'act-e-05-pro-p-v2')
+  // otra formación distinta a la del código no se admite
+  assert.equal((await subir({ html: html(base1), categoria: 'ACT-E-05-PRO', calificable: false, formacion: 'tecnologico' })).estado, 400)
+  // la ficha puede decir la categoría con la formación al final
+  const ficha = ['  Categoría Praxia: ACT-E-05-PRO', '  Tipo de actividad: práctica'].join(String.fromCharCode(10))
+  const pv = await (await dani('POST', '/plantillas/subidas/previa', { html: html(base1, ficha) })).json()
+  assert.equal(pv.ficha.categoria, 'ACT-E-05-PRO')
+  assert.equal(pv.nombre, 'act-e-05-pro-p-v3')
 })
 
 test('subir una actividad exige decir si es calificable o práctica, y el nombre sale del plan: categoría, formación, tipo y número de variante', async () => {
@@ -106,14 +132,14 @@ test('subir una actividad exige decir si es calificable o práctica, y el nombre
   assert.equal(pro.nombre, 'act-g-01-pro-p-v1')
   // categoría de una sola formación que no lleva la formación en su código: se añade (ACT-G-03-TEC…)
   assert.equal((await subir({ html: html(base1), categoria: 'ACT-G-03', calificable: true })).nombre, 'act-g-03-tec-c-v1')
-  // categoría que ya lleva la formación en su código (ACT-E-TEC-03): no se repite
-  assert.equal((await subir({ html: html(base1), categoria: 'ACT-E-TEC-03', calificable: false })).nombre, 'act-e-tec-03-p-v1')
+  // categoría que ya lleva la formación en su código (ACT-E-03-TEC): no se repite
+  assert.equal((await subir({ html: html(base1), categoria: 'ACT-E-03-TEC', calificable: false })).nombre, 'act-e-03-tec-p-v1')
   // la ficha puede decir categoría, formación y tipo
-  const ficha = ['  Categoría Praxia: ACT-E-TEC-03', '  Formación: tecnologico', '  Tipo de actividad: calificable'].join('\n')
+  const ficha = ['  Categoría Praxia: ACT-E-03-TEC', '  Formación: tecnologico', '  Tipo de actividad: calificable'].join('\n')
   const porFicha = await subir({ html: html(base1, ficha) })
-  assert.equal(porFicha.nombre, 'act-e-tec-03-c-v1')
+  assert.equal(porFicha.nombre, 'act-e-03-tec-c-v1')
   const pv = await (await dani('POST', '/plantillas/subidas/previa', { html: html(base1, ficha) })).json()
-  assert.deepEqual(pv.ficha, { categoria: 'ACT-E-TEC-03', formacion: 'tecnologico', calificable: true }); assert.equal(pv.nombre, 'act-e-tec-03-c-v2'); assert.equal(pv.esActividad, true)
+  assert.deepEqual(pv.ficha, { categoria: 'ACT-E-03-TEC', formacion: 'tecnologico', calificable: true }); assert.equal(pv.nombre, 'act-e-03-tec-c-v2'); assert.equal(pv.esActividad, true)
   const pvSin = await (await dani('POST', '/plantillas/subidas/previa', { html: html(base1), categoria: 'ACT-G-03' })).json()
   assert.equal(pvSin.requiereTipo, true); assert.equal(pvSin.nombre, null)
   // el índice trae el tipo de cada variante y sus campos se comparan con los de su tipo
