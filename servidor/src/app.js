@@ -79,15 +79,18 @@ export function crearApp() {
       // formaciones, de la categoría Y la formación de la variante (las que no tienen formación no se comparan). null si no hay con qué comparar.
       const compartidas = new Set(Object.entries(fo.rows.reduce((m, x) => ({ ...m, [x.categoria]: (m[x.categoria] || 0) + 1 }), {})).filter(([, n]) => n >= 2).map(([k]) => k))
       const formDe = Object.fromEntries(u.rows.map((x) => [x.nombre, x.formacion || null])) // formación de la variante (elegida al subirla o según su ficha)
-      const claveRef = (n) => (de[n] ? (compartidas.has(de[n]) ? (formDe[n] ? de[n] + '|' + formDe[n] : null) : de[n]) : null)
+      const calDe = Object.fromEntries(u.rows.map((x) => [x.nombre, typeof x.calificable === 'boolean' ? x.calificable : null])) // actividades: true calificable, false práctica
+      const claveBase = (n) => (de[n] ? (compartidas.has(de[n]) ? (formDe[n] ? de[n] + '|' + formDe[n] : null) : de[n]) : null)
+      // en las categorías de actividad los campos se comparan también por tipo (la calificable lleva campos que la práctica no)
+      const claveRef = (n) => { const k = claveBase(n); if (!k || tipoDe[de[n]] !== 'actividad') return k; return calDe[n] === null ? null : k + '|' + (calDe[n] ? 'c' : 'p') }
       const refDe = {}
       for (const x of [...u.rows].sort((p, q) => new Date(p.creado) - new Date(q.creado) || p.nombre.localeCompare(q.nombre))) { const k = claveRef(x.nombre); if (x.esquema && k && !refDe[k]) refDe[k] = x.esquema }
       const esqDe = Object.fromEntries(u.rows.map((x) => [x.nombre, x.esquema]))
       const esquemaOk = (n) => { const k = claveRef(n); return esqDe[n] && k && refDe[k] ? compararEsquemas(refDe[k], esqDe[n]).coincide : null }
-      const plantillas = todas.map((p) => ({ ...p, id_catalogo: de[p.nombre] || null, tipo: tipoDe[de[p.nombre]] || null, ...estadoDe(p.nombre), esquema_ok: esquemaOk(p.nombre), formacion: formDe[p.nombre] || null }))
+      const plantillas = todas.map((p) => ({ ...p, id_catalogo: de[p.nombre] || null, tipo: tipoDe[de[p.nombre]] || null, ...estadoDe(p.nombre), esquema_ok: esquemaOk(p.nombre), formacion: formDe[p.nombre] || null, calificable: calDe[p.nombre] ?? null }))
       const ORDEN_FORMACIONES = ['tecnologico', 'profesional', 'especializacion', 'doctorado']
       const formacionesDe = (id) => fo.rows.filter((x) => x.categoria === id).map((x) => ({ formacion: x.formacion, prioridad: x.prioridad })).sort((p, q) => ORDEN_FORMACIONES.indexOf(p.formacion) - ORDEN_FORMACIONES.indexOf(q.formacion)) // para qué formaciones sirve la categoría (P prioritaria, C complementaria)
-      const categorias = c.rows.map((k) => ({ id: k.id, nombre: k.nombre, tipo: k.tipo, formaciones: formacionesDe(k.id), variantes: plantillas.filter((p) => p.id_catalogo === k.id).map(({ nombre, archivo, estado, fecha_estado, esquema_ok, formacion }) => ({ nombre, archivo, estado, fecha_estado, esquema_ok, formacion })) }))
+      const categorias = c.rows.map((k) => ({ id: k.id, nombre: k.nombre, tipo: k.tipo, formaciones: formacionesDe(k.id), variantes: plantillas.filter((p) => p.id_catalogo === k.id).map(({ nombre, archivo, estado, fecha_estado, esquema_ok, formacion, calificable }) => ({ nombre, archivo, estado, fecha_estado, esquema_ok, formacion, calificable })) }))
       res.json({ ...base, total: plantillas.length, plantillas, categorias, sin_categoria: plantillas.filter((p) => !p.id_catalogo).map(({ nombre, archivo, estado, fecha_estado }) => ({ nombre, archivo, estado, fecha_estado })) })
     } catch { res.json(base) }
   })

@@ -45,7 +45,10 @@ CREATE TABLE IF NOT EXISTS asignacion_variantes (
   CONSTRAINT asignacion_variantes_motivo_ck CHECK (estado = 'asignada' OR motivo IS NOT NULL)
 );
 -- La regla de Roger: en un curso, una variante no se repite dentro de su categoría.
-CREATE UNIQUE INDEX IF NOT EXISTS asignacion_variantes_variante_uq ON asignacion_variantes (propietario_id, proyecto_id, categoria, plantilla) WHERE plantilla IS NOT NULL;
+-- En las categorías de actividad, cuando ya se usaron todas las variantes del tipo pedido, se REPITE una y se avisa (repetida = true): esas filas quedan fuera de la regla de unicidad.
+ALTER TABLE asignacion_variantes ADD COLUMN IF NOT EXISTS repetida boolean NOT NULL DEFAULT false;
+DROP INDEX IF EXISTS asignacion_variantes_variante_uq;
+CREATE UNIQUE INDEX IF NOT EXISTS asignacion_variantes_variante_uq2 ON asignacion_variantes (propietario_id, proyecto_id, categoria, plantilla) WHERE plantilla IS NOT NULL AND NOT repetida;
 CREATE INDEX IF NOT EXISTS asignacion_variantes_plantilla_ix ON asignacion_variantes (plantilla) WHERE plantilla IS NOT NULL;
 CREATE INDEX IF NOT EXISTS asignacion_variantes_categoria_ix ON asignacion_variantes (categoria);
 

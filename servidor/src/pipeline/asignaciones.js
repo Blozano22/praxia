@@ -20,7 +20,7 @@ const limite = rateLimit({ windowMs: 60 * 1000, limit: 300, keyGenerator: (req) 
 
 const FORMACIONES = ['tecnologico', 'profesional', 'especializacion', 'doctorado']
 const Codigo = z.string().regex(/^U[0-9]{1,3}-(PRES|T[0-9]{1,2}-R[0-9]{1,3})$/)
-const Categoria = z.string().regex(/^[A-Za-z]{1,4}-[0-9]{2,3}$/).transform((s) => s.toUpperCase())
+const Categoria = z.string().regex(/^[A-Za-z]{1,4}(-[A-Za-z]{1,4}){0,2}-[0-9]{2,3}$/).transform((s) => s.toUpperCase()) // «G-12», «PRE-05», «ACT-G-01», «ACT-E-TEC-03»
 const sinVacio = (v) => (typeof v === 'string' && v.trim() === '' ? null : v)
 const Opc = (esquema) => z.preprocess(sinVacio, esquema.nullish())
 
@@ -34,7 +34,8 @@ const Pedir = z.object({
     categoria: Categoria,
     unidad: Opc(z.number().int().min(0).max(999)),
     id_catalogo: Opc(z.string().max(100)),
-    id_base: Opc(z.string().max(100))
+    id_base: Opc(z.string().max(100)),
+    calificable: z.boolean().nullish() // solo en categorías de actividad: true = la calificable de la unidad, false = práctica (lo lee n8n de la tabla de la unidad)
   })).min(1).max(500)
 }).refine((b) => new Set(b.recursos.map((r) => r.codigo)).size === b.recursos.length, { message: 'hay códigos repetidos en «recursos»' })
 
@@ -68,7 +69,10 @@ function elegibles(variantes, formacion, formacionesCategoria, soloAprobadas) {
   return { lista: [...validas.filter((v) => v.formacion === formacion), ...validas.filter((v) => !v.formacion)], motivo: null }
 }
 
+const azar = (l) => l[Math.floor(Math.random() * l.length)]
+const avisoRepetida = (categoria) => 'Variante repetida: ya se usaron todas las de ese tipo en ' + categoria + ' dentro de este curso.'
 const forma = (f) => ({ codigo: f.codigo, unidad: f.unidad, id_catalogo: f.id_catalogo, id_base: f.id_base, categoria: f.categoria, formacion: f.formacion, plantilla: f.plantilla, estado: f.estado, motivo: f.motivo,
+  repetida: !!f.repetida, aviso: f.repetida ? avisoRepetida(f.categoria) : null,
   ...(f.plantilla_anterior ? { plantilla_anterior: f.plantilla_anterior } : {}), asignada_en: f.asignada_en ? new Date(f.asignada_en).toISOString() : null })
 
 rutasAsignaciones.post('/asignaciones/pedir', limite, async (req, res, next) => {
@@ -80,7 +84,7 @@ rutasAsignaciones.post('/asignaciones/pedir', limite, async (req, res, next) => 
     const resultados = await conTransaccion(async (c) => {
       // Un curso a la vez: las unidades que se piden en paralelo esperan su turno y ven lo que acaba de asignar la anterior.
       await c.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['asign:' + o.propietario_id + ':' + o.proyecto_id])
-      const cats = new Set((await c.query(Q.categoriasListar)).rows.map((k) => k.id))
+      const cats = new Map((await c.query(Q.categoriasListar)).rows.map((k) => [k.id, k.tipo])) // categoría → 'recurso' | 'actividad'
       const formDe = {}
       for (const x of (await c.query(Q.formacionesListar)).rows) (formDe[x.categoria] ||= []).push(x.formacion)
       const existentes = Object.fromEntries((await c.query(Q.asignExistentes, [o.propietario_id, o.proyecto_id, b.recursos.map((r) => r.codigo)])).rows.map((f) => [f.codigo, f]))
@@ -88,7 +92,9 @@ rutasAsignaciones.post('/asignaciones/pedir', limite, async (req, res, next) => 
       const cargar = async (cat) => {
         if (!porCategoria[cat]) {
           const vars = (await c.query(Q.asignElegibles, [cat])).rows
-          porCategoria[cat] = { vars, usadas: new Set((await c.query(Q.asignUsadas, [o.propietario_id, o.proyecto_id, cat])).rows.map((x) => x.plantilla)) }
+          const us = (await c.query(Q.asignUsadas, [o.propietario_id, o.proyecto_id, cat])).rows
+          // usadas = variantes ya dadas a un recurso del curso (sin contar las repetidas); veces = cuántos recursos tienen cada una (para repartir las repeticiones)
+          porCategoria[cat] = { vars, usadas: new Set(us.filter((x) => x.original).map((x) => x.plantilla)), veces: new Map(us.map((x) => [x.plantilla, x.veces])) }
         }
         return porCategoria[cat]
       }
@@ -103,20 +109,41 @@ rutasAsignaciones.post('/asignaciones/pedir', limite, async (req, res, next) => 
           salida.push({ ...forma(ex), resultado: 'ya_asignada' })
           continue
         }
+        const esAct = cats.get(r.categoria) === 'actividad'
+        // En las categorías de actividad hay que saber si el recurso es la calificable o una práctica: lo dice n8n (lo lee de la tabla de la unidad); Praxia no lo adivina.
+        if (esAct && typeof r.calificable !== 'boolean') { salida.push({ codigo: r.codigo, resultado: 'error', motivo: 'falta_calificable', categoria: r.categoria, plantilla: null }); continue }
         const cat = await cargar(r.categoria)
-        if (ex && ex.plantilla && b.forzar) { (porCategoria[ex.categoria] || (await cargar(ex.categoria))).usadas.delete(ex.plantilla) } // recalcular desde cero libera la suya
-        const { lista, motivo } = elegibles(cat.vars, b.formacion, formDe[r.categoria] || [], b.solo_aprobadas)
-        const libre = lista.find((v) => !cat.usadas.has(v.nombre))
+        if (ex && ex.plantilla && b.forzar) { // recalcular desde cero libera la suya
+          const pc = porCategoria[ex.categoria] || (await cargar(ex.categoria))
+          if (!ex.repetida) pc.usadas.delete(ex.plantilla)
+          pc.veces.set(ex.plantilla, Math.max(0, (pc.veces.get(ex.plantilla) || 0) - 1))
+        }
+        // actividades: solo las del tipo pedido (calificable o práctica)
+        const delTipo = esAct ? cat.vars.filter((v) => v.calificable === r.calificable) : cat.vars
+        let { lista, motivo } = elegibles(delTipo, b.formacion, formDe[r.categoria] || [], b.solo_aprobadas)
+        if (esAct && cat.vars.length && !delTipo.length) motivo = r.calificable ? 'categoria_sin_calificables' : 'categoria_sin_practicas'
+        let libre, repetida = false
+        if (esAct) {
+          // al azar entre las libres; si ya se usaron todas, se REPITE una (la menos usada) y se avisa en vez de dejar el recurso sin variante
+          const libres = lista.filter((v) => !cat.usadas.has(v.nombre))
+          libre = libres.length ? azar(libres) : null
+          if (!libre && lista.length) {
+            const min = Math.min(...lista.map((v) => cat.veces.get(v.nombre) || 0))
+            libre = azar(lista.filter((v) => (cat.veces.get(v.nombre) || 0) === min))
+            repetida = true
+          }
+        } else libre = lista.find((v) => !cat.usadas.has(v.nombre))
         const base = [o.propietario_id, o.proyecto_id, r.codigo, unidad, r.id_catalogo || null, r.id_base || null, r.categoria, b.formacion]
         const anterior = ex ? (ex.plantilla || ex.plantilla_anterior || null) : null
         if (libre) {
-          cat.usadas.add(libre.nombre)
-          await c.query(Q.asignGuardar, [...base, libre.nombre, null, 'asignada', null, b.trabajo_id])
-          salida.push({ codigo: r.codigo, resultado: 'asignada', categoria: r.categoria, formacion: b.formacion, plantilla: libre.nombre, motivo: null })
+          if (!repetida) cat.usadas.add(libre.nombre)
+          cat.veces.set(libre.nombre, (cat.veces.get(libre.nombre) || 0) + 1)
+          await c.query(Q.asignGuardar, [...base, libre.nombre, null, 'asignada', repetida ? 'variante_repetida' : null, b.trabajo_id, repetida])
+          salida.push({ codigo: r.codigo, resultado: 'asignada', categoria: r.categoria, formacion: b.formacion, plantilla: libre.nombre, motivo: repetida ? 'variante_repetida' : null, repetida, aviso: repetida ? avisoRepetida(r.categoria) : null })
         } else {
           const m = motivo || 'variantes_agotadas' // había elegibles pero ya las tienen otros recursos del curso
-          await c.query(Q.asignGuardar, [...base, null, anterior, 'pendiente', m, b.trabajo_id])
-          salida.push({ codigo: r.codigo, resultado: 'pendiente', categoria: r.categoria, formacion: b.formacion, plantilla: null, motivo: m })
+          await c.query(Q.asignGuardar, [...base, null, anterior, 'pendiente', m, b.trabajo_id, false])
+          salida.push({ codigo: r.codigo, resultado: 'pendiente', categoria: r.categoria, formacion: b.formacion, plantilla: null, motivo: m, repetida: false, aviso: null })
         }
       }
       return salida

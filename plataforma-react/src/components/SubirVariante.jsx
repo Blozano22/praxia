@@ -38,6 +38,12 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
   const formsCat = categoria ? formsDe(categoria) : []
   const compartida = formsCat.length >= 2
   const formUsada = compartida && formsCat.includes(formSel) ? formSel : '' // lo que se envía al servidor
+  // Categorías de ACTIVIDAD: además de la formación hay que elegir si el grupo es de actividades calificables o prácticas (cada tipo tiene sus propios campos y su propia numeración).
+  const esActividad = !!categoria && ((cats.categorias.find((c) => c.id === categoria) || {}).tipo === 'actividad')
+  const [tipoSel, setTipoSel] = useState('') // '' | 'c' (calificable) | 'p' (práctica)
+  const [tipoManual, setTipoManual] = useState(false) // true cuando la persona eligió el tipo: ya no se cambia solo
+  const calUsada = esActividad && tipoSel ? tipoSel === 'c' : null // lo que se envía al servidor
+  const claveTipo = calUsada === null ? '' : calUsada ? 'c' : 'p'
   const [items, setItems] = useState([]) // archivos en el orden en que se eligieron: { id, nombre, bytes, html, errorLocal }
   const [revs, setRevs] = useState({}) // revisión de cada uno: { fase: 'revisando'|'ok'|'aviso'|'error', conEjemplo, html, nombre, mensaje }
   const [envio, setEnvio] = useState({}) // estado de la subida de cada uno: { fase: 'subiendo'|'subido'|'no_subido', real, mensaje }
@@ -58,15 +64,15 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
   useEffect(() => {
     let vigente = true
     const lista = items.filter((i) => !i.errorLocal)
-    setRevs(Object.fromEntries(lista.map((i) => [i.id, cache.current.get(categoria + '|' + i.id) || { fase: 'revisando' }])))
+    setRevs(Object.fromEntries(lista.map((i) => [i.id, cache.current.get(categoria + '|' + claveTipo + '|' + i.id) || { fase: 'revisando' }])))
     ;(async () => {
       for (const i of lista) {
-        const k = categoria + '|' + i.id
+        const k = categoria + '|' + claveTipo + '|' + i.id
         if (cache.current.has(k)) continue
         let res
         try {
-          const r = await api('POST', '/plantillas/subidas/previa', { html: i.html, ...(categoria ? { categoria } : {}) }) // sin formación: la respuesta trae la comparación de cada formación y no hay que volver a pedirla al cambiar
-          res = { fase: 'ok', conEjemplo: !!r.conEjemplo, html: r.html || '', nombre: r.nombre || null, nombres: r.nombres || {}, esquema: r.esquema || null, esquemas: r.esquemas || {}, ficha: r.ficha || null, avisos: Array.isArray(r.avisos) ? r.avisos : [], requiereFormacion: !!r.requiereFormacion }
+          const r = await api('POST', '/plantillas/subidas/previa', { html: i.html, ...(categoria ? { categoria } : {}), ...(calUsada !== null ? { calificable: calUsada } : {}) }) // sin formación: la respuesta trae la comparación de cada formación y no hay que volver a pedirla al cambiar
+          res = { fase: 'ok', conEjemplo: !!r.conEjemplo, html: r.html || '', nombre: r.nombre || null, nombres: r.nombres || {}, esquema: r.esquema || null, esquemas: r.esquemas || {}, ficha: r.ficha || null, avisos: Array.isArray(r.avisos) ? r.avisos : [], requiereFormacion: !!r.requiereFormacion, requiereTipo: !!r.requiereTipo }
         } catch (e) { res = { fase: 'error', mensaje: e.message || 'No se pudo revisar el archivo.' } }
         if (!vigente) return
         cache.current.set(k, res)
@@ -74,7 +80,7 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
       }
     })()
     return () => { vigente = false }
-  }, [items, categoria])
+  }, [items, categoria, calUsada])
 
   // Formación del grupo: la de la galería si la categoría la sirve; si no, la que diga la ficha del primer archivo que la traiga (nunca se cambia una elegida a mano).
   useEffect(() => {
@@ -82,6 +88,14 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
     const deFicha = items.map((i) => revs[i.id] && revs[i.id].ficha && revs[i.id].ficha.formacion).find((f) => f && formsCat.includes(f))
     const nueva = formsCat.includes(formacion) ? formacion : (deFicha || '')
     if (nueva !== formSel) setFormSel(nueva)
+  }, [categoria, revs, items]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Tipo del grupo (actividades): el que diga la ficha del primer archivo que lo traiga, salvo que la persona lo haya elegido.
+  useEffect(() => {
+    if (!esActividad || tipoManual) return
+    const d = items.map((i) => revs[i.id] && revs[i.id].ficha && revs[i.id].ficha.calificable).find((x) => typeof x === 'boolean')
+    const nuevo = typeof d === 'boolean' ? (d ? 'c' : 'p') : ''
+    if (nuevo !== tipoSel) setTipoSel(nuevo)
   }, [categoria, revs, items]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Si no hay categoría elegida y el primer archivo con ficha trae «Categoría Praxia», se preselecciona (nunca se cambia una ya elegida).
@@ -151,9 +165,10 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
 
   // Sube UNO TRAS OTRO, en el orden de la lista y esperando cada respuesta (así los números salen en orden). Una que falla no detiene las demás.
   const faltaFormacion = compartida && !formUsada // categoría compartida sin formación elegida
+  const faltaTipo = esActividad && calUsada === null // categoría de actividades sin decir si es calificable o práctica
   const subirTodo = async (e) => {
     e.preventDefault()
-    if ((!categoria && !categoriaPorFicha) || !validos.length || revisando || ocupado || fase === 'terminado' || faltaFormacion) return
+    if ((!categoria && !categoriaPorFicha) || !validos.length || revisando || ocupado || fase === 'terminado' || faltaFormacion || faltaTipo) return
     setFase('subiendo'); setError(''); setAbierto('')
     const lista = [...validos]
     let hechos = 0
@@ -162,7 +177,7 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
       setAvance({ n: n + 1, total: lista.length })
       setEnvio((p) => ({ ...p, [i.id]: { fase: 'subiendo' } }))
       try {
-        const r = await api('POST', '/plantillas/subidas', { html: i.html, ...(categoria ? { categoria } : {}), ...(formUsada ? { formacion: formUsada } : {}) })
+        const r = await api('POST', '/plantillas/subidas', { html: i.html, ...(categoria ? { categoria } : {}), ...(formUsada ? { formacion: formUsada } : {}), ...(calUsada !== null ? { calificable: calUsada } : {}) })
         hechos++
         setEnvio((p) => ({ ...p, [i.id]: { fase: 'subido', real: (r && r.nombre) || anunciado(i) } }))
       } catch (err) {
@@ -188,6 +203,7 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
     if (!rv || rv.fase === 'revisando') return { k: 'revisando', t: 'Revisando…' }
     if (rv.fase === 'error') return { k: 'error', t: 'Error', m: rv.mensaje }
     if (faltaFormacion) return { k: 'campos', t: 'Falta la formación', m: 'Elija arriba la formación del grupo.' }
+    if (faltaTipo) return { k: 'campos', t: 'Falta el tipo', m: 'Elija arriba si el grupo es de actividades calificables o prácticas.' }
     if (distinto(i)) {
       return { k: 'error', t: 'Campos distintos', m: 'No usa los mismos campos que las demás de ' + (categoria || 'la categoría') + (formUsada ? ' en ' + NOMBRE_FORMACION[formUsada] : '') + '. Ajuste los campos del archivo a los de esa formación: no se puede subir.', esq: esquemaDe(rv) }
     }
@@ -224,6 +240,18 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
                 ))}
               </div>
               <small className={faltaFormacion ? 'sv-form-falta' : undefined}>{faltaFormacion ? categoria + ' sirve para varias formaciones: elija a cuál pertenece este grupo. Cada formación tiene sus propios campos.' : 'Todo el grupo se sube como ' + NOMBRE_FORMACION[formUsada] + ' y se compara solo con las variantes de esa formación.'}</small>
+            </div>
+          )}
+
+          {esActividad && (
+            <div className="sv-campo">
+              <span className="sv-lbl" id="sv-tipo-lbl">Tipo de actividad</span>
+              <div className="sv-formas" role="radiogroup" aria-labelledby="sv-tipo-lbl">
+                {[['c', 'Calificable'], ['p', 'Práctica']].map(([k, t]) => (
+                  <button key={k} type="button" role="radio" aria-checked={tipoSel === k} className={'sv-forma' + (tipoSel === k ? ' on' : '')} disabled={ocupado || fase === 'terminado'} onClick={() => { setTipoSel(k); setTipoManual(true) }}>{t}</button>
+                ))}
+              </div>
+              <small className={faltaTipo ? 'sv-form-falta' : undefined}>{faltaTipo ? categoria + ' es una categoría de actividades: elija si este grupo es calificable o práctica. Cada tipo tiene sus propios campos y su propia numeración (…-C-V1, …-P-V1).' : 'Todo el grupo se sube como ' + (calUsada ? 'calificable' : 'práctica') + ' y se compara solo con las variantes de ese tipo.'}</small>
             </div>
           )}
 
@@ -290,7 +318,7 @@ export default function SubirVariante({ cats, formacion = '', categoriaInicial =
             ? <button type="button" className="btn" onClick={onCerrar}>Cerrar</button>
             : <>
               <button type="button" className="btn sec" onClick={onCerrar} disabled={ocupado}>Cancelar</button>
-              <button type="submit" className="btn" disabled={ocupado || (!categoria && !categoriaPorFicha) || !validos.length || revisando || faltaFormacion}>{ocupado ? 'Subiendo ' + avance.n + ' de ' + avance.total + '…' : etiquetaSubir}</button>
+              <button type="submit" className="btn" disabled={ocupado || (!categoria && !categoriaPorFicha) || !validos.length || revisando || faltaFormacion || faltaTipo}>{ocupado ? 'Subiendo ' + avance.n + ' de ' + avance.total + '…' : etiquetaSubir}</button>
             </>}
         </footer>
       </form>

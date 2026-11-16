@@ -296,45 +296,49 @@ export const Q = Object.freeze({
   categoriaSiguienteVarianteFormacion: `INSERT INTO plantilla_categoria_contador (categoria, formacion, siguiente) VALUES ($1, $2, 2)
      ON CONFLICT (categoria, formacion) DO UPDATE SET siguiente = plantilla_categoria_contador.siguiente + 1 RETURNING siguiente - 1 AS n`,
   categoriaSiguienteVariante: `UPDATE plantilla_categorias SET siguiente_variante = siguiente_variante + 1 WHERE id = $1 RETURNING siguiente_variante - 1 AS n`,
+  actividadSiguiente: `INSERT INTO plantilla_actividad_contador (categoria, formacion, calificable, siguiente) VALUES ($1, $2, $3, 2)
+     ON CONFLICT (categoria, formacion, calificable) DO UPDATE SET siguiente = plantilla_actividad_contador.siguiente + 1 RETURNING siguiente - 1 AS n`,
+  actividadSiguienteVer: `SELECT coalesce((SELECT siguiente FROM plantilla_actividad_contador WHERE categoria = $1 AND formacion = $2 AND calificable = $3), 1) AS n`,
   categoriaCrear: `INSERT INTO plantilla_categorias (id, nombre, tipo) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING RETURNING id`,
   categoriaRenombrar: `UPDATE plantilla_categorias SET nombre = coalesce($2, nombre), tipo = coalesce($3, tipo) WHERE id = $1 RETURNING id`,
   categoriaBorrar: `DELETE FROM plantilla_categorias WHERE id = $1 RETURNING id`,
   categoriaAsignar: `INSERT INTO plantilla_categoria (plantilla, categoria) VALUES ($1, $2) ON CONFLICT (plantilla) DO UPDATE SET categoria = EXCLUDED.categoria, actualizado = now()`,
   categoriaQuitar: `DELETE FROM plantilla_categoria WHERE plantilla = $1`,
   // ---- plantillas HTML subidas desde la pantalla
-  subidasListar: `SELECT nombre, subida_nombre AS por, subida_por, creado, esquema, formacion, actualizado, position('/*FIN-CONTENIDO*/' in html_crudo) > 0 AS ejemplo FROM plantilla_subidas ORDER BY nombre`,
+  subidasListar: `SELECT nombre, subida_nombre AS por, subida_por, creado, esquema, formacion, calificable, actualizado, position('/*FIN-CONTENIDO*/' in html_crudo) > 0 AS ejemplo FROM plantilla_subidas ORDER BY nombre`,
   subidaHtml: `SELECT html FROM plantilla_subidas WHERE nombre = $1`,
   subidaCrudo: `SELECT html_crudo FROM plantilla_subidas WHERE nombre = $1`,
-  subidaCrear: `INSERT INTO plantilla_subidas (nombre, html_crudo, html, subida_por, subida_nombre, esquema, formacion) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7) ON CONFLICT (nombre) DO NOTHING RETURNING nombre`,
-  subidaReemplazar: `UPDATE plantilla_subidas SET html_crudo = $2, html = $3, subida_por = $4, subida_nombre = $5, esquema = $6::jsonb, formacion = coalesce($7, formacion), actualizado = now() WHERE nombre = $1 RETURNING nombre`,
+  subidaCrear: `INSERT INTO plantilla_subidas (nombre, html_crudo, html, subida_por, subida_nombre, esquema, formacion, calificable) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8) ON CONFLICT (nombre) DO NOTHING RETURNING nombre`,
+  subidaReemplazar: `UPDATE plantilla_subidas SET html_crudo = $2, html = $3, subida_por = $4, subida_nombre = $5, esquema = $6::jsonb, formacion = coalesce($7, formacion), calificable = coalesce($8, calificable), actualizado = now() WHERE nombre = $1 RETURNING nombre`,
   esquemaReferencia: `SELECT s.nombre, s.esquema FROM plantilla_subidas s JOIN plantilla_categoria pc ON pc.plantilla = s.nombre
-     WHERE pc.categoria = $1 AND s.esquema IS NOT NULL AND s.nombre <> $2 AND ($3::text IS NULL OR s.formacion = $3::text) ORDER BY s.creado, s.nombre LIMIT 1`,
+     WHERE pc.categoria = $1 AND s.esquema IS NOT NULL AND s.nombre <> $2 AND ($3::text IS NULL OR s.formacion = $3::text) AND ($4::boolean IS NULL OR s.calificable = $4::boolean) ORDER BY s.creado, s.nombre LIMIT 1`,
   estadosListar: `SELECT DISTINCT ON (plantilla) plantilla, estado, creado FROM plantilla_historial ORDER BY plantilla, creado DESC, id DESC`,
-  subidaEsquema: `SELECT esquema, formacion FROM plantilla_subidas WHERE nombre = $1`,
+  subidaEsquema: `SELECT esquema, formacion, calificable FROM plantilla_subidas WHERE nombre = $1`,
   subidaFormacionPoner: `UPDATE plantilla_subidas SET formacion = $2 WHERE nombre = $1`,
+  subidaCalificablePoner: `UPDATE plantilla_subidas SET calificable = $2 WHERE nombre = $1`,
   subidaDueno: `SELECT subida_por FROM plantilla_subidas WHERE nombre = $1`,
   subidaRenombrar: `UPDATE plantilla_subidas SET nombre = $2, actualizado = now() WHERE nombre = $1 RETURNING nombre`,
   historialRenombrar: `UPDATE plantilla_historial SET plantilla = $2 WHERE plantilla = $1`,
   subidaBorrar: `DELETE FROM plantilla_subidas WHERE nombre = $1 RETURNING nombre`,
   // ---- asignación de variantes por curso (sql/005): las reparte Praxia entre las aprobadas de la formación, sin repetir en el curso
   asignElegibles: `
-    SELECT s.nombre, s.formacion, s.creado,
+    SELECT s.nombre, s.formacion, s.calificable, s.creado,
            coalesce((SELECT h.estado FROM plantilla_historial h WHERE h.plantilla = 'pub-' || s.nombre ORDER BY h.creado DESC, h.id DESC LIMIT 1), 'revision') AS ultimo
       FROM plantilla_categoria pc JOIN plantilla_subidas s ON s.nombre = pc.plantilla
      WHERE pc.categoria = $1 ORDER BY s.creado, s.nombre`,
-  asignUsadas: `SELECT plantilla FROM asignacion_variantes WHERE propietario_id = $1 AND proyecto_id = $2 AND categoria = $3 AND plantilla IS NOT NULL`,
+  asignUsadas: `SELECT plantilla, count(*)::int AS veces, bool_or(NOT repetida) AS original FROM asignacion_variantes WHERE propietario_id = $1 AND proyecto_id = $2 AND categoria = $3 AND plantilla IS NOT NULL GROUP BY plantilla`,
   asignExistentes: `
-    SELECT codigo, unidad, id_catalogo, id_base, categoria, formacion, plantilla, plantilla_anterior, estado, motivo, asignada_en FROM asignacion_variantes
+    SELECT codigo, unidad, id_catalogo, id_base, categoria, formacion, plantilla, plantilla_anterior, estado, motivo, repetida, asignada_en FROM asignacion_variantes
      WHERE propietario_id = $1 AND proyecto_id = $2 AND codigo = ANY($3::text[])`,
   asignConsultar: `
-    SELECT codigo, unidad, id_catalogo, id_base, categoria, formacion, plantilla, plantilla_anterior, estado, motivo, asignada_en FROM asignacion_variantes
+    SELECT codigo, unidad, id_catalogo, id_base, categoria, formacion, plantilla, plantilla_anterior, estado, motivo, repetida, asignada_en FROM asignacion_variantes
      WHERE propietario_id = $1 AND proyecto_id = $2 AND ($3::integer IS NULL OR unidad = $3) AND ($4::text[] IS NULL OR codigo = ANY($4::text[])) ORDER BY unidad, codigo`,
   asignGuardar: `
-    INSERT INTO asignacion_variantes (propietario_id, proyecto_id, codigo, unidad, id_catalogo, id_base, categoria, formacion, plantilla, plantilla_anterior, estado, motivo, trabajo_id, asignada_en)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, CASE WHEN $11 = 'asignada' THEN now() END)
+    INSERT INTO asignacion_variantes (propietario_id, proyecto_id, codigo, unidad, id_catalogo, id_base, categoria, formacion, plantilla, plantilla_anterior, estado, motivo, trabajo_id, repetida, asignada_en)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, CASE WHEN $11 = 'asignada' THEN now() END)
     ON CONFLICT (propietario_id, proyecto_id, codigo) DO UPDATE SET unidad = EXCLUDED.unidad, id_catalogo = EXCLUDED.id_catalogo, id_base = EXCLUDED.id_base, categoria = EXCLUDED.categoria,
       formacion = EXCLUDED.formacion, plantilla = EXCLUDED.plantilla, plantilla_anterior = EXCLUDED.plantilla_anterior, estado = EXCLUDED.estado, motivo = EXCLUDED.motivo,
-      trabajo_id = EXCLUDED.trabajo_id, asignada_en = CASE WHEN EXCLUDED.estado = 'asignada' THEN now() ELSE asignacion_variantes.asignada_en END, actualizado = now()`,
+      trabajo_id = EXCLUDED.trabajo_id, repetida = EXCLUDED.repetida, asignada_en = CASE WHEN EXCLUDED.estado = 'asignada' THEN now() ELSE asignacion_variantes.asignada_en END, actualizado = now()`,
   // Si una plantilla se elimina o se mueve de categoría, o su categoría se elimina, lo asignado con ella queda INVÁLIDO (no se reasigna solo).
   asignInvalidarPlantilla: `UPDATE asignacion_variantes SET plantilla_anterior = plantilla, plantilla = NULL, estado = 'invalida', motivo = $2, actualizado = now() WHERE plantilla = $1`,
   asignInvalidarCategoria: `UPDATE asignacion_variantes SET plantilla_anterior = plantilla, plantilla = NULL, estado = 'invalida', motivo = 'categoria_eliminada', actualizado = now() WHERE categoria = $1 AND plantilla IS NOT NULL`,

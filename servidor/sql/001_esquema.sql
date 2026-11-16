@@ -305,10 +305,13 @@ CREATE INDEX IF NOT EXISTS pipeline_eventos_recibido_ix ON pipeline_eventos (rec
 -- Una categoría es un tipo de recurso del catálogo (G-09 «Acordeón»…) y reúne las variantes (plantillas publicadas) de ese tipo.
 -- n8n lee el índice agrupado (/plantillas-html/plantillas.json) y elige entre las variantes de la categoría que necesita.
 CREATE TABLE IF NOT EXISTS plantilla_categorias (
-  id     text PRIMARY KEY CHECK (id ~ '^[A-Z]{1,4}-[0-9]{2,3}$'),
+  id     text PRIMARY KEY CHECK (id ~ '^[A-Z]{1,4}(-[A-Z]{1,4}){0,2}-[0-9]{2,3}$'),
   nombre text NOT NULL CHECK (char_length(nombre) BETWEEN 1 AND 120),
   creado timestamptz NOT NULL DEFAULT now()
 );
+-- Los códigos de categoría admiten hasta tres bloques de letras («G-09», «PRE-05», «ACT-G-01», «ACT-E-TEC-03»). Se reemplaza la restricción antigua (idempotente).
+ALTER TABLE plantilla_categorias DROP CONSTRAINT IF EXISTS plantilla_categorias_id_check;
+ALTER TABLE plantilla_categorias ADD CONSTRAINT plantilla_categorias_id_check CHECK (id ~ '^[A-Z]{1,4}(-[A-Z]{1,4}){0,2}-[0-9]{2,3}$');
 -- Hay dos clases de HTML: «recurso» (un recurso del curso: acordeón, línea de tiempo…) y «actividad» de autoaprendizaje (crucigrama…).
 ALTER TABLE plantilla_categorias ADD COLUMN IF NOT EXISTS tipo text NOT NULL DEFAULT 'recurso' CHECK (tipo IN ('recurso', 'actividad'));
 -- Número de la próxima variante que se suba a la categoría: la plantilla se llama «<id>-v01», «<id>-v02»… en el orden en que se suben (no se reutiliza al eliminar).
@@ -392,6 +395,16 @@ CREATE TABLE IF NOT EXISTS plantilla_subidas (
 ALTER TABLE plantilla_subidas ADD COLUMN IF NOT EXISTS esquema jsonb;
 -- Formación de la variante (la dice la ficha de la plantilla: «Formación: especializacion»); null si no la dice.
 ALTER TABLE plantilla_subidas ADD COLUMN IF NOT EXISTS formacion text CHECK (formacion IN ('tecnologico', 'profesional', 'especializacion', 'doctorado'));
+-- Solo en las categorías de actividad: true = calificable («…-c-v1»), false = práctica («…-p-v1»). NULL en los recursos.
+ALTER TABLE plantilla_subidas ADD COLUMN IF NOT EXISTS calificable boolean;
+-- En las categorías de actividad cada formación y tipo (calificable/práctica) numera sus variantes: «act-g-01-tec-c-v1», «act-g-01-tec-p-v1», «act-g-01-tec-p-v2»… (no se reutiliza al eliminar).
+CREATE TABLE IF NOT EXISTS plantilla_actividad_contador (
+  categoria  text NOT NULL REFERENCES plantilla_categorias(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  formacion  text NOT NULL CHECK (formacion IN ('tecnologico', 'profesional', 'especializacion', 'doctorado')),
+  calificable boolean NOT NULL,
+  siguiente  integer NOT NULL DEFAULT 1 CHECK (siguiente >= 1),
+  PRIMARY KEY (categoria, formacion, calificable)
+);
 
 -- Plantillas del sistema (las del build) que se quitaron de n8n desde la pantalla: no salen en el índice ni se descargan. Reversible.
 CREATE TABLE IF NOT EXISTS plantilla_ocultas (
@@ -455,7 +468,7 @@ BEGIN
       RAISE NOTICE 'Sin permiso para dar permisos sobre configuracion (es de otro usuario); se dejan como están.';
     END;
     GRANT SELECT, INSERT, UPDATE ON plantilla_historial TO ova_app;
-    GRANT SELECT, INSERT, UPDATE, DELETE ON plantilla_categorias, plantilla_categoria, plantilla_categoria_formacion, plantilla_categoria_contador, plantilla_subidas, plantilla_ocultas TO ova_app;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON plantilla_categorias, plantilla_categoria, plantilla_categoria_formacion, plantilla_categoria_contador, plantilla_actividad_contador, plantilla_subidas, plantilla_ocultas TO ova_app;
     GRANT SELECT, INSERT, UPDATE, DELETE ON pipeline_origen, pipeline_ejecuciones, pipeline_matrices, pipeline_recursos, pipeline_eventos TO ova_app;
     GRANT USAGE, SELECT ON SEQUENCE plantilla_historial_id_seq TO ova_app;
     GRANT USAGE, SELECT ON SEQUENCE enlaces_id_seq, auditoria_id_seq TO ova_app;

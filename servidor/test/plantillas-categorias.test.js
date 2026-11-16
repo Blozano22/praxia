@@ -512,7 +512,7 @@ test('la ficha de la plantilla puede decir su categoría y su formación: Praxia
   const con = (f) => '<!doctype html><html lang="es"><head><meta charset="utf-8">' + f + '<title>{{TITULO}}</title></head><body><script type="application/json" id="contenido">/*CONTENIDO*/{"titulo":"X","items":[{"a":"b"}]}/*FIN-CONTENIDO*/</script></body></html>'
   // la vista previa, sin categoría elegida, usa la de la ficha (nombre y comparación) y devuelve lo que leyó
   const pv = await (await edi('POST', '/plantillas/subidas/previa', { html: con(ficha('G-03', 'Especialización')) })).json()
-  assert.deepEqual(pv.ficha, { categoria: 'G-03', formacion: 'especializacion' }); assert.equal(pv.categoriaUsada, 'G-03'); assert.match(pv.nombre, /^g-03-esp-v\d\d$/); assert.deepEqual(pv.avisos, [])
+  assert.deepEqual(pv.ficha, { categoria: 'G-03', formacion: 'especializacion', calificable: null }); assert.equal(pv.categoriaUsada, 'G-03'); assert.match(pv.nombre, /^g-03-esp-v\d\d$/); assert.deepEqual(pv.avisos, [])
   // si elegiste otra categoría, avisa; y si la formación de la ficha no es de esa categoría (G-06 no es de doctorado), también
   const pv2 = await (await edi('POST', '/plantillas/subidas/previa', { html: con(ficha('G-03', 'tecnologico')), categoria: 'G-09' })).json()
   assert.ok(pv2.avisos.some((a) => /G-03/.test(a) && /G-09/.test(a)))

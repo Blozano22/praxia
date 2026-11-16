@@ -8,7 +8,7 @@ import './categorias.css'
 // Categorías de las plantillas publicadas (las que n8n descarga). Cada categoría es un tipo de HTML del catálogo (ID + nombre) y es un
 // «recurso» o una «actividad de autoaprendizaje». Aquí solo se ve CUÁNTAS variantes tiene cada una; quien revisa las plantillas puede crear
 // categorías y subir variantes nuevas (HTML) sin esperar a un despliegue.
-const RE_ID = /^[A-Z]{1,4}-[0-9]{2,3}$/
+const RE_ID = /^[A-Z]{1,4}(-[A-Z]{1,4}){0,2}-[0-9]{2,3}$/ // G-09, PRE-05, ACT-G-01, ACT-E-TEC-03
 export const MAX_BYTES = 1536 * 1024
 const TIPOS = { recurso: ['Recursos', 'Recurso'], actividad: ['Actividades', 'Actividad de autoaprendizaje'] }
 export const kb = (b) => (b < 1024 * 1024 ? Math.max(1, Math.round(b / 1024)) + ' KB' : (b / 1024 / 1024).toFixed(1) + ' MB')

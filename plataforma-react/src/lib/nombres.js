@@ -1,4 +1,4 @@
 // Las variantes que nombra el servidor (g-08-v01, pre-04-v02, g-09-tec-v01…) se muestran siempre en mayúscula: G-08-V01, G-09-TEC-V01.
-// El nombre real del archivo no cambia; el resto de nombres (acordeon-2, lineatiempo…) se dejan como están.
-const RE_CODIGO = /^[a-z]{1,4}-\d{2,3}(-(tec|pre|esp|doc))?-v\d+$/i
+// Las actividades (act-g-01-tec-c-v1, act-e-tec-03-p-v2) también. El nombre real del archivo no cambia; el resto de nombres (acordeon-2, lineatiempo…) se dejan como están.
+const RE_CODIGO = /^([a-z]{1,4}-\d{2,3}(-(tec|pre|esp|doc))?-v\d+|act-[a-z]-(\d{2,3}-(tec|pro|esp|doc)|(tec|pro|esp|doc)-\d{2,3})-[cp]-v\d+)$/i
 export const verNombre = (n) => (typeof n === 'string' && RE_CODIGO.test(n) ? n.toUpperCase() : n)
