@@ -220,3 +220,39 @@ test('pedir un tipo que la categoría no tiene se dice con su motivo, y los recu
   const rr = porCodigo((await pedir([rec('U3-T1-R1', 'ASG-03'), rec('U3-T1-R2', 'ASG-03')])).datos)
   assert.equal(rr['U3-T1-R1'].resultado, 'asignada'); assert.equal(rr['U3-T1-R2'].resultado, 'pendiente'); assert.equal(rr['U3-T1-R2'].motivo, 'variantes_agotadas')
 })
+
+test('si una categoría se queda sin variantes (por mover o eliminar), su numeración empieza de nuevo; mientras quede alguna, sigue', async () => {
+  const dani = await entrar('dani@u.co')
+  const subir = async (cuerpo) => { const r = await dani('POST', '/plantillas/subidas', cuerpo); return { estado: r.status, ...(await r.json()) } }
+  const c1 = { titulo: 't', texto: 'x' }
+  for (const id of ['G-91', 'G-92']) assert.equal((await dani('POST', '/plantillas/categorias', { id, nombre: 'Recurso ' + id })).status, 201)
+  // se sube a la categoría equivocada (G-91), se mueve a la correcta (G-92) y G-91 queda vacía
+  assert.equal((await subir({ html: html(c1), categoria: 'G-91' })).nombre, 'g-91-v01')
+  assert.equal((await subir({ html: html(c1), categoria: 'G-91' })).nombre, 'g-91-v02')
+  assert.equal((await (await dani('POST', '/plantillas/subidas/g-91-v01/mover', { categoria: 'G-92' })).json()).nombre, 'g-92-v01')
+  assert.equal((await subir({ html: html(c1), categoria: 'G-91' })).nombre, 'g-91-v03') // aún queda g-91-v02: sigue contando
+  assert.equal((await (await dani('POST', '/plantillas/subidas/g-91-v02/mover', { categoria: 'G-92' })).json()).nombre, 'g-92-v02')
+  assert.equal((await (await dani('POST', '/plantillas/subidas/g-91-v03/mover', { categoria: 'G-92' })).json()).nombre, 'g-92-v03')
+  assert.equal((await subir({ html: html(c1), categoria: 'G-91' })).nombre, 'g-91-v01') // quedó vacía: vuelve a empezar
+  // eliminar la última también reinicia, y lo nuevo no hereda la revisión de lo que se eliminó con ese nombre
+  assert.equal((await dani('POST', '/plantillas/revisiones', { plantilla: 'pub-g-91-v01', estado: 'rechazada', observacion: 'no sirve' })).status, 201)
+  assert.equal((await dani('DELETE', '/plantillas/subidas/g-91-v01')).status, 200)
+  const otra = await subir({ html: html(c1), categoria: 'G-91' })
+  assert.equal(otra.nombre, 'g-91-v01')
+  const v = (await indice()).plantillas.find((x) => x.nombre === 'g-91-v01')
+  assert.equal(v.estado, 'en_revision'); assert.equal(v.fecha_estado, null) // no es «rechazada»: la revisión vieja quedó apartada
+  // si se elimina una que no es la última del grupo, NO se reinicia (no se repite un nombre que existe)
+  assert.equal((await subir({ html: html(c1), categoria: 'G-91' })).nombre, 'g-91-v02')
+  assert.equal((await dani('DELETE', '/plantillas/subidas/g-91-v01')).status, 200)
+  assert.equal((await subir({ html: html(c1), categoria: 'G-91' })).nombre, 'g-91-v03')
+  // actividades: cada formación y tipo reinicia solo el suyo
+  assert.equal((await dani('POST', '/plantillas/categorias', { id: 'ACT-G-07', nombre: 'Reinicio', tipo: 'actividad', formaciones: [{ formacion: 'tecnologico' }] })).status, 201)
+  const a = { categoria: 'ACT-G-07', formacion: 'tecnologico' }
+  assert.equal((await subir({ html: html(c1), ...a, calificable: false })).nombre, 'act-g-07-tec-p-v1')
+  assert.equal((await subir({ html: html(c1), ...a, calificable: false })).nombre, 'act-g-07-tec-p-v2')
+  assert.equal((await subir({ html: html(c1), ...a, calificable: true })).nombre, 'act-g-07-tec-c-v1')
+  assert.equal((await dani('DELETE', '/plantillas/subidas/act-g-07-tec-p-v1')).status, 200)
+  assert.equal((await dani('DELETE', '/plantillas/subidas/act-g-07-tec-p-v2')).status, 200)
+  assert.equal((await subir({ html: html(c1), ...a, calificable: false })).nombre, 'act-g-07-tec-p-v1') // las prácticas quedaron vacías: reinician
+  assert.equal((await subir({ html: html(c1), ...a, calificable: true })).nombre, 'act-g-07-tec-c-v2') // la calificable sigue con su cuenta
+})

@@ -299,6 +299,15 @@ export const Q = Object.freeze({
   actividadSiguiente: `INSERT INTO plantilla_actividad_contador (categoria, formacion, calificable, siguiente) VALUES ($1, $2, $3, 2)
      ON CONFLICT (categoria, formacion, calificable) DO UPDATE SET siguiente = plantilla_actividad_contador.siguiente + 1 RETURNING siguiente - 1 AS n`,
   actividadSiguienteVer: `SELECT coalesce((SELECT siguiente FROM plantilla_actividad_contador WHERE categoria = $1 AND formacion = $2 AND calificable = $3), 1) AS n`,
+  // Reinicio de la numeración cuando un grupo de variantes se queda sin ninguna subida (ver reiniciarNumeracionSiVacia en rutas.js).
+  subidaHayNombre: `SELECT 1 FROM plantilla_subidas WHERE nombre ~ $1 LIMIT 1`,
+  categoriaReiniciar: `UPDATE plantilla_categorias SET siguiente_variante = 1 WHERE id = $1`,
+  categoriaReiniciarFormacion: `UPDATE plantilla_categoria_contador SET siguiente = 1 WHERE categoria = $1 AND formacion = $2`,
+  actividadReiniciar: `UPDATE plantilla_actividad_contador SET siguiente = 1 WHERE categoria = $1 AND formacion = $2 AND calificable = $3`,
+  // Si un nombre se va a volver a usar, lo que quedó en el historial con ese nombre (de una variante eliminada) se aparta para que la nueva no herede su revisión.
+  // No se borra: queda registrado con el nombre terminado en «-x<fecha>». $1 = clave del historial («pub-…»), $2 = nombre; no hace nada si ese nombre existe.
+  historialLiberar: `UPDATE plantilla_historial SET plantilla = plantilla || '-x' || floor(extract(epoch FROM now()))::text
+                       WHERE plantilla = $1 AND NOT EXISTS (SELECT 1 FROM plantilla_subidas WHERE nombre = $2)`,
   categoriaCrear: `INSERT INTO plantilla_categorias (id, nombre, tipo) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING RETURNING id`,
   categoriaRenombrar: `UPDATE plantilla_categorias SET nombre = coalesce($2, nombre), tipo = coalesce($3, tipo) WHERE id = $1 RETURNING id`,
   categoriaBorrar: `DELETE FROM plantilla_categorias WHERE id = $1 RETURNING id`,

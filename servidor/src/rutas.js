@@ -499,7 +499,37 @@ const nombreNuevo = async (ejecuta, categoria, fo, act) => {
   if (act.es) return nombreActividad(categoria, fo.formacion, act.calificable, (await ejecuta(Q.actividadSiguiente, [categoria, fo.formacion, act.calificable])).rows[0].n)
   return nombreVariante(categoria, await numeroSiguiente(ejecuta, categoria, fo), fo.compartida ? fo.formacion : null)
 }
-// Siguiente número de la categoría (o de su formación, si es compartida); no se reutiliza. «ejecuta» es una función (consulta, parámetros).
+// Si al quitar una variante (eliminada o movida a otra categoría) su grupo de numeración se queda sin ninguna subida, ese grupo vuelve a numerar desde 1.
+// El grupo se deduce del nombre: «g-09-v03» (la categoría), «g-09-tec-v03» (una formación de una categoría compartida), «act-g-01-tec-p-v2» o «act-e-03-tec-p-v2» (formación y tipo).
+// Mientras quede alguna subida del grupo (aunque esté en otra categoría) no se reinicia, para no repetir un nombre que existe. Devuelve true si reinició.
+const FORMACION_DE_ABREV_REC = Object.fromEntries(Object.entries(ABREV_FORMACION).map(([k, v]) => [v, k]))
+const FORMACION_DE_ABREV_ACT = Object.fromEntries(Object.entries(ABREV_ACTIVIDAD).map(([k, v]) => [v, k]))
+const reiniciarNumeracionSiVacia = async (c, categoria, nombre) => {
+  if (!categoria || !nombre || !nombre.startsWith(categoria.toLowerCase() + '-')) return false
+  const cat = categoria.toLowerCase()
+  const resto = nombre.slice(cat.length)
+  const vacio = async (patron) => !(await c.query(Q.subidaHayNombre, [patron])).rowCount
+  let m = /^(?:-(tec|pro|esp|doc))?-(c|p)-v\d+$/.exec(resto) // actividad
+  if (m) {
+    const formacion = m[1] ? FORMACION_DE_ABREV_ACT[m[1]] : formacionDelId(categoria)
+    if (!formacion || !(await vacio('^' + cat + (m[1] ? '-' + m[1] : '') + '-' + m[2] + '-v[0-9]+$'))) return false
+    await c.query(Q.actividadReiniciar, [categoria, formacion, m[2] === 'c'])
+    return true
+  }
+  m = /^-(tec|pre|esp|doc)-v\d+$/.exec(resto) // recurso de una categoría compartida: cada formación numera las suyas
+  if (m) {
+    if (!(await vacio('^' + cat + '-' + m[1] + '-v[0-9]+$'))) return false
+    await c.query(Q.categoriaReiniciarFormacion, [categoria, FORMACION_DE_ABREV_REC[m[1]]])
+    return true
+  }
+  if (/^-v\d+$/.test(resto)) { // recurso de una categoría de una sola formación: la categoría entera
+    if (!(await vacio('^' + cat + '(-(tec|pre|esp|doc))?-v[0-9]+$'))) return false
+    await c.query(Q.categoriaReiniciar, [categoria])
+    return true
+  }
+  return false
+}
+// Siguiente número de la categoría (o de su formación, si es compartida); no se reutiliza mientras queden otras del grupo (ver reiniciarNumeracionSiVacia). «ejecuta» es una función (consulta, parámetros).
 const numeroSiguiente = async (ejecuta, categoria, fo) => (fo && fo.compartida && fo.formacion
   ? (await ejecuta(Q.categoriaSiguienteVarianteFormacion, [categoria, fo.formacion])).rows[0].n
   : (await ejecuta(Q.categoriaSiguienteVariante, [categoria])).rows[0].n)
@@ -556,9 +586,10 @@ rutas.post('/plantillas/subidas', exigirSesion, exigirAlguno('plantillas.revisar
     let r = null
     if (nombre) r = await sinUsuario(Q.subidaCrear, [nombre, html, armada.html, req.usuario.id, req.usuario.nombre, esq, fo.formacion, act.calificable])
     else {
-      // Número de variante: contador de la categoría (no se reutiliza). Si el nombre ya existiera (se subió a mano con ese nombre), se pasa al siguiente.
+      // Número de variante: contador de la categoría (solo vuelve a 1 si la categoría se quedó sin variantes). Si el nombre ya existiera (se subió a mano con ese nombre), se pasa al siguiente.
       for (let i = 0; i < 20 && !(r && r.rowCount); i++) {
         nombre = await nombreNuevo(sinUsuario, categoria, fo, act)
+        await sinUsuario(Q.historialLiberar, ['pub-' + nombre, nombre]) // si el número se reinició, no hereda la revisión de una variante eliminada con ese nombre
         r = await sinUsuario(Q.subidaCrear, [nombre, html, armada.html, req.usuario.id, req.usuario.nombre, esq, fo.formacion, act.calificable])
       }
     }
@@ -672,6 +703,7 @@ rutas.post('/plantillas/subidas/:nombre/mover', exigirSesion, exigirAlguno('plan
         nuevo = cand
       }
       if (!nuevo) throw Object.assign(new Error('sin nombre libre'), { sinNombre: true })
+      await c.query(Q.historialLiberar, ['pub-' + nuevo, nuevo])
       await c.query(Q.subidaRenombrar, [nombre, nuevo])
       await c.query(Q.categoriaQuitar, [nombre])
       await c.query(Q.categoriaAsignar, [nuevo, categoria])
@@ -679,6 +711,7 @@ rutas.post('/plantillas/subidas/:nombre/mover', exigirSesion, exigirAlguno('plan
       if (fo.formacion) await c.query(Q.subidaFormacionPoner, [nuevo, fo.formacion])
       await c.query(Q.subidaCalificablePoner, [nuevo, act.calificable]) // solo las actividades guardan su tipo
       await invalidarAsignaciones(c, Q.asignInvalidarPlantilla, [nombre, 'plantilla_movida_a_' + nuevo]) // lo asignado con ella en algún curso queda inválido (no se reasigna solo)
+      await reiniciarNumeracionSiVacia(c, actual && actual.categoria, nombre) // si la categoría de origen se quedó sin variantes, su numeración empieza de nuevo
     })
     await auditar(req.usuario.id, 'plantilla_mover', 'plantilla', nombre + ' → ' + nuevo, req)
     res.json({ nombre: nuevo })
@@ -699,9 +732,11 @@ rutas.get('/plantillas/subidas/:nombre/ejemplo', exigirSesion, exigirPermiso('pl
 rutas.delete('/plantillas/subidas/:nombre', exigirSesion, exigirAlguno('plantillas.revisar', 'plantillas.subir'), validar(z.object({ nombre: NombreSubida }), 'params'), soloLoPropio, async (req, res, next) => {
   try {
     const r = await conTransaccion(async (c) => {
+      const previa = (await c.query(Q.categoriasAsignaciones)).rows.find((x) => x.plantilla === req.paramsOk.nombre)
       const borrada = await c.query(Q.subidaBorrar, [req.paramsOk.nombre])
       if (borrada.rowCount) {
         await c.query(Q.categoriaQuitar, [req.paramsOk.nombre])
+        await reiniciarNumeracionSiVacia(c, previa && previa.categoria, req.paramsOk.nombre) // si la categoría se quedó sin variantes, su numeración empieza de nuevo
         await invalidarAsignaciones(c, Q.asignInvalidarPlantilla, [req.paramsOk.nombre, 'plantilla_eliminada']) // lo asignado con ella en algún curso queda inválido
       }
       return borrada
