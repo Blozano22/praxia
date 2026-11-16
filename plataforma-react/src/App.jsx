@@ -8,6 +8,7 @@ import Login from './components/Login.jsx'
 import { LEMA, Praxia } from './components/Marca.jsx'
 import Bibliografia from './components/Bibliografia.jsx'
 import Plantillas from './components/Plantillas.jsx'
+import AvisosPlantillas from './components/AvisosPlantillas.jsx'
 import Seguimiento from './components/Seguimiento.jsx'
 import Usuarios from './components/Usuarios.jsx'
 import PipelineGlobal from './components/PipelineGlobal.jsx'
@@ -46,6 +47,8 @@ export default function App() {
   const [unidadSel, setUnidadSel] = useState(null)
   const [recSel, setRecSel] = useState({ u: null })
   const [toast, setToast] = useState('')
+  const [pulsoAvisos, setPulsoAvisos] = useState(0) // sube cada vez que llega un aviso temporal: la galería de plantillas recarga las revisiones
+  const [abrirPlantilla, setAbrirPlantilla] = useState('') // plantilla que se abre al pulsar un aviso temporal de «Plantillas HTML»
   const vistaRef = useRef('dashboard') // pantalla actual y función de abrir, para el trabajo de unidades que termina fuera de React
   const abrirRef = useRef(() => {})
   const [fallos, setFallos] = useState({}) // syllabus cuyo último guardado falló: id -> motivo
@@ -277,7 +280,7 @@ export default function App() {
         {esAdmin && <ItemMenu on={vista === 'usuarios'} icono="M16 20v-1a4 4 0 00-4-4H8a4 4 0 00-4 4v1M10 11a3 3 0 100-6 3 3 0 000 6" texto="Usuarios" onClick={() => ir('usuarios')} />}
       </nav>
       <div className="shellmain">
-      {vista === 'plantillas' && verPlantillas && <Plantillas puedeRevisar={yo.permisos.includes('plantillas.revisar')} puedeCorregir={yo.permisos.includes('plantillas.corregir')} puedeCategorias={yo.permisos.includes('plantillas.categorias')} puedeSubirVariante={yo.permisos.includes('plantillas.subir')} yo={yo} aviso={aviso} />}
+      {vista === 'plantillas' && verPlantillas && <Plantillas puedeRevisar={yo.permisos.includes('plantillas.revisar')} puedeCorregir={yo.permisos.includes('plantillas.corregir')} puedeCategorias={yo.permisos.includes('plantillas.categorias')} puedeSubirVariante={yo.permisos.includes('plantillas.subir')} yo={yo} aviso={aviso} pulsoAvisos={pulsoAvisos} abrirPlantilla={abrirPlantilla} onAbierto={() => setAbrirPlantilla('')} />}
       {vista === 'bibliografia' && esAdmin && <Bibliografia lista={lista} />}
       {vista === 'usuarios' && esAdmin && <Usuarios yo={yo} aviso={aviso} onYo={() => api('GET', '/auth/yo').then(setYo).catch(() => {})} />}
       {vista === 'conexion' && esAdmin && <Conexiones aviso={aviso} />}
@@ -333,6 +336,7 @@ export default function App() {
       )}
       </div>
       </div>
+      {verPlantillas && <AvisosPlantillas onNuevos={() => setPulsoAvisos((n) => n + 1)} onAbrir={(k) => { setAbrirPlantilla(k); ir('plantillas') }} />}
       {toast && <div className="toast-app">{toast}</div>}
       {conflicto && (
         <div className="guardado-error conflicto" role="alert">

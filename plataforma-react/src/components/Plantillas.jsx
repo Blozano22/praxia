@@ -109,7 +109,7 @@ function SelectorCategoria({ opciones, actual, onElegir, deshabilitado }) {
   )
 }
 
-export default function Plantillas({ puedeRevisar = false, puedeCorregir = false, puedeCategorias = false, puedeSubirVariante = false, yo = null, aviso }) {
+export default function Plantillas({ puedeRevisar = false, puedeCorregir = false, puedeCategorias = false, puedeSubirVariante = false, yo = null, aviso, abrirPlantilla = '', pulsoAvisos = 0, onAbierto }) {
   const gruposTodos = useMemo(() => GRUPOS.map(([g, l]) => [g, l.filter(([k]) => CATALOGO[k])]).filter(([, l]) => l.length), [])
   const [clase, setClase] = useState('recurso') // qué clase de HTML se ve en la galería: recurso | actividad
   const [ejSubido, setEjSubido] = useState(false) // la variante publicada que se ve trae su propio contenido de ejemplo (plantilla subida)
@@ -282,6 +282,20 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
   const [slotRev, setSlotRev] = useState(null) // hueco del encabezado donde va el botón «Revisión»
   useEffect(() => { setSlotRev(document.getElementById('slot-revision')) }, [])
   const irADiseno = (i) => { setVista('galeria'); setClase(i.clase); setFormacion(''); setQ(''); setTipo(i.k) }
+  // Cuando llega un aviso temporal, lo que se ve en la galería (estados de revisión, categorías) ya cambió: se recarga para que no quede desactualizado.
+  useEffect(() => {
+    if (!pulsoAvisos) return
+    api('GET', '/plantillas/revisiones').then(setRevisiones).catch(() => {})
+    recargarCats()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pulsoAvisos])
+  // Al pulsar un aviso temporal se abre la plantilla de la que habla (cuando ya están cargadas las categorías); si ya no existe, se descarta.
+  useEffect(() => {
+    if (!abrirPlantilla) return
+    const it = itemsRev.find((i) => i.k === abrirPlantilla)
+    if (it) { irADiseno(it); onAbierto && onAbierto() } else if (cats) onAbierto && onAbierto()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [abrirPlantilla, itemsRev, cats])
   const busca = q.trim().toLowerCase()
   const res = busca ? todos.filter((t) => (t.n + ' ' + t.g).toLowerCase().includes(busca)) : null
   const elegir = (k) => { setTipo(k); setQ('') }
@@ -428,7 +442,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
             {html && <iframe sandbox="allow-scripts" title={'Plantilla ' + verNombre(titulo)} srcDoc={conFormacion(html, formacion)} style={marcoPlantilla(esc)} />}
           </div>
           {!full && <p className="help pl2-pie">{formacion ? 'Se ve con los colores de ' + NOMBRE_FORMACION[formacion] + '. Los diseños antiguos, que traen su propio ejemplo fijo, no cambian de color.' : 'Se ve a 1280 × 720, sin barras de desplazamiento, con la paleta de la institución.'}</p>}
-          {!full && <RevisionPlantilla key={tipo} plantilla={tipo} titulo={verNombre(titulo)} historial={deTipo(tipo)} puedeRevisar={puedeRevisar} puedeCorregir={puedeCorregir} yo={yo} aviso={aviso} onNueva={(r) => setRevisiones((l) => [r, ...l])} onEditada={(r) => setRevisiones((l) => l.map((x) => (x.id === r.id ? r : x)))} />}
+          {!full && <RevisionPlantilla key={tipo} plantilla={tipo} titulo={verNombre(titulo)} historial={deTipo(tipo)} puedeRevisar={puedeRevisar} puedeCorregir={puedeCorregir || (puedeSubirVariante && !!(tipo.startsWith('pub-') && cats && cats.subidas && cats.subidas[tipo.slice(4)] && cats.subidas[tipo.slice(4)].propia))} yo={yo} aviso={aviso} onNueva={(r) => setRevisiones((l) => [r, ...l])} onEditada={(r) => setRevisiones((l) => l.map((x) => (x.id === r.id ? r : x)))} />}
         </section>
 
         <aside className="pl2-lado">

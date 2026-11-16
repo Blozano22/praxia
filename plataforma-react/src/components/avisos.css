@@ -1,0 +1,26 @@
+/* Avisos temporales de las plantillas HTML: arriba a la derecha, debajo del encabezado, con una barra de segundos que se vacía */
+.avp-lista{position:fixed;top:78px;right:18px;z-index:1200;display:flex;flex-direction:column;gap:10px;width:min(360px,calc(100vw - 24px));pointer-events:none}
+.avp{pointer-events:auto;position:relative;display:flex;align-items:stretch;background:#fff;border:1px solid #d9e0ee;border-radius:14px;box-shadow:0 14px 34px rgba(19,35,91,.22);overflow:hidden;animation:avp-entra .22s ease-out}
+.avp-cuerpo{appearance:none;flex:1;min-width:0;display:flex;align-items:center;gap:12px;padding:14px 8px 16px 14px;border:0;background:transparent;font:inherit;text-align:left;color:var(--ink,#1c2540);cursor:pointer}
+.avp-cuerpo:hover{background:#f6f8fc}
+.avp-cuerpo:focus-visible{outline:3px solid var(--brand);outline-offset:-3px}
+.avp-ico{flex:none;display:inline-grid;place-items:center;width:34px;height:34px;border-radius:50%;background:#e8eefb;color:#3957b8}
+.avp.aprobada .avp-ico{background:#e4f5ec;color:#0a6b5c}
+.avp.rechazada .avp-ico{background:#fbe9e7;color:#c43b32}
+.avp.revision .avp-ico{background:#fff1c9;color:#9a6a00}
+.avp-tx{display:flex;flex-direction:column;gap:2px;font-size:.88rem;line-height:1.35}
+.avp-tx b{font-weight:800;color:var(--nav)}
+.avp-tx small{font-size:.74rem;color:var(--muted)}
+.avp-x{appearance:none;flex:none;align-self:flex-start;margin:8px 8px 0 0;display:inline-grid;place-items:center;width:28px;height:28px;border:0;border-radius:8px;background:transparent;color:#5b6783;cursor:pointer}
+.avp-x:hover{background:#eef1f7;color:var(--nav)}
+.avp-x:focus-visible{outline:3px solid var(--brand);outline-offset:1px}
+.avp-barra{position:absolute;left:0;right:0;bottom:0;height:4px;background:#e6ebf2}
+.avp-barra i{display:block;height:100%;width:100%;background:#3957b8;transform-origin:left center;animation:avp-barra linear forwards}
+.avp.aprobada .avp-barra i{background:#0a6b5c}
+.avp.rechazada .avp-barra i{background:#c43b32}
+.avp.revision .avp-barra i{background:#e0a100}
+.avp:hover .avp-barra i{animation-play-state:paused} /* mientras el cursor está encima, la barra se detiene */
+@keyframes avp-barra{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+@keyframes avp-entra{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.avp{animation:none}}
+@media (max-width:520px){.avp-lista{top:70px;right:12px;left:12px;width:auto}}

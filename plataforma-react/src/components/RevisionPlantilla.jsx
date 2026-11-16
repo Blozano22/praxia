@@ -16,23 +16,23 @@ const ACCIONES = [
   ['rechazada', 'Rechazar', 'M6 6l12 12M18 6L6 18'],
   ['revision', 'Mandar a revisión', 'M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4']
 ]
-const ACCION_CORREGIDA = ['corregida', 'Marcar como corregida', 'M3 12.5l4 4L15 8M10 16.5l1 1L21 8']
+const ACCION_CORREGIDA = ['corregida', 'Notificar cambio y pedir revisión', 'M3 12.5l4 4L15 8M10 16.5l1 1L21 8']
 const ACCION_EDITAR = ['editar', 'Editar mi envío', 'M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4']
-const TITULO_FORM = { aprobada: 'Aprobar', rechazada: 'Rechazar', revision: 'Mandar a revisión', corregida: 'Marcar como corregida', editar: 'Editar mi envío' }
+const TITULO_FORM = { aprobada: 'Aprobar', rechazada: 'Rechazar', revision: 'Mandar a revisión', corregida: 'Notificar cambio y pedir revisión', editar: 'Editar mi envío' }
 const AYUDA = {
   aprobada: 'La plantilla queda aprobada. La observación es opcional.',
   rechazada: 'Explique por qué se rechaza la plantilla.',
   revision: 'Describa qué desea cambiar. Si quiere, pegue también el enlace del documento de Google Docs donde detalla los cambios, para que podamos revisarlos.',
-  corregida: 'Indica que los cambios pedidos ya están hechos: el diseñador volverá a revisar la plantilla. Puede contar qué se corrigió (opcional).',
+  corregida: 'Avisa al diseñador que ya hiciste los cambios para que vuelva a revisar la plantilla. Cuenta qué corregiste (es opcional si te pidieron cambios, y obligatorio si te la rechazaron).',
   editar: 'Corrija lo que envió. Quedará marcado como editado, con su nombre y la hora de la última edición.'
 }
-const VERBO = { revision: 'envió la solicitud de revisión', corregida: 'marcó como corregida', aprobada: 'aprobó', rechazada: 'rechazó' }
+const VERBO = { revision: 'envió la solicitud de revisión', corregida: 'notificó el cambio y pidió nueva revisión', aprobada: 'aprobó', rechazada: 'rechazó' }
 const SUBTITULO = {
   nada: (t) => <>Todavía nadie ha revisado «{t}»</>,
-  revision: (t) => <>Cambios solicitados sobre «{t}»: falta que el administrador los corrija</>,
+  revision: (t) => <>Cambios solicitados sobre «{t}»: falta que quien la subió (o un administrador) los corrija y lo notifique</>,
   corregida: (t) => <>«{t}» fue corregida: el diseñador debe verificar los cambios</>,
   aprobada: (t) => <>Decisión más reciente sobre «{t}»</>,
-  rechazada: (t) => <>Decisión más reciente sobre «{t}»</>
+  rechazada: (t) => <>Decisión más reciente sobre «{t}»: quien la subió puede responder con los cambios y pedir otra revisión</>
 }
 const ICO = { aprobada: 'M5 12.5l4.5 4.5L19 7', rechazada: 'M6 6l12 12M18 6L6 18', revision: 'M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4', corregida: ACCION_CORREGIDA[2], nada: 'M12 8v5M12 16.5v.5' }
 
@@ -69,7 +69,7 @@ export default function RevisionPlantilla({ plantilla, titulo, historial, puedeR
   const comoAdmin = !(yo && yo.roles && yo.roles.includes('disenador'))
   const esMia = !!(vigente && yo && vigente.usuarioId === yo.id)
   const puedeEditar = esMia && ((vigente.estado === 'revision' && puedeRevisar) || (vigente.estado === 'corregida' && puedeCorregir))
-  const puedeMarcar = puedeCorregir && est === 'revision'
+  const puedeMarcar = puedeCorregir && (est === 'revision' || est === 'rechazada') // se responde a una solicitud de cambios o a un rechazo
 
   const decide = ['aprobada', 'rechazada', 'revision'].includes(accion)
   const avisoAdmin = decide && comoAdmin
@@ -84,7 +84,7 @@ export default function RevisionPlantilla({ plantilla, titulo, historial, puedeR
   const enviar = async (e) => {
     e.preventDefault()
     setError('')
-    const necesitaObs = accion === 'rechazada' || accion === 'revision' || (accion === 'editar' && vigente.estado === 'revision')
+    const necesitaObs = accion === 'rechazada' || accion === 'revision' || (accion === 'corregida' && vigente && vigente.estado === 'rechazada') || (accion === 'editar' && vigente.estado === 'revision')
     if (necesitaObs && obs.trim().length < 3) return setError('Escriba la observación.')
     // El documento de cambios es opcional; si se pega un enlace, debe ser de Google Docs.
     if (url.trim() && !RE_DOC.test(url.trim())) return setError('El enlace debe ser de un documento de Google Docs.')
@@ -100,7 +100,7 @@ export default function RevisionPlantilla({ plantilla, titulo, historial, puedeR
           ...(avisoAdmin || forzar.admin ? { confirmadoAdmin: true } : {}), ...(avisoCambio || forzar.cambio ? { confirmadoCambio: true } : {})
         })
         onNueva(r)
-        aviso && aviso({ aprobada: 'Plantilla aprobada', rechazada: 'Plantilla rechazada', revision: 'Plantilla enviada a revisión', corregida: 'Marcada como corregida: el diseñador la verificará' }[accion])
+        aviso && aviso({ aprobada: 'Plantilla aprobada', rechazada: 'Plantilla rechazada', revision: 'Plantilla enviada a revisión', corregida: 'Cambio notificado: el diseñador volverá a revisar la plantilla' }[accion])
       }
       cerrar()
     } catch (err) {
@@ -130,7 +130,8 @@ export default function RevisionPlantilla({ plantilla, titulo, historial, puedeR
           {vigente && <Autoria h={vigente} />}
           {vigente && vigente.observacion && <p className="rv-obs">{vigente.observacion}</p>}
           {vigente && vigente.docUrl && <a className="rv-doc" href={vigente.docUrl} target="_blank" rel="noopener noreferrer">Ver el documento de cambios ↗</a>}
-          {est === 'revision' && <p className="rv-sig">Pendiente: un administrador debe aplicar los cambios y marcar la solicitud como corregida.</p>}
+          {est === 'revision' && <p className="rv-sig">Pendiente: quien subió la plantilla (o un administrador) debe aplicar los cambios y notificarlos para pedir una nueva revisión.</p>}
+          {est === 'rechazada' && puedeMarcar && <p className="rv-sig">Si corriges la plantilla, notifica el cambio para que el diseñador la vuelva a revisar.</p>}
           {est === 'corregida' && <p className="rv-sig">Pendiente: el diseñador debe revisar los cambios. Si ya están bien, la aprueba; si falta algo, vuelve a mandarla a revisión.</p>}
           {!vigente && <p className="rv-vacio">Revise la vista previa y decida si la plantilla se aprueba, se rechaza o necesita cambios.</p>}
         </div>
@@ -170,7 +171,7 @@ export default function RevisionPlantilla({ plantilla, titulo, historial, puedeR
               <b>Esto lo debe hacer el diseñador.</b> Aprobar, rechazar o pedir cambios en una plantilla le corresponde al diseñador. Si continúa, quedará registrado que lo hizo usted, como administrador.
             </div>
           )}
-          <label className="l" htmlFor="rv-obs">Observación{accion === 'aprobada' || accion === 'corregida' || (accion === 'editar' && vigente.estado === 'corregida') ? ' (opcional)' : ''}</label>
+          <label className="l" htmlFor="rv-obs">Observación{accion === 'aprobada' || (accion === 'corregida' && vigente && vigente.estado !== 'rechazada') || (accion === 'editar' && vigente.estado === 'corregida') ? ' (opcional)' : ''}</label>
           <textarea id="rv-obs" rows={4} maxLength={2000} value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Escriba aquí su observación sobre la plantilla" autoFocus />
           {(accion === 'revision' || (accion === 'editar' && vigente.estado === 'revision')) && (
             <>

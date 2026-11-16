@@ -11,6 +11,7 @@ import { armarSubida, compararEsquemas, MAX_HTML, NOMBRES_RESERVADOS } from './p
 import { EsquemaLanzarH5p, EsquemaLanzarMatrices, lanzarH5p, lanzarMatrices, urlH5p, urlMatrices } from './pipeline/lanzar.js'
 import { urlPreparacion } from './pipeline/preparacion.js'
 import { invalidarAsignaciones } from './pipeline/asignaciones.js'
+import { publicarAviso, tomarAvisos } from './avisos.js'
 import { COOKIE, claveValida, compararClave, emitirSesion, exigirAlguno, exigirPermiso, exigirSesion, hashClave } from './seguridad.js'
 
 export const rutas = Router()
@@ -767,6 +768,31 @@ function revisarContenido(estado, observacion, docUrl) {
   return null
 }
 
+// Quien notifica un cambio (marca como corregida) para pedir una nueva revisión: quien tiene el permiso de corregir (administración) o el Editor HTML que subió esa plantilla.
+// Así quien sube una plantilla puede responder cuando se la rechazan o le piden cambios.
+const subidaDe = async (plantilla) => (plantilla.startsWith('pub-') ? (await sinUsuario(Q.subidaDueno, [plantilla.slice(4)])).rows[0] : null)
+const puedeNotificarCambio = async (usuario, plantilla) => {
+  if (usuario.permisos.has('plantillas.corregir')) return true
+  if (!usuario.permisos.has('plantillas.subir')) return false
+  const s = await subidaDe(plantilla)
+  return !!s && s.subida_por === usuario.id
+}
+// Aviso temporal (no se guarda) para quien le importa lo que acaba de pasar: a quien subió la plantilla si el diseñador aprueba, rechaza o pide cambios;
+// y al diseñador que hizo la solicitud o la decisión si le notifican el cambio. Nadie recibe aviso de lo que hizo él mismo.
+async function avisarMovimiento(actor, fila) {
+  try {
+    let destino = null
+    if (fila.estado === 'corregida') { const ref = fila.referencia ? (await sinUsuario(Q.historialObtener, [fila.referencia])).rows[0] : null; destino = ref ? ref.usuarioId : null }
+    else { const s = await subidaDe(fila.plantilla); destino = s ? s.subida_por : null }
+    if (!destino || destino === actor.id) return
+    publicarAviso(destino, { tipo: fila.estado, quien: actor.nombre, plantilla: fila.plantilla, nombre: fila.plantilla.replace(/^pub-/, '') })
+  } catch { /* el aviso es un extra: si falla, la decisión ya quedó guardada */ }
+}
+// Recoge (y borra) los avisos temporales de quien llama; la pantalla los pide cada pocos segundos.
+rutas.get('/plantillas/avisos', exigirSesion, exigirPermiso('plantillas.ver'), (req, res) => {
+  res.set('Cache-Control', 'no-store')
+  res.json({ avisos: tomarAvisos(req.usuario.id) })
+})
 const NuevaRevision = z.object({
   plantilla: z.string().regex(/^[a-z0-9-]{1,80}$/),
   estado: z.enum(['aprobada', 'rechazada', 'revision', 'corregida']),
@@ -779,7 +805,7 @@ rutas.post('/plantillas/revisiones', exigirSesion, validar(NuevaRevision, 'body'
   try {
     const { plantilla, estado, observacion, confirmadoAdmin, confirmadoCambio } = req.bodyOk
     const docUrl = estado === 'revision' ? (req.bodyOk.docUrl || '') : ''
-    if (!req.usuario.permisos.has(estado === 'corregida' ? 'plantillas.corregir' : 'plantillas.revisar')) return res.status(403).json({ error: 'No tienes permiso para esto' })
+    if (estado === 'corregida' ? !(await puedeNotificarCambio(req.usuario, plantilla)) : !req.usuario.permisos.has('plantillas.revisar')) return res.status(403).json({ error: 'No tienes permiso para esto' })
     const mal = revisarContenido(estado, observacion, docUrl)
     if (mal) return res.status(400).json({ error: mal })
     const rol = estado === 'corregida' ? 'administrador' : enCalidadDe(req.usuario)
@@ -787,7 +813,9 @@ rutas.post('/plantillas/revisiones', exigirSesion, validar(NuevaRevision, 'body'
       await c.query(Q.historialBloquear, [plantilla])
       const ultimo = (await c.query(Q.historialUltimo, [plantilla])).rows[0]
       if (estado === 'corregida') {
-        if (!ultimo || ultimo.estado !== 'revision') return { codigo: 409, cuerpo: { error: 'No hay una solicitud de revisión pendiente para marcar como corregida.' } }
+        // Se responde a una solicitud de cambios o a un rechazo. Al responder a un rechazo hay que contar qué se cambió.
+        if (!ultimo || (ultimo.estado !== 'revision' && ultimo.estado !== 'rechazada')) return { codigo: 409, cuerpo: { error: 'No hay una solicitud de revisión ni un rechazo pendiente al que responder.' } }
+        if (ultimo.estado === 'rechazada' && observacion.length < 3) return { codigo: 400, cuerpo: { error: 'Cuente qué cambió para responder al rechazo.' } }
       } else {
         if (rol === 'administrador' && !confirmadoAdmin) return { codigo: 409, cuerpo: { requiereConfirmacion: 'admin', error: 'Aprobar, rechazar o pedir cambios en una plantilla es algo que debe hacer el diseñador. Si continúa, quedará registrado que lo hizo usted como administrador.' } }
         if (ultimo && (ultimo.estado === 'aprobada' || ultimo.estado === 'rechazada') && !confirmadoCambio) return { codigo: 409, cuerpo: { requiereConfirmacion: 'cambio', error: 'Esta plantilla ya estaba ' + (ultimo.estado === 'aprobada' ? 'aprobada' : 'rechazada') + '. Si continúa, cambia ese estado.' } }
@@ -795,7 +823,7 @@ rutas.post('/plantillas/revisiones', exigirSesion, validar(NuevaRevision, 'body'
       const f = (await c.query(Q.historialCrear, [plantilla, estado, observacion, docUrl || null, req.usuario.id, req.usuario.nombre, rol, estado === 'corregida' ? ultimo.id : null])).rows[0]
       return { codigo: 201, cuerpo: f }
     })
-    if (r.codigo === 201) await auditar(req.usuario.id, 'plantilla_' + estado, 'plantilla', plantilla, req)
+    if (r.codigo === 201) { await auditar(req.usuario.id, 'plantilla_' + estado, 'plantilla', plantilla, req); await avisarMovimiento(req.usuario, r.cuerpo) }
     res.status(r.codigo).json(r.cuerpo)
   } catch (e) { next(e) }
 })
@@ -812,7 +840,7 @@ rutas.patch('/plantillas/revisiones/:id', exigirSesion, validar(z.object({ id: z
       const ultimo = (await c.query(Q.historialUltimo, [fila.plantilla])).rows[0]
       if (fila.usuarioId !== req.usuario.id) return { codigo: 403, cuerpo: { error: 'Solo quien la envió puede editarla.' } }
       if (fila.estado !== 'revision' && fila.estado !== 'corregida') return { codigo: 409, cuerpo: { error: 'Solo se pueden editar las solicitudes de revisión y las correcciones.' } }
-      if (!req.usuario.permisos.has(fila.estado === 'corregida' ? 'plantillas.corregir' : 'plantillas.revisar')) return { codigo: 403, cuerpo: { error: 'No tienes permiso para esto' } }
+      if (fila.estado === 'corregida' ? !(await puedeNotificarCambio(req.usuario, fila.plantilla)) : !req.usuario.permisos.has('plantillas.revisar')) return { codigo: 403, cuerpo: { error: 'No tienes permiso para esto' } }
       if (!ultimo || ultimo.id !== fila.id) return { codigo: 409, cuerpo: { error: 'Ya hay un movimiento posterior sobre esta plantilla: esta solicitud ya no se puede editar.' } }
       const observacion = req.bodyOk.observacion
       const docUrl = fila.estado === 'revision' ? (req.bodyOk.docUrl || '') : ''
