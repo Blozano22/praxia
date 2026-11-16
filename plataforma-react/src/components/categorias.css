@@ -559,3 +559,4 @@
 /* Revisión: aviso personal para quien revisa (corregidas que esperan su nueva revisión) */
 .rv2-alerta.pers{background:#3957b8}
 .rv2-vista small.al{background:#3957b8;color:#fff}.rv2-vista .on small.al{background:#fff;color:#3957b8}
+.rv2-num span small{display:block;margin-top:2px;font-size:.76rem;line-height:1.35;opacity:.85}

@@ -129,8 +129,8 @@ export default function RevisionResumen({ items, clase = '', puedeRevisar, onIr,
           </div>
 
           <div className="rv2-conteo">
-            <div className="rv2-num"><b>{c.rev}</b><span>de {c.total} ya fueron revisadas</span><strong>{c.total ? Math.round((c.rev / c.total) * 100) : 0}%</strong></div>
-            <div className="rv2-barra" role="img" aria-label={c.rev + ' de ' + c.total + ' revisadas'}>
+            <div className="rv2-num"><b>{c.rev}</b><span>de {c.total} con decisión final <small>(aprobadas o rechazadas; las que piden cambios aún no cuentan)</small></span><strong>{c.total ? Math.round((c.rev / c.total) * 100) : 0}%</strong></div>
+            <div className="rv2-barra" role="img" aria-label={c.rev + ' de ' + c.total + ' con decisión final (aprobadas o rechazadas)'}>
               <i style={{ width: pct(c.aprobada) + '%', background: '#0a6b5c' }} /><i style={{ width: pct(c.rechazada) + '%', background: '#c43b32' }} /><i style={{ width: pct(c.revision) + '%', background: '#e0a100' }} /><i style={{ width: pct(c.corregida) + '%', background: '#5a7bd6' }} />
             </div>
             <div className="rv2-ley">
