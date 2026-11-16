@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { verNombre } from '../lib/nombres.js'
 import { api } from '../lib/api.js'
 import { FORMACIONES, NOMBRE_FORMACION, PRIORIDAD } from '../lib/formaciones.js'
@@ -12,6 +12,23 @@ const RE_ID = /^([A-Z]{1,4}(-[A-Z]{1,4}){0,2}-[0-9]{2,3}|ACT-E-[0-9]{2,3}-(TEC|P
 // Las actividades específicas llevan su formación al final del código (ACT-E-03-TEC): esa es la única que se puede marcar.
 const FORM_DE_SUFIJO = { TEC: 'tecnologico', PRO: 'profesional', ESP: 'especializacion', DOC: 'doctorado' }
 const formacionDelId = (id) => { const m = /^ACT-E-[0-9]{2,3}-(TEC|PRO|ESP|DOC)$/.exec(String(id || '').trim().toUpperCase()); return m ? FORM_DE_SUFIJO[m[1]] : null }
+// Grupo de una categoría, para ordenarlas y filtrarlas: en las actividades, generales (ACT-G) y específicas por formación (ACT-E-03-TEC → Tecnológico);
+// en los recursos, generales (G), pregrado (PRE) y posgrado (POS). Dentro de cada grupo van por número.
+const GRUPOS_ACT = { TEC: [1, 'Tecnológico'], PRO: [2, 'Profesional'], ESP: [3, 'Especialización'], DOC: [4, 'Doctorado'] }
+const GRUPOS_REC = { G: [0, 'Generales'], PRE: [1, 'Pregrado'], POS: [2, 'Posgrado'] }
+export function grupoDe(c) {
+  const id = String(c.id || '').toUpperCase()
+  if (c.tipo === 'actividad') {
+    if (/^ACT-G-/.test(id)) return { k: 'G', nombre: 'Generales', orden: 0 }
+    const f = /^ACT-E-(?:[0-9]{2,3}-)?(TEC|PRO|ESP|DOC)(?:-|$)/.exec(id)
+    if (f) return { k: f[1], nombre: GRUPOS_ACT[f[1]][1], orden: GRUPOS_ACT[f[1]][0] }
+    return { k: 'otras', nombre: 'Otras', orden: 9 }
+  }
+  const pre = id.split('-')[0]
+  return GRUPOS_REC[pre] ? { k: pre, nombre: GRUPOS_REC[pre][1], orden: GRUPOS_REC[pre][0] } : { k: pre || 'otras', nombre: pre || 'Otras', orden: 9 }
+}
+const numeroDe = (id) => { const m = /-([0-9]{2,3})(?:-|$)/.exec(String(id || '')); return m ? Number(m[1]) : 0 }
+export const ordenarCategorias = (lista) => [...lista].sort((a, b) => grupoDe(a).orden - grupoDe(b).orden || numeroDe(a.id) - numeroDe(b.id) || String(a.id).localeCompare(String(b.id)))
 export const MAX_BYTES = 1536 * 1024
 const TIPOS = { recurso: ['Recursos', 'Recurso'], actividad: ['Actividades', 'Actividad de autoaprendizaje'] }
 export const kb = (b) => (b < 1024 * 1024 ? Math.max(1, Math.round(b / 1024)) + ' KB' : (b / 1024 / 1024).toFixed(1) + ' MB')
@@ -191,6 +208,8 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
   const [error, setError] = useState('')
   const [ocupado, setOcupado] = useState(false)
   const [ver, setVer] = useState('recurso') // qué tipo de categorías se ven: recurso | actividad
+  const [grupo, setGrupo] = useState('') // filtro por grupo (generales, tecnológico…): '' = todos
+  const [buscar, setBuscar] = useState('') // filtro por texto (ID o nombre)
   const [nueva, setNueva] = useState(null) // { id, nombre, tipo } mientras se crea una categoría
   const [edit, setEdit] = useState(null) // { id, nombre, tipo } mientras se edita una
   const [borrar, setBorrar] = useState('') // id de categoría con la confirmación a la vista
@@ -233,7 +252,11 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
   const porCategoria = useMemo(() => Object.fromEntries(Object.entries(todasPorCategoria).map(([c, l]) => [c, l.filter((n) => !ocultas.has(n))])), [todasPorCategoria, ocultas])
   const sin = d ? d.plantillas.filter((n) => !d.asignaciones[n]) : []
   const cuantas = (t) => (d ? d.categorias.filter((c) => c.tipo === t).length : 0)
-  const visibles = d ? d.categorias.filter((c) => c.tipo === ver) : []
+  const delTipo = useMemo(() => (d ? ordenarCategorias(d.categorias.filter((c) => c.tipo === ver)) : []), [d, ver])
+  const grupos = useMemo(() => { const m = new Map(); delTipo.forEach((c) => { const g = grupoDe(c); m.set(g.k, { ...g, n: (m.has(g.k) ? m.get(g.k).n : 0) + 1 }) }); return [...m.values()].sort((a, b) => a.orden - b.orden) }, [delTipo])
+  const texto = buscar.trim().toLowerCase()
+  const visibles = delTipo.filter((c) => (!grupo || grupoDe(c).k === grupo) && (!texto || (c.id + ' ' + c.nombre).toLowerCase().includes(texto)))
+  const conTitulos = !grupo && !texto && grupos.length > 1 // sin filtro: cada grupo con su título
 
   // ---- subir una plantilla (HTML)
   const leerArchivo = async (f) => {
@@ -263,9 +286,21 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
         <>
           <div className="cat-tipos" role="tablist" aria-label="Tipo de HTML">
             {['recurso', 'actividad'].map((t) => (
-              <button key={t} role="tab" aria-selected={ver === t} className={ver === t ? 'on' : ''} onClick={() => setVer(t)}>{TIPOS[t][0]} <span>· {cuantas(t)}</span></button>
+              <button key={t} role="tab" aria-selected={ver === t} className={ver === t ? 'on' : ''} onClick={() => { setVer(t); setGrupo(''); setBuscar('') }}>{TIPOS[t][0]} <span>· {cuantas(t)}</span></button>
             ))}
           </div>
+
+          {delTipo.length > 1 && (
+            <div className="cat-filtro">
+              {grupos.length > 1 && (
+                <div className="cat-chips" role="group" aria-label="Filtrar por categoría">
+                  <button type="button" className={'cat-chip' + (!grupo ? ' on' : '')} aria-pressed={!grupo} onClick={() => setGrupo('')}>Todas <span>{delTipo.length}</span></button>
+                  {grupos.map((g) => <button key={g.k} type="button" className={'cat-chip' + (grupo === g.k ? ' on' : '')} aria-pressed={grupo === g.k} onClick={() => setGrupo(grupo === g.k ? '' : g.k)}>{g.nombre} <span>{g.n}</span></button>)}
+                </div>
+              )}
+              <input type="search" className="cat-buscar" placeholder="Buscar por ID o nombre…" aria-label="Buscar categoría por ID o nombre" value={buscar} onChange={(e) => setBuscar(e.target.value)} />
+            </div>
+          )}
 
           {puedeCambiar && (
             <div className="cat-barra">
@@ -301,10 +336,14 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
           )}
 
           <div className="cat-lista">
-            {visibles.map((c) => {
+            {visibles.map((c, i) => {
               const n = (porCategoria[c.id] || []).length
+              const g = grupoDe(c)
+              const titulo = conTitulos && (i === 0 || grupoDe(visibles[i - 1]).k !== g.k)
               return (
-                <section key={c.id} className={'card cat-card cat-res' + (n ? '' : ' vacia') + (edit && edit.id === c.id ? ' editando' : '')}>
+                <Fragment key={c.id}>
+                {titulo && <h3 className="cat-grupo">{g.nombre} <span>{(grupos.find((x) => x.k === g.k) || {}).n}</span></h3>}
+                <section className={'card cat-card cat-res' + (n ? '' : ' vacia') + (edit && edit.id === c.id ? ' editando' : '')}>
                   <header className="cat-cab">
                     <span className="cat-id">{c.id}</span>
                     {edit && edit.id === c.id ? (
@@ -342,9 +381,10 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
                     </div>
                   )}
                 </section>
+                </Fragment>
               )
             })}
-            {visibles.length === 0 && <div className="cat-ninguna">No hay categorías de {TIPOS[ver][0].toLowerCase()}. {puedeCambiar ? 'Cree la primera con «+ Nueva categoría».' : ''}</div>}
+            {visibles.length === 0 && <div className="cat-ninguna">{delTipo.length ? 'Ninguna categoría coincide con el filtro.' : 'No hay categorías de ' + TIPOS[ver][0].toLowerCase() + '. ' + (puedeCambiar ? 'Cree la primera con «+ Nueva categoría».' : '')}</div>}
           </div>
 
           {sin.length > 0 && (

@@ -535,3 +535,20 @@
 .cat-form .cat-ef input[type=checkbox]:hover{border-color:var(--nav)}
 .cat-form .cat-ef input[type=checkbox]:checked{background:var(--fc,var(--brand)) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7'/%3E%3C/svg%3E") center/78% no-repeat;border-color:var(--fc,var(--brand))}
 .cat-form .cat-ef input[type=checkbox]:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
+
+/* ---------- Filtro y orden de las categorías: grupos (generales, tecnológico…) y búsqueda ---------- */
+.cat-filtro{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin:0 0 16px}
+.cat-chips{display:flex;flex-wrap:wrap;gap:8px}
+.cat-chip{appearance:none;display:inline-flex;align-items:center;gap:7px;padding:7px 14px;border:1.5px solid #d3dae8;border-radius:99px;background:#fff;color:var(--nav);font:inherit;font-size:.84rem;font-weight:700;cursor:pointer;transition:background .15s,border-color .15s,color .15s}
+.cat-chip span{display:inline-grid;place-items:center;min-width:22px;height:20px;padding:0 6px;border-radius:99px;background:#eef1f7;color:#5b6783;font-size:.72rem;font-weight:800}
+.cat-chip:hover{border-color:#aab4c8;background:#f7f9fc}
+.cat-chip.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.cat-chip.on span{background:rgba(255,255,255,.22);color:#fff}
+.cat-chip:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
+.cat-buscar{box-sizing:border-box;flex:1 1 240px;max-width:360px;height:40px;margin-left:auto;padding:0 14px;border:1px solid #c3ccdc;border-radius:10px;background:#fff;color:var(--ink,#1c2540);font:inherit;font-size:.88rem}
+.cat-buscar::placeholder{color:#8590a8}
+.cat-buscar:focus{outline:none;border-color:var(--nav);box-shadow:0 0 0 3px rgba(19,35,91,.16)}
+.cat-grupo{grid-column:1/-1;display:flex;align-items:center;gap:10px;margin:10px 0 0;padding-bottom:8px;border-bottom:2px solid #e3e8f2;font-size:.95rem;font-weight:800;color:var(--nav)}
+.cat-grupo:first-child{margin-top:0}
+.cat-grupo span{display:inline-grid;place-items:center;min-width:24px;height:22px;padding:0 7px;border-radius:99px;background:#eef1f7;color:#5b6783;font-size:.74rem}
+@media (max-width:620px){.cat-buscar{max-width:none;margin-left:0}}
