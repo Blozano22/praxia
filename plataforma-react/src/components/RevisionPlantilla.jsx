@@ -22,7 +22,7 @@ const TITULO_FORM = { aprobada: 'Aprobar', rechazada: 'Rechazar', revision: 'Man
 const AYUDA = {
   aprobada: 'La plantilla queda aprobada. La observación es opcional.',
   rechazada: 'Explique por qué se rechaza la plantilla.',
-  revision: 'Describa qué desea cambiar y pegue el enlace del documento de Google Docs donde detalla los cambios, para que podamos revisarlos.',
+  revision: 'Describa qué desea cambiar. Si quiere, pegue también el enlace del documento de Google Docs donde detalla los cambios, para que podamos revisarlos.',
   corregida: 'Indica que los cambios pedidos ya están hechos: el diseñador volverá a revisar la plantilla. Puede contar qué se corrigió (opcional).',
   editar: 'Corrija lo que envió. Quedará marcado como editado, con su nombre y la hora de la última edición.'
 }
@@ -85,9 +85,9 @@ export default function RevisionPlantilla({ plantilla, titulo, historial, puedeR
     e.preventDefault()
     setError('')
     const necesitaObs = accion === 'rechazada' || accion === 'revision' || (accion === 'editar' && vigente.estado === 'revision')
-    const necesitaDoc = accion === 'revision' || (accion === 'editar' && vigente.estado === 'revision')
     if (necesitaObs && obs.trim().length < 3) return setError('Escriba la observación.')
-    if (necesitaDoc && !RE_DOC.test(url.trim())) return setError('Pegue el enlace de un documento de Google Docs con los cambios que desea.')
+    // El documento de cambios es opcional; si se pega un enlace, debe ser de Google Docs.
+    if (url.trim() && !RE_DOC.test(url.trim())) return setError('El enlace debe ser de un documento de Google Docs.')
     setOcupado(true)
     try {
       if (accion === 'editar') {
@@ -174,9 +174,9 @@ export default function RevisionPlantilla({ plantilla, titulo, historial, puedeR
           <textarea id="rv-obs" rows={4} maxLength={2000} value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Escriba aquí su observación sobre la plantilla" autoFocus />
           {(accion === 'revision' || (accion === 'editar' && vigente.estado === 'revision')) && (
             <>
-              <label className="l" htmlFor="rv-url">Documento de Google Docs con los cambios</label>
+              <label className="l" htmlFor="rv-url">Documento de Google Docs con los cambios <small>(opcional)</small></label>
               <input id="rv-url" type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://docs.google.com/document/d/..." autoComplete="off" />
-              <p className="help">Compártalo para que cualquiera con el enlace pueda verlo.</p>
+              <p className="help">Si detalla los cambios en un documento, compártalo para que cualquiera con el enlace pueda verlo.</p>
             </>
           )}
           {error && <div className="msg bad" role="alert">{error}</div>}

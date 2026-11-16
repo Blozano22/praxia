@@ -77,7 +77,7 @@ test('las decisiones de la primera versión se copian al historial nuevo al migr
 test('el diseñador pide cambios, la solicitud queda registrada y solo la ve (no la decide) quien no tiene permiso', async () => {
   const dani = await entrar('dani@u.co')
   const ana = await entrar('ana@u.co')
-  assert.equal((await enviar(dani, 'lectura', 'revision', 'Cambiar colores')).status, 400) // falta el documento
+  // el documento de cambios es opcional (ver la prueba del final); si se manda, debe ser de Google Docs
   assert.equal((await enviar(dani, 'lectura', 'revision', 'Cambiar colores', { docUrl: 'https://ejemplo.com/x' })).status, 400) // no es de Google Docs
   assert.equal((await enviar(dani, 'lectura', 'revision', 'x', { docUrl: DOC })).status, 400) // observación muy corta
   assert.equal((await enviar(dani, 'lectura', 'rechazada', '')).status, 400)
@@ -98,7 +98,6 @@ test('quien envió la solicitud puede editarla (queda marcada con quién y cuán
   const id = (await historial(dani, 'lectura'))[0].id
   assert.equal((await dani('PATCH', '/plantillas/revisiones/' + id, { observacion: 'Cambiar los colores del título', docUrl: DOC })).status, 400) // sin cambios
   assert.equal((await dani('PATCH', '/plantillas/revisiones/' + id, { observacion: 'Cambiar colores', docUrl: 'https://ejemplo.com/x' })).status, 400) // enlace inválido
-  assert.equal((await dani('PATCH', '/plantillas/revisiones/' + id, { observacion: 'Cambiar colores' })).status, 400) // la solicitud necesita su documento
   const nuevoDoc = 'https://docs.google.com/document/d/otro_doc-999'
   const ok = await dani('PATCH', '/plantillas/revisiones/' + id, { observacion: 'Cambiar los colores y la letra del título', docUrl: nuevoDoc })
   assert.equal(ok.status, 200)
@@ -178,4 +177,12 @@ test('dos personas decidiendo a la vez sobre lo mismo se atienden una tras otra'
   const [a, b] = await Promise.all([enviar(admin, 'portada', 'corregida', 'Uno'), enviar(admin, 'portada', 'corregida', 'Dos')])
   assert.deepEqual([a.status, b.status].sort(), [201, 409])
   assert.equal((await historial(dani, 'portada')).filter((x) => x.estado === 'corregida').length, 1)
+})
+
+test('el documento de cambios es opcional al mandar a revisión', async () => {
+  const dani = await entrar('dani@u.co')
+  const r = await enviar(dani, 'sin-documento', 'revision', 'Cambiar los colores del título')
+  assert.equal(r.status, 201)
+  assert.equal((await historial(dani, 'sin-documento'))[0].docUrl, null)
+  assert.equal((await enviar(dani, 'sin-documento', 'revision', 'Cambiar los colores del título', { docUrl: 'https://ejemplo.com/x' })).status, 400) // si se manda, debe ser de Google Docs
 })

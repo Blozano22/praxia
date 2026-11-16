@@ -665,7 +665,6 @@ rutas.get('/plantillas/revisiones', exigirSesion, exigirPermiso('plantillas.ver'
 function revisarContenido(estado, observacion, docUrl) {
   if (estado === 'revision') {
     if (observacion.length < 3) return 'Escriba la observación: qué hay que cambiar.'
-    if (!RE_DOC_GOOGLE.test(docUrl)) return 'Para mandarla a revisión pegue el enlace del documento de Google Docs con los cambios que desea.'
   } else if (estado === 'rechazada' && observacion.length < 3) return 'Escriba por qué se rechaza la plantilla.'
   if (docUrl && !RE_DOC_GOOGLE.test(docUrl)) return 'El enlace debe ser de un documento de Google Docs.'
   return null
