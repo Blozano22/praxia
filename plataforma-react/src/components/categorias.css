@@ -555,3 +555,7 @@
 
 /* El tipo de la categoría nueva lo da la pestaña en la que se está (Recursos / Actividades): se muestra, no se elige */
 .cat-tipo-fijo{display:inline-flex;align-items:center;height:44px;padding:0 16px;border-radius:10px;background:#eef1f7;color:var(--nav);font-weight:800;font-size:.9rem;box-sizing:border-box}
+
+/* Revisión: aviso personal para quien revisa (corregidas que esperan su nueva revisión) */
+.rv2-alerta.pers{background:#3957b8}
+.rv2-vista small.al{background:#3957b8;color:#fff}.rv2-vista .on small.al{background:#fff;color:#3957b8}

@@ -33,13 +33,18 @@ function contar(items) {
 export default function RevisionResumen({ items, clase = '', puedeRevisar, onIr, enHeader = false }) {
   const deQue = clase === 'actividad' ? 'actividades' : clase === 'recurso' ? 'recursos' : 'plantillas' // la revisión es de la clase que se está viendo
   const [abierto, setAbierto] = useState(false)
-  const [vista, setVista] = useState(puedeRevisar ? 'general' : 'mias')
-  const [filtro, setFiltro] = useState(puedeRevisar ? 'falta' : 'revision')
+  // Quien revisa entra directo a «Mis revisiones» si hay corregidas esperando su nueva revisión.
+  const esperanAlInicio = puedeRevisar && items.some((i) => i.espera)
+  const [vista, setVista] = useState(esperanAlInicio ? 'revisadas' : puedeRevisar ? 'general' : 'mias')
+  const [filtro, setFiltro] = useState(esperanAlInicio ? 'espera' : puedeRevisar ? 'falta' : 'revision')
   const [cat, setCat] = useState('')
   const caja = useRef(null)
   const boton = useRef(null)
   const [pos, setPos] = useState({ top: 84, right: 24 }) // la ventana va FIJA en la pantalla (no se mueve con el scroll) y siempre debajo del encabezado
+  const yaAvisado = useRef(false)
   const alternar = () => {
+    // La primera vez que se abre, si hay corregidas esperando la revisión de esta persona (las revisiones llegan después de montar el botón), va directo a ellas.
+    if (!abierto && !yaAvisado.current && puedeRevisar && items.some((i) => i.espera)) { yaAvisado.current = true; setVista('revisadas'); setFiltro('espera'); setCat('') }
     if (!abierto && boton.current) {
       const r = boton.current.getBoundingClientRect()
       setPos({ top: Math.min(140, Math.max(84, Math.round(r.bottom + 10))), right: Math.max(12, Math.round(window.innerWidth - r.right)) })
@@ -55,16 +60,19 @@ export default function RevisionResumen({ items, clase = '', puedeRevisar, onIr,
   }, [abierto])
 
   const mias = useMemo(() => items.filter((i) => i.propia), [items])
-  const base = vista === 'mias' ? mias : items
+  const revisadas = useMemo(() => items.filter((i) => i.miRevision), [items]) // las que esta persona revisó (pidió cambios, rechazó o aprobó)
+  const nEspera = useMemo(() => revisadas.filter((i) => i.espera).length, [revisadas]) // corregidas que atienden una solicitud suya: le toca revisarlas de nuevo
+  const base = vista === 'mias' ? mias : vista === 'revisadas' ? revisadas : items
   const c = useMemo(() => contar(base), [base])
   const cGeneral = useMemo(() => contar(items), [items])
   const cMias = useMemo(() => contar(mias), [mias])
-  const sirveFiltro = (e) => (filtro === 'falta' ? pendiente(e) : e === filtro) // «falta» = sin revisar + corregidas; el resto, un estado
+  const cRev = useMemo(() => contar(revisadas), [revisadas])
+  const sirveFiltro = (i) => (filtro === 'falta' ? pendiente(i.estado) : filtro === 'espera' ? i.espera : i.estado === filtro) // «falta» = sin revisar + corregidas; «espera» = corregidas que atienden una solicitud mía; el resto, un estado
   const orden = vista === 'mias' ? { revision: 0, nada: 1, corregida: 2, rechazada: 3, aprobada: 4 } : { corregida: 0, nada: 1, revision: 2, rechazada: 3, aprobada: 4 }
   // Primero por estado (el orden de arriba) y, dentro de cada estado, la revisión más reciente primero; las que nadie ha revisado quedan en el orden de la galería.
   const fechaDe = (i) => { const t = i.rev && i.rev.creado ? new Date(i.rev.creado).getTime() : NaN; return Number.isNaN(t) ? null : t }
-  const porEstadoYFecha = (a, b) => { const d = orden[a.estado] - orden[b.estado]; if (d) return d; const fa = fechaDe(a), fb = fechaDe(b); return fa !== null && fb !== null ? fb - fa : 0 }
-  const filas = base.filter((i) => sirveFiltro(i.estado) && (!cat || i.cat === cat)).sort(porEstadoYFecha)
+  const porEstadoYFecha = (a, b) => { if (a.espera !== b.espera) return a.espera ? -1 : 1; const d = orden[a.estado] - orden[b.estado]; if (d) return d; const fa = fechaDe(a), fb = fechaDe(b); return fa !== null && fb !== null ? fb - fa : 0 }
+  const filas = base.filter((i) => sirveFiltro(i) && (!cat || i.cat === cat)).sort(porEstadoYFecha)
   const topCats = useMemo(() => {
     const m = {}
     items.forEach((i) => { if (i.cat && pendiente(i.estado)) { m[i.cat] = m[i.cat] || { id: i.cat, nombre: i.catNombre, n: 0 }; m[i.cat].n++ } })
@@ -73,9 +81,13 @@ export default function RevisionResumen({ items, clase = '', puedeRevisar, onIr,
 
   // El botón muestra lo que le importa a cada rol: quien revisa, lo general; quien solo sube, lo suyo.
   const pie = puedeRevisar ? cGeneral : cMias
-  const alerta = puedeRevisar ? cGeneral.faltan : cMias.revision
-  const cambiar = (v) => { setVista(v); setFiltro(v === 'general' ? 'falta' : 'revision'); setCat('') }
+  // Quien revisa: si hay corregidas que esperan SU nueva revisión, el botón avisa de eso (en azul); si no, de lo que falta por revisar en general.
+  const personal = puedeRevisar && nEspera > 0
+  const alerta = personal ? nEspera : puedeRevisar ? cGeneral.faltan : cMias.revision
+  const textoAlerta = personal ? (nEspera === 1 ? 'corregida espera tu revisión' : 'corregidas esperan tu revisión') : puedeRevisar ? 'faltan por revisar' : 'piden cambios'
+  const cambiar = (v) => { setVista(v); setFiltro(v === 'general' ? 'falta' : v === 'revisadas' ? (nEspera > 0 ? 'espera' : 'revision') : 'revision'); setCat('') }
   const ir = (i) => { setAbierto(false); onIr(i) }
+  const primeraEspera = revisadas.filter((i) => i.espera).sort(porEstadoYFecha)[0]
   const primeraPorRevisar = base.filter((i) => pendiente(i.estado)).sort(porEstadoYFecha)[0]
 
   const detalle = (i) => {
@@ -84,10 +96,12 @@ export default function RevisionResumen({ items, clase = '', puedeRevisar, onIr,
     if (i.estado === 'aprobada') return 'Aprobada por ' + (r.usuario || 'quien revisa') + ' ' + hace(r.creado) + quien
     if (i.estado === 'rechazada') return 'Rechazada por ' + (r.usuario || 'quien revisa') + (r.observacion ? ': ' + corta(r.observacion) : '') + ' · ' + hace(r.creado) + quien
     if (i.estado === 'revision') return (vista === 'mias' ? 'Pide cambios' : 'Se pidieron cambios') + (r.observacion ? ': «' + corta(r.observacion) + '»' : '') + ' · ' + hace(r.creado) + quien
-    if (i.estado === 'corregida') return (vista === 'general' && i.por ? i.por : 'Se') + ' marcó como corregida ' + hace(r.creado) + ': falta revisarla de nuevo'
+    if (i.estado === 'corregida') return (vista === 'general' && i.por ? i.por : r.usuario || 'Se') + ' marcó como corregida ' + hace(r.creado) + (i.espera ? ': atiende tu solicitud, falta que la revises de nuevo' : ': falta revisarla de nuevo')
     return 'Aún nadie la ha revisado' + quien
   }
-  const filtros = vista === 'general'
+  const filtros = vista === 'revisadas'
+    ? [['espera', 'Esperan tu revisión', nEspera, true], ['revision', 'Piden cambios', cRev.revision], ['rechazada', 'Rechazadas', cRev.rechazada], ['aprobada', 'Aprobadas', cRev.aprobada]]
+    : vista === 'general'
     ? [['falta', 'Faltan por revisar', c.falta, true], ['revision', 'Piden cambios', c.revision], ['corregida', 'Corregidas', c.corregida], ['rechazada', 'Rechazadas', c.rechazada], ['aprobada', 'Aprobadas', c.aprobada]]
     : [['revision', 'Piden cambios', c.revision, true], ['nada', 'Sin revisar', c.nada], ['corregida', 'Corregidas', c.corregida], ['rechazada', 'Rechazadas', c.rechazada], ['aprobada', 'Aprobadas', c.aprobada]]
   const pct = (n) => (c.total ? (n / c.total) * 100 : 0)
@@ -98,17 +112,18 @@ export default function RevisionResumen({ items, clase = '', puedeRevisar, onIr,
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8M10 21a2 2 0 0 0 4 0" /></svg>
         Revisión
         <span className="rv2-cuenta"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" /></svg>{pie.rev}/{pie.total}</span>
-        {alerta > 0 && <span className="rv2-alerta" title={puedeRevisar ? 'Faltan por revisar' : 'Piden cambios'} aria-label={alerta + (puedeRevisar ? ' faltan por revisar' : ' piden cambios')}>{alerta}</span>}
+        {alerta > 0 && <span className={'rv2-alerta' + (personal ? ' pers' : '')} title={alerta + ' ' + textoAlerta} aria-label={alerta + ' ' + textoAlerta}>{alerta}</span>}
       </button>
 
       {abierto && (
         <div className="rv2-pop" role="dialog" aria-label="Revisión de plantillas" style={{ top: pos.top, right: pos.right, maxHeight: 'calc(100vh - ' + (pos.top + 16) + 'px)' }}>
           <div className="rv2-cab">
-            <div><b>Revisión de plantillas</b><small>{vista === 'general' ? 'Todas las ' + (clase ? 'plantillas de ' + deQue : 'plantillas de la plataforma') + ': qué falta por revisar' : 'Las ' + cMias.total + ' de ' + deQue + ' que subiste y cómo van en la revisión'}</small></div>
+            <div><b>Revisión de plantillas</b><small>{vista === 'revisadas' ? 'Las ' + cRev.total + ' de ' + deQue + ' que revisaste y cómo van: si fueron corregidas, te toca revisarlas de nuevo' : vista === 'general' ? 'Todas las ' + (clase ? 'plantillas de ' + deQue : 'plantillas de la plataforma') + ': qué falta por revisar' : 'Las ' + cMias.total + ' de ' + deQue + ' que subiste y cómo van en la revisión'}</small></div>
             <button type="button" className="rv2-x" aria-label="Cerrar" onClick={() => setAbierto(false)}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg></button>
           </div>
 
           <div className="rv2-vista" role="tablist" aria-label="Qué ver">
+            {puedeRevisar && <button type="button" role="tab" aria-selected={vista === 'revisadas'} className={vista === 'revisadas' ? 'on' : ''} onClick={() => cambiar('revisadas')}>Mis revisiones <small>{cRev.total}</small>{nEspera > 0 && <small className="al" title={nEspera + ' esperan tu revisión'}>{nEspera}</small>}</button>}
             <button type="button" role="tab" aria-selected={vista === 'mias'} className={vista === 'mias' ? 'on' : ''} onClick={() => cambiar('mias')}>Mis plantillas <small>{cMias.total}</small></button>
             <button type="button" role="tab" aria-selected={vista === 'general'} className={vista === 'general' ? 'on' : ''} onClick={() => cambiar('general')}>General <small>{cGeneral.total}</small></button>
           </div>
@@ -160,7 +175,8 @@ export default function RevisionResumen({ items, clase = '', puedeRevisar, onIr,
           </div>
 
           <div className="rv2-pie">
-            <span>{vista === 'general' ? 'Las corregidas esperan una nueva revisión.' : 'Al elegir una, la galería la abre.'}</span>
+            <span>{vista === 'general' ? 'Las corregidas esperan una nueva revisión.' : vista === 'revisadas' ? 'Las corregidas que atienden tus solicitudes van primero.' : 'Al elegir una, la galería la abre.'}</span>
+            {vista === 'revisadas' && primeraEspera && <button type="button" className="btn" onClick={() => ir(primeraEspera)}>Revisar la primera corregida</button>}
             {vista === 'general' && primeraPorRevisar && <button type="button" className="btn" onClick={() => ir(primeraPorRevisar)}>Ir a la primera por revisar</button>}
           </div>
         </div>

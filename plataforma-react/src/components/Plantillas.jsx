@@ -269,10 +269,14 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
       const nom = k.startsWith('pub-') ? k.slice(4) : (nombrePublico(k) || '')
       const info = cats && cats.subidas && nom ? cats.subidas[nom] : null
       const r = revisiones.find((x) => x.plantilla === k) // la más nueva
-      out.push({ k, codigo: verNombre(n), clase: cl, cat: id || '', catNombre: corto(g), por: info ? info.por : '', propia: !!(info && info.propia), estado: r ? r.estado : 'nada', rev: r || {} })
+      // Para quien revisa: ¿decidió algo sobre esta plantilla (pidió cambios, rechazó o aprobó)? y, si ya la marcaron como corregida, ¿atiende una solicitud suya?
+      const miRevision = !!yo && revisiones.some((x) => x.plantilla === k && x.usuarioId === yo.id && x.estado !== 'corregida')
+      const atendida = r && r.estado === 'corregida' && r.referencia ? revisiones.find((x) => String(x.id) === String(r.referencia)) : null
+      const espera = !!(yo && atendida && atendida.usuarioId === yo.id)
+      out.push({ k, codigo: verNombre(n), clase: cl, cat: id || '', catNombre: corto(g), por: info ? info.por : '', propia: !!(info && info.propia), miRevision, espera, estado: r ? r.estado : 'nada', rev: r || {} })
     })))
     return out
-  }, [gruposPorClase, revisiones, cats])
+  }, [gruposPorClase, revisiones, cats, yo])
   // La revisión sigue la clase de la vista: en «Recursos» solo cuenta y lista los recursos; en «Actividades», solo las actividades.
   const itemsClase = useMemo(() => itemsRev.filter((i) => i.clase === clase), [itemsRev, clase])
   const [slotRev, setSlotRev] = useState(null) // hueco del encabezado donde va el botón «Revisión»
