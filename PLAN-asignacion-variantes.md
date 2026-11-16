@@ -83,7 +83,7 @@ Cuerpo que recibe el webhook:
 }
 ```
 - `formacion`: `tecnologico` | `profesional` | `especializacion` | `doctorado` (la del curso).
-- `categoria`: el código **general** (`G-09`, `PRE-05`, `POS-11`), sin sufijos `-C/-A`.
+- `categoria`: el código **general** (`G-09`, `PRE-05`, `POS-11`), sin sufijos `-C/-A`. En las **actividades**, el código del plan (`ACT-G-01`, `ACT-E-TEC-03`) y además `calificable` por recurso (ver 3.5).
 - `recursos`: de 1 a 500; los `codigo` no pueden repetirse dentro del pedido. Se puede pedir el curso entero o una unidad; las peticiones de un mismo curso se atienden **de una en una** (bloqueo por curso), así que unidades en paralelo no se pisan.
 - `forzar` (opcional): recalcula desde cero lo pedido. Sin él, lo ya asignado **no cambia** (idempotente).
 - `solo_aprobadas` (opcional, por defecto `true`): solo mientras aún no haya variantes aprobadas se puede poner `false`.
@@ -127,10 +127,76 @@ El pedido de siempre al flujo de guiones lleva ahora, además, `asignaciones`: l
 ```
 Cuando la preparación no está configurada, el campo no existe y todo es como antes. **El flujo de guiones tiene que aceptar y usar este campo** (lo mantiene quien tenga ese flujo).
 
+### 3.5 Actividades: `calificable`, azar y repetición (cambio ya desplegado en Praxia)
+Las actividades (categorías `ACT-G-01`, `ACT-E-TEC-03`…, de tipo `actividad`) se piden con este mismo `pedir`, pero cada recurso debe decir si es **la calificable de su unidad** o una **práctica**.
+
+**Qué debe hacer el flujo**
+- **Leer, por unidad, la tabla de la estructura que indica cuál actividad es la calificable**, y marcar `calificable: true` solo en esa; las demás van con `calificable: false`.
+- **No deducirlo** con reglas como «la primera actividad del tema 3». Si en una unidad no se puede leer la tabla, **parar y avisar**; no adivinar.
+- Solo en categorías de actividad. En los recursos normales (acordeón, línea de tiempo…) el campo se ignora.
+
+```json
+{
+  "trabajo_id": "…",
+  "formacion": "tecnologico",
+  "recursos": [
+    { "codigo": "U1-T3-R1", "categoria": "ACT-G-01",     "unidad": 1, "calificable": true  },
+    { "codigo": "U1-T1-R2", "categoria": "ACT-G-04",     "unidad": 1, "calificable": false },
+    { "codigo": "U1-T2-R1", "categoria": "ACT-E-TEC-03", "unidad": 1, "calificable": false }
+  ]
+}
+```
+La firma, las cabeceras, `formacion`, `forzar` y `solo_aprobadas` no cambian.
+
+**Qué hace Praxia**
+| Recurso | Qué recibe |
+|---|---|
+| `calificable: true` | Una variante **calificable** (`…-c-v…`) aprobada de esa formación. |
+| `calificable: false` | Una variante **práctica** (`…-p-v…`) aprobada de esa formación, elegida **al azar** entre las libres. |
+
+- **Nunca se mezclan los tipos:** una práctica nunca recibe una calificable ni al revés.
+- **Una vez asignada no cambia** al repetir el pedido; `forzar: true` recalcula.
+- **Si ya se usaron todas las variantes de ese tipo en el curso, Praxia repite una** (la menos usada) y lo avisa, en lugar de dejar el recurso sin variante. Vale para las actividades, calificables incluidas.
+- **Recursos normales:** sin cambios; siguen sin repetir y, si se agotan, responden `variantes_agotadas`.
+
+**Qué cambia en la respuesta** (también en `consultar`): cada elemento de `resultados` trae dos campos nuevos.
+| Campo | Valor |
+|---|---|
+| `repetida` | `true` si se reutilizó una variante ya usada en el curso; `false` en el resto. |
+| `aviso` | Texto con el motivo cuando `repetida` es `true`; `null` si no. |
+
+```json
+{ "codigo": "U4-T1-R2", "resultado": "asignada", "categoria": "ACT-G-04", "formacion": "tecnologico",
+  "plantilla": "act-g-04-tec-p-v1", "motivo": "variante_repetida", "repetida": true,
+  "aviso": "Variante repetida: ya se usaron todas las de ese tipo en ACT-G-04 dentro de este curso." }
+```
+**Lo repetido NO es un error**: el recurso queda asignado y el guion debe generarse. El flujo debe **mostrar o registrar el aviso** para que el equipo lo vea.
+
+**Motivos nuevos**
+| `resultado` | `motivo` | Cuándo |
+|---|---|---|
+| `error` | `falta_calificable` | Es una actividad y el recurso no trae `calificable`. No se asigna nada. |
+| `pendiente` | `categoria_sin_calificables` | Se pidió la calificable y la categoría no tiene ninguna variante calificable subida. |
+| `pendiente` | `categoria_sin_practicas` | Se pidió una práctica y la categoría no tiene ninguna variante práctica subida. |
+
+Los motivos de siempre siguen igual; con actividades se calculan **solo entre las variantes del tipo pedido**.
+
+**Nombres de las plantillas** (los del plan de trabajo, en minúsculas):
+| Plan | Nombre en Praxia |
+|---|---|
+| `ACT-G-01-TEC-C-V1` | `act-g-01-tec-c-v1` |
+| `ACT-G-01-TEC-P-V2` | `act-g-01-tec-p-v2` |
+| `ACT-E-TEC-03-P-V1` | `act-e-tec-03-p-v1` |
+
+Profesional se escribe **`pro`** en las actividades (en los recursos es `pre`). El número de variante **no lleva ceros** (`v1`) y se cuenta por categoría, formación y tipo, en el orden en que se suben.
+
+**Índice público** (`/plantillas-html/plantillas.json`): cada variante trae `calificable` (`true` calificable, `false` práctica, `null` en los recursos). El índice lista todo lo subido: hay que filtrar por `estado` (`aprobada`), `formacion` y, en actividades, por `calificable`.
+
 ## 4. Lo que le toca al flujo nuevo (no está hecho)
 
 1. **Leer la estructura del curso** (unidades, temas, recursos con su código de posición `U1-T2-R3` / `U1-PRES`, su categoría general y la formación del curso).
 2. **Llamar a `pedir`** (3.1) con los recursos de **todas** las unidades en un solo pedido (o por unidades, da igual: Praxia serializa y no repite variantes). Los `pendiente`, `conflicto` y `error` no los resuelve el flujo: Praxia los lee después y le dice a la persona qué recurso quedó sin variante. Después, **responder 200**.
+2b. **Actividades** (ver 3.5): leer, por unidad, la tabla que dice cuál actividad es la calificable y mandar `calificable: true/false` en cada recurso de actividad; tratar `repetida: true` como asignación válida dejando visible el `aviso`; tratar `falta_calificable`, `categoria_sin_calificables` y `categoria_sin_practicas` como errores a corregir.
 3. **Orquestador de H5P**: dejar de repartir variantes y leer la asignada con `consultar`; generar solo lo `asignada`.
 4. **Catálogo de qué existe**: sigue saliendo del índice público `/plantillas-html/plantillas.json` (categorías, variantes, `estado`, `formacion`). No hace falta nada más para saber qué recursos hay disponibles.
 5. **Avisos a Praxia** (matrices, H5P): seguir mandando `codigo` en cada fila.

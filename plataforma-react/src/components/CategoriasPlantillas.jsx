@@ -272,8 +272,8 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
                 <form className="card cat-form" onSubmit={(e) => { e.preventDefault(); if (idValido && !idRepetido && nueva.nombre.trim()) crear() }}>
                   <div className="cat-campo"><span className="cat-lbl">¿Qué es?</span><Seg valor={nueva.tipo} onChange={(tipo) => setNueva({ ...nueva, tipo })} opciones={OPC_TIPO} etiqueta="¿Qué es?" /><small>{nueva.tipo === 'actividad' ? 'Una actividad de autoaprendizaje (como un crucigrama).' : 'Un tipo de HTML que n8n elige para mostrar contenido.'}</small></div>
                   <label>ID del catálogo
-                    <input value={nueva.id} onChange={(e) => setNueva({ ...nueva, id: e.target.value })} placeholder={nueva.tipo === 'actividad' ? 'ACT-01' : 'G-13'} maxLength={7} aria-invalid={!!nueva.id && (!idValido || idRepetido)} />
-                    <small className={nueva.id && (!idValido || idRepetido) ? 'mal' : ''}>{idRepetido ? 'Ya existe una categoría con ese ID.' : 'Letras y número: G-13, PRE-10, ACT-01…'}</small>
+                    <input value={nueva.id} onChange={(e) => setNueva({ ...nueva, id: e.target.value })} placeholder={nueva.tipo === 'actividad' ? 'ACT-G-01' : 'G-13'} maxLength={16} aria-invalid={!!nueva.id && (!idValido || idRepetido)} />
+                    <small className={nueva.id && (!idValido || idRepetido) ? 'mal' : ''}>{idRepetido ? 'Ya existe una categoría con ese ID.' : 'Letras y número: G-13, PRE-10, ACT-G-01, ACT-E-TEC-03…'}</small>
                   </label>
                   <label>Nombre
                     <input value={nueva.nombre} onChange={(e) => setNueva({ ...nueva, nombre: e.target.value })} placeholder={nueva.tipo === 'actividad' ? 'Crucigrama' : 'Tarjetas de repaso'} maxLength={120} />
