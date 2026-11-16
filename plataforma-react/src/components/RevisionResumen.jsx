@@ -34,7 +34,7 @@ export default function RevisionResumen({ items, clase = '', puedeRevisar, onIr,
   const deQue = clase === 'actividad' ? 'actividades' : clase === 'recurso' ? 'recursos' : 'plantillas' // la revisión es de la clase que se está viendo
   const [abierto, setAbierto] = useState(false)
   const [vista, setVista] = useState(puedeRevisar ? 'general' : 'mias')
-  const [filtro, setFiltro] = useState(puedeRevisar ? 'falta' : 'todas')
+  const [filtro, setFiltro] = useState(puedeRevisar ? 'falta' : 'revision')
   const [cat, setCat] = useState('')
   const caja = useRef(null)
   const boton = useRef(null)
@@ -59,9 +59,12 @@ export default function RevisionResumen({ items, clase = '', puedeRevisar, onIr,
   const c = useMemo(() => contar(base), [base])
   const cGeneral = useMemo(() => contar(items), [items])
   const cMias = useMemo(() => contar(mias), [mias])
-  const sirveFiltro = (e) => filtro === 'todas' || (filtro === 'falta' && pendiente(e)) || (filtro === 'revision' && e === 'revision') || (filtro === 'aprobada' && e === 'aprobada')
+  const sirveFiltro = (e) => (filtro === 'falta' ? pendiente(e) : e === filtro) // «falta» = sin revisar + corregidas; el resto, un estado
   const orden = vista === 'mias' ? { revision: 0, nada: 1, corregida: 2, rechazada: 3, aprobada: 4 } : { corregida: 0, nada: 1, revision: 2, rechazada: 3, aprobada: 4 }
-  const filas = base.filter((i) => sirveFiltro(i.estado) && (!cat || i.cat === cat)).sort((a, b) => orden[a.estado] - orden[b.estado])
+  // Primero por estado (el orden de arriba) y, dentro de cada estado, la revisión más reciente primero; las que nadie ha revisado quedan en el orden de la galería.
+  const fechaDe = (i) => { const t = i.rev && i.rev.creado ? new Date(i.rev.creado).getTime() : NaN; return Number.isNaN(t) ? null : t }
+  const porEstadoYFecha = (a, b) => { const d = orden[a.estado] - orden[b.estado]; if (d) return d; const fa = fechaDe(a), fb = fechaDe(b); return fa !== null && fb !== null ? fb - fa : 0 }
+  const filas = base.filter((i) => sirveFiltro(i.estado) && (!cat || i.cat === cat)).sort(porEstadoYFecha)
   const topCats = useMemo(() => {
     const m = {}
     items.forEach((i) => { if (i.cat && pendiente(i.estado)) { m[i.cat] = m[i.cat] || { id: i.cat, nombre: i.catNombre, n: 0 }; m[i.cat].n++ } })
@@ -71,9 +74,9 @@ export default function RevisionResumen({ items, clase = '', puedeRevisar, onIr,
   // El botón muestra lo que le importa a cada rol: quien revisa, lo general; quien solo sube, lo suyo.
   const pie = puedeRevisar ? cGeneral : cMias
   const alerta = puedeRevisar ? cGeneral.faltan : cMias.revision
-  const cambiar = (v) => { setVista(v); setFiltro(v === 'general' ? 'falta' : 'todas'); setCat('') }
+  const cambiar = (v) => { setVista(v); setFiltro(v === 'general' ? 'falta' : 'revision'); setCat('') }
   const ir = (i) => { setAbierto(false); onIr(i) }
-  const primeraPorRevisar = base.filter((i) => pendiente(i.estado)).sort((a, b) => orden[a.estado] - orden[b.estado])[0]
+  const primeraPorRevisar = base.filter((i) => pendiente(i.estado)).sort(porEstadoYFecha)[0]
 
   const detalle = (i) => {
     const quien = vista === 'general' && i.por ? ' · subida por ' + i.por : ''
@@ -85,8 +88,8 @@ export default function RevisionResumen({ items, clase = '', puedeRevisar, onIr,
     return 'Aún nadie la ha revisado' + quien
   }
   const filtros = vista === 'general'
-    ? [['falta', 'Faltan por revisar', c.falta, true], ['todas', 'Todas', c.total], ['revision', 'Piden cambios', c.revision], ['aprobada', 'Aprobadas', c.aprobada]]
-    : [['todas', 'Todas', c.total], ['revision', 'Piden cambios', c.revision, true], ['falta', 'Sin revisar', c.falta], ['aprobada', 'Aprobadas', c.aprobada]]
+    ? [['falta', 'Faltan por revisar', c.falta, true], ['revision', 'Piden cambios', c.revision], ['corregida', 'Corregidas', c.corregida], ['rechazada', 'Rechazadas', c.rechazada], ['aprobada', 'Aprobadas', c.aprobada]]
+    : [['revision', 'Piden cambios', c.revision, true], ['nada', 'Sin revisar', c.nada], ['corregida', 'Corregidas', c.corregida], ['rechazada', 'Rechazadas', c.rechazada], ['aprobada', 'Aprobadas', c.aprobada]]
   const pct = (n) => (c.total ? (n / c.total) * 100 : 0)
 
   return (
