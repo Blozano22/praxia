@@ -503,3 +503,35 @@
 
 /* Formaciones dentro del formulario de «Nueva categoría»: ocupan todo el ancho */
 .cat-form .cat-ren-formaciones{grid-column:1/-1}
+
+/* ---------- «+ Nueva categoría»: formaciones ordenadas, opcionales, y botones al pie ---------- */
+.cat-form:not(.cat-subir){gap:18px 20px;padding:24px 26px}
+.cat-form .cat-form-forms{grid-column:1/-1;display:flex;flex-direction:column;gap:12px;padding-top:18px;border-top:1px solid #e6ebf2}
+.cat-form-forms-cab{display:flex;flex-direction:column;gap:3px}
+.cat-form-forms-cab b{display:flex;align-items:center;gap:8px;font-size:.92rem;color:var(--nav)}
+.cat-form-forms-cab em{padding:2px 9px;border-radius:99px;background:#eef1f7;color:#5b6783;font-size:.68rem;font-style:normal;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+.cat-form-forms-cab span{font-size:.8rem;line-height:1.5;color:var(--muted);max-width:640px}
+.cat-form-forms-cab span b{display:inline;font-size:inherit;color:var(--nav)}
+/* el cuadro de formaciones deja de ser una caja gris: son cuatro tarjetas, cada una con su color */
+.cat-form .cat-ren-formaciones{grid-column:auto;padding:0;border:0;background:none;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.cat-form .cat-ren-formaciones legend{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.cat-form .cat-ef{flex-direction:column;align-items:stretch;justify-content:flex-start;gap:12px;padding:14px;border:1.5px solid #d3dae8;border-radius:14px;background:#fff;opacity:1;transition:border-color .15s,background .15s,box-shadow .15s}
+.cat-form .cat-ef:hover{border-color:#aab4c8}
+.cat-form .cat-ef.on{border-color:var(--fc,var(--nav));background:color-mix(in srgb,var(--fc,var(--nav)) 7%,#fff);box-shadow:0 4px 12px color-mix(in srgb,var(--fc,var(--nav)) 18%,transparent)}
+.cat-form .cat-ef label{gap:10px;font-size:.9rem}
+.cat-form .cat-ef i{width:12px;height:12px}
+.cat-form .cat-ef input{width:18px;height:18px}
+.cat-form .cat-ef .cs-seg{width:100%}.cat-form .cat-ef .cs-seg button{flex:1;min-width:0}
+.cat-form-acc{grid-column:1/-1;justify-self:end;padding-top:18px;margin-top:2px;border-top:1px solid #e6ebf2;width:100%;justify-content:flex-end;gap:10px}
+@media (max-width:760px){.cat-form:not(.cat-subir){padding:18px}.cat-form .cat-ren-formaciones{grid-template-columns:1fr 1fr}.cat-form-acc .btn{flex:1}}
+@media (max-width:460px){.cat-form .cat-ren-formaciones{grid-template-columns:1fr}}
+
+/* Ajustes de las tarjetas de formación: la casilla no hereda el estilo de los campos de texto y el nombre va en una línea */
+.cat-form .cat-ren-formaciones{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.cat-form .cat-ef label{flex-direction:row;align-items:center;gap:10px;width:100%}
+.cat-form .cat-ef input[type=checkbox]{flex:none;width:18px;height:18px;min-width:18px;padding:0;margin:0;border-radius:5px;box-shadow:none;accent-color:var(--brand);cursor:pointer}
+.cat-form .cat-ef label span{flex:1;min-width:0}
+.cat-form .cat-ef input[type=checkbox]{appearance:none;-webkit-appearance:none;background:#fff;border:2px solid #aab4c8;border-radius:6px;transition:background .15s,border-color .15s}
+.cat-form .cat-ef input[type=checkbox]:hover{border-color:var(--nav)}
+.cat-form .cat-ef input[type=checkbox]:checked{background:var(--fc,var(--brand)) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7'/%3E%3C/svg%3E") center/78% no-repeat;border-color:var(--fc,var(--brand))}
+.cat-form .cat-ef input[type=checkbox]:focus-visible{outline:3px solid var(--brand);outline-offset:2px}

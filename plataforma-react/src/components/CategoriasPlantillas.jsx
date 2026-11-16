@@ -43,7 +43,7 @@ function EditorFormaciones({ valor, onChange }) {
       {FORMACIONES.map((f) => {
         const on = !!valor[f.id]
         return (
-          <div key={f.id} className={'cat-ef' + (on ? ' on' : '')}>
+          <div key={f.id} className={'cat-ef' + (on ? ' on' : '')} style={{ '--fc': f.base }}>
             <label>
               <input type="checkbox" checked={on} onChange={(e) => { const n = { ...valor }; if (e.target.checked) n[f.id] = 'P'; else delete n[f.id]; onChange(n) }} />
               <i style={{ background: f.base }} aria-hidden="true" />
@@ -281,7 +281,13 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
                   <label>Nombre
                     <input value={nueva.nombre} onChange={(e) => setNueva({ ...nueva, nombre: e.target.value })} placeholder={nueva.tipo === 'actividad' ? 'Crucigrama' : 'Tarjetas de repaso'} maxLength={120} />
                   </label>
-                  <EditorFormaciones valor={nueva.formaciones || {}} onChange={(formaciones) => setNueva({ ...nueva, formaciones })} />
+                  <div className="cat-form-forms">
+                    <div className="cat-form-forms-cab">
+                      <b>Formaciones <em>opcional</em></b>
+                      <span>Marque para qué formaciones sirve esta categoría y si es <b>P</b> (prioritaria) o <b>C</b> (complementaria). Puede dejarlo en blanco y cambiarlo después con «Editar».</span>
+                    </div>
+                    <EditorFormaciones valor={nueva.formaciones || {}} onChange={(formaciones) => setNueva({ ...nueva, formaciones })} />
+                  </div>
                   <div className="cat-form-acc">
                     <button className="btn" type="submit" disabled={ocupado || !idValido || idRepetido || !nueva.nombre.trim()}>Crear</button>
                     <button className="btn sec" type="button" onClick={() => setNueva(null)}>Cancelar</button>
