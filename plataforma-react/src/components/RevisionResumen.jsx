@@ -30,7 +30,8 @@ function contar(items) {
   return c
 }
 
-export default function RevisionResumen({ items, puedeRevisar, onIr, enHeader = false }) {
+export default function RevisionResumen({ items, clase = '', puedeRevisar, onIr, enHeader = false }) {
+  const deQue = clase === 'actividad' ? 'actividades' : clase === 'recurso' ? 'recursos' : 'plantillas' // la revisión es de la clase que se está viendo
   const [abierto, setAbierto] = useState(false)
   const [vista, setVista] = useState(puedeRevisar ? 'general' : 'mias')
   const [filtro, setFiltro] = useState(puedeRevisar ? 'falta' : 'todas')
@@ -100,7 +101,7 @@ export default function RevisionResumen({ items, puedeRevisar, onIr, enHeader = 
       {abierto && (
         <div className="rv2-pop" role="dialog" aria-label="Revisión de plantillas" style={{ top: pos.top, right: pos.right, maxHeight: 'calc(100vh - ' + (pos.top + 16) + 'px)' }}>
           <div className="rv2-cab">
-            <div><b>Revisión de plantillas</b><small>{vista === 'general' ? 'Todas las plantillas de la plataforma: qué falta por revisar' : 'Las ' + cMias.total + ' que subiste y cómo van en la revisión'}</small></div>
+            <div><b>Revisión de plantillas</b><small>{vista === 'general' ? 'Todas las ' + (clase ? 'plantillas de ' + deQue : 'plantillas de la plataforma') + ': qué falta por revisar' : 'Las ' + cMias.total + ' de ' + deQue + ' que subiste y cómo van en la revisión'}</small></div>
             <button type="button" className="rv2-x" aria-label="Cerrar" onClick={() => setAbierto(false)}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg></button>
           </div>
 

@@ -273,6 +273,8 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
     })))
     return out
   }, [gruposPorClase, revisiones, cats])
+  // La revisión sigue la clase de la vista: en «Recursos» solo cuenta y lista los recursos; en «Actividades», solo las actividades.
+  const itemsClase = useMemo(() => itemsRev.filter((i) => i.clase === clase), [itemsRev, clase])
   const [slotRev, setSlotRev] = useState(null) // hueco del encabezado donde va el botón «Revisión»
   useEffect(() => { setSlotRev(document.getElementById('slot-revision')) }, [])
   const irADiseno = (i) => { setVista('galeria'); setClase(i.clase); setFormacion(''); setQ(''); setTipo(i.k) }
@@ -346,7 +348,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
           <h1>Plantillas HTML</h1>
           <p className="lead">Así se ven los recursos que genera la plataforma. Elija la categoría y el diseño; puede abrirlo en una pestaña o descargarlo.</p>
         </Titulo>
-        {itemsRev.length > 0 && (slotRev ? createPortal(<RevisionResumen enHeader items={itemsRev} puedeRevisar={puedeRevisar} onIr={irADiseno} />, slotRev) : <RevisionResumen items={itemsRev} puedeRevisar={puedeRevisar} onIr={irADiseno} />)}
+        {itemsClase.length > 0 && (slotRev ? createPortal(<RevisionResumen key={clase} clase={clase} enHeader items={itemsClase} puedeRevisar={puedeRevisar} onIr={irADiseno} />, slotRev) : <RevisionResumen key={clase} clase={clase} items={itemsClase} puedeRevisar={puedeRevisar} onIr={irADiseno} />)}
         {puedeSubir && (
           <button type="button" className="btn pg-subir" onClick={() => setSubiendo(true)}>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 20h16" /></svg>
