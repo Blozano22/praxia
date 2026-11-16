@@ -639,6 +639,8 @@ rutas.post('/plantillas/subidas/previa', exigirSesion, exigirAlguno('plantillas.
       else if (req.bodyOk.formacion && req.bodyOk.formacion !== armada.ficha.formacion) avisos.push('La ficha dice formación ' + armada.ficha.formacion + ' y la vas a subir como ' + req.bodyOk.formacion + '.')
     }
     if (categoria && fo.invalida) avisos.push(errorFormacion(categoria, fo).error)
+    // Actividades: si la ficha dice un tipo y se eligió otro, se avisa (el nombre lleva la «c» o la «p»).
+    if (act.es && typeof armada.ficha.calificable === 'boolean' && typeof req.bodyOk.calificable === 'boolean' && armada.ficha.calificable !== req.bodyOk.calificable) avisos.push('La ficha dice que es ' + (armada.ficha.calificable ? 'calificable' : 'práctica') + ' y la vas a subir como ' + (req.bodyOk.calificable ? 'calificable' : 'práctica') + '.')
     // En una categoría compartida la pantalla puede cambiar de formación sin volver a pedir la revisión: se devuelve la comparación de cada formación.
     const esquemas = {}
     if (categoria && fo.compartida && armada.esquema && !act.falta) {

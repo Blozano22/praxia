@@ -256,3 +256,19 @@ test('si una categoría se queda sin variantes (por mover o eliminar), su numera
   assert.equal((await subir({ html: html(c1), ...a, calificable: false })).nombre, 'act-g-07-tec-p-v1') // las prácticas quedaron vacías: reinician
   assert.equal((await subir({ html: html(c1), ...a, calificable: true })).nombre, 'act-g-07-tec-c-v2') // la calificable sigue con su cuenta
 })
+
+test('la ficha de las skills de actividades («Uso: Calificable | Práctica») se lee igual que «Tipo de actividad», y se avisa si no coincide con lo elegido', async () => {
+  const dani = await entrar('dani@u.co')
+  const ficha = (uso) => ['  FICHA DE LA PLANTILLA', '  Variante: ACT-G-07-TEC-C-V9 · Tipo: Actividad de autoaprendizaje', '  Categoría Praxia: ACT-G-07', '  Formación: tecnologico', '  Uso: ' + uso].join(String.fromCharCode(10))
+  const previa = async (uso, extra = {}) => (await dani('POST', '/plantillas/subidas/previa', { html: html({ titulo: 't', texto: 'x' }, ficha(uso)), ...extra })).json()
+  const a = await previa('Calificable')
+  assert.deepEqual(a.ficha, { categoria: 'ACT-G-07', formacion: 'tecnologico', calificable: true })
+  assert.match(a.nombre, /^act-g-07-tec-c-v\d+$/) // sin elegir nada, la ficha basta para saber que es calificable
+  const b = await previa('Práctica')
+  assert.equal(b.ficha.calificable, false); assert.match(b.nombre, /^act-g-07-tec-p-v\d+$/)
+  // lo elegido en pantalla manda, pero se avisa que la ficha dice otra cosa
+  const c = await previa('Calificable', { calificable: false })
+  assert.match(c.nombre, /-p-v\d+$/)
+  assert.ok(c.avisos.some((x) => /ficha dice que es calificable/.test(x) && /práctica/.test(x)))
+  assert.ok(!(await previa('Práctica', { calificable: false })).avisos.some((x) => /ficha dice que es/.test(x)))
+})
