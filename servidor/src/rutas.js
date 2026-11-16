@@ -365,10 +365,19 @@ rutas.get('/plantillas/categorias', exigirSesion, exigirPermiso('plantillas.ver'
     })
   } catch (e) { next(e) }
 })
-rutas.post('/plantillas/categorias', exigirSesion, exigirPermiso('plantillas.revisar'), validar(z.object({ id: IdCategoria, nombre: NombreCategoria, tipo: TipoPlantilla.default('recurso') }).strict(), 'body'), async (req, res, next) => {
+const CuerpoFormaciones = z.object({ formaciones: z.array(z.object({ formacion: z.enum(FORMACIONES), prioridad: z.enum(['P', 'C']).default('P') }).strict()).max(4) }).strict()
+  .refine((b) => new Set(b.formaciones.map((x) => x.formacion)).size === b.formaciones.length)
+const ListaFormaciones = z.array(z.object({ formacion: z.enum(FORMACIONES), prioridad: z.enum(['P', 'C']).default('P') }).strict()).max(4)
+  .refine((l) => new Set(l.map((x) => x.formacion)).size === l.length)
+rutas.post('/plantillas/categorias', exigirSesion, exigirPermiso('plantillas.revisar'), validar(z.object({ id: IdCategoria, nombre: NombreCategoria, tipo: TipoPlantilla.default('recurso'), formaciones: ListaFormaciones.optional() }).strict(), 'body'), async (req, res, next) => {
   try {
-    const { id, nombre, tipo } = req.bodyOk
-    const r = await sinUsuario(Q.categoriaCrear, [id, nombre, tipo])
+    const { id, nombre, tipo, formaciones = [] } = req.bodyOk
+    // la categoría y sus formaciones se guardan juntas: o queda todo o no queda nada
+    const r = await conTransaccion(async (c) => {
+      const x = await c.query(Q.categoriaCrear, [id, nombre, tipo])
+      if (x.rowCount) for (const f of formaciones) await c.query(Q.formacionPoner, [id, f.formacion, f.prioridad])
+      return x
+    })
     if (!r.rowCount) return res.status(409).json({ error: 'Ya existe una categoría con el ID ' + id + '.' })
     await auditar(req.usuario.id, 'plantilla_categoria_crear', 'plantilla_categoria', id, req)
     res.status(201).json({ id, nombre })
@@ -391,8 +400,6 @@ rutas.delete('/plantillas/categorias/:id', exigirSesion, exigirPermiso('plantill
     res.json({ ok: true })
   } catch (e) { next(e) }
 })
-const CuerpoFormaciones = z.object({ formaciones: z.array(z.object({ formacion: z.enum(FORMACIONES), prioridad: z.enum(['P', 'C']).default('P') }).strict()).max(4) }).strict()
-  .refine((b) => new Set(b.formaciones.map((x) => x.formacion)).size === b.formaciones.length)
 rutas.put('/plantillas/categorias/:id/formaciones', exigirSesion, exigirPermiso('plantillas.revisar'), validar(z.object({ id: IdCategoria }), 'params'), validar(CuerpoFormaciones, 'body'), async (req, res, next) => {
   try {
     const { id } = req.paramsOk

@@ -500,3 +500,6 @@
 .btn.rv2-btn>svg{flex:none;margin-right:4px}
 .btn.rv2-btn.hd{padding:0 14px 0 22px;gap:18px}
 .top:has(.rv2) .top-curva{display:none}
+
+/* Formaciones dentro del formulario de «Nueva categoría»: ocupan todo el ancho */
+.cat-form .cat-ren-formaciones{grid-column:1/-1}

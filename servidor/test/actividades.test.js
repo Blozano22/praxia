@@ -70,6 +70,15 @@ test('categorías de actividad con códigos «ACT-G-01» y «ACT-E-TEC-03», mar
   assert.equal((await dani('PUT', '/plantillas/categorias/ACT-G-03/formaciones', { formaciones: [{ formacion: 'tecnologico' }] })).status, 200)
   const c = (await (await dani('GET', '/plantillas/categorias')).json()).categorias.find((x) => x.id === 'ACT-E-TEC-03')
   assert.equal(c.tipo, 'actividad')
+  // crear una categoría ya con sus formaciones (una sola llamada); un valor repetido o desconocido no deja nada a medias
+  const antes = (await (await dani('GET', '/plantillas/categorias')).json()).categorias.length
+  assert.equal((await dani('POST', '/plantillas/categorias', { id: 'ACT-X-09', nombre: 'Con formaciones', tipo: 'actividad', formaciones: [{ formacion: 'tecnologico', prioridad: 'P' }, { formacion: 'profesional', prioridad: 'C' }] })).status, 201)
+  assert.equal((await dani('POST', '/plantillas/categorias', { id: 'ACT-X-08', nombre: 'Repetida', tipo: 'actividad', formaciones: [{ formacion: 'tecnologico' }, { formacion: 'tecnologico' }] })).status, 400)
+  assert.equal((await dani('POST', '/plantillas/categorias', { id: 'ACT-X-07', nombre: 'Rara', tipo: 'actividad', formaciones: [{ formacion: 'inventada' }] })).status, 400)
+  const j = await (await dani('GET', '/plantillas/categorias')).json()
+  assert.equal(j.categorias.length, antes + 1)
+  assert.deepEqual(j.formaciones['ACT-X-09'].map((f) => [f.formacion, f.prioridad]).sort(), [['profesional', 'C'], ['tecnologico', 'P']])
+  assert.equal((await dani('DELETE', '/plantillas/categorias/ACT-X-09')).status, 200)
 })
 
 test('subir una actividad exige decir si es calificable o práctica, y el nombre sale del plan: categoría, formación, tipo y número de variante', async () => {

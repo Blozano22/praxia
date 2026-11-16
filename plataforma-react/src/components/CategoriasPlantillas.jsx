@@ -32,7 +32,10 @@ export function EtiquetasFormacion({ lista, vacio = true }) {
   )
 }
 
-// Casillas de formación con su prioridad (para editar una categoría).
+// Formaciones marcadas ({ tec: 'P', ... }) como las pide el servidor.
+const listaFormaciones = (v) => FORMACIONES.filter((f) => v && v[f.id]).map((f) => ({ formacion: f.id, prioridad: v[f.id] }))
+
+// Casillas de formación con su prioridad (para crear o editar una categoría).
 function EditorFormaciones({ valor, onChange }) {
   return (
     <fieldset className="cat-ren-formaciones">
@@ -206,10 +209,10 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
   }
   const asignar = (plantilla, categoria) => hacer(() => api('PUT', '/plantillas/asignacion/' + encodeURIComponent(plantilla), { categoria }))
   const asignarTodas = () => hacer(async () => { for (const n of sin) await api('PUT', '/plantillas/asignacion/' + encodeURIComponent(n), { categoria: paraTodas }); setParaTodas('') }, 'Categoría asignada a ' + sin.length + (sin.length === 1 ? ' plantilla' : ' plantillas'))
-  const crear = () => hacer(async () => { await api('POST', '/plantillas/categorias', { id: nueva.id.trim().toUpperCase(), nombre: nueva.nombre.trim(), tipo: nueva.tipo }); setVer(nueva.tipo); setNueva(null) }, 'Categoría creada')
+  const crear = () => hacer(async () => { await api('POST', '/plantillas/categorias', { id: nueva.id.trim().toUpperCase(), nombre: nueva.nombre.trim(), tipo: nueva.tipo, formaciones: listaFormaciones(nueva.formaciones) }); setVer(nueva.tipo); setNueva(null) }, 'Categoría creada')
   const guardarEdicion = () => hacer(async () => {
     await api('PUT', '/plantillas/categorias/' + edit.id, { nombre: edit.nombre.trim(), tipo: edit.tipo })
-    await api('PUT', '/plantillas/categorias/' + edit.id + '/formaciones', { formaciones: FORMACIONES.filter((f) => edit.formaciones && edit.formaciones[f.id]).map((f) => ({ formacion: f.id, prioridad: edit.formaciones[f.id] })) })
+    await api('PUT', '/plantillas/categorias/' + edit.id + '/formaciones', { formaciones: listaFormaciones(edit.formaciones) })
     if (edit.tipo !== ver) setVer(edit.tipo)
     setEdit(null)
   }, 'Cambios guardados')
@@ -265,7 +268,7 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
             <div className="cat-barra">
               {!nueva && (
                 <>
-                  <button className="btn" onClick={() => setNueva({ id: '', nombre: '', tipo: ver })}>+ Nueva categoría</button>
+                  <button className="btn" onClick={() => setNueva({ id: '', nombre: '', tipo: ver, formaciones: {} })}>+ Nueva categoría</button>
                 </>
               )}
               {nueva && (
@@ -278,6 +281,7 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
                   <label>Nombre
                     <input value={nueva.nombre} onChange={(e) => setNueva({ ...nueva, nombre: e.target.value })} placeholder={nueva.tipo === 'actividad' ? 'Crucigrama' : 'Tarjetas de repaso'} maxLength={120} />
                   </label>
+                  <EditorFormaciones valor={nueva.formaciones || {}} onChange={(formaciones) => setNueva({ ...nueva, formaciones })} />
                   <div className="cat-form-acc">
                     <button className="btn" type="submit" disabled={ocupado || !idValido || idRepetido || !nueva.nombre.trim()}>Crear</button>
                     <button className="btn sec" type="button" onClick={() => setNueva(null)}>Cancelar</button>
