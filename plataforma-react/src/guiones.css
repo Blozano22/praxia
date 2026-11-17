@@ -173,3 +173,17 @@
 .cx-switch:hover:not(:disabled){border-color:var(--nav)}
 .cx-switch:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
 .cx-switch:disabled{opacity:.6;cursor:default}
+
+/* Guiones: formación del curso (se elige antes de crear los guiones) */
+.gu-formacion{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 18px;margin:0 0 14px;padding:12px 14px;border:1px solid #d9e0ee;border-radius:14px;background:#fff}
+.gu-formacion.falta{border-color:#e0a100;background:#fff8e1}
+.gu-formacion-tx{display:flex;flex-direction:column;gap:2px;min-width:220px;flex:1}
+.gu-formacion-tx b{font-size:.9rem;color:var(--nav)}
+.gu-formacion-tx small{font-size:.78rem;line-height:1.4;color:var(--muted)}
+.gu-formacion.falta .gu-formacion-tx small{color:#8a5d00}
+.gu-formacion .cs-seg{flex-wrap:wrap}
+
+/* Guiones: el error de preparación trae varias líneas («• motivo: categorías») y se respetan; aviso del modo de pruebas */
+.gu-error{white-space:pre-line;line-height:1.6}
+.gu-pruebas{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;margin:0 0 14px;padding:9px 14px;border-radius:12px;background:#fff1c9;color:#6b4a00;font-size:.84rem}
+.gu-pruebas b{font-weight:800}

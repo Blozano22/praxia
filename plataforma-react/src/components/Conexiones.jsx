@@ -76,7 +76,7 @@ function ModoPruebas({ aviso }) {
         <span className="cx-ico" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={ICONOS.codigo} /></svg></span>
         <div>
           <h2>Modo de pruebas de plantillas</h2>
-          <p>Mientras no estén aprobadas todas las plantillas, al pedir «Generar guiones» Praxia asigna <b>cualquier plantilla subida</b>, aprobada o no y de cualquier formación (las de la formación del curso van primero), y no se detiene si el curso no dice su formación. <b>Apáguelo antes de producción.</b></p>
+          <p>Mientras no estén aprobadas todas las plantillas, al pedir «Generar guiones» Praxia asigna <b>cualquier plantilla subida</b>, aprobada o no y de cualquier formación (las de la formación del curso van primero), y no se detiene si el curso no dice su formación. Vale para <b>todas las personas</b>, no solo para la administración, y <b>viene encendido</b> hasta que alguien lo apague aquí. <b>Apáguelo cuando las plantillas ya estén aprobadas.</b></p>
         </div>
       </div>
       <div className="cx-dir">
@@ -86,7 +86,7 @@ function ModoPruebas({ aviso }) {
             <i aria-hidden="true" /><span>{on ? 'Encendido' : 'Apagado'}</span>
           </button>
         </div>
-        <span className={'cx-est ' + (on ? 'cambio' : 'ok')} aria-live="polite"><i aria-hidden="true" />{on ? 'Encendido: se usan plantillas sin aprobar. Recuerde apagarlo antes de producción.' : 'Apagado: solo se asignan plantillas aprobadas de la formación del curso.'}</span>
+        <span className={'cx-est ' + (on ? 'cambio' : 'ok')} aria-live="polite"><i aria-hidden="true" />{on ? 'Encendido: se usan plantillas sin aprobar. Apáguelo cuando ya estén aprobadas.' : 'Apagado: solo se asignan plantillas aprobadas de la formación del curso.'}</span>
         {error && <div className="msg bad" role="alert">{error}</div>}
       </div>
     </section>

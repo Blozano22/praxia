@@ -31,6 +31,7 @@ before(async () => {
 
   process.env.DATABASE_URL = `postgres://ova_app:appclave@localhost:${PUERTO_PG}/ova`
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex')
+  process.env.PRUEBAS_PLANTILLAS = '0' // por defecto el modo de pruebas de plantillas está encendido; estas pruebas parten de apagado
   process.env.LIMITE_LOGIN = '1000' // la prueba hace muchos accesos desde una misma IP
   const { crearApp } = await import('../src/app.js')
   const db = await import('../src/db.js')

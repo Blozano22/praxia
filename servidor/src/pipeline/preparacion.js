@@ -15,8 +15,10 @@ import { Q } from '../consultas.js'
 // asigna CUALQUIER plantilla subida (aprobada o no, de cualquier formación; las de la formación del curso van primero) y no se detiene si el curso no dice su formación.
 // Debe apagarse antes de producción: con él encendido un curso real puede recibir plantillas sin aprobar.
 export const CLAVE_PRUEBAS = 'n8n.pruebas_plantillas'
+// «1» = encendido, «0» = apagado por la administración; sin valor guardado manda el valor por defecto (config.pruebasPlantillasPorDefecto).
+export const pruebasEncendidas = (valor) => (valor === '1' ? true : valor === '0' ? false : config.pruebasPlantillasPorDefecto)
 export async function modoPruebasPlantillas() {
-  try { const f = (await sinUsuario(Q.configLeer, [[CLAVE_PRUEBAS]])).rows[0]; return !!f && f.valor === '1' } catch { return false }
+  try { const f = (await sinUsuario(Q.configLeer, [[CLAVE_PRUEBAS]])).rows[0]; return pruebasEncendidas(f ? f.valor : undefined) } catch { return config.pruebasPlantillasPorDefecto }
 }
 
 // Un error con un mensaje listo para mostrarle a la persona tal cual.
@@ -102,7 +104,7 @@ export async function asegurarAsignacion({ usuario, proyectoId, unidad, reasigna
   const pruebas = await modoPruebasPlantillas()
   // En el modo de pruebas, un curso sin formación se prepara igual (Tecnológico solo como referencia para ordenar: se usan todas las plantillas subidas).
   const formacion = formacionDeCurso(datos) || (pruebas ? 'tecnologico' : null)
-  if (!formacion) throw new ErrorPropio('El curso no dice su formación (Tecnológico, Profesional, Especialización o Doctorado): se necesita para elegir las variantes de las plantillas.')
+  if (!formacion) throw new ErrorPropio('El curso no dice su formación (Tecnológico, Profesional, Especialización o Doctorado): elíjala en «Formación del curso», arriba del botón «Crear los guiones»; se necesita para elegir las variantes de las plantillas.')
   const filas = async () => (await sinUsuario(Q.asignConsultar, [usuario.id, proyectoId, unidad, null])).rows
   let rows = await filas()
   // Se prepara si se pidió volver a asignar, si la unidad aún no tiene nada, o si algo de la unidad quedó pendiente o inválido (el flujo lo vuelve a pedir y se resuelve).
@@ -119,8 +121,11 @@ export async function asegurarAsignacion({ usuario, proyectoId, unidad, reasigna
   if (!rows.length) throw new ErrorPropio('La preparación del curso terminó, pero no asignó variantes a la unidad ' + unidad + '.')
   const malas = rows.filter((f) => f.estado !== 'asignada')
   if (malas.length) {
-    const lista = malas.slice(0, 8).map((f) => f.codigo + ' (' + motivoTexto(f.motivo) + ')').join('; ') + (malas.length > 8 ? '; y ' + (malas.length - 8) + ' más' : '')
-    throw new ErrorPropio(('Sin variante de plantilla para estos recursos de la unidad ' + unidad + ': ' + lista + '. Apruebe o suba más variantes de esas categorías y vuelva a generar.').slice(0, 580))
+    // Agrupado por motivo y, dentro de cada uno, por categoría (con cuántos recursos): dice qué categorías hay que atender y cabe en el límite de 600 caracteres.
+    const porMotivo = new Map()
+    for (const f of malas) { const m = motivoTexto(f.motivo); const g = porMotivo.get(m) || new Map(); g.set(f.categoria, (g.get(f.categoria) || 0) + 1); porMotivo.set(m, g) }
+    const lineas = [...porMotivo].map(([m, g]) => '• ' + m.charAt(0).toUpperCase() + m.slice(1) + ': ' + [...g].map(([c, n]) => c + (n > 1 ? ' ×' + n : '')).join(', '))
+    throw new ErrorPropio(('Sin variante de plantilla en la unidad ' + unidad + ' (' + malas.length + (malas.length === 1 ? ' recurso' : ' recursos') + '):\n' + lineas.join('\n') + '\nApruebe o suba más variantes de esas categorías y vuelva a generar.').slice(0, 590))
   }
   return { asignaciones: rows.map((f) => ({ codigo: f.codigo, id_catalogo: f.id_catalogo, id_base: f.id_base, categoria: f.categoria, formacion: f.formacion, plantilla: f.plantilla })) }
 }

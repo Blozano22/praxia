@@ -1,9 +1,26 @@
 import { useEffect, useState } from 'react'
 import { api } from '../lib/api.js'
 import EnlaceDoc from './EnlaceDoc.jsx'
-import { mensajeDeError } from '../lib/syllabus.js'
+import { cargarConfigN8n, leerPruebasPlantillas, mensajeDeError } from '../lib/syllabus.js'
 import { descartarError, iniciarGuiones, useTrabajoGuiones } from '../lib/trabajosGuiones.js'
 import { guionAPendiente } from '../lib/guionJson.js'
+import { FORMACIONES } from '../lib/formaciones.js'
+
+// Formación del curso (Tecnológico, Profesional, Especialización o Doctorado): de ella depende qué plantillas se le asignan. Ningún paso anterior la guarda sola,
+// así que se elige aquí (queda en el curso, como «nivel»; el servidor la lee con el mismo texto). Debe ser la misma que dice el documento de la unidad.
+const formacionDe = (s) => { const t = String(((s && s.info) || {}).nivel || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); return /tecnolog/.test(t) ? 'tecnologico' : /profesional|licenciatura|pregrado/.test(t) ? 'profesional' : /especializ/.test(t) ? 'especializacion' : /doctor/.test(t) ? 'doctorado' : '' }
+function FormacionCurso({ s, onCambio }) {
+  const actual = formacionDe(s)
+  const elegir = (f) => { if (f.id !== actual) onCambio({ ...s, info: { ...(s.info || {}), nivel: f.nombre } }) }
+  return (
+    <div className={'gu-formacion' + (actual ? '' : ' falta')} role="group" aria-label="Formación del curso">
+      <div className="gu-formacion-tx"><b>Formación del curso</b><small>{actual ? 'Con ella se eligen las plantillas de los recursos. Debe ser la que dice el documento de la unidad.' : 'Elíjala antes de crear los guiones: sin ella no se pueden elegir las plantillas del curso.'}</small></div>
+      <div className="cs-seg" role="radiogroup" aria-label="Formación del curso">
+        {FORMACIONES.map((f) => <button key={f.id} type="button" role="radio" aria-checked={actual === f.id} className={actual === f.id ? 'on' : ''} onClick={() => elegir(f)}>{f.nombre}</button>)}
+      </div>
+    </div>
+  )
+}
 
 function Contenido({ a }) {
   const g = a.guion || {}
@@ -107,6 +124,9 @@ function useSegundos(desde, activo) {
 // uno por uno y entonces se habilita «Crear los recursos».
 export default function Guiones({ s, unidad, doc, onCambio, onCrear }) {
   const [error, setError] = useState('')
+  // ¿Está encendido el modo de pruebas de plantillas? (lo enciende la administración en «Conexión n8n»): se avisa a quien genera que se usan plantillas sin aprobar.
+  const [pruebas, setPruebas] = useState(false)
+  useEffect(() => { let vivo = true; cargarConfigN8n().then(() => { if (vivo) setPruebas(leerPruebasPlantillas()) }); return () => { vivo = false } }, [])
   const data = (s.guionesUnidad || {})[unidad]
   const archivos = (data && data.archivos) || []
   const aprobados = archivos.filter((a) => a.aprobado).length
@@ -251,6 +271,8 @@ export default function Guiones({ s, unidad, doc, onCambio, onCrear }) {
 
       {!archivos.length && !cargando && (
         <div style={{ marginTop: 18 }}>
+          {doc && doc.url && <FormacionCurso s={s} onCambio={onCambio} />}
+          {doc && doc.url && pruebas && <div className="gu-pruebas" role="note"><b>Modo de pruebas</b><span>Se usan plantillas aunque no estén aprobadas.</span></div>}
           {doc && doc.url ? <button className="btn gold gu-ir" onClick={() => generar()}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6" /></svg>Crear los guiones de la Unidad {unidad}</button>
             : <div className="msg warn">Esta unidad no tiene enlace del documento: agréguelo en el paso 1 para poder crear sus guiones.</div>}
         </div>
@@ -261,7 +283,7 @@ export default function Guiones({ s, unidad, doc, onCambio, onCrear }) {
           <div><b>Generando los guiones de la Unidad {unidad}… ({segundos}) </b>n8n está leyendo la unidad y escribiendo un guion por tema. Puede tardar varios minutos. Puede salir de esta unidad: seguirá trabajando y no hace falta pulsar de nuevo.</div>
         </div>
       )}
-      {error && <div className="msg warn" style={{ marginTop: 10 }}>{error} <button className="btn sec sm" onClick={() => generar()}>Reintentar</button></div>}
+      {error && <div className="msg warn gu-error" style={{ marginTop: 10 }}>{error} <button className="btn sec sm" onClick={() => generar()}>Reintentar</button></div>}
       {lecturas && (
         <div className="msg warn gv-vincular" style={{ marginTop: 10 }} role="status">
           <b>Falta enlazar la bibliografía de este syllabus.</b>

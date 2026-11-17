@@ -30,6 +30,7 @@ before(async () => {
   await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', '005_asignacion_variantes.sql'), 'utf8')) // volver a migrar no repite ni pisa nada
   process.env.DATABASE_URL = `postgres://ova_app:appclave@localhost:${PUERTO_PG}/ova`
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex')
+  process.env.PRUEBAS_PLANTILLAS = '0' // por defecto el modo de pruebas de plantillas está encendido; estas pruebas parten de apagado
   process.env.N8N_EVENTOS_SECRETO = SECRETO
   const { crearApp } = await import('../src/app.js')
   const db = await import('../src/db.js')

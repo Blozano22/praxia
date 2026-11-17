@@ -59,6 +59,7 @@ before(async () => {
   const puerto = n8n.address().port
   process.env.DATABASE_URL = `postgres://ova_app:appclave@localhost:${PUERTO_PG}/ova`
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex')
+  process.env.PRUEBAS_PLANTILLAS = '0' // por defecto el modo de pruebas de plantillas está encendido; estas pruebas parten de apagado
   process.env.N8N_EVENTOS_SECRETO = SECRETO
   process.env.N8N_PREPARACION_URL = 'http://127.0.0.1:' + puerto + '/webhook/preparacion'
   process.env.LIMITE_LOGIN = '1000'
@@ -150,7 +151,7 @@ test('la preparación asigna las variantes de todo el curso y los guiones de cad
   const r2 = await ana('POST', '/guiones/trabajos', pedido('curso-g', bib, 2))
   assert.equal(r2.status, 202)
   const t2 = await terminado(ana, 'curso-g', 2)
-  assert.equal(t2.estado, 'error'); assert.match(t2.error, /unidad 2.*U2-T1-R1 \(ya no quedan variantes libres/)
+  assert.equal(t2.estado, 'error'); assert.match(t2.error, /unidad 2 \(1 recurso\):\n• Ya no quedan variantes libres[^:]*: TST-01\n/)
   assert.equal(prep.length, 2); assert.equal(guiones.length, 1) // no se generaron guiones con huecos
   await limpiar(ana, t2)
   // se aprueba otra variante: al volver a generar la unidad 2 se resuelve, y lo de la unidad 1 sigue igual
@@ -249,7 +250,7 @@ test('modo de pruebas de plantillas: se asignan las plantillas subidas aunque no
   assert.equal(t0.estado, 'error'); assert.match(t0.error, /no dice su formación/); await limpiar(ana, t0)
   assert.equal((await ana('POST', '/guiones/trabajos', pedido('curso-conf', bibCon, 1))).status, 202)
   const t1 = await terminado(ana, 'curso-conf', 1)
-  assert.equal(t1.estado, 'error'); assert.match(t1.error, /U1-T1-R1 \(no hay variantes aprobadas/); await limpiar(ana, t1)
+  assert.equal(t1.estado, 'error'); assert.match(t1.error, /unidad 1 \(2 recursos\):\n• No hay variantes aprobadas: PRU-01 ×2\n/); await limpiar(ana, t1)
   // con el modo encendido (lo enciende la administración en «Conexión n8n»): se asigna lo subido, las de la formación del curso primero
   await dueno.query("INSERT INTO configuracion (clave, valor) VALUES ('n8n.pruebas_plantillas', '1') ON CONFLICT (clave) DO UPDATE SET valor = '1'")
   const antesPrep = prep.length
@@ -266,8 +267,8 @@ test('modo de pruebas de plantillas: se asignan las plantillas subidas aunque no
   assert.equal(prep[prep.length - 1].formacion, 'tecnologico'); assert.equal(guiones[guiones.length - 1].asignaciones.length, 2)
   await limpiar(ana, t3)
   // apagado: vuelve a exigirse lo aprobado
-  await dueno.query("DELETE FROM configuracion WHERE clave = 'n8n.pruebas_plantillas'")
+  await dueno.query("UPDATE configuracion SET valor = '0' WHERE clave = 'n8n.pruebas_plantillas'")
   assert.equal((await ana('POST', '/guiones/trabajos', pedido('curso-conf', bibCon, 1, { reasignar: true }))).status, 202)
   const t4 = await terminado(ana, 'curso-conf', 1)
-  assert.equal(t4.estado, 'error'); assert.match(t4.error, /no hay variantes aprobadas/); await limpiar(ana, t4)
+  assert.equal(t4.estado, 'error'); assert.match(t4.error, /No hay variantes aprobadas/); await limpiar(ana, t4)
 })

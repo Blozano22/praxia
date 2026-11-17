@@ -44,6 +44,7 @@ before(async () => {
   }).listen(0)
   process.env.DATABASE_URL = `postgres://ova_app:appclave@localhost:${PUERTO_PG}/ova`
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex')
+  process.env.PRUEBAS_PLANTILLAS = '0' // por defecto el modo de pruebas de plantillas está encendido; estas pruebas parten de apagado
   process.env.N8N_EVENTOS_SECRETO = SECRETO
   process.env.LIMITE_LANZAR_PIPELINE = '500'
   process.env.N8N_MATRICES_URL = 'http://127.0.0.1:' + n8n.address().port + '/webhook/matrices'

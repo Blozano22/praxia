@@ -83,7 +83,8 @@ export async function sincronizar() {
         if (!t || t.error || t.servidorId !== j.id) trabajos.set(k, { servidorId: j.id, desde: Date.parse(j.creado) || Date.now(), error: null, sinBib: false })
       } else if (j.estado === 'listo') {
         await aplicar(j)
-      } else if (j.estado === 'error' && !descartados.has(j.id) && !(t && t.servidorId === j.id)) {
+      } else if (j.estado === 'error' && !descartados.has(j.id) && !(t && t.error && t.servidorId === j.id)) {
+        // Aunque la pantalla ya tuviera este mismo trabajo como «generando» (lo lanzó ella), si el servidor dice que falló se muestra el error: antes se ignoraba y el contador desaparecía sin decir nada.
         trabajos.set(k, { servidorId: j.id, desde: 0, error: new Error(j.error || 'La generación de guiones falló.'), sinBib: false })
       }
     }
