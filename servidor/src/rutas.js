@@ -9,7 +9,7 @@ import { config } from './config.js'
 import { extraerEnlaces } from './enlaces.js'
 import { armarSubida, compararEsquemas, MAX_HTML, NOMBRES_RESERVADOS } from './plantillas/subidas.js'
 import { EsquemaLanzarH5p, EsquemaLanzarMatrices, lanzarH5p, lanzarMatrices, urlH5p, urlMatrices } from './pipeline/lanzar.js'
-import { urlPreparacion } from './pipeline/preparacion.js'
+import { CLAVE_PRUEBAS, urlPreparacion } from './pipeline/preparacion.js'
 import { invalidarAsignaciones } from './pipeline/asignaciones.js'
 import { publicarAviso, tomarAvisos } from './avisos.js'
 import { COOKIE, claveValida, compararClave, emitirSesion, exigirAlguno, exigirPermiso, exigirSesion, hashClave } from './seguridad.js'
@@ -314,15 +314,20 @@ rutas.patch('/usuarios/:id/clave', ...admin, validar(z.object({ id: IdUsuario })
 const CLAVES_N8N = { syllabus: 'n8n.syllabus', guiones: 'n8n.guiones', matrices: 'n8n.matrices', h5p: 'n8n.h5p', preparacion: 'n8n.preparacion' }
 rutas.get('/config/n8n', exigirSesion, async (req, res, next) => {
   try {
-    const f = (await sinUsuario(Q.configLeer, [Object.values(CLAVES_N8N)])).rows
+    const f = (await sinUsuario(Q.configLeer, [[...Object.values(CLAVES_N8N), CLAVE_PRUEBAS]])).rows
     const v = (c) => (f.find((x) => x.clave === c) || {}).valor || ''
-    res.json({ syllabus: v(CLAVES_N8N.syllabus), guiones: v(CLAVES_N8N.guiones), matrices: v(CLAVES_N8N.matrices), h5p: v(CLAVES_N8N.h5p), preparacion: v(CLAVES_N8N.preparacion) }) // '' = la dirección original
+    res.json({ syllabus: v(CLAVES_N8N.syllabus), guiones: v(CLAVES_N8N.guiones), matrices: v(CLAVES_N8N.matrices), h5p: v(CLAVES_N8N.h5p), preparacion: v(CLAVES_N8N.preparacion), pruebas_plantillas: v(CLAVE_PRUEBAS) === '1' }) // '' = la dirección original
   } catch (e) { next(e) }
 })
 const UrlN8n = z.union([z.literal(''), z.string().trim().max(500).regex(/^https:\/\/\S+$/)])
-rutas.put('/config/n8n', ...admin, validar(z.object({ syllabus: UrlN8n.optional(), guiones: UrlN8n.optional(), matrices: UrlN8n.optional(), h5p: UrlN8n.optional(), preparacion: UrlN8n.optional() }).strict(), 'body'),
+rutas.put('/config/n8n', ...admin, validar(z.object({ syllabus: UrlN8n.optional(), guiones: UrlN8n.optional(), matrices: UrlN8n.optional(), h5p: UrlN8n.optional(), preparacion: UrlN8n.optional(), pruebas_plantillas: z.boolean().optional() }).strict(), 'body'),
   async (req, res, next) => {
     try {
+      // Modo de pruebas de plantillas: encendido, la preparación del curso asigna cualquier plantilla subida (aprobada o no). Se registra quién lo cambia.
+      if (req.bodyOk.pruebas_plantillas !== undefined) {
+        if (req.bodyOk.pruebas_plantillas) await sinUsuario(Q.configGuardar, [CLAVE_PRUEBAS, '1']); else await sinUsuario(Q.configBorrar, [CLAVE_PRUEBAS])
+        await auditar(req.usuario.id, req.bodyOk.pruebas_plantillas ? 'pruebas_plantillas_encender' : 'pruebas_plantillas_apagar', 'configuracion', null, req)
+      }
       for (const [campo, clave] of Object.entries(CLAVES_N8N)) {
         const u = req.bodyOk[campo]
         if (u === undefined) continue

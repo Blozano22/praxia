@@ -62,6 +62,7 @@ before(async () => {
   process.env.N8N_EVENTOS_SECRETO = SECRETO
   process.env.N8N_PREPARACION_URL = 'http://127.0.0.1:' + puerto + '/webhook/preparacion'
   process.env.LIMITE_LOGIN = '1000'
+  process.env.LIMITE_GUIONES = '1000'
   const { crearApp } = await import('../src/app.js')
   const db = await import('../src/db.js')
   const { hashClave } = await import('../src/seguridad.js')
@@ -226,4 +227,47 @@ test('si el flujo de preparación falla o no deja variantes, el trabajo termina 
   assert.equal(t3.estado, 'error'); assert.match(t3.error, /no dice su formación/)
   await limpiar(ana, t3)
   assert.equal(guiones.length, antesGui) // en ningún caso se llamó al flujo de guiones
+})
+
+test('modo de pruebas de plantillas: se asignan las plantillas subidas aunque no estén aprobadas ni sean de la formación, y un curso sin formación no se detiene; apagado, todo vuelve a exigirse', async () => {
+  const ana = await entrar('ana@u.co')
+  // dos plantillas SUBIDAS pero sin aprobar: una de Tecnológico y otra de Profesional
+  await dueno.query("INSERT INTO plantilla_categorias (id, nombre) VALUES ('PRU-01', 'Prueba')")
+  for (const [nombre, formacion] of [['pru-01-tec-v01', 'tecnologico'], ['pru-01-pro-v01', 'profesional']]) {
+    await dueno.query("INSERT INTO plantilla_subidas (nombre, html_crudo, html, subida_nombre, formacion) VALUES ($1, 'x', 'x', 'prueba', $2)", [nombre, formacion])
+    await dueno.query('INSERT INTO plantilla_categoria (plantilla, categoria) VALUES ($1, $2)', [nombre, 'PRU-01'])
+    await dueno.query('INSERT INTO plantilla_categoria_formacion (categoria, formacion) VALUES ($1, $2)', ['PRU-01', formacion])
+  }
+  // sin el modo: el curso sin formación se detiene, y con formación no hay variantes aprobadas
+  assert.equal((await ana('PUT', '/proyectos/curso-sinf', curso('curso-sinf', [1, 2], ''))).status, 200)
+  assert.equal((await ana('PUT', '/proyectos/curso-conf', curso('curso-conf'))).status, 200)
+  const bibSin = await bibliografia('curso-sinf'); const bibCon = await bibliografia('curso-conf')
+  planPrep['curso-sinf'] = [rec('U1-T1-R1', 'PRU-01'), rec('U1-T1-R2', 'PRU-01')]
+  planPrep['curso-conf'] = [rec('U1-T1-R1', 'PRU-01'), rec('U1-T1-R2', 'PRU-01')]
+  assert.equal((await ana('POST', '/guiones/trabajos', pedido('curso-sinf', bibSin, 1))).status, 202)
+  const t0 = await terminado(ana, 'curso-sinf', 1)
+  assert.equal(t0.estado, 'error'); assert.match(t0.error, /no dice su formación/); await limpiar(ana, t0)
+  assert.equal((await ana('POST', '/guiones/trabajos', pedido('curso-conf', bibCon, 1))).status, 202)
+  const t1 = await terminado(ana, 'curso-conf', 1)
+  assert.equal(t1.estado, 'error'); assert.match(t1.error, /U1-T1-R1 \(no hay variantes aprobadas/); await limpiar(ana, t1)
+  // con el modo encendido (lo enciende la administración en «Conexión n8n»): se asigna lo subido, las de la formación del curso primero
+  await dueno.query("INSERT INTO configuracion (clave, valor) VALUES ('n8n.pruebas_plantillas', '1') ON CONFLICT (clave) DO UPDATE SET valor = '1'")
+  const antesPrep = prep.length
+  assert.equal((await ana('POST', '/guiones/trabajos', pedido('curso-conf', bibCon, 1, { reasignar: true }))).status, 202)
+  const t2 = await terminado(ana, 'curso-conf', 1)
+  assert.equal(t2.estado, 'listo', t2.error)
+  assert.equal(prep.length, antesPrep + 1); assert.equal(prep[prep.length - 1].modo_pruebas, true)
+  assert.deepEqual(guiones[guiones.length - 1].asignaciones.map((a) => [a.codigo, a.plantilla]), [['U1-T1-R1', 'pru-01-tec-v01'], ['U1-T1-R2', 'pru-01-pro-v01']]) // la de Tecnológico primero, y luego la otra
+  await limpiar(ana, t2)
+  // el curso que no dice su formación ya no se detiene: llega al flujo y recibe plantillas
+  assert.equal((await ana('POST', '/guiones/trabajos', pedido('curso-sinf', bibSin, 1))).status, 202)
+  const t3 = await terminado(ana, 'curso-sinf', 1)
+  assert.equal(t3.estado, 'listo', t3.error)
+  assert.equal(prep[prep.length - 1].formacion, 'tecnologico'); assert.equal(guiones[guiones.length - 1].asignaciones.length, 2)
+  await limpiar(ana, t3)
+  // apagado: vuelve a exigirse lo aprobado
+  await dueno.query("DELETE FROM configuracion WHERE clave = 'n8n.pruebas_plantillas'")
+  assert.equal((await ana('POST', '/guiones/trabajos', pedido('curso-conf', bibCon, 1, { reasignar: true }))).status, 202)
+  const t4 = await terminado(ana, 'curso-conf', 1)
+  assert.equal(t4.estado, 'error'); assert.match(t4.error, /no hay variantes aprobadas/); await limpiar(ana, t4)
 })

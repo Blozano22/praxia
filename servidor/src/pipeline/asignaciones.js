@@ -14,6 +14,7 @@ import { config } from '../config.js'
 import { conTransaccion, sinUsuario } from '../db.js'
 import { Q } from '../consultas.js'
 import { firmaValida } from './eventos.js'
+import { modoPruebasPlantillas } from './preparacion.js'
 
 export const rutasAsignaciones = Router()
 const limite = rateLimit({ windowMs: 60 * 1000, limit: 300, keyGenerator: (req) => ipKeyGenerator(req.ip), standardHeaders: true, legacyHeaders: false })
@@ -59,8 +60,10 @@ const unidadDe = (codigo) => Number(/^U(\d+)-/.exec(codigo)[1])
 // Variantes que pueden asignarse a un recurso: de esa categoría, aprobadas (salvo que se pida lo contrario) y de la formación del curso.
 // Las que no dicen su formación (subidas antiguas) valen SOLO si la categoría sirve a una única formación (entonces es la de la categoría); en una categoría compartida
 // entre formaciones no se sabe de cuál es y no se reparten (habría que decirle su formación a la variante), y van después de las que sí la dicen.
-function elegibles(variantes, formacion, formacionesCategoria, soloAprobadas) {
+function elegibles(variantes, formacion, formacionesCategoria, soloAprobadas, pruebas = false) {
   if (!variantes.length) return { lista: [], motivo: 'categoria_sin_variantes' }
+  // Modo de pruebas: todas las subidas, estén aprobadas o no y sean de la formación que sean; primero las de la formación del curso, luego las que no dicen formación.
+  if (pruebas) { const rango = (v) => (v.formacion === formacion ? 0 : !v.formacion ? 1 : 2); return { lista: [...variantes].sort((a, b) => rango(a) - rango(b)), motivo: null } }
   if (formacionesCategoria.length && !formacionesCategoria.includes(formacion)) return { lista: [], motivo: 'categoria_no_es_de_la_formacion' }
   const sinFormacionVale = formacionesCategoria.length <= 1
   const deFormacion = variantes.filter((v) => v.formacion === formacion || (!v.formacion && sinFormacionVale))
@@ -83,6 +86,7 @@ rutasAsignaciones.post('/asignaciones/pedir', limite, async (req, res, next) => 
     if (!b) return
     const o = (await sinUsuario(Q.pipeOrigenObtener, [b.trabajo_id])).rows[0]
     if (!o) return res.status(404).json({ error: 'trabajo_desconocido' })
+    const pruebas = await modoPruebasPlantillas() // interruptor de la administración: ver preparacion.js
     const resultados = await conTransaccion(async (c) => {
       // Un curso a la vez: las unidades que se piden en paralelo esperan su turno y ven lo que acaba de asignar la anterior.
       await c.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['asign:' + o.propietario_id + ':' + o.proyecto_id])
@@ -122,13 +126,14 @@ rutasAsignaciones.post('/asignaciones/pedir', limite, async (req, res, next) => 
         }
         // actividades: solo las del tipo pedido (calificable o práctica)
         const delTipo = esAct ? cat.vars.filter((v) => v.calificable === r.calificable) : cat.vars
-        let { lista, motivo } = elegibles(delTipo, b.formacion, formDe[r.categoria] || [], b.solo_aprobadas)
+        let { lista, motivo } = elegibles(delTipo, b.formacion, formDe[r.categoria] || [], b.solo_aprobadas, pruebas)
         if (esAct && cat.vars.length && !delTipo.length) motivo = r.calificable ? 'categoria_sin_calificables' : 'categoria_sin_practicas'
         let libre, repetida = false
         if (esAct) {
           // al azar entre las libres; si ya se usaron todas, se REPITE una (la menos usada) y se avisa en vez de dejar el recurso sin variante
           const libres = lista.filter((v) => !cat.usadas.has(v.nombre))
-          libre = libres.length ? azar(libres) : null
+          const preferidas = pruebas ? libres.filter((v) => v.formacion === b.formacion) : [] // en pruebas, si hay libres de la formación del curso, esas primero
+          libre = libres.length ? azar(preferidas.length ? preferidas : libres) : null
           if (!libre && lista.length) {
             const min = Math.min(...lista.map((v) => cat.veces.get(v.nombre) || 0))
             libre = azar(lista.filter((v) => (cat.veces.get(v.nombre) || 0) === min))
@@ -152,7 +157,7 @@ rutasAsignaciones.post('/asignaciones/pedir', limite, async (req, res, next) => 
       return salida
     })
     const cuenta = (x) => resultados.filter((r) => r.resultado === x).length
-    res.json({ ok: true, proyecto_id: o.proyecto_id, resultados, resumen: { asignadas: cuenta('asignada'), ya_asignadas: cuenta('ya_asignada'), pendientes: cuenta('pendiente'), conflictos: cuenta('conflicto'), errores: cuenta('error') } })
+    res.json({ ok: true, ...(pruebas ? { modo_pruebas: true } : {}), proyecto_id: o.proyecto_id, resultados, resumen: { asignadas: cuenta('asignada'), ya_asignadas: cuenta('ya_asignada'), pendientes: cuenta('pendiente'), conflictos: cuenta('conflicto'), errores: cuenta('error') } })
   } catch (e) {
     if (e && e.code === '23505') return res.status(409).json({ error: 'conflicto_concurrente', detalle: 'Otra petición asignó una variante a la vez; repita la petición.' })
     next(e)

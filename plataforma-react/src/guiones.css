@@ -163,3 +163,13 @@
 
 /* Paso terminado y activo a la vez: círculo blanco con el chulito verde */
 .stepper2 button.on.hecho i{background:#fff;color:var(--brand)}
+
+/* Conexión n8n: interruptor del modo de pruebas de plantillas */
+.cx-pruebas.activo{background:#fff8e1}
+.cx-switch{appearance:none;display:inline-flex;align-items:center;gap:12px;height:44px;padding:0 16px 0 6px;border:1.5px solid #c3ccdc;border-radius:99px;background:#fff;color:var(--nav);font:inherit;font-weight:800;font-size:.9rem;cursor:pointer;transition:background .2s,border-color .2s}
+.cx-switch i{display:block;width:34px;height:34px;border-radius:50%;background:#aab4c8;transition:transform .2s,background .2s}
+.cx-switch.on{background:#fff1c9;border-color:#e0a100}
+.cx-switch.on i{background:#e0a100;transform:translateX(0)}
+.cx-switch:hover:not(:disabled){border-color:var(--nav)}
+.cx-switch:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
+.cx-switch:disabled{opacity:.6;cursor:default}

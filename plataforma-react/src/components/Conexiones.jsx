@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import Titulo from './Titulo.jsx'
-import { cargarConfigN8n, guardarWebhook, guardarWebhookGuiones, guardarWebhookH5p, guardarWebhookMatrices, guardarWebhookPreparacion, leerWebhook, leerWebhookGuiones, leerWebhookH5p, leerWebhookMatrices, leerWebhookPreparacion } from '../lib/syllabus.js'
+import { cargarConfigN8n, guardarWebhook, guardarWebhookGuiones, guardarWebhookH5p, guardarWebhookMatrices, guardarPruebasPlantillas, guardarWebhookPreparacion, leerPruebasPlantillas, leerWebhook, leerWebhookGuiones, leerWebhookH5p, leerWebhookMatrices, leerWebhookPreparacion } from '../lib/syllabus.js'
 
 // Direcciones (webhooks) de n8n que usa la plataforma. Se guardan en el servidor: el cambio vale para todas las personas.
 const RE_URL = /^https:\/\/\S+$/
@@ -55,6 +55,44 @@ function Conexion({ titulo, ayuda, icono, leer, guardar, aviso, opcional = false
   )
 }
 
+// Interruptor de la administración: mientras no estén aprobadas las plantillas, al preparar un curso se asigna cualquier plantilla subida.
+function ModoPruebas({ aviso }) {
+  const [on, setOn] = useState(leerPruebasPlantillas())
+  const [ocupado, setOcupado] = useState(false)
+  const [error, setError] = useState('')
+  const cambiar = async () => {
+    if (ocupado) return
+    setOcupado(true); setError('')
+    try {
+      await guardarPruebasPlantillas(!on)
+      setOn(!on)
+      aviso && aviso(!on ? 'Modo de pruebas encendido' : 'Modo de pruebas apagado')
+    } catch (e) { setError(e.message || 'No se pudo guardar.') }
+    setOcupado(false)
+  }
+  return (
+    <section className={'cx-fila cx-pruebas' + (on ? ' activo' : '')}>
+      <div className="cx-que">
+        <span className="cx-ico" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={ICONOS.codigo} /></svg></span>
+        <div>
+          <h2>Modo de pruebas de plantillas</h2>
+          <p>Mientras no estén aprobadas todas las plantillas, al pedir «Generar guiones» Praxia asigna <b>cualquier plantilla subida</b>, aprobada o no y de cualquier formación (las de la formación del curso van primero), y no se detiene si el curso no dice su formación. <b>Apáguelo antes de producción.</b></p>
+        </div>
+      </div>
+      <div className="cx-dir">
+        <label htmlFor="cx-pruebas">Estado</label>
+        <div className="cx-campo">
+          <button id="cx-pruebas" type="button" role="switch" aria-checked={on} className={'cx-switch' + (on ? ' on' : '')} disabled={ocupado} onClick={cambiar}>
+            <i aria-hidden="true" /><span>{on ? 'Encendido' : 'Apagado'}</span>
+          </button>
+        </div>
+        <span className={'cx-est ' + (on ? 'cambio' : 'ok')} aria-live="polite"><i aria-hidden="true" />{on ? 'Encendido: se usan plantillas sin aprobar. Recuerde apagarlo antes de producción.' : 'Apagado: solo se asignan plantillas aprobadas de la formación del curso.'}</span>
+        {error && <div className="msg bad" role="alert">{error}</div>}
+      </div>
+    </section>
+  )
+}
+
 export default function Conexiones({ aviso }) {
   const [listo, setListo] = useState(false)
   useEffect(() => { cargarConfigN8n(true).finally(() => setListo(true)) }, []) // siempre lo último guardado en el servidor
@@ -72,6 +110,7 @@ export default function Conexiones({ aviso }) {
               leer={leerWebhook} guardar={guardarWebhook} aviso={aviso} />
             <Conexion titulo="Preparar el curso (variantes de plantillas)" icono="capas" ayuda="Se llama al pedir «Generar guiones»: lee las estructuras del curso y pide a Praxia la variante de plantilla de cada recurso. Praxia espera su respuesta (200 al terminar) antes de generar los guiones."
               leer={leerWebhookPreparacion} guardar={guardarWebhookPreparacion} aviso={aviso} opcional sinDireccion="Falta la dirección: sin ella la preparación del curso queda desactivada." />
+            <ModoPruebas aviso={aviso} />
             <Conexion titulo="Crear los guiones de una unidad" icono="doc" ayuda="Recibe una unidad ya creada y arma sus guiones. Solo se usa al trabajar dentro de un syllabus."
               leer={leerWebhookGuiones} guardar={guardarWebhookGuiones} aviso={aviso} />
             <Conexion titulo="Generar las matrices de recursos" icono="tabla" ayuda="Recibe la orden de crear (o volver a crear) la matriz de una unidad, con su formación y sus guiones. Responde enseguida y avisa el resultado a Praxia."

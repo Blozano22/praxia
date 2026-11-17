@@ -310,14 +310,21 @@ test('el administrador edita nombre y correo; no se repite un correo y los demá
 test('las direcciones de n8n son una sola para todos: las cambia solo el administrador y las lee cualquiera', async () => {
   const admin = await entrar('admin@u.co')
   const ana = await entrar('ana@u.co')
-  assert.deepEqual(await (await ana.api('GET', '/config/n8n')).json(), { syllabus: '', guiones: '', matrices: '', h5p: '', preparacion: '' })
+  assert.deepEqual(await (await ana.api('GET', '/config/n8n')).json(), { syllabus: '', guiones: '', matrices: '', h5p: '', preparacion: '', pruebas_plantillas: false })
   assert.equal((await ana.api('PUT', '/config/n8n', { guiones: 'https://n8n.u.co/webhook/x' })).status, 403)
   assert.equal((await admin.api('PUT', '/config/n8n', { guiones: 'http://n8n.u.co/webhook/x' })).status, 400)
   assert.equal((await admin.api('PUT', '/config/n8n', { guiones: 'https://n8n.u.co/webhook/x', otro: 1 })).status, 400)
   assert.equal((await admin.api('PUT', '/config/n8n', { guiones: 'https://n8n.u.co/webhook/x' })).status, 200)
-  assert.deepEqual(await (await ana.api('GET', '/config/n8n')).json(), { syllabus: '', guiones: 'https://n8n.u.co/webhook/x', matrices: '', h5p: '', preparacion: '' })
+  assert.deepEqual(await (await ana.api('GET', '/config/n8n')).json(), { syllabus: '', guiones: 'https://n8n.u.co/webhook/x', matrices: '', h5p: '', preparacion: '', pruebas_plantillas: false })
   assert.equal((await admin.api('PUT', '/config/n8n', { guiones: '' })).status, 200)
-  assert.deepEqual(await (await ana.api('GET', '/config/n8n')).json(), { syllabus: '', guiones: '', matrices: '', h5p: '', preparacion: '' })
+  assert.deepEqual(await (await ana.api('GET', '/config/n8n')).json(), { syllabus: '', guiones: '', matrices: '', h5p: '', preparacion: '', pruebas_plantillas: false })
+  // modo de pruebas de plantillas: solo lo cambia la administración, y lo lee cualquiera
+  assert.equal((await ana.api('PUT', '/config/n8n', { pruebas_plantillas: true })).status, 403)
+  assert.equal((await admin.api('PUT', '/config/n8n', { pruebas_plantillas: 'si' })).status, 400)
+  assert.equal((await admin.api('PUT', '/config/n8n', { pruebas_plantillas: true })).status, 200)
+  assert.equal((await (await ana.api('GET', '/config/n8n')).json()).pruebas_plantillas, true)
+  assert.equal((await admin.api('PUT', '/config/n8n', { pruebas_plantillas: false })).status, 200)
+  assert.equal((await (await ana.api('GET', '/config/n8n')).json()).pruebas_plantillas, false)
 })
 
 test('el administrador elimina una cuenta con todo lo suyo; no la propia ni siendo otro rol', async () => {

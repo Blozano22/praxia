@@ -35,7 +35,8 @@ export const paqueteGrande = (cuerpo) => {
 }
 // Cupo por persona (tras iniciar sesión); sin sesión, por dirección IP. Así varios gestores en la misma red no se gastan el cupo entre sí.
 const porPersona = (req) => (req.usuario ? 'u:' + req.usuario.id : ipKeyGenerator(req.ip))
-const limiteCrear = rateLimit({ windowMs: 60 * 1000, limit: 12, keyGenerator: porPersona, standardHeaders: true, legacyHeaders: false })
+// 12 por persona y minuto; LIMITE_GUIONES solo se usa para subirlo en las pruebas.
+const limiteCrear = rateLimit({ windowMs: 60 * 1000, limit: Number(process.env.LIMITE_GUIONES) || 12, keyGenerator: porPersona, standardHeaders: true, legacyHeaders: false })
 const limiteLeer = rateLimit({ windowMs: 60 * 1000, limit: 240, keyGenerator: porPersona, standardHeaders: true, legacyHeaders: false })
 
 const validar = (esquema, origen) => (req, res, next) => {
