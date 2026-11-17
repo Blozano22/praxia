@@ -84,6 +84,10 @@ const repetidas = resultados
 
 **h) Cómo probarlo.** Con `simular: true` el flujo arma el pedido sin llamar a Praxia: revisar que salgan los 26 recursos y las 13 actividades de la unidad 1, con una sola `calificable: true` (`U1-T3-A2`). Luego una prueba real desde Praxia con un curso de prueba.
 
+### 3.1b Modo de pruebas de plantillas (no requiere cambios en el flujo)
+
+Mientras no estén aprobadas las plantillas, la administración puede encender en Praxia («Conexión n8n») el **modo de pruebas**: Praxia asigna cualquier plantilla subida (aprobada o no, de cualquier formación; las de la formación del curso van primero) y no se detiene si el curso no dice su formación. Lo hace Praxia dentro de `pedir`, así que **el flujo no cambia**. Solo notará que la orden que recibe trae `modo_pruebas: true` y que la respuesta de `pedir` también (puede ignorarlo). Se apaga antes de producción.
+
 ### 3.2 Recursos que no son HTML (G-05, G-06 y G-07)
 
 En la unidad de prueba, 4 de los 26 recursos son videos y podcast. Hoy se piden a Praxia y, si esas categorías no existen allí, vuelven como `error: categoria_inexistente` (no bloquea, pero es ruido). Si algún día se crean sin variantes, quedarían `pendiente` y **bloquearían los guiones de la unidad**. Lo limpio: filtrar con la columna «Tipo de producción propuesto» de la hoja del catálogo (pedir solo las que dicen `HTML`).
