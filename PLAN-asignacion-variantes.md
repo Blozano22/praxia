@@ -127,22 +127,23 @@ El pedido de siempre al flujo de guiones lleva ahora, además, `asignaciones`: l
 ```
 Cuando la preparación no está configurada, el campo no existe y todo es como antes. **El flujo de guiones tiene que aceptar y usar este campo** (lo mantiene quien tenga ese flujo).
 
-### 3.5 Actividades: `calificable`, azar y repetición (cambio ya desplegado en Praxia)
+### 3.5 Actividades: `calificable`, azar y repetición (la parte de `calificable` y la repetición ya está desplegada; el código `A` y la calificable sin aviso están en `main` pero faltan por desplegar)
 Las actividades (categorías `ACT-G-01`, `ACT-E-03-TEC`…, de tipo `actividad`) se piden con este mismo `pedir`, pero cada recurso debe decir si es **la calificable de su unidad** o una **práctica**.
 
 **Qué debe hacer el flujo**
-- **Leer, por unidad, la tabla de la estructura que indica cuál actividad es la calificable**, y marcar `calificable: true` solo en esa; las demás van con `calificable: false`.
-- **No deducirlo** con reglas como «la primera actividad del tema 3». Si en una unidad no se puede leer la tabla, **parar y avisar**; no adivinar.
-- Solo en categorías de actividad. En los recursos normales (acordeón, línea de tiempo…) el campo se ignora.
+- **Leer, por unidad, la tabla que indica cuál actividad es la calificable** y marcar `calificable: true` solo en esa; las demás van con `calificable: false`. En el documento de la unidad es la tabla **EVALUACIONES**: la fila con «Tipo de evaluación = Actividad de autoaprendizaje» dice el nombre de la actividad (en «Mecanismo» y en «Estrategias evaluativa») y el tema («Momento de aplicación: … 3. …»). Se verificó en la unidad 1 de Tecnología: coincide con la **primera actividad del tema 3**, que es la regla del plan; sirve como comprobación cruzada, no como atajo.
+- Si una unidad no trae esa fila o no se puede leer, **no adivinar**: avisar y dejar esa unidad sin calificable (todas `false`) o parar, como decida el equipo.
+- **Código de la actividad: `U{u}-T{t}-A{pos}`**, con `pos` = la posición de la fila en la tabla del tema (el mismo número que el recurso de esa fila, que sigue siendo `U{u}-T{t}-R{pos}`). El recurso y su actividad nacen en la misma fila y no pueden compartir código.
+- Solo en categorías de actividad. En los recursos normales (acordeón, línea de tiempo…) el campo `calificable` se ignora.
 
 ```json
 {
   "trabajo_id": "…",
   "formacion": "tecnologico",
   "recursos": [
-    { "codigo": "U1-T3-R1", "categoria": "ACT-G-01",     "unidad": 1, "calificable": true  },
-    { "codigo": "U1-T1-R2", "categoria": "ACT-G-04",     "unidad": 1, "calificable": false },
-    { "codigo": "U1-T2-R1", "categoria": "ACT-E-03-TEC", "unidad": 1, "calificable": false }
+    { "codigo": "U1-T3-A2", "categoria": "ACT-E-05-TEC", "unidad": 1, "calificable": true  },
+    { "codigo": "U1-T1-A2", "categoria": "ACT-E-01-TEC", "unidad": 1, "calificable": false },
+    { "codigo": "U1-T3-A6", "categoria": "ACT-G-02",     "unidad": 1, "calificable": false }
   ]
 }
 ```
@@ -156,14 +157,15 @@ La firma, las cabeceras, `formacion`, `forzar` y `solo_aprobadas` no cambian.
 
 - **Nunca se mezclan los tipos:** una práctica nunca recibe una calificable ni al revés.
 - **Una vez asignada no cambia** al repetir el pedido; `forzar: true` recalcula.
-- **Si ya se usaron todas las variantes de ese tipo en el curso, Praxia repite una** (la menos usada) y lo avisa, en lugar de dejar el recurso sin variante. Vale para las actividades, calificables incluidas.
+- **La calificable se puede repetir en el curso sin problema:** es una sola variante HTML por categoría y formación, así que si dos unidades la piden es lo normal. Praxia la entrega de nuevo, marcada `repetida: true`, **sin aviso** (`aviso: null`, `motivo: "calificable_repetida"`). Es la única excepción a «no se repite».
+- **Prácticas:** al azar entre las libres. Solo si ya se usaron todas las del tipo en el curso, Praxia repite una (la menos usada) **y lo avisa** (`aviso`, `motivo: "variante_repetida"`), en lugar de dejar el recurso sin variante.
 - **Recursos normales:** sin cambios; siguen sin repetir y, si se agotan, responden `variantes_agotadas`.
 
 **Qué cambia en la respuesta** (también en `consultar`): cada elemento de `resultados` trae dos campos nuevos.
 | Campo | Valor |
 |---|---|
 | `repetida` | `true` si se reutilizó una variante ya usada en el curso; `false` en el resto. |
-| `aviso` | Texto con el motivo cuando `repetida` es `true`; `null` si no. |
+| `aviso` | Texto con el motivo cuando una **práctica** se repite; `null` en el resto (también cuando se repite la calificable, que es normal). |
 
 ```json
 { "codigo": "U4-T1-R2", "resultado": "asignada", "categoria": "ACT-G-04", "formacion": "tecnologico",
@@ -175,6 +177,7 @@ La firma, las cabeceras, `formacion`, `forzar` y `solo_aprobadas` no cambian.
 **Motivos nuevos**
 | `resultado` | `motivo` | Cuándo |
 |---|---|---|
+| `asignada` | `calificable_repetida` | Se volvió a entregar la calificable en el mismo curso. Informativo: no es un aviso ni un error. |
 | `error` | `falta_calificable` | Es una actividad y el recurso no trae `calificable`. No se asigna nada. |
 | `pendiente` | `categoria_sin_calificables` | Se pidió la calificable y la categoría no tiene ninguna variante calificable subida. |
 | `pendiente` | `categoria_sin_practicas` | Se pidió una práctica y la categoría no tiene ninguna variante práctica subida. |

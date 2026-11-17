@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS asignacion_variantes (
   id                 bigserial PRIMARY KEY,
   propietario_id     uuid NOT NULL,
   proyecto_id        text NOT NULL,
-  codigo             text NOT NULL CHECK (codigo ~ '^U[0-9]{1,3}-(PRES|T[0-9]{1,2}-R[0-9]{1,3})$'),
+  codigo             text NOT NULL CHECK (codigo ~ '^U[0-9]{1,3}-(PRES|T[0-9]{1,2}-[RA][0-9]{1,3})$'),
   unidad             integer CHECK (unidad IS NULL OR unidad BETWEEN 0 AND 999),
   id_catalogo        text CHECK (id_catalogo IS NULL OR char_length(id_catalogo) <= 100), -- «G-12-A»: se repite entre temas, no es clave
   id_base            text CHECK (id_base IS NULL OR char_length(id_base) <= 100),
@@ -60,5 +60,9 @@ BEGIN
     GRANT USAGE, SELECT ON SEQUENCE asignacion_variantes_id_seq TO ova_app;
   END IF;
 END $$;
+
+-- Los códigos admiten también «U1-T2-A3»: la ACTIVIDAD de la fila 3 del tema 2 (el recurso de esa fila es «U1-T2-R3»). Se reemplaza la restricción antigua (idempotente).
+ALTER TABLE asignacion_variantes DROP CONSTRAINT IF EXISTS asignacion_variantes_codigo_check;
+ALTER TABLE asignacion_variantes ADD CONSTRAINT asignacion_variantes_codigo_check CHECK (codigo ~ '^U[0-9]{1,3}-(PRES|T[0-9]{1,2}-[RA][0-9]{1,3})$');
 
 COMMIT;

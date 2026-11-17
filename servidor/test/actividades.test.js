@@ -196,11 +196,12 @@ test('la calificable la marca n8n: recibe una variante calificable y las prácti
   // la calificable también se puede repetir en el mismo curso (es la excepción)
   const r3 = porCodigo((await pedir([rec('U2-T3-R1', 'ASG-01', true)])).datos)['U2-T3-R1']
   assert.equal(r3.plantilla, 'asg-01-tec-c-v1'); assert.equal(r3.repetida, true)
+  assert.equal(r3.aviso, null); assert.equal(r3.motivo, 'calificable_repetida') // repetir la calificable es lo normal: sin aviso
   // volver a pedir no cambia nada, y lo repetido sigue marcado como repetido
   const r4 = await pedir([rec('U2-T1-R1', 'ASG-01', false), rec('U2-T3-R1', 'ASG-01', true)])
   const p4 = porCodigo(r4.datos)
   assert.equal(p4['U2-T1-R1'].resultado, 'ya_asignada'); assert.equal(p4['U2-T1-R1'].plantilla, r2.plantilla); assert.equal(p4['U2-T1-R1'].repetida, true)
-  assert.equal(p4['U2-T3-R1'].plantilla, 'asg-01-tec-c-v1'); assert.equal(p4['U2-T3-R1'].repetida, true)
+  assert.equal(p4['U2-T3-R1'].plantilla, 'asg-01-tec-c-v1'); assert.equal(p4['U2-T3-R1'].repetida, true); assert.equal(p4['U2-T3-R1'].aviso, null)
   // recalcular desde cero con forzar tampoco falla con lo repetido
   assert.equal((await pedir([rec('U2-T1-R1', 'ASG-01', false)], { forzar: true })).estado, 200)
   const guardadas = (await dueno.query("SELECT codigo, repetida FROM asignacion_variantes WHERE categoria = 'ASG-01' ORDER BY codigo")).rows
@@ -271,4 +272,26 @@ test('la ficha de las skills de actividades («Uso: Calificable | Práctica») s
   assert.match(c.nombre, /-p-v\d+$/)
   assert.ok(c.avisos.some((x) => /ficha dice que es calificable/.test(x) && /práctica/.test(x)))
   assert.ok(!(await previa('Práctica', { calificable: false })).avisos.some((x) => /ficha dice que es/.test(x)))
+})
+
+test('la actividad de una fila tiene su propio código («U#-T#-A#») y puede convivir con el recurso de esa misma fila', async () => {
+  await crear('ASG-04', 'actividad'); await crear('ASG-05', 'recurso')
+  await variante('asg-04-tec-p-v1', 'ASG-04', 'tecnologico', false)
+  await variante('asg-04-tec-c-v1', 'ASG-04', 'tecnologico', true)
+  await dueno.query("INSERT INTO plantilla_subidas (nombre, html_crudo, html, subida_nombre, formacion) VALUES ('asg-05-v01', 'x', 'x', 'prueba', 'tecnologico')")
+  await dueno.query("INSERT INTO plantilla_categoria (plantilla, categoria) VALUES ('asg-05-v01', 'ASG-05')")
+  await dueno.query("INSERT INTO plantilla_historial (plantilla, estado, observacion, usuario_nombre) VALUES ('pub-asg-05-v01', 'aprobada', 'ok', 'Dani')")
+  // la fila 2 del tema 3 tiene un recurso (R2) y su actividad (A2): dos códigos distintos, dos variantes
+  const r = await pedir([rec('U6-T3-R2', 'ASG-05'), rec('U6-T3-A2', 'ASG-04', true), rec('U6-T1-A1', 'ASG-04', false)])
+  assert.equal(r.estado, 200)
+  const p = porCodigo(r.datos)
+  assert.equal(p['U6-T3-R2'].plantilla, 'asg-05-v01')
+  assert.equal(p['U6-T3-A2'].plantilla, 'asg-04-tec-c-v1')
+  assert.equal(p['U6-T1-A1'].plantilla, 'asg-04-tec-p-v1')
+  // se consultan por su código, y la base los guarda
+  const cuerpoC = JSON.stringify({ trabajo_id: TRABAJO, codigos: ['U6-T3-A2'] })
+  const c = await (await fetch(base + '/api/n8n/asignaciones/consultar', { method: 'POST', headers: { 'content-type': 'application/json', ...firmar(cuerpoC) }, body: cuerpoC })).json()
+  assert.equal(c.asignaciones.length, 1); assert.equal(c.asignaciones[0].codigo, 'U6-T3-A2'); assert.equal(c.asignaciones[0].plantilla, 'asg-04-tec-c-v1')
+  // un código con otra letra no vale
+  assert.equal((await pedir([rec('U6-T3-X2', 'ASG-04', true)])).estado, 400)
 })

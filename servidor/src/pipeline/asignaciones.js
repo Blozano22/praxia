@@ -19,7 +19,8 @@ export const rutasAsignaciones = Router()
 const limite = rateLimit({ windowMs: 60 * 1000, limit: 300, keyGenerator: (req) => ipKeyGenerator(req.ip), standardHeaders: true, legacyHeaders: false })
 
 const FORMACIONES = ['tecnologico', 'profesional', 'especializacion', 'doctorado']
-const Codigo = z.string().regex(/^U[0-9]{1,3}-(PRES|T[0-9]{1,2}-R[0-9]{1,3})$/)
+// «U1-T2-R3» es el recurso de la fila 3 de la tabla del tema 2; «U1-T2-A3» es la ACTIVIDAD de esa misma fila (el recurso y su actividad nacen en la misma fila y no pueden compartir código).
+const Codigo = z.string().regex(/^U[0-9]{1,3}-(PRES|T[0-9]{1,2}-[RA][0-9]{1,3})$/)
 const Categoria = z.string().regex(/^(?:[A-Za-z]{1,4}(?:-[A-Za-z]{1,4}){0,2}-[0-9]{2,3}|ACT-E-[0-9]{2,3}-(?:TEC|PRO|ESP|DOC))$/i).transform((s) => s.toUpperCase()) // «G-12», «PRE-05», «ACT-G-01», «ACT-E-03-TEC»
 const sinVacio = (v) => (typeof v === 'string' && v.trim() === '' ? null : v)
 const Opc = (esquema) => z.preprocess(sinVacio, esquema.nullish())
@@ -71,8 +72,9 @@ function elegibles(variantes, formacion, formacionesCategoria, soloAprobadas) {
 
 const azar = (l) => l[Math.floor(Math.random() * l.length)]
 const avisoRepetida = (categoria) => 'Variante repetida: ya se usaron todas las de ese tipo en ' + categoria + ' dentro de este curso.'
+// La calificable es una sola variante por categoría y formación: repetirla en un curso es lo normal y no lleva aviso (motivo «calificable_repetida»).
 const forma = (f) => ({ codigo: f.codigo, unidad: f.unidad, id_catalogo: f.id_catalogo, id_base: f.id_base, categoria: f.categoria, formacion: f.formacion, plantilla: f.plantilla, estado: f.estado, motivo: f.motivo,
-  repetida: !!f.repetida, aviso: f.repetida ? avisoRepetida(f.categoria) : null,
+  repetida: !!f.repetida, aviso: f.repetida && f.motivo !== 'calificable_repetida' ? avisoRepetida(f.categoria) : null,
   ...(f.plantilla_anterior ? { plantilla_anterior: f.plantilla_anterior } : {}), asignada_en: f.asignada_en ? new Date(f.asignada_en).toISOString() : null })
 
 rutasAsignaciones.post('/asignaciones/pedir', limite, async (req, res, next) => {
@@ -138,8 +140,9 @@ rutasAsignaciones.post('/asignaciones/pedir', limite, async (req, res, next) => 
         if (libre) {
           if (!repetida) cat.usadas.add(libre.nombre)
           cat.veces.set(libre.nombre, (cat.veces.get(libre.nombre) || 0) + 1)
-          await c.query(Q.asignGuardar, [...base, libre.nombre, null, 'asignada', repetida ? 'variante_repetida' : null, b.trabajo_id, repetida])
-          salida.push({ codigo: r.codigo, resultado: 'asignada', categoria: r.categoria, formacion: b.formacion, plantilla: libre.nombre, motivo: repetida ? 'variante_repetida' : null, repetida, aviso: repetida ? avisoRepetida(r.categoria) : null })
+          const motivoRep = r.calificable === true ? 'calificable_repetida' : 'variante_repetida'
+          await c.query(Q.asignGuardar, [...base, libre.nombre, null, 'asignada', repetida ? motivoRep : null, b.trabajo_id, repetida])
+          salida.push({ codigo: r.codigo, resultado: 'asignada', categoria: r.categoria, formacion: b.formacion, plantilla: libre.nombre, motivo: repetida ? motivoRep : null, repetida, aviso: repetida && r.calificable !== true ? avisoRepetida(r.categoria) : null })
         } else {
           const m = motivo || 'variantes_agotadas' // había elegibles pero ya las tienen otros recursos del curso
           await c.query(Q.asignGuardar, [...base, null, anterior, 'pendiente', m, b.trabajo_id, false])
