@@ -8,16 +8,87 @@ import { FORMACIONES } from '../lib/formaciones.js'
 
 // Formación del curso (Tecnológico, Profesional, Especialización o Doctorado): de ella depende qué plantillas se le asignan. Ningún paso anterior la guarda sola,
 // así que se elige aquí (queda en el curso, como «nivel»; el servidor la lee con el mismo texto). Debe ser la misma que dice el documento de la unidad.
-const formacionDe = (s) => { const t = String(((s && s.info) || {}).nivel || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); return /tecnolog/.test(t) ? 'tecnologico' : /profesional|licenciatura|pregrado/.test(t) ? 'profesional' : /especializ/.test(t) ? 'especializacion' : /doctor/.test(t) ? 'doctorado' : '' }
-function FormacionCurso({ s, onCambio }) {
+export const formacionDe = (s) => { const t = String(((s && s.info) || {}).nivel || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); return /tecnolog/.test(t) ? 'tecnologico' : /profesional|licenciatura|pregrado/.test(t) ? 'profesional' : /especializ/.test(t) ? 'especializacion' : /doctor/.test(t) ? 'doctorado' : '' }
+// Error al crear los guiones: título claro, motivos en lista y qué hacer. El servidor manda un texto con líneas («título:», «• motivo: G-04 ×3», «acción»);
+// aquí solo se parte para mostrarlo (no cambia lo que llega). Un mensaje de una sola línea se muestra como detalle bajo un título general.
+function ErrorGuiones({ texto, onReintentar }) {
+  const lineas = String(texto || '').split(String.fromCharCode(10)).map((l) => l.trim()).filter(Boolean)
+  const motivos = lineas.filter((l) => l.startsWith('•')).map((l) => l.replace(/^•\s*/, ''))
+  const otras = lineas.filter((l) => !l.startsWith('•'))
+  const estructurado = motivos.length > 0
+  const titulo = estructurado ? (otras[0] || '').replace(/:\s*$/, '') : 'No se pudieron crear los guiones'
+  const accion = estructurado && otras.length > 1 ? otras[otras.length - 1] : ''
+  const detalle = estructurado ? otras.slice(1, accion ? -1 : undefined) : otras
+  return (
+    <div className="gu-error" role="alert">
+      <span className="gu-error-ico" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8v5M12 17h.01" /><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" /></svg></span>
+      <div className="gu-error-cuerpo">
+        <b className="gu-error-tit">{titulo}</b>
+        {detalle.map((d, i) => <p key={i} className="gu-error-det">{d}</p>)}
+        {motivos.length > 0 && (
+          <ul className="gu-error-mot">
+            {motivos.map((m, i) => {
+              const k = m.indexOf(':')
+              const texto2 = k > 0 ? m.slice(0, k) : m
+              const resto = k > 0 ? m.slice(k + 1).trim() : ''
+              const fichas = resto && /×\s*\d/.test(resto) ? resto.split(',').map((x) => x.trim()).filter(Boolean) : null
+              return (
+                <li key={i}>
+                  <span>{texto2}{resto && !fichas ? ': ' + resto : ''}</span>
+                  {fichas && <span className="gu-error-fichas">{fichas.map((f) => <em key={f}>{f}</em>)}</span>}
+                </li>
+              )
+            })}
+          </ul>
+        )}
+        {accion && <p className="gu-error-acc">{accion}</p>}
+      </div>
+      <button type="button" className="btn sec sm gu-error-reint" onClick={onReintentar}>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" /></svg>
+        Reintentar
+      </button>
+    </div>
+  )
+}
+
+export function FormacionCurso({ s, onCambio, aviso }) {
   const actual = formacionDe(s)
-  const elegir = (f) => { if (f.id !== actual) onCambio({ ...s, info: { ...(s.info || {}), nivel: f.nombre } }) }
+  const [editando, setEditando] = useState(false)
+  const [borrador, setBorrador] = useState('')
+  const [guardada, setGuardada] = useState(false)
+  const abierto = !actual || editando // sin formación se pide; con formación solo se cambia si la persona pulsa «Cambiar»
+  const nombre = (id) => (FORMACIONES.find((f) => f.id === id) || {}).nombre || ''
+  const guardar = () => {
+    const f = FORMACIONES.find((x) => x.id === borrador)
+    if (!f) return
+    onCambio({ ...s, info: { ...(s.info || {}), nivel: f.nombre } })
+    setEditando(false); setBorrador(''); setGuardada(true)
+    aviso && aviso('Formación del curso guardada: ' + f.nombre)
+    setTimeout(() => setGuardada(false), 6000)
+  }
+  const cancelar = () => { setEditando(false); setBorrador('') }
   return (
     <div className={'gu-formacion' + (actual ? '' : ' falta')} role="group" aria-label="Formación del curso">
-      <div className="gu-formacion-tx"><b>Formación del curso</b><small>{actual ? 'Con ella se eligen las plantillas de los recursos. Debe ser la que dice el documento de la unidad.' : 'Elíjala antes de crear los guiones: sin ella no se pueden elegir las plantillas del curso.'}</small></div>
-      <div className="cs-seg" role="radiogroup" aria-label="Formación del curso">
-        {FORMACIONES.map((f) => <button key={f.id} type="button" role="radio" aria-checked={actual === f.id} className={actual === f.id ? 'on' : ''} onClick={() => elegir(f)}>{f.nombre}</button>)}
+      <div className="gu-formacion-tx">
+        <b>Formación del curso</b>
+        <small>{!actual ? 'Elíjala y guárdela antes de crear los guiones: sin ella no se pueden elegir las plantillas del curso.' : editando ? 'Elija la nueva formación y guarde. Cambiarla cambia las plantillas que se asignan al curso.' : 'Con ella se eligen las plantillas de los recursos. Debe ser la que dice el documento de la unidad.'}</small>
       </div>
+      {abierto ? (
+        <div className="gu-formacion-acc">
+          <div className="cs-seg" role="radiogroup" aria-label="Formación del curso">
+            {FORMACIONES.map((f) => <button key={f.id} type="button" role="radio" aria-checked={(borrador || actual) === f.id} className={(borrador || actual) === f.id ? 'on' : ''} onClick={() => setBorrador(f.id === actual ? '' : f.id)}>{f.nombre}</button>)}
+          </div>
+          <div className="gu-formacion-btn">
+            <button type="button" className="btn sm" disabled={!borrador} onClick={guardar}>Guardar formación</button>
+            {editando && <button type="button" className="btn sec sm" onClick={cancelar}>Cancelar</button>}
+          </div>
+        </div>
+      ) : (
+        <div className="gu-formacion-acc">
+          <span className={'gu-formacion-val' + (guardada ? ' nueva' : '')}>{nombre(actual)}{guardada && <em>Guardada</em>}</span>
+          <button type="button" className="btn sec sm" onClick={() => { setEditando(true); setBorrador('') }}>Cambiar</button>
+        </div>
+      )}
     </div>
   )
 }
@@ -272,7 +343,7 @@ export default function Guiones({ s, unidad, doc, onCambio, onCrear }) {
       {!archivos.length && !cargando && (
         <div style={{ marginTop: 18 }}>
           {doc && doc.url && <FormacionCurso s={s} onCambio={onCambio} />}
-          {doc && doc.url && pruebas && <div className="gu-pruebas" role="note"><b>Modo de pruebas</b><span>Se usan plantillas aunque no estén aprobadas.</span></div>}
+          {doc && doc.url && pruebas && <div className="gu-pruebas" role="note"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 3h6M10 3v6L4.5 19a1.5 1.5 0 0 0 1.3 2.2h12.4a1.5 1.5 0 0 0 1.3-2.2L14 9V3" /><path d="M7.5 15h9" /></svg><b>Modo de pruebas</b><span>Se usan plantillas aunque no estén aprobadas.</span></div>}
           {doc && doc.url ? <button className="btn gold gu-ir" onClick={() => generar()}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6" /></svg>Crear los guiones de la Unidad {unidad}</button>
             : <div className="msg warn">Esta unidad no tiene enlace del documento: agréguelo en el paso 1 para poder crear sus guiones.</div>}
         </div>
@@ -283,7 +354,7 @@ export default function Guiones({ s, unidad, doc, onCambio, onCrear }) {
           <div><b>Generando los guiones de la Unidad {unidad}… ({segundos}) </b>n8n está leyendo la unidad y escribiendo un guion por tema. Puede tardar varios minutos. Puede salir de esta unidad: seguirá trabajando y no hace falta pulsar de nuevo.</div>
         </div>
       )}
-      {error && <div className="msg warn gu-error" style={{ marginTop: 10 }}>{error} <button className="btn sec sm" onClick={() => generar()}>Reintentar</button></div>}
+      {error && <ErrorGuiones texto={error} onReintentar={() => generar()} />}
       {lecturas && (
         <div className="msg warn gv-vincular" style={{ marginTop: 10 }} role="status">
           <b>Falta enlazar la bibliografía de este syllabus.</b>
