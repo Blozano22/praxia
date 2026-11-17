@@ -90,6 +90,8 @@ export function leerHtml(texto, urlBase) {
   if (pdfMeta) pdfs.add(new URL(pdfMeta, urlBase).href)
   $('link[type="application/pdf"]').each((_, e) => pdfs.add(new URL($(e).attr('href'), urlBase).href))
   $('a[href]').each((_, e) => { const h = $(e).attr('href'); if (/\.pdf(?:[?#]|$)/i.test(h)) { try { pdfs.add(new URL(h, urlBase).href) } catch { /* enlace roto */ } } })
+  // Visores de libros/artículos (OJS, p. ej. «…/catalog/view/142/119/3408»): el archivo real está en «…/download/…».
+  for (const m of texto.matchAll(/["'(](https?:\/\/[^"'\s)<>]*\/(?:catalog|article|issue)\/download\/[^"'\s)<>]+)/gi)) { try { pdfs.add(new URL(m[1].replace(/&amp;/g, '&'), urlBase).href) } catch { /* enlace roto */ } }
   const primer = meta($, 'citation_firstpage'), ultima = meta($, 'citation_lastpage')
   const datos = {
     titulo: meta($, 'citation_title', 'DC.title', 'og:title') || (ld.headline || '') || $('title').first().text().trim(),

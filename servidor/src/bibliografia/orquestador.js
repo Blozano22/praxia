@@ -153,7 +153,8 @@ export async function procesarFuente(usuario, fuente, ctx = {}) {
     try {
       let oa = null
       if (doi) oa = await oaFn.porDoi(doi)
-      else if (!fuente.url) {
+      else {
+        // También cuando el enlace del syllabus no dio texto (403, página vacía…): se busca la obra por su título.
         oa = await oaFn.porTitulo(texto.titulo, texto.anio, (texto.autores[0] || {}).apellido)
         if (oa && oa.doi) {
           doi = oa.doi
