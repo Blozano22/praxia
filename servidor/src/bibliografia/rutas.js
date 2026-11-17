@@ -133,6 +133,15 @@ rutasBibliografia.get('/trabajos/:id', limiteLeer, validar(z.object({ id: Id }),
   } catch (e) { next(e) }
 })
 
+// Borra una lectura completa (sus fuentes, documentos y páginas). La suya, o cualquiera si tiene proyectos.ver_todos.
+rutasBibliografia.delete('/trabajos/:id', exigirPermiso('proyectos.crear'), limiteLeer, validar(z.object({ id: Id }), 'params'), async (req, res, next) => {
+  try {
+    const r = await conUsuario(req.usuario, (cx) => cx.query(Q.bibTrabajoBorrar, [req.paramsOk.id]))
+    if (!r.rowCount) return res.status(404).json({ error: 'No encontrado' })
+    res.json({ ok: true })
+  } catch (e) { next(e) }
+})
+
 // La bibliografía lista para pegar: ordenada alfabéticamente, con la cita en el texto de cada fuente.
 rutasBibliografia.get('/trabajos/:id/referencias', limiteLeer, validar(z.object({ id: Id }), 'params'), async (req, res, next) => {
   try {

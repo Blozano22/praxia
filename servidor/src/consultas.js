@@ -417,6 +417,8 @@ export const Q = Object.freeze({
   bibTrabajoActualizar: `
     UPDATE bib_trabajos SET estado = $3, resueltas = $4, fallidas = $5, detalle = $6, actualizado = now()
      WHERE id = $1 AND propietario_id = $2`,
+  // Borra la lectura completa (fuentes, autores, documentos y páginas se van por ON DELETE CASCADE). La política de filas decide de quién.
+  bibTrabajoBorrar: `DELETE FROM bib_trabajos WHERE id = $1`,
   bibTrabajoObtener: `
     SELECT id, proyecto_id, estado, total, resueltas, fallidas, detalle, creado, actualizado FROM bib_trabajos WHERE id = $1`,
   // Panel de bibliografía (coordinación/administración): cada lectura con quién la hizo y a qué syllabus quedó vinculada

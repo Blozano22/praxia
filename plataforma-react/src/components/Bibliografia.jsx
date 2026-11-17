@@ -102,6 +102,18 @@ export default function Bibliografia({ lista = [], fijo = null, onEstado }) {
     return () => { vivo = false }
   }, [fijo && fijo.syllabusUrl]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Borra una lectura completa (sus fuentes y textos leídos). Pide confirmación; no se puede deshacer.
+  const borrar = async (id, nombre) => {
+    if (!window.confirm('¿Borrar la lectura «' + (nombre || 'Sin syllabus vinculado') + '»? Se eliminan sus referencias y los textos leídos. No se puede deshacer.')) return
+    setError(''); setAviso('')
+    try {
+      await api('DELETE', '/bibliografia/trabajos/' + id)
+      if (id === activo) { setActivo(null); setD(null); setRes(null) }
+      setAviso('Lectura borrada.')
+      cargarLista()
+    } catch (e) { setError(e.message) }
+  }
+
   const releer = async () => {
     setError(''); setAviso(''); setD(null)
     try {
@@ -254,7 +266,8 @@ export default function Bibliografia({ lista = [], fijo = null, onEstado }) {
                 {filas.map((r) => {
                   const [cls, txt] = ESTADO[r.estado] || ['', r.estado]
                   return (
-                    <button key={r.id} className={'bib-lec-fila' + (r.id === activo ? ' on' : '')} aria-pressed={r.id === activo}
+                    <div key={r.id} className="bib-lec-item">
+                    <button className={'bib-lec-fila' + (r.id === activo ? ' on' : '')} aria-pressed={r.id === activo}
                       onClick={() => { setActivo(r.id); setRes(null); setAviso(''); window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }) }}>
                       <span className="bib-lec-nom"><b>{r.curso || 'Sin syllabus vinculado'}</b><small>{r.programa && r.programa !== 'Sin programa' ? r.programa + ' · ' : ''}{new Date(r.creado).toLocaleString()}</small></span>
                       <span className="sg2-resp"><span className="sg2-av" aria-hidden="true">{ini(r.responsable)}</span><span><b>{r.responsable}</b><small>{r.correo}</small></span></span>
@@ -267,6 +280,10 @@ export default function Bibliografia({ lista = [], fijo = null, onEstado }) {
                       </span>
                       <span><span className={'pill ' + cls}>{txt}</span></span>
                     </button>
+                    <button type="button" className="bib-lec-borrar" title="Borrar esta lectura" aria-label={'Borrar la lectura ' + (r.curso || 'sin syllabus vinculado')} onClick={() => borrar(r.id, r.curso)}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v5M14 11v5" /></svg>
+                    </button>
+                    </div>
                   )
                 })}
                 {filas.length === 0 && <div className="db2-vacio">No hay lecturas con ese filtro.</div>}
