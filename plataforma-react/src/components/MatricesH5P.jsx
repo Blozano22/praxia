@@ -277,7 +277,13 @@ export default function MatricesH5P({ s }) {
   }, [s.id])
   useEffect(() => { cargar() }, [cargar])
 
-  const lanzadoReciente = (lanzadoEn > 0 && Date.now() - lanzadoEn < 120000) || (yaEnCurso > 0 && Date.now() - yaEnCurso < 600000)
+  // Las unidades pedidas ya tienen su resultado (matriz lista o con error, avisado DESPUÉS de pedirla): no hay nada más que esperar,
+  // aunque no hayan pasado los 2 minutos de margen que se dan para que n8n avise del inicio.
+  const pedidasTerminadas = !!d && enviadas.length > 0 && lanzadoEn > 0 && enviadas.every((n) => {
+    const m = d.matrices.find((x) => x.unidad === n)
+    return !!m && m.estado !== 'generando' && new Date(m.actualizadoEn).getTime() >= lanzadoEn - 15000
+  })
+  const lanzadoReciente = !pedidasTerminadas && ((lanzadoEn > 0 && Date.now() - lanzadoEn < 120000) || (yaEnCurso > 0 && Date.now() - yaEnCurso < 600000))
   const enProgreso = lanzadoReciente || !!d && (d.matrices.some((m) => m.estado === 'generando' && !m.sinRespuesta) || d.ejecuciones.some((e) => e.estado === 'en_curso' && !e.sinRespuesta) || d.recursos.some((r) => r.estado === 'EN_PROCESO' && !r.sinRespuesta))
   // Mientras algo esté en proceso se refresca solo (consulta a Praxia, no a n8n); además, al volver a la pestaña.
   useEffect(() => {
