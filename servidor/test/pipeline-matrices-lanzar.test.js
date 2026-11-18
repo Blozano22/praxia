@@ -108,7 +108,7 @@ test('lanzar: valida el curso y las unidades, entrega la orden a n8n con los ide
   assert.equal(recibidas.length, 1)
   const guionesDe = (u) => [{ tema: 2, nombre: 'Guion tema 2', url: 'https://docs.google.com/document/d/u' + u + 'g2abcdefghij' }, { tema: 1, nombre: 'Guion tema 1', url: 'https://docs.google.com/document/d/u' + u + 'g1abcdefghij' }]
   assert.deepEqual(recibidas[0], { trabajo_id: j.trabajo_id, proyecto_id: 'curso-m', carpeta_raiz: CARPETA, unidades: [1, 2],
-    unidades_detalle: [{ numero: 1, formacion: 'Tecnológico', guiones: guionesDe(1) }, { numero: 2, formacion: 'Tecnológico', guiones: guionesDe(2) }], forzar: false })
+    unidades_detalle: [{ numero: 1, formacion: 'Tecnológico', guiones: guionesDe(1), asignaciones: [] }, { numero: 2, formacion: 'Tecnológico', guiones: guionesDe(2), asignaciones: [] }], forzar: false })
   const o = await origenes('ana', 'curso-m')
   assert.equal(o.length, 1); assert.equal(o[0].trabajo_id, j.trabajo_id); assert.equal(o[0].carpeta_raiz, CARPETA)
   const lectura = await (await ana('GET', '/proyectos/curso-m/pipeline')).json()
@@ -233,10 +233,12 @@ test('matrices: la orden lleva formación y guiones por unidad; sin guiones no s
   const r400 = await ana('POST', '/proyectos/curso-g/pipeline/matrices', { unidades: [2] })
   assert.equal(r400.status, 400); assert.match((await r400.json()).error, /n8n rechazó la orden: Falta la lista de guiones/)
   assert.equal((await origenes('ana', 'curso-g')).length, 0) // no quedó bloqueado
+  // la unidad 2 ya tiene una variante elegida por Praxia: viaja en la orden para que la matriz diga qué plantilla usa cada recurso
+  await pool.query("INSERT INTO asignacion_variantes (propietario_id, proyecto_id, codigo, unidad, id_catalogo, id_base, categoria, formacion, plantilla, estado) VALUES ($1, 'curso-g', 'U2-T1-R1', 2, 'G-09-A', 'G-09', 'G-09', 'profesional', 'g-09-pro-v03', 'asignada')", [ids.ana])
   respuestaN8n = { estado: 200, cuerpo: { ok: true, ejecucion_id: 'ej-mat-9' } }
   const ok = await ana('POST', '/proyectos/curso-g/pipeline/matrices', { unidades: [2] })
   assert.equal(ok.status, 202); assert.equal((await ok.json()).ejecucion_id, 'ej-mat-9')
-  assert.deepEqual(recibidas.at(-1).unidades_detalle, [{ numero: 2, formacion: 'Profesional', guiones: [{ tema: 1, nombre: 'G', url: 'https://docs.google.com/document/d/solo2abcdefgh' }] }]) // sin formación en el guion: la del curso
+  assert.deepEqual(recibidas.at(-1).unidades_detalle, [{ numero: 2, formacion: 'Profesional', guiones: [{ tema: 1, nombre: 'G', url: 'https://docs.google.com/document/d/solo2abcdefgh' }], asignaciones: [{ codigo: 'U2-T1-R1', categoria: 'G-09', id_catalogo: 'G-09-A', formacion: 'profesional', plantilla: 'g-09-pro-v03' }] }]) // sin formación en el guion: la del curso
   respuestaN8n = { estado: 200, cuerpo: { ok: true } }
 })
 

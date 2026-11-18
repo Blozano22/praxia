@@ -34,7 +34,8 @@ const falla = (codigo, error, extra = {}) => ({ codigo, cuerpo: { error, ...extr
 
 const texto = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '')
 // Lo que n8n necesita de cada unidad para armar su matriz: la formación y los guiones ya generados (de lo que Praxia guardó del flujo de guiones).
-function detalleUnidad(datos, numero) {
+// «asignaciones»: las variantes de plantilla que Praxia eligió para los recursos de esta unidad (código «U1-T2-R3» → plantilla), para que la matriz diga qué plantilla usa cada recurso.
+function detalleUnidad(datos, numero, asignadas = []) {
   const archivos = ((((datos || {}).guionesUnidad || {})[numero] || {}).archivos) || []
   const lista = Array.isArray(archivos) ? archivos : []
   const guiones = []
@@ -48,7 +49,8 @@ function detalleUnidad(datos, numero) {
   const info = (datos && datos.info) || {}
   const delGuion = lista.map((a) => texto(a && a.info && a.info.nivel, 120)).find(Boolean)
   const formacion = delGuion || texto(info.nivel, 120) || texto(info.nivel_de_formacion, 120)
-  return { numero, formacion, guiones }
+  const asignaciones = asignadas.filter((f) => f.estado === 'asignada' && f.plantilla).map((f) => ({ codigo: f.codigo, categoria: f.categoria, id_catalogo: f.id_catalogo || null, formacion: f.formacion, plantilla: f.plantilla }))
+  return { numero, formacion, guiones, asignaciones }
 }
 
 // Valida que el curso sea de la persona y tenga carpeta; devuelve { datos, carpeta } o una falla.
@@ -107,7 +109,12 @@ export async function lanzarMatrices({ usuario, proyectoId, unidades, forzar, pu
   const pedidas = [...new Set(unidades)].sort((a, b) => a - b)
   const sin = pedidas.filter((u) => !aprobadas.has(u))
   if (sin.length) return falla(400, 'Estas unidades no existen o no están aprobadas: ' + sin.join(', ') + '.')
-  const detalle = pedidas.map((n) => detalleUnidad(curso.datos, n))
+  const detalle = []
+  for (const n of pedidas) {
+    let filas = []
+    try { filas = (await sinUsuario(Q.asignConsultar, [usuario.id, proyectoId, n, null])).rows } catch { /* sin la tabla de asignaciones: la matriz se arma sin plantillas */ }
+    detalle.push(detalleUnidad(curso.datos, n, filas))
+  }
   const sinGuiones = detalle.filter((d) => !d.guiones.length).map((d) => d.numero)
   if (sinGuiones.length) return falla(400, 'Estas unidades todavía no tienen guiones generados, y la matriz se arma con ellos: ' + sinGuiones.join(', ') + '.')
 
