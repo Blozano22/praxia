@@ -31,7 +31,7 @@ before(async () => {
   await dueno.connect()
   await dueno.query("CREATE ROLE ova_app LOGIN PASSWORD 'appclave' NOSUPERUSER NOBYPASSRLS")
   const sql = (f) => fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8')
-  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql']) await dueno.query(sql(f))
+  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql']) await dueno.query(sql(f))
   await dueno.query(sql('001_esquema.sql')) // volver a migrar no debe repetir ni pisar el punto de partida
   await dueno.end()
   process.env.DATABASE_URL = `postgres://ova_app:appclave@localhost:${PUERTO_PG}/ova`
@@ -471,6 +471,13 @@ test('las variantes de una categoría usan los mismos campos de contenido; el í
   const e1 = v.find((x) => x.nombre === n1); const e4 = v.find((x) => x.nombre === n4)
   assert.equal(e1.estado, 'en_revision'); assert.equal(e1.fecha_estado, null); assert.equal(e1.esquema_ok, true); assert.equal(e4.esquema_ok, false)
   assert.equal(e1.archivo, n1 + '.html') // el nombre del índice es el de la dirección pública
+  // El esquema de campos en JSON (índice y ruta propia): [{ruta, tipo}]
+  assert.ok(Array.isArray(e1.esquema) && e1.esquema.length > 0 && e1.esquema.every((c) => typeof c.ruta === 'string' && ['texto', 'numero', 'booleano', 'lista', 'objeto'].includes(c.tipo)))
+  const esq = await fetch(base + '/plantillas-html/' + n1 + '.schema.json')
+  assert.equal(esq.status, 200)
+  const esqJ = await esq.json()
+  assert.equal(esqJ.nombre, n1); assert.deepEqual(esqJ.esquema, e1.esquema)
+  assert.equal((await fetch(base + '/plantillas-html/no-existe-xyz.schema.json')).status, 404)
   assert.equal((await fetch(base + '/plantillas-html/' + n1 + '.html')).status, 200)
   await pool.query("INSERT INTO plantilla_historial (plantilla, estado, observacion, usuario_nombre, rol) VALUES ($1, 'aprobada', 'ok', 'Dani', 'disenador'), ($2, 'rechazada', 'no', 'Dani', 'disenador'), ($3, 'corregida', 'ya', 'Dani', 'disenador')", ['pub-' + n1, 'pub-' + n4, 'pub-' + n1 + 'x'])
   const v2 = (await indice()).categorias.find((c) => c.id === 'G-11').variantes

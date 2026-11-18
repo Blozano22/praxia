@@ -35,7 +35,7 @@ before(async () => {
   const dueno = new pg.Client({ connectionString: `postgres://postgres:duenio@localhost:${PUERTO_PG}/ova` })
   await dueno.connect()
   await dueno.query("CREATE ROLE ova_app LOGIN PASSWORD 'appclave' NOSUPERUSER NOBYPASSRLS")
-  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
+  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
   await dueno.end()
   process.env.DATABASE_URL = `postgres://ova_app:appclave@localhost:${PUERTO_PG}/ova`
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex')
@@ -176,6 +176,12 @@ test('H5P: el plan con lo omitido y su motivo, el avance por recurso y el resume
   await enviar(aviso('h5p_recurso', 'h5p', { ejecucion_id: 'h2', unidad: 1, id: 'f1', estado: 'ERROR', observaciones: 'El guion no tiene fechas' }, 52))
   const f1 = (await una('ana', 'pipeline_recursos', "id = 'f1'"))[0]
   assert.equal(f1.estado, 'ERROR'); assert.equal(f1.observaciones, 'El guion no tiene fechas'); assert.equal(f1.omision, null)
+  // La plantilla usada viaja en el aviso (se tolera mayúscula y espacios; vacía = sin dato) y se conserva en avisos posteriores que no la traen.
+  await enviar(aviso('h5p_recurso', 'h5p', { ejecucion_id: 'h2', unidad: 1, id: 'f1', estado: 'EN_PROCESO', plantilla: ' G-11-DOC-V01 ' }, 53))
+  assert.equal((await una('ana', 'pipeline_recursos', "id = 'f1'"))[0].plantilla, 'g-11-doc-v01')
+  const sinPl = await enviar(aviso('h5p_recurso', 'h5p', { ejecucion_id: 'h2', unidad: 1, id: 'f1', estado: 'ERROR', observaciones: 'x', plantilla: '' }, 54))
+  assert.equal(sinPl.estado, 200)
+  assert.equal((await una('ana', 'pipeline_recursos', "id = 'f1'"))[0].plantilla, 'g-11-doc-v01')
   const fin = await enviar(aviso('h5p_fin', 'h5p', { ejecucion_id: 'h2', resumen: { generados: 0, errores: 1, omitidos: 2, pendientes_restantes: 0 } }, 60))
   assert.equal(fin.datos.aplicados, 1)
   const [ej2] = await una('ana', 'pipeline_ejecuciones', "ejecucion_id = 'h2'")

@@ -198,8 +198,8 @@ export const Q = Object.freeze({
     WHERE (pipeline_matrices.actualizado_en, pipeline_matrices.secuencia) <= (EXCLUDED.actualizado_en, EXCLUDED.secuencia)
     RETURNING unidad`,
   pipeRecursoGuardar: `
-    INSERT INTO pipeline_recursos (propietario_id, proyecto_id, id, unidad, id_base, variante, alcance, tema, codigo, formato, titulo, con_actividad, generador, estado, observaciones, enlace_guion, enlace_recurso, omision, actualizado_en, secuencia)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+    INSERT INTO pipeline_recursos (propietario_id, proyecto_id, id, unidad, id_base, variante, alcance, tema, codigo, formato, titulo, con_actividad, generador, estado, observaciones, enlace_guion, enlace_recurso, omision, actualizado_en, secuencia, plantilla)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
     ON CONFLICT (propietario_id, proyecto_id, id) DO UPDATE SET
       unidad = coalesce(EXCLUDED.unidad, pipeline_recursos.unidad),
       id_base = coalesce(EXCLUDED.id_base, pipeline_recursos.id_base),
@@ -216,6 +216,7 @@ export const Q = Object.freeze({
       enlace_guion = coalesce(EXCLUDED.enlace_guion, pipeline_recursos.enlace_guion),
       enlace_recurso = coalesce(EXCLUDED.enlace_recurso, pipeline_recursos.enlace_recurso),
       omision = EXCLUDED.omision,
+      plantilla = coalesce(EXCLUDED.plantilla, pipeline_recursos.plantilla),
       actualizado_en = EXCLUDED.actualizado_en,
       secuencia = EXCLUDED.secuencia
     WHERE (pipeline_recursos.actualizado_en, pipeline_recursos.secuencia) <= (EXCLUDED.actualizado_en, EXCLUDED.secuencia)
@@ -237,7 +238,7 @@ export const Q = Object.freeze({
       FROM pipeline_matrices WHERE propietario_id = $1 AND proyecto_id = $2 ORDER BY unidad`,
   pipeLeerRecursos: `
     SELECT id, unidad, tema, codigo, formato, titulo, generador, estado, observaciones, enlace_guion AS "enlaceGuion",
-           enlace_recurso AS "enlaceRecurso", omision, actualizado_en AS "actualizadoEn",
+           enlace_recurso AS "enlaceRecurso", omision, plantilla, actualizado_en AS "actualizadoEn",
            (estado = 'EN_PROCESO' AND actualizado_en < now() - interval '30 minutes') AS "sinRespuesta"
       FROM pipeline_recursos WHERE propietario_id = $1 AND proyecto_id = $2
      ORDER BY unidad NULLS LAST, tema NULLS LAST, codigo NULLS LAST, id LIMIT 3000`,

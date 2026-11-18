@@ -8,7 +8,7 @@ import path from 'node:path'
 import { config } from './config.js'
 import { exigirCabecera } from './seguridad.js'
 import { rutas } from './rutas.js'
-import { CABECERAS_AISLADAS, compararEsquemas, armarSubida } from './plantillas/subidas.js'
+import { CABECERAS_AISLADAS, compararEsquemas, esquemaEstructurado, armarSubida } from './plantillas/subidas.js'
 import { rutasBibliografia } from './bibliografia/rutas.js'
 import { rutasGuiones } from './guiones/rutas.js'
 import { rutasUnidades } from './unidades/rutas.js'
@@ -87,10 +87,10 @@ export function crearApp() {
       for (const x of [...u.rows].sort((p, q) => new Date(p.creado) - new Date(q.creado) || p.nombre.localeCompare(q.nombre))) { const k = claveRef(x.nombre); if (x.esquema && k && !refDe[k]) refDe[k] = x.esquema }
       const esqDe = Object.fromEntries(u.rows.map((x) => [x.nombre, x.esquema]))
       const esquemaOk = (n) => { const k = claveRef(n); return esqDe[n] && k && refDe[k] ? compararEsquemas(refDe[k], esqDe[n]).coincide : null }
-      const plantillas = todas.map((p) => ({ ...p, id_catalogo: de[p.nombre] || null, tipo: tipoDe[de[p.nombre]] || null, ...estadoDe(p.nombre), esquema_ok: esquemaOk(p.nombre), formacion: formDe[p.nombre] || null, calificable: calDe[p.nombre] ?? null }))
+      const plantillas = todas.map((p) => ({ ...p, id_catalogo: de[p.nombre] || null, tipo: tipoDe[de[p.nombre]] || null, ...estadoDe(p.nombre), esquema_ok: esquemaOk(p.nombre), formacion: formDe[p.nombre] || null, calificable: calDe[p.nombre] ?? null, esquema: esquemaEstructurado(esqDe[p.nombre]) }))
       const ORDEN_FORMACIONES = ['tecnologico', 'profesional', 'especializacion', 'doctorado']
       const formacionesDe = (id) => fo.rows.filter((x) => x.categoria === id).map((x) => ({ formacion: x.formacion, prioridad: x.prioridad })).sort((p, q) => ORDEN_FORMACIONES.indexOf(p.formacion) - ORDEN_FORMACIONES.indexOf(q.formacion)) // para qué formaciones sirve la categoría (P prioritaria, C complementaria)
-      const categorias = c.rows.map((k) => ({ id: k.id, nombre: k.nombre, tipo: k.tipo, formaciones: formacionesDe(k.id), variantes: plantillas.filter((p) => p.id_catalogo === k.id).map(({ nombre, archivo, estado, fecha_estado, esquema_ok, formacion, calificable }) => ({ nombre, archivo, estado, fecha_estado, esquema_ok, formacion, calificable })) }))
+      const categorias = c.rows.map((k) => ({ id: k.id, nombre: k.nombre, tipo: k.tipo, formaciones: formacionesDe(k.id), variantes: plantillas.filter((p) => p.id_catalogo === k.id).map(({ nombre, archivo, estado, fecha_estado, esquema_ok, formacion, calificable, esquema }) => ({ nombre, archivo, estado, fecha_estado, esquema_ok, formacion, calificable, esquema })) }))
       res.json({ ...base, total: plantillas.length, plantillas, categorias, sin_categoria: plantillas.filter((p) => !p.id_catalogo).map(({ nombre, archivo, estado, fecha_estado }) => ({ nombre, archivo, estado, fecha_estado })) })
     } catch { res.json(base) }
   })
@@ -107,6 +107,16 @@ export function crearApp() {
       const marca = nivel ? '<script>window.__NIVEL=' + JSON.stringify(nivel) + '</script>' : ''
       const html = marca ? (/<head[^>]*>/i.test(armada.ejemplo) ? armada.ejemplo.replace(/<head[^>]*>/i, (m) => m + marca) : marca + armada.ejemplo) : armada.ejemplo
       res.set(CABECERAS_AISLADAS).send(html)
+    } catch { next() }
+  })
+  // Esquema de campos de una plantilla subida, en JSON, para que n8n arme el formulario/contenido: público, de solo lectura. 404 si no existe, está quitada de n8n o no trae ejemplo.
+  app.get(/^\/plantillas-html\/([a-z0-9-]{1,80})\.schema\.json$/, async (req, res, next) => {
+    try {
+      const n = req.params[0]
+      const [e, o] = await Promise.all([sinUsuario(Q.subidaEsquema, [n]), sinUsuario(Q.ocultaEsta, [n])])
+      const f = e.rows[0]
+      if (!f || o.rowCount || !f.esquema) return res.status(404).json({ error: 'Esta plantilla no tiene esquema publicado.' })
+      res.set('Access-Control-Allow-Origin', '*').json({ nombre: n, formacion: f.formacion || null, calificable: typeof f.calificable === 'boolean' ? f.calificable : null, esquema: esquemaEstructurado(f.esquema) })
     } catch { next() }
   })
   // Una plantilla subida desde la pantalla se entrega AISLADA (sandbox sin allow-same-origin): sus scripts corren, pero no pueden usar la sesión de Praxia.

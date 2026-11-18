@@ -86,6 +86,17 @@ export function esquemaDe(datos) {
   visitar(datos, '')
   return [...out].filter((p) => !IGNORAR_CAMPOS.has(p.split(':')[0])).sort()
 }
+// El esquema guardado («bloques[].titulo:texto») en forma legible por máquina para n8n: [{ ruta: 'bloques[].titulo', tipo: 'texto' }].
+// tipo: texto | numero | booleano | lista (la ruta es un arreglo; sus elementos llevan «[]» en la ruta) | objeto.
+const TIPO_ESQUEMA = { '[]': 'lista', '{}': 'objeto' }
+export function esquemaEstructurado(esquema) {
+  if (!Array.isArray(esquema)) return null
+  return esquema.filter((p) => typeof p === 'string' && p.includes(':')).map((p) => {
+    const i = p.lastIndexOf(':')
+    const t = p.slice(i + 1)
+    return { ruta: p.slice(0, i), tipo: TIPO_ESQUEMA[t] || t }
+  })
+}
 export function compararEsquemas(referencia, nuevo) {
   const r = new Set(referencia), n = new Set(nuevo)
   const faltan = referencia.filter((p) => !n.has(p)), sobran = nuevo.filter((p) => !r.has(p))
