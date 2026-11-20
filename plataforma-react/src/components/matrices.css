@@ -310,3 +310,5 @@ button.mx3-fase.bloq{cursor:not-allowed;opacity:.75}
 .mx6-b{height:6px;border-radius:99px;background:#e3e8f0;overflow:hidden}.mx6-b i{display:block;height:100%;background:#7d93c9}
 
 .mx4-ed{display:inline-flex;align-items:center;gap:6px;min-height:30px;border:1.5px solid var(--brand);background:#fff;color:var(--brand);border-radius:9px;padding:0 12px;font:inherit;font-size:.78rem;font-weight:800;cursor:pointer;white-space:nowrap}.mx4-ed:hover{background:#e4f5ec}.mx4-ed:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
+
+.mx4-pt.rv{border-color:#d99a00;background:#fff4d6}.mx4-r.rv .mx4-re{color:#7a5600}.mx4-ed.ok{background:var(--brand);border-color:var(--brand);color:#fff}.mx4-ed.ok:hover{background:color-mix(in srgb,var(--brand) 86%,#000)}

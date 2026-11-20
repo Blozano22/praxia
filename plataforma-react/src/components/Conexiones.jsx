@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import Titulo from './Titulo.jsx'
-import { cargarConfigN8n, guardarWebhook, guardarWebhookGuiones, guardarWebhookH5p, guardarWebhookMatrices, guardarPruebasPlantillas, guardarWebhookPreparacion, leerPruebasPlantillas, leerWebhook, leerWebhookGuiones, leerWebhookH5p, leerWebhookMatrices, leerWebhookPreparacion } from '../lib/syllabus.js'
+import { cargarConfigN8n, guardarWebhook, guardarWebhookGuiones, guardarWebhookH5p, guardarWebhookMatrices, guardarWebhookPublicar, guardarPruebasPlantillas, guardarWebhookPreparacion, leerPruebasPlantillas, leerWebhook, leerWebhookGuiones, leerWebhookH5p, leerWebhookPublicar, leerWebhookMatrices, leerWebhookPreparacion } from '../lib/syllabus.js'
 
 // Direcciones (webhooks) de n8n que usa la plataforma. Se guardan en el servidor: el cambio vale para todas las personas.
 const RE_URL = /^https:\/\/\S+$/
@@ -117,6 +117,8 @@ export default function Conexiones({ aviso }) {
               leer={leerWebhookMatrices} guardar={guardarWebhookMatrices} aviso={aviso} opcional sinDireccion="Falta la dirección: sin ella no aparece el botón «Generar matriz»." />
             <Conexion titulo="Generar los recursos H5P" icono="codigo" ayuda="Recibe la orden de generar los recursos H5P de las matrices listas, con un máximo por corrida. Responde cuando ya planificó y avisa el avance a Praxia."
               leer={leerWebhookH5p} guardar={guardarWebhookH5p} aviso={aviso} opcional sinDireccion="Falta la dirección: sin ella no aparece el botón «Generar H5P»." />
+            <Conexion titulo="Publicar un recurso H5P aprobado" icono="codigo" ayuda="Recibe la orden de armar el .h5p de un recurso que la persona aprobó y subirlo a Drive (si ya existía, reemplaza el contenido del mismo archivo). Responde enseguida y avisa el resultado a Praxia."
+              leer={leerWebhookPublicar} guardar={guardarWebhookPublicar} aviso={aviso} opcional sinDireccion="Falta la dirección: sin ella no aparece «Aprobar y publicar»." />
           </div>
           <p className="cx-pie">Cada dirección debe empezar por https://. El cambio se aplica a todas las personas desde su siguiente envío.</p>
         </>

@@ -30,7 +30,7 @@ function armarPagina(esqueleto, contenido, titulo, formacion, activo) {
   return /<\/body>/i.test(h) ? h.replace(/<\/body>/i, () => editor + '</body>') : h + editor
 }
 
-export default function EditorRecurso({ proyecto, recurso, onCerrar }) {
+export default function EditorRecurso({ proyecto, recurso, puedePublicar, onAprobar, onCerrar }) {
   const [estado, setEstado] = useState('cargando') // cargando | listo | error
   const [error, setError] = useState('')
   const [pagina, setPagina] = useState('')
@@ -121,6 +121,15 @@ export default function EditorRecurso({ proyecto, recurso, onCerrar }) {
     finally { setOcupado('') }
   }
 
+  // Aprobar y publicar: guarda lo editado, pide la publicación (el componente de arriba confirma si hay que reemplazar un archivo ya publicado) y cierra.
+  const aprobarYPublicar = async () => {
+    if (sucio && !(await guardar())) return
+    setOcupado('aprobar'); setMsg(null)
+    try { const hecho = await onAprobar(recurso); if (hecho) onCerrar() }
+    catch (e) { setMsg({ tipo: 'bad', texto: e.message || 'No se pudo aprobar el recurso.' }) }
+    finally { setOcupado('') }
+  }
+
   const cerrar = () => { if (sucio && !window.confirm('Hay cambios sin guardar. ¿Cerrar sin guardarlos?')) return; onCerrar() }
   useEffect(() => {
     const tecla = (e) => { if (e.key === 'Escape' && !sucio) onCerrar() }
@@ -173,6 +182,7 @@ export default function EditorRecurso({ proyecto, recurso, onCerrar }) {
             <i className="er-sw" aria-hidden="true" />
             Editar con clic
           </label>
+          {puedePublicar && onAprobar && ['POR_REVISAR', 'GENERADO', 'ERROR'].includes(recurso.estado) && <button type="button" className="er-b ok" onClick={aprobarYPublicar} disabled={!!ocupado} title="Aprobar este contenido: n8n arma el H5P y lo sube a Drive">{ocupado === 'aprobar' ? 'Enviando…' : recurso.estado === 'GENERADO' ? 'Aprobar y volver a publicar' : 'Aprobar y publicar'}</button>}
           <button type="button" className="er-b" onClick={guardar} disabled={!sucio || !!ocupado}>{ocupado === 'guardar' ? <><i className="er-gira" aria-hidden="true" />Guardando…</> : 'Guardar cambios'}</button>
           <button type="button" className="er-b pri" onClick={descargar} disabled={!!ocupado}>{ocupado === 'h5p' ? <><i className="er-gira" aria-hidden="true" />Armando el H5P…</> : <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M4 20h16" /></svg>Descargar .h5p</>}</button>
           <button type="button" className="er-x" onClick={cerrar} aria-label="Cerrar el editor"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg></button>

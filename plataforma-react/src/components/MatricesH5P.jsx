@@ -14,7 +14,7 @@ const MATRIZ = {
   error: ['bad', 'Error al crear la matriz']
 }
 const SIN_RESPUESTA = ['bad', 'Sin respuesta de n8n']
-const RECURSO = { PENDIENTE: ['', 'Pendiente'], EN_PROCESO: ['warn', 'En proceso'], GENERADO: ['ok', 'Generado'], ERROR: ['bad', 'Error'] }
+const RECURSO = { PENDIENTE: ['', 'Pendiente'], EN_PROCESO: ['warn', 'En proceso'], POR_REVISAR: ['warn', 'Por revisar'], GENERADO: ['ok', 'Generado'], ERROR: ['bad', 'Error'] }
 // Por qué una corrida de H5P dejó fuera un recurso (lo dice n8n en el plan).
 const MOTIVO = {
   sin_plantilla: 'Todavía no hay una plantilla H5P para este tipo de recurso',
@@ -121,11 +121,13 @@ const I_ALERTA = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" str
 const I_RELOJ = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path d="M12 8v4l2.5 2" /></svg>
 
 // Una línea por recurso: generado (verde), por generar (círculo vacío), en proceso o con error.
-function Fila({ r, editar }) {
+function Fila({ r, editar, aprobar, puedePublicar }) {
   const mal = r.sinRespuesta || r.estado === 'ERROR'
   const hecho = r.estado === 'GENERADO' && !r.sinRespuesta
-  const k = hecho ? 'ok' : mal ? 'er' : r.estado === 'EN_PROCESO' ? 'en' : 'pe'
-  const texto = hecho ? 'Generado' : r.sinRespuesta ? 'Sin avisos' : r.estado === 'ERROR' ? 'Con error' : r.estado === 'EN_PROCESO' ? 'Generando' : 'Por generar'
+  const porRevisar = r.estado === 'POR_REVISAR' && !r.sinRespuesta
+  const publicando = !!r.publicando && !r.publicandoSinRespuesta
+  const k = publicando ? 'en' : hecho ? 'ok' : mal ? 'er' : porRevisar ? 'rv' : r.estado === 'EN_PROCESO' ? 'en' : 'pe'
+  const texto = publicando ? 'Publicando…' : r.publicandoSinRespuesta ? 'Sin respuesta al publicar' : porRevisar ? 'Por revisar' : hecho ? 'Generado' : r.sinRespuesta ? 'Sin avisos' : r.estado === 'ERROR' ? 'Con error' : r.estado === 'EN_PROCESO' ? 'Generando' : 'Por generar'
   const nota = r.estado === 'ERROR' ? r.observaciones : r.omision ? 'Se omitió: ' + motivoTexto(r.omision) : hecho ? '' : r.observaciones
   return (
     <li className={'mx4-r ' + k}>
@@ -134,7 +136,8 @@ function Fila({ r, editar }) {
       <span className="mx4-rt" title={r.titulo || ''}>{r.titulo || 'Sin título'}</span>
       <span className="mx4-re">{texto}</span>
       <span className="mx4-rl">
-        {hecho && r.conContenido && editar && <button type="button" className="mx4-ed" onClick={() => editar(r)} title="Corregir los textos del recurso y volver a armar el H5P">Editar textos</button>}
+        {r.conContenido && !publicando && ['POR_REVISAR', 'GENERADO', 'ERROR'].includes(r.estado) && editar && <button type="button" className="mx4-ed" onClick={() => editar(r)} title="Corregir los textos del recurso antes de publicarlo">Editar textos</button>}
+        {r.conContenido && !publicando && ['POR_REVISAR', 'ERROR'].includes(r.estado) && puedePublicar && aprobar && <button type="button" className="mx4-ed ok" onClick={() => aprobar(r)} title="Aprobar el contenido: n8n arma el H5P y lo sube a Drive">Aprobar y publicar</button>}
         {hecho && r.enlaceRecurso && <a href={r.enlaceRecurso} target="_blank" rel="noopener noreferrer">Recurso ↗</a>}
         {r.enlaceGuion && <a href={r.enlaceGuion} target="_blank" rel="noopener noreferrer">Guion ↗</a>}
         {hecho && r.revisionPendiente > 0 && <span title="Campos que el generador dejó para revisión humana">REVISAR {r.revisionPendiente} campo{r.revisionPendiente === 1 ? '' : 's'}</span>}
@@ -155,7 +158,7 @@ function Cronometro({ desde }) {
   return <span className="mx3-crono">{Math.floor(seg / 60)}:{String(seg % 60).padStart(2, '0')}</span>
 }
 
-function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, enviada, desdeEnvio, editar }) {
+function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, enviada, desdeEnvio, editar, aprobar, puedePublicar }) {
   const [todos, setTodos] = useState(false)
   const [filtro, setFiltro] = useState('todos')
   const [confirmar, setConfirmar] = useState(false)
@@ -165,12 +168,12 @@ function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, envi
     return c
   }, [recursos])
   const esHecho = (r) => r.estado === 'GENERADO' && !r.sinRespuesta
-  const filas = recursos.filter((r) => (filtro === 'generados' ? esHecho(r) : filtro === 'pendientes' ? !esHecho(r) : true)).sort((a, b) => esHecho(b) - esHecho(a) || (b.estado === 'ERROR') - (a.estado === 'ERROR'))
+  const filas = recursos.filter((r) => (filtro === 'generados' ? esHecho(r) : filtro === 'revisar' ? r.estado === 'POR_REVISAR' : filtro === 'pendientes' ? !esHecho(r) && r.estado !== 'POR_REVISAR' : true)).sort((a, b) => esHecho(b) - esHecho(a) || (b.estado === 'ERROR') - (a.estado === 'ERROR'))
   const porGenerar = conteo.PENDIENTE + conteo.EN_PROCESO
   const matrizMal = !!matriz && (matriz.estado === 'error' || !!matriz.sinRespuesta)
   const completa = conteo.total > 0 && conteo.GENERADO === conteo.total
   const estadoU = matrizMal || conteo.ERROR > 0 ? 'bad' : completa ? 'ok' : conteo.GENERADO === 0 ? 'vacia' : 'en'
-  const chipU = matrizMal ? 'Matriz con error' : completa ? 'Completa' : conteo.total === 0 ? 'Sin recursos' : conteo.ERROR > 0 ? 'Con errores' : conteo.GENERADO === 0 ? 'Por generar' : conteo.EN_PROCESO > 0 ? 'Generando' : 'En progreso'
+  const chipU = matrizMal ? 'Matriz con error' : completa ? 'Completa' : conteo.total === 0 ? 'Sin recursos' : conteo.ERROR > 0 ? 'Con errores' : conteo.POR_REVISAR > 0 ? 'Por revisar' : conteo.GENERADO === 0 ? 'Por generar' : conteo.EN_PROCESO > 0 ? 'Generando' : 'En progreso'
   const resumenU = matrizMal ? 'Hay que reintentar la matriz' : completa ? 'Matriz y recursos listos' : conteo.total === 0 ? 'Matriz lista · sin recursos todavía' : conteo.GENERADO === 0 ? 'Matriz lista · recursos H5P sin generar' : 'Matriz lista · faltan ' + (conteo.total - conteo.GENERADO) + ' recursos'
   const generandoMat = (!!matriz && matriz.estado === 'generando' && !matriz.sinRespuesta) || (!matriz && !!enviada)
   // Sin matriz (o generándose sin recursos aún): una fila simple, sin tarjeta con datos vacíos.
@@ -235,7 +238,7 @@ function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, envi
             <span className={'mx4-ic ' + (completa ? 'ok' : 'n')} aria-hidden="true">2</span>
             <div className="mx4-paso-tx">
               <b>Recursos H5P</b>
-              <span className="mx4-cifra"><strong>{conteo.GENERADO}</strong> de {conteo.total} generados{conteo.ERROR > 0 ? ' · ' + conteo.ERROR + ' con error' : ''}</span>
+              <span className="mx4-cifra"><strong>{conteo.GENERADO}</strong> de {conteo.total} generados{conteo.POR_REVISAR > 0 ? ' · ' + conteo.POR_REVISAR + ' por revisar' : ''}{conteo.ERROR > 0 ? ' · ' + conteo.ERROR + ' con error' : ''}</span>
             </div>
             <button type="button" className="mx4-ver" aria-expanded={todos} onClick={() => setTodos(!todos)}>
               {todos ? 'Ocultar recursos' : 'Ver los ' + conteo.total + ' recursos'}
@@ -249,11 +252,11 @@ function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, envi
           {todos && (
             <div className="mx4-lista-w">
               <div className="mx4-filtros" role="tablist" aria-label="Filtrar recursos">
-                {[['todos', 'Todos', conteo.total], ['generados', 'Generados', conteo.GENERADO], ['pendientes', 'Por generar', conteo.total - conteo.GENERADO]].map(([k, t, n]) => (
+                {[['todos', 'Todos', conteo.total], ['revisar', 'Por revisar', conteo.POR_REVISAR || 0], ['generados', 'Generados', conteo.GENERADO], ['pendientes', 'Por generar', conteo.total - conteo.GENERADO - (conteo.POR_REVISAR || 0)]].map(([k, t, n]) => (
                   <button key={k} type="button" role="tab" aria-selected={filtro === k} className={'mx4-f ' + k + (filtro === k ? ' on' : '')} onClick={() => setFiltro(k)}>{t} <b>{n}</b></button>
                 ))}
               </div>
-              <ul className="mx4-lista">{filas.map((r) => <Fila key={r.id} r={r} editar={editar} />)}</ul>
+              <ul className="mx4-lista">{filas.map((r) => <Fila key={r.id} r={r} editar={editar} aprobar={aprobar} puedePublicar={puedePublicar} />)}</ul>
             </div>
           )}
         </div>
@@ -272,6 +275,15 @@ export default function MatricesH5P({ s }) {
   const [faseSel, setFaseSel] = useState(null) // fase elegida a mano (1 = Matrices, 2 = Recursos H5P); null = la que corresponde al estado
   const [yaEnCurso, setYaEnCurso] = useState(0) // el servidor dijo que ya hay una generación en marcha
   const [enviadas, setEnviadas] = useState([]) // unidades cuya matriz se pidió hace poco
+  // Aprobar = pedir a n8n que arme el .h5p y lo suba a Drive; si ya estaba publicado, reemplaza el contenido del mismo archivo. Lanza el error para que quien llama lo muestre.
+  const aprobarRecurso = async (r) => {
+    if (r.estado === 'GENERADO' && !window.confirm('Este recurso ya está publicado en Drive. Se reemplazará el contenido del mismo archivo (no se crea un duplicado). ¿Continuar?')) return false
+    await api('POST', '/proyectos/' + encodeURIComponent(s.id) + '/pipeline/recursos/' + encodeURIComponent(r.id) + '/aprobar')
+    setAviso('Se aprobó ' + (r.codigo || r.id) + '. n8n está armando el H5P y subiéndolo a Drive; aparecerá como Generado en unos instantes.')
+    cargar()
+    return true
+  }
+  const aprobarDesdeFila = async (r) => { try { await aprobarRecurso(r) } catch (e) { setError(e.message || 'No se pudo aprobar el recurso.') } }
   const [editando, setEditando] = useState(null) // recurso abierto en el editor de textos
   const [lanzadoEn, setLanzadoEn] = useState(0) // hasta que n8n avise del inicio pasan unos segundos: mientras tanto se sigue refrescando
 
@@ -289,7 +301,7 @@ export default function MatricesH5P({ s }) {
     return !!m && m.estado !== 'generando' && new Date(m.actualizadoEn).getTime() >= lanzadoEn - 15000
   })
   const lanzadoReciente = !pedidasTerminadas && ((lanzadoEn > 0 && Date.now() - lanzadoEn < 120000) || (yaEnCurso > 0 && Date.now() - yaEnCurso < 600000))
-  const enProgreso = lanzadoReciente || !!d && (d.matrices.some((m) => m.estado === 'generando' && !m.sinRespuesta) || d.ejecuciones.some((e) => e.estado === 'en_curso' && !e.sinRespuesta) || d.recursos.some((r) => r.estado === 'EN_PROCESO' && !r.sinRespuesta))
+  const enProgreso = lanzadoReciente || !!d && (d.matrices.some((m) => m.estado === 'generando' && !m.sinRespuesta) || d.ejecuciones.some((e) => e.estado === 'en_curso' && !e.sinRespuesta) || d.recursos.some((r) => (r.publicando && !r.publicandoSinRespuesta) || r.estado === 'EN_PROCESO' && !r.sinRespuesta))
   // Mientras algo esté en proceso se refresca solo (consulta a Praxia, no a n8n); además, al volver a la pestaña.
   useEffect(() => {
     if (!enProgreso) return undefined
@@ -346,6 +358,7 @@ export default function MatricesH5P({ s }) {
   const puede = !!(d && d.puedeGenerarMatrices)
   const ocupado = lanzando || lanzadoReciente || !!(d && (d.matrices.some((m) => m.estado === 'generando' && !m.sinRespuesta) || d.ejecuciones.some((e) => e.etapa === 'matrices' && e.estado === 'en_curso' && !e.sinRespuesta)))
   const puedeH5p = !!(d && d.puedeGenerarH5p)
+  const puedePublicar = !!(d && d.puedePublicar)
   const listas = d ? d.matrices.filter((m) => ['creada', 'omitida', 'reemplazada'].includes(m.estado) && !m.sinRespuesta).length : 0
   const h5pOcupado = lanzando || (lanzadoReciente && !corridaNueva) || !!(d && d.ejecuciones.some((e) => e.etapa === 'h5p' && e.estado === 'en_curso' && !e.sinRespuesta))
   const conError = d ? d.recursos.filter((r) => r.estado === 'ERROR').length : 0
@@ -487,12 +500,12 @@ export default function MatricesH5P({ s }) {
           <h4 className="mx2-h mx3-h">Unidades</h4>
           <div className="mx-grid mx3-lista">
             {unidades.map((u) => (
-              <Unidad key={u.unidad} unidad={u.unidad} nombre={u.nombre} matriz={d.matrices.find((m) => m.unidad === u.unidad)} recursos={d.recursos.filter((r) => r.unidad === u.unidad)} puede={puede} ocupado={ocupado} lanzar={lanzar} enviada={lanzadoReciente && enviadas.includes(u.unidad)} desdeEnvio={yaEnCurso ? 0 : lanzadoEn} editar={setEditando} />
+              <Unidad key={u.unidad} unidad={u.unidad} nombre={u.nombre} matriz={d.matrices.find((m) => m.unidad === u.unidad)} recursos={d.recursos.filter((r) => r.unidad === u.unidad)} puede={puede} ocupado={ocupado} lanzar={lanzar} enviada={lanzadoReciente && enviadas.includes(u.unidad)} desdeEnvio={yaEnCurso ? 0 : lanzadoEn} editar={setEditando} aprobar={aprobarDesdeFila} puedePublicar={puedePublicar} />
             ))}
           </div>
         </>
       )}
-      {editando && <EditorRecurso proyecto={s.id} recurso={editando} onCerrar={() => { setEditando(null); cargar() }} />}
+      {editando && <EditorRecurso proyecto={s.id} recurso={editando} puedePublicar={puedePublicar} onAprobar={aprobarRecurso} onCerrar={() => { setEditando(null); cargar() }} />}
     </div>
   )
 }

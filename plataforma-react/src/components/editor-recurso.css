@@ -109,3 +109,5 @@
   .er-mini,.er-redim,.er-estadobar .er-ayuda{display:none}
 }
 @media (prefers-reduced-motion:reduce){.er-gira{animation:none}}
+
+.er-b.ok{background:var(--brand);border-color:var(--brand);color:#fff}.er-b.ok:disabled{opacity:.45}
