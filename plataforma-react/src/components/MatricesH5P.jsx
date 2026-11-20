@@ -128,7 +128,7 @@ function Fila({ r, editar, aprobar, puedePublicar }) {
   const porRevisar = r.estado === 'POR_REVISAR' && !r.sinRespuesta
   const publicando = !!r.publicando && !r.publicandoSinRespuesta
   const k = publicando ? 'en' : hecho ? 'ok' : mal ? 'er' : porRevisar ? 'prev' : r.estado === 'EN_PROCESO' ? 'en' : 'pe'
-  const texto = publicando ? 'Publicando…' : r.publicandoSinRespuesta ? 'Sin respuesta al publicar' : porRevisar ? 'Por revisar' : r.enCola ? 'En cola' : hecho ? 'Generado' : r.sinRespuesta ? 'Sin avisos' : r.estado === 'ERROR' ? 'Con error' : r.estado === 'EN_PROCESO' ? 'Generando' : 'Por generar'
+  const texto = publicando ? 'Publicando…' : r.publicandoSinRespuesta ? 'Sin respuesta al publicar' : r.enCola && r.regenera ? 'Se regenerará' : porRevisar ? 'Por revisar' : r.enCola ? 'En cola' : hecho ? 'Generado' : r.sinRespuesta ? 'Sin avisos' : r.estado === 'ERROR' ? 'Con error' : r.estado === 'EN_PROCESO' ? 'Generando' : 'Por generar'
   const nota = porRevisar ? '' : r.estado === 'ERROR' ? r.observaciones : r.omision ? 'Se omitió: ' + motivoTexto(r.omision) : hecho ? '' : r.observaciones
   return (
     <li className={'mx4-r ' + k}>
@@ -137,8 +137,8 @@ function Fila({ r, editar, aprobar, puedePublicar }) {
       <span className="mx4-rt" title={r.titulo || ''}>{r.titulo || 'Sin título'}</span>
       <span className="mx4-re">{texto}</span>
       <span className="mx4-rl">
-        {r.conContenido && !publicando && ['POR_REVISAR', 'GENERADO', 'ERROR'].includes(r.estado) && editar && <button type="button" className="mx4-ed" onClick={() => editar(r)} title="Corregir los textos del recurso antes de publicarlo">Editar textos</button>}
-        {r.conContenido && !publicando && ['POR_REVISAR', 'ERROR'].includes(r.estado) && puedePublicar && aprobar && <button type="button" className="mx4-ed ok" onClick={() => aprobar(r)} title="Aprobar el contenido: n8n arma el H5P y lo sube a Drive">Aprobar y publicar</button>}
+        {r.conContenido && !publicando && !r.enCola && ['POR_REVISAR', 'GENERADO', 'ERROR'].includes(r.estado) && editar && <button type="button" className="mx4-ed" onClick={() => editar(r)} title="Corregir los textos del recurso antes de publicarlo">Editar textos</button>}
+        {r.conContenido && !publicando && !r.enCola && ['POR_REVISAR', 'ERROR'].includes(r.estado) && puedePublicar && aprobar && <button type="button" className="mx4-ed ok" onClick={() => aprobar(r)} title="Aprobar el contenido: n8n arma el H5P y lo sube a Drive">Aprobar y publicar</button>}
         {hecho && r.enlaceRecurso && <a href={r.enlaceRecurso} target="_blank" rel="noopener noreferrer">Recurso ↗</a>}
         {r.enlaceGuion && <a href={r.enlaceGuion} target="_blank" rel="noopener noreferrer">Guion ↗</a>}
         {hecho && r.revisionPendiente > 0 && <span title="Campos que el generador dejó para revisión humana">REVISAR {r.revisionPendiente} campo{r.revisionPendiente === 1 ? '' : 's'}</span>}
@@ -282,13 +282,14 @@ function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, envi
   )
 }
 
-// Lo que la corrida en curso planificó y todavía no empezó (sigue PENDIENTE en la matriz) se muestra «en cola» desde el primer momento, para saber cuántos faltan.
+// Lo que la corrida en curso planificó y todavía no empezó se muestra «en cola» desde el primer momento, para saber cuántos faltan. Si ya tenía algo generado (se puso en
+// PENDIENTE en la matriz), se avisa que se regenerará.
 function marcarEnCola(data) {
   const e = (data.ejecuciones || []).find((x) => x.etapa === 'h5p')
   if (!e || e.estado !== 'en_curso' || e.sinRespuesta || !e.plan || !Array.isArray(e.plan.aGenerarClaves) || !e.plan.aGenerarClaves.length) return data
   const codigos = new Set(), ids = new Set()
   e.plan.aGenerarClaves.forEach((k) => { if (k.codigo) codigos.add(k.codigo); else ids.add(k.id) })
-  return { ...data, recursos: data.recursos.map((r) => (r.estado === 'PENDIENTE' && (codigos.has(r.codigo) || (!r.codigo && ids.has(r.id))) ? { ...r, enCola: true } : r)) }
+  return { ...data, recursos: data.recursos.map((r) => (r.estado !== 'EN_PROCESO' && (codigos.has(r.codigo) || (!r.codigo && ids.has(r.id))) ? { ...r, enCola: true, regenera: r.estado !== 'PENDIENTE' } : r)) }
 }
 
 export default function MatricesH5P({ s }) {

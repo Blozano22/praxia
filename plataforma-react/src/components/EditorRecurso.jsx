@@ -61,7 +61,7 @@ function ListaRecursos({ recursos, actualId, puedePublicar, sucio, onElegir, onA
     recursos.filter(pasa).forEach((r) => { const u = r.unidad == null ? 0 : r.unidad; if (!m.has(u)) m.set(u, []); m.get(u).push(r) })
     return [...m.entries()].sort((a, b) => a[0] - b[0]).map(([u, l]) => [u, l.sort((a, b) => (ORDEN_ESTADO[a.estado] ?? 9) - (ORDEN_ESTADO[b.estado] ?? 9) || String(a.codigo || a.id).localeCompare(String(b.codigo || b.id)))])
   }, [recursos, filtro]) // eslint-disable-line react-hooks/exhaustive-deps
-  const aprobable = (r) => puedePublicar && onAprobar && r.conContenido && !r.publicando && (r.estado === 'POR_REVISAR' || r.estado === 'ERROR')
+  const aprobable = (r) => puedePublicar && onAprobar && r.conContenido && !r.publicando && !r.enCola && (r.estado === 'POR_REVISAR' || r.estado === 'ERROR')
 
   const aprobarUno = async (r) => {
     if (sucio && r.id === actualId) { setAviso({ tipo: 'warn', texto: 'Guarde o descarte los cambios del recurso abierto antes de aprobarlo.' }); return }
@@ -125,7 +125,7 @@ function ListaRecursos({ recursos, actualId, puedePublicar, sucio, onElegir, onA
                         <button type="button" className="er-rec-btn" aria-current={r.id === actualId ? 'true' : undefined} onClick={() => onElegir(r)}>
                           <span className={'er-rec-ic ' + k} aria-hidden="true">{k === 'en' ? <CargaRecurso /> : k === 'ok' ? '✓' : k === 'er' ? '!' : ''}</span>
                           <span className="er-rec-tx"><b>{r.codigo || r.id}</b><small>{r.titulo || 'Sin título'}</small></span>
-                          <span className={'er-rec-et ' + k}>{pub ? 'Publicando…' : sin ? 'Sin avisos' : r.enCola ? 'En cola' : TEXTO_ESTADO[r.estado] || r.estado}</span>
+                          <span className={'er-rec-et ' + k}>{pub ? 'Publicando…' : sin ? 'Sin avisos' : r.enCola ? (r.regenera ? 'Se regenerará' : 'En cola') : TEXTO_ESTADO[r.estado] || r.estado}</span>
                         </button>
                         {aprobable(r) && (
                           <button type="button" className="er-rec-ok" disabled={!!ocupados[r.id] || unidadBusy !== null} onClick={() => aprobarUno(r)} aria-label={'Aprobar y publicar ' + (r.codigo || r.id)} title="Aprobar y publicar">
