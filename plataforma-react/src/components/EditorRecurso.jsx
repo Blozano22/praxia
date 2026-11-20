@@ -116,13 +116,14 @@ function ListaRecursos({ recursos, actualId, puedePublicar, sucio, onElegir, onA
                 <ul>
                   {lista.map((r) => {
                     const pub = !!r.publicando && !r.publicandoSinRespuesta
-                    const k = pub || r.estado === 'EN_PROCESO' ? 'en' : r.estado === 'POR_REVISAR' ? 'rv' : r.estado === 'GENERADO' ? 'ok' : r.estado === 'ERROR' ? 'er' : 'pe'
+                    const sin = !!r.sinRespuesta && !pub // lleva mucho sin avisos: no es «generando», es un aviso que no llegó
+                    const k = sin ? 'er' : pub || r.estado === 'EN_PROCESO' ? 'en' : r.estado === 'POR_REVISAR' ? 'rv' : r.estado === 'GENERADO' ? 'ok' : r.estado === 'ERROR' ? 'er' : 'pe'
                     return (
                       <li key={r.id} className={'er-rec ' + k + (r.id === actualId ? ' on' : '')}>
                         <button type="button" className="er-rec-btn" aria-current={r.id === actualId ? 'true' : undefined} onClick={() => onElegir(r)}>
                           <span className={'er-rec-ic ' + k} aria-hidden="true">{k === 'en' ? <i className="er-gira" /> : k === 'ok' ? '✓' : k === 'er' ? '!' : k === 'rv' ? '●' : ''}</span>
                           <span className="er-rec-tx"><b>{r.codigo || r.id}</b><small>{r.titulo || 'Sin título'}</small></span>
-                          <span className={'er-rec-et ' + k}>{pub ? 'Publicando…' : TEXTO_ESTADO[r.estado] || r.estado}</span>
+                          <span className={'er-rec-et ' + k}>{pub ? 'Publicando…' : sin ? 'Sin avisos' : TEXTO_ESTADO[r.estado] || r.estado}</span>
                         </button>
                         {aprobable(r) && (
                           <button type="button" className="er-rec-ok" disabled={!!ocupados[r.id] || unidadBusy !== null} onClick={() => aprobarUno(r)} aria-label={'Aprobar y publicar ' + (r.codigo || r.id)} title="Aprobar y publicar">
