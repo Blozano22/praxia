@@ -163,3 +163,13 @@
   .er-cols{position:relative}
   .er-volver{padding:0 10px}
 }
+
+.er-fondo{z-index:2000;width:100vw;height:100vh;height:100dvh}
+.er-main{overflow:hidden}
+
+/* Filtros y cabecera de unidad de la lista: alineados y sin desbordes */
+.er-nav-filtros{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.er-nav-filtros button{margin:0;width:100%;min-width:0;height:34px;padding:0 6px;justify-content:center;gap:5px;font-size:.73rem;white-space:nowrap;box-sizing:border-box}
+.er-un-cab{flex-wrap:wrap;row-gap:6px}
+.er-un-t{flex:1 1 auto}
+.er-un-ok{margin:0;max-width:100%}

@@ -128,7 +128,7 @@ function Fila({ r, editar, aprobar, puedePublicar }) {
   const publicando = !!r.publicando && !r.publicandoSinRespuesta
   const k = publicando ? 'en' : hecho ? 'ok' : mal ? 'er' : porRevisar ? 'rv' : r.estado === 'EN_PROCESO' ? 'en' : 'pe'
   const texto = publicando ? 'Publicando…' : r.publicandoSinRespuesta ? 'Sin respuesta al publicar' : porRevisar ? 'Por revisar' : hecho ? 'Generado' : r.sinRespuesta ? 'Sin avisos' : r.estado === 'ERROR' ? 'Con error' : r.estado === 'EN_PROCESO' ? 'Generando' : 'Por generar'
-  const nota = r.estado === 'ERROR' ? r.observaciones : r.omision ? 'Se omitió: ' + motivoTexto(r.omision) : hecho ? '' : r.observaciones
+  const nota = porRevisar ? '' : r.estado === 'ERROR' ? r.observaciones : r.omision ? 'Se omitió: ' + motivoTexto(r.omision) : hecho ? '' : r.observaciones
   return (
     <li className={'mx4-r ' + k}>
       <span className={'mx4-pt ' + k} aria-hidden="true">{hecho ? I_CHECK : mal ? I_ALERTA : null}</span>

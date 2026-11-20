@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { api, RUTA_API } from '../lib/api.js'
 import codigoEditor from '../lib/editor-campos.js?raw'
 import './editor-recurso.css'
@@ -296,7 +297,8 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
   // Página completa: el resto de la pantalla no se desplaza detrás
   useEffect(() => { const o = document.body.style.overflow; document.body.style.overflow = 'hidden'; return () => { document.body.style.overflow = o } }, [])
 
-  return (
+  // Se pinta en <body>: así ocupa toda la ventana aunque la pantalla de abajo tenga transformaciones o se haya desplazado
+  return createPortal(
     <div className="er-fondo" role="dialog" aria-modal="true" aria-label={'Editar ' + (recurso.codigo || recurso.id)}>
       <div className="er-caja">
         <header className="er-cab">
@@ -392,6 +394,7 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
         </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
