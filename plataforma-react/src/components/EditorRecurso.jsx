@@ -44,17 +44,18 @@ function ListaRecursos({ recursos, actualId, puedePublicar, sucio, onElegir, onA
   const [unidadBusy, setUnidadBusy] = useState(null)
   const [aviso, setAviso] = useState(null) // { tipo, texto }
   const conteo = useMemo(() => {
-    const c = { total: recursos.length, revisar: 0, generando: 0, generados: 0, errores: 0, pendientes: 0 }
+    const c = { total: recursos.length, revisar: 0, generando: 0, generados: 0, errores: 0, pendientes: 0, enCola: 0 }
     recursos.forEach((r) => {
       if (r.estado === 'POR_REVISAR') c.revisar++
       else if (r.estado === 'EN_PROCESO') c.generando++
       else if (r.estado === 'GENERADO') c.generados++
       else if (r.estado === 'ERROR') c.errores++
+      else if (r.enCola) c.enCola++
       else c.pendientes++
     })
     return c
   }, [recursos])
-  const pasa = (r) => (filtro === 'todos' ? true : filtro === 'revisar' ? r.estado === 'POR_REVISAR' : r.estado !== 'PENDIENTE')
+  const pasa = (r) => (filtro === 'todos' ? true : filtro === 'revisar' ? r.estado === 'POR_REVISAR' : r.estado !== 'PENDIENTE' || !!r.enCola)
   const grupos = useMemo(() => {
     const m = new Map()
     recursos.filter(pasa).forEach((r) => { const u = r.unidad == null ? 0 : r.unidad; if (!m.has(u)) m.set(u, []); m.get(u).push(r) })
@@ -88,7 +89,7 @@ function ListaRecursos({ recursos, actualId, puedePublicar, sucio, onElegir, onA
     <nav className="er-nav" aria-label="Recursos del curso">
       <div className="er-nav-cab">
         <b>Recursos del curso</b>
-        <span>{conteo.revisar > 0 ? conteo.revisar + (conteo.revisar === 1 ? ' por revisar' : ' por revisar') : 'Nada por revisar'} · {conteo.generando} generándose · {conteo.generados} publicados</span>
+        <span>{conteo.revisar > 0 ? conteo.revisar + (conteo.revisar === 1 ? ' por revisar' : ' por revisar') : 'Nada por revisar'} · {conteo.generando} generándose{conteo.enCola > 0 ? ' · ' + conteo.enCola + ' en cola' : ''} · {conteo.generados} publicados</span>
       </div>
       <div className="er-nav-filtros" role="tablist" aria-label="Filtrar">
         {filtros.map(([k, t, n]) => <button key={k} type="button" role="tab" aria-selected={filtro === k} className={(filtro === k ? 'on ' : '') + (k === 'revisar' && n > 0 ? 'prev' : '')} onClick={() => setFiltro(k)}>{t} <b>{n}</b></button>)}
@@ -124,7 +125,7 @@ function ListaRecursos({ recursos, actualId, puedePublicar, sucio, onElegir, onA
                         <button type="button" className="er-rec-btn" aria-current={r.id === actualId ? 'true' : undefined} onClick={() => onElegir(r)}>
                           <span className={'er-rec-ic ' + k} aria-hidden="true">{k === 'en' ? <CargaRecurso /> : k === 'ok' ? '✓' : k === 'er' ? '!' : ''}</span>
                           <span className="er-rec-tx"><b>{r.codigo || r.id}</b><small>{r.titulo || 'Sin título'}</small></span>
-                          <span className={'er-rec-et ' + k}>{pub ? 'Publicando…' : sin ? 'Sin avisos' : TEXTO_ESTADO[r.estado] || r.estado}</span>
+                          <span className={'er-rec-et ' + k}>{pub ? 'Publicando…' : sin ? 'Sin avisos' : r.enCola ? 'En cola' : TEXTO_ESTADO[r.estado] || r.estado}</span>
                         </button>
                         {aprobable(r) && (
                           <button type="button" className="er-rec-ok" disabled={!!ocupados[r.id] || unidadBusy !== null} onClick={() => aprobarUno(r)} aria-label={'Aprobar y publicar ' + (r.codigo || r.id)} title="Aprobar y publicar">

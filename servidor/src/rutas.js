@@ -117,7 +117,7 @@ rutas.get('/proyectos/:id/pipeline', exigirSesion, exigirPermiso('proyectos.ver_
     const p = [req.usuario.id, req.paramsOk.id]
     const [m, r, e] = await Promise.all([sinUsuario(Q.pipeLeerMatrices, p), sinUsuario(Q.pipeLeerRecursos, p), sinUsuario(Q.pipeLeerEjecuciones, p)])
     // El plan de una corrida puede ser largo: se entrega el conteo y la lista de lo omitido con su motivo, no todos los recursos a generar.
-    const ejecuciones = e.rows.map((x) => ({ ...x, plan: x.plan ? { aGenerar: (x.plan.a_generar || []).length, omitidas: (x.plan.omitidas || []).slice(0, 500) } : null }))
+    const ejecuciones = e.rows.map((x) => ({ ...x, plan: x.plan ? { aGenerar: (x.plan.a_generar || []).length, aGenerarClaves: (x.plan.a_generar || []).slice(0, 500).map((i) => ({ id: i.id, codigo: i.codigo || null })), omitidas: (x.plan.omitidas || []).slice(0, 500) } : null }))
     res.json({ matrices: m.rows, recursos: r.rows, ejecuciones, generado: new Date().toISOString(), puedeGenerarMatrices: Boolean(await urlMatrices()), puedeGenerarH5p: Boolean(await urlH5p()), puedePublicar: Boolean(await urlPublicar()), puedePreparar: Boolean(await urlPreparacion()) })
   } catch (err) { next(err) }
 })

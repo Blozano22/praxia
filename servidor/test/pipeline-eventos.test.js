@@ -433,6 +433,17 @@ test('etapa 2: un recurso «por revisar» se aprueba y n8n recibe la orden de pu
   f = await lista(); assert.equal(f.estado, 'POR_REVISAR'); assert.equal(f.publicando, false)
 })
 
+test('la pantalla recibe qué recursos planificó la corrida (para mostrarlos «en cola» desde el principio)', async () => {
+  const r = await fetch(base + '/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json', 'x-ova': '1' }, body: JSON.stringify({ correo: 'ana@u.co', clave: CLAVE }) })
+  const h = { cookie: (r.headers.get('set-cookie') || '').split(';')[0], 'x-ova': '1' }
+  const plan = { a_generar: [{ id: 'x1', codigo: 'U9-T1-R1' }, { id: 'x2' }], omitidas: [] }
+  assert.equal((await enviar(aviso('h5p_inicio', 'h5p', { ejecucion_id: 'cola1', plan, fecha_evento: new Date().toISOString(), secuencia: 1 }))).estado, 200)
+  const d = await (await fetch(base + '/api/proyectos/curso-a/pipeline', { headers: h })).json()
+  const e = d.ejecuciones.find((x) => x.ejecucionId === 'cola1')
+  assert.equal(e.plan.aGenerar, 2)
+  assert.deepEqual(e.plan.aGenerarClaves, [{ id: 'x1', codigo: 'U9-T1-R1' }, { id: 'x2', codigo: null }])
+})
+
 test('vista global: solo quien ve todos los cursos la lee; trae cifras por curso de todas las personas y los avisos sin atribuir', async () => {
   const { Q } = await import('../src/consultas.js')
   const { hashClave } = await import('../src/seguridad.js')

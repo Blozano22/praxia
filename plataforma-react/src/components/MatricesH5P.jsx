@@ -128,7 +128,7 @@ function Fila({ r, editar, aprobar, puedePublicar }) {
   const porRevisar = r.estado === 'POR_REVISAR' && !r.sinRespuesta
   const publicando = !!r.publicando && !r.publicandoSinRespuesta
   const k = publicando ? 'en' : hecho ? 'ok' : mal ? 'er' : porRevisar ? 'prev' : r.estado === 'EN_PROCESO' ? 'en' : 'pe'
-  const texto = publicando ? 'Publicando…' : r.publicandoSinRespuesta ? 'Sin respuesta al publicar' : porRevisar ? 'Por revisar' : hecho ? 'Generado' : r.sinRespuesta ? 'Sin avisos' : r.estado === 'ERROR' ? 'Con error' : r.estado === 'EN_PROCESO' ? 'Generando' : 'Por generar'
+  const texto = publicando ? 'Publicando…' : r.publicandoSinRespuesta ? 'Sin respuesta al publicar' : porRevisar ? 'Por revisar' : r.enCola ? 'En cola' : hecho ? 'Generado' : r.sinRespuesta ? 'Sin avisos' : r.estado === 'ERROR' ? 'Con error' : r.estado === 'EN_PROCESO' ? 'Generando' : 'Por generar'
   const nota = porRevisar ? '' : r.estado === 'ERROR' ? r.observaciones : r.omision ? 'Se omitió: ' + motivoTexto(r.omision) : hecho ? '' : r.observaciones
   return (
     <li className={'mx4-r ' + k}>
@@ -164,8 +164,8 @@ function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, envi
   const [filtro, setFiltro] = useState('todos')
   const [confirmar, setConfirmar] = useState(false)
   const conteo = useMemo(() => {
-    const c = { total: recursos.length, PENDIENTE: 0, EN_PROCESO: 0, GENERADO: 0, ERROR: 0, h5p: 0, otros: 0 }
-    recursos.forEach((r) => { c[r.estado] = (c[r.estado] || 0) + 1; if (String(r.generador || '').toUpperCase() === 'H5P') c.h5p++; else c.otros++ })
+    const c = { total: recursos.length, PENDIENTE: 0, EN_PROCESO: 0, GENERADO: 0, ERROR: 0, enCola: 0, h5p: 0, otros: 0 }
+    recursos.forEach((r) => { c[r.estado] = (c[r.estado] || 0) + 1; if (r.enCola) c.enCola++; if (String(r.generador || '').toUpperCase() === 'H5P') c.h5p++; else c.otros++ })
     return c
   }, [recursos])
   const nRev = conteo.POR_REVISAR || 0
@@ -254,7 +254,7 @@ function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, envi
             <span className={'mx4-ic ' + (completa ? 'ok' : 'n')} aria-hidden="true">2</span>
             <div className="mx4-paso-tx">
               <b>Recursos H5P</b>
-              <span className="mx4-cifra"><strong>{conteo.GENERADO}</strong> de {conteo.total} generados{nRev > 0 && <em className="mx4-cifra-rv">{nRev} por revisar</em>}{conteo.ERROR > 0 ? ' · ' + conteo.ERROR + ' con error' : ''}</span>
+              <span className="mx4-cifra"><strong>{conteo.GENERADO}</strong> de {conteo.total} generados{nRev > 0 && <em className="mx4-cifra-rv">{nRev} por revisar</em>}{conteo.enCola > 0 && <em className="mx4-cifra-rv">{conteo.enCola} en cola</em>}{conteo.ERROR > 0 ? ' · ' + conteo.ERROR + ' con error' : ''}</span>
             </div>
             <button type="button" className="mx4-ver" aria-expanded={todos} onClick={() => setTodos(!todos)}>
               {todos ? 'Ocultar recursos' : 'Ver los ' + conteo.total + ' recursos'}
@@ -282,6 +282,15 @@ function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, envi
   )
 }
 
+// Lo que la corrida en curso planificó y todavía no empezó (sigue PENDIENTE en la matriz) se muestra «en cola» desde el primer momento, para saber cuántos faltan.
+function marcarEnCola(data) {
+  const e = (data.ejecuciones || []).find((x) => x.etapa === 'h5p')
+  if (!e || e.estado !== 'en_curso' || e.sinRespuesta || !e.plan || !Array.isArray(e.plan.aGenerarClaves) || !e.plan.aGenerarClaves.length) return data
+  const codigos = new Set(), ids = new Set()
+  e.plan.aGenerarClaves.forEach((k) => { if (k.codigo) codigos.add(k.codigo); else ids.add(k.id) })
+  return { ...data, recursos: data.recursos.map((r) => (r.estado === 'PENDIENTE' && (codigos.has(r.codigo) || (!r.codigo && ids.has(r.id))) ? { ...r, enCola: true } : r)) }
+}
+
 export default function MatricesH5P({ s }) {
   const [d, setD] = useState(null)
   const [error, setError] = useState('')
@@ -306,7 +315,7 @@ export default function MatricesH5P({ s }) {
 
   const cargar = useCallback(async () => {
     setCargando(true)
-    try { setD(await api('GET', '/proyectos/' + encodeURIComponent(s.id) + '/pipeline')); setError('') } catch (e) { setError(e.message || 'No se pudo cargar') }
+    try { setD(marcarEnCola(await api('GET', '/proyectos/' + encodeURIComponent(s.id) + '/pipeline'))); setError('') } catch (e) { setError(e.message || 'No se pudo cargar') }
     setCargando(false)
   }, [s.id])
   useEffect(() => { cargar() }, [cargar])
