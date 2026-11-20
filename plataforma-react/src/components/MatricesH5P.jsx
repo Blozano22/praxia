@@ -27,6 +27,8 @@ const MOTIVO = {
   supera_maximo: 'Superó el máximo de recursos de la corrida'
 }
 const motivoTexto = (m) => MOTIVO[m] || String(m || '').replace(/_/g, ' ')
+// Tema de un recurso: el que avisó n8n o, si falta, el del código («U1-T4-R6» → 4). 0 = sin tema.
+const temaDe = (r) => { if (r.tema != null && Number.isFinite(Number(r.tema))) return Number(r.tema); const x = /-T(\d+)-/i.exec(r.codigo || ''); return x ? Number(x[1]) : 0 }
 const fecha = (c) => (c ? new Date(c).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' }) : '')
 const hace = (c) => {
   if (!c) return ''
@@ -172,7 +174,7 @@ function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, envi
   // Cuando hay recursos listos para revisar, la unidad se abre sola mostrando solo esos: no hay que desplegar nada para encontrarlos.
   useEffect(() => { if (nRev > 0) { setTodos(true); setFiltro('revisar') } }, [nRev > 0]) // eslint-disable-line react-hooks/exhaustive-deps
   const esHecho = (r) => r.estado === 'GENERADO' && !r.sinRespuesta
-  const filas = recursos.filter((r) => (filtro === 'generados' ? esHecho(r) : filtro === 'revisar' ? r.estado === 'POR_REVISAR' : filtro === 'pendientes' ? !esHecho(r) && r.estado !== 'POR_REVISAR' : true)).sort((a, b) => esHecho(b) - esHecho(a) || (b.estado === 'ERROR') - (a.estado === 'ERROR'))
+  const filas = recursos.filter((r) => (filtro === 'generados' ? esHecho(r) : filtro === 'revisar' ? r.estado === 'POR_REVISAR' : filtro === 'pendientes' ? !esHecho(r) && r.estado !== 'POR_REVISAR' : true)).sort((a, b) => temaDe(a) - temaDe(b) || esHecho(b) - esHecho(a) || (b.estado === 'ERROR') - (a.estado === 'ERROR') || String(a.codigo || a.id).localeCompare(String(b.codigo || b.id), undefined, { numeric: true }))
   const porGenerar = conteo.PENDIENTE + conteo.EN_PROCESO
   const matrizMal = !!matriz && (matriz.estado === 'error' || !!matriz.sinRespuesta)
   const completa = conteo.total > 0 && conteo.GENERADO === conteo.total
@@ -273,7 +275,16 @@ function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, envi
                   <button key={k} type="button" role="tab" aria-selected={filtro === k} className={'mx4-f ' + k + (filtro === k ? ' on' : '')} onClick={() => setFiltro(k)}>{t} <b>{n}</b></button>
                 ))}
               </div>
-              <ul className="mx4-lista">{filas.map((r) => <Fila key={r.id} r={r} editar={editar} aprobar={aprobar} puedePublicar={puedePublicar} />)}</ul>
+              <ul className="mx4-lista">{(() => {
+                let ult = null
+                return filas.flatMap((r) => {
+                  const t = temaDe(r)
+                  const fila = <Fila key={r.id} r={r} editar={editar} aprobar={aprobar} puedePublicar={puedePublicar} />
+                  if (t === ult) return [fila]
+                  ult = t
+                  return [<li key={'tema-' + t} className="mx4-tema">{t === 0 ? 'Sin tema' : 'Tema ' + t}</li>, fila]
+                })
+              })()}</ul>
             </div>
           )}
         </div>

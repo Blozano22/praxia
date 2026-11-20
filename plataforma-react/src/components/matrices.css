@@ -355,3 +355,5 @@ button.mx3-fase.bloq{cursor:not-allowed;opacity:.75}
 .mx7-ed-b{flex:none;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 20px;border:0;border-radius:12px;background:var(--brand);color:#fff;font:inherit;font-weight:800;font-size:.88rem;cursor:pointer;white-space:nowrap}
 .mx7-ed-b:hover{background:color-mix(in srgb,var(--brand) 86%,#000)}
 .mx7-ed.prev{background:#fff8e1;border-color:#f0dfa8}.mx7-ed.prev .mx7-ed-ic{background:#e0a100;color:#fff}.mx7-ed.prev .mx7-ed-tx b{color:#6b4a00}.mx7-ed.prev .mx7-ed-tx span{color:#7a5d1a}
+
+.mx4-lista>.mx4-tema{list-style:none;margin:10px 0 2px;padding:0 4px;font-size:.72rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}.mx4-lista>.mx4-tema:first-child{margin-top:0}

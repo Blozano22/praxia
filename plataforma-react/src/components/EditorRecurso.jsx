@@ -34,6 +34,10 @@ function armarPagina(esqueleto, contenido, titulo, formacion, activo) {
 
 // Lista de recursos del curso (lado izquierdo del editor): los generados, los que se están generando y los que esperan revisión, agrupados por unidad,
 // con un botón rápido para aprobar cada uno y otro para aprobar todos los de una unidad. Solo lee `recursos` (ya vienen de la pantalla de Matrices y H5P).
+// Tema de un recurso: el que avisó n8n o, si falta, el del código («U1-T4-R6» → 4). 0 = sin tema.
+const temaDe = (r) => { if (r.tema != null && Number.isFinite(Number(r.tema))) return Number(r.tema); const m = /-T(\d+)-/i.exec(r.codigo || ''); return m ? Number(m[1]) : 0 }
+// El guion (Google Doc) se muestra incrustado en modo de solo lectura (/preview) para leerlo y compararlo con el recurso; si no es un Doc de Google no se incrusta.
+const vistaGuion = (url) => { const m = /^https:\/\/docs\.google\.com\/document\/d\/([A-Za-z0-9_-]+)/.exec(String(url || '')); return m ? 'https://docs.google.com/document/d/' + m[1] + '/preview' : '' }
 const ORDEN_ESTADO = { POR_REVISAR: 0, ERROR: 1, EN_PROCESO: 2, GENERADO: 3, PENDIENTE: 4 }
 const TEXTO_ESTADO = { POR_REVISAR: 'Por revisar', ERROR: 'Con error', EN_PROCESO: 'Generando', GENERADO: 'Generado', PENDIENTE: 'Por generar' }
 
@@ -58,8 +62,9 @@ function ListaRecursos({ recursos, actualId, puedePublicar, sucio, onElegir, onA
   const pasa = (r) => (filtro === 'todos' ? true : filtro === 'revisar' ? r.estado === 'POR_REVISAR' : r.estado !== 'PENDIENTE' || !!r.enCola)
   const grupos = useMemo(() => {
     const m = new Map()
-    recursos.filter(pasa).forEach((r) => { const u = r.unidad == null ? 0 : r.unidad; if (!m.has(u)) m.set(u, []); m.get(u).push(r) })
-    return [...m.entries()].sort((a, b) => a[0] - b[0]).map(([u, l]) => [u, l.sort((a, b) => (ORDEN_ESTADO[a.estado] ?? 9) - (ORDEN_ESTADO[b.estado] ?? 9) || String(a.codigo || a.id).localeCompare(String(b.codigo || b.id)))])
+    recursos.filter(pasa).forEach((r) => { const u = r.unidad == null ? 0 : r.unidad; const t = temaDe(r); if (!m.has(u)) m.set(u, new Map()); const mt = m.get(u); if (!mt.has(t)) mt.set(t, []); mt.get(t).push(r) })
+    const orden = (a, b) => (ORDEN_ESTADO[a.estado] ?? 9) - (ORDEN_ESTADO[b.estado] ?? 9) || String(a.codigo || a.id).localeCompare(String(b.codigo || b.id), undefined, { numeric: true })
+    return [...m.entries()].sort((a, b) => a[0] - b[0]).map(([u, mt]) => [u, [...mt.entries()].sort((a, b) => a[0] - b[0]).map(([t, l]) => [t, l.sort(orden)])])
   }, [recursos, filtro]) // eslint-disable-line react-hooks/exhaustive-deps
   const aprobable = (r) => puedePublicar && onAprobar && r.conContenido && !r.publicando && !r.enCola && (r.estado === 'POR_REVISAR' || r.estado === 'ERROR')
 
@@ -97,7 +102,8 @@ function ListaRecursos({ recursos, actualId, puedePublicar, sucio, onElegir, onA
       {aviso && <p className={'er-nav-aviso ' + aviso.tipo} role="status">{aviso.texto}<button type="button" aria-label="Cerrar aviso" onClick={() => setAviso(null)}>×</button></p>}
       <div className="er-nav-lista">
         {grupos.length === 0 && <p className="er-vacio">{filtro === 'revisar' ? 'No hay recursos por revisar.' : 'Todavía no hay recursos con contenido.'}</p>}
-        {grupos.map(([u, lista]) => {
+        {grupos.map(([u, temas]) => {
+          const lista = temas.flatMap(([, l]) => l)
           const nRev = lista.filter((r) => r.estado === 'POR_REVISAR' && aprobable(r)).length
           const cerrada = !!cerradas[u]
           return (
@@ -114,9 +120,19 @@ function ListaRecursos({ recursos, actualId, puedePublicar, sucio, onElegir, onA
                   </button>
                 )}
               </header>
-              {!cerrada && (
+              {!cerrada && temas.map(([t, sub]) => {
+                const kT = u + ':' + t
+                const cT = !!cerradas[kT]
+                const nRevT = sub.filter((x) => x.estado === 'POR_REVISAR').length
+                return (
+                <div key={kT} className="er-tm">
+                  <button type="button" className="er-tm-t" aria-expanded={!cT} onClick={() => setCerradas((c) => ({ ...c, [kT]: !c[kT] }))}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ transform: cT ? 'rotate(-90deg)' : 'none', transition: 'transform .15s' }}><path d="M6 9l6 6 6-6" /></svg>
+                    <b>{t === 0 ? 'Sin tema' : 'Tema ' + t}</b><span>{sub.length}</span>{nRevT > 0 && <em>{nRevT} por revisar</em>}
+                  </button>
+                  {!cT && (
                 <ul>
-                  {lista.map((r) => {
+                  {sub.map((r) => {
                     const pub = !!r.publicando && !r.publicandoSinRespuesta
                     const sin = !!r.sinRespuesta && !pub // lleva mucho sin avisos: no es «generando», es un aviso que no llegó
                     const k = sin ? 'er' : pub || r.estado === 'EN_PROCESO' ? 'en' : r.estado === 'POR_REVISAR' ? 'prev' : r.estado === 'GENERADO' ? 'ok' : r.estado === 'ERROR' ? 'er' : 'pe'
@@ -136,7 +152,10 @@ function ListaRecursos({ recursos, actualId, puedePublicar, sucio, onElegir, onA
                     )
                   })}
                 </ul>
-              )}
+                  )}
+                </div>
+                )
+              })}
             </section>
           )
         })}
@@ -150,12 +169,10 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
   const [estado, setEstado] = useState('cargando') // cargando | listo | error
   const [error, setError] = useState('')
   const [pagina, setPagina] = useState('')
-  const [campos, setCampos] = useState([])
   const [activo, setActivo] = useState(true)
   const [sucio, setSucio] = useState(false)
   const [msg, setMsg] = useState(null) // { tipo: 'ok' | 'bad' | 'warn', texto }
   const [ocupado, setOcupado] = useState('')
-  const [verTodos, setVerTodos] = useState(false)
   const [navAbierta, setNavAbierta] = useState(() => typeof window === 'undefined' || window.innerWidth > 860) // en pantallas angostas la lista de recursos se abre a demanda
   const ref = useRef({ contenido: null, esqueleto: '', titulo: '', formacion: null, activo: true })
   const marco = useRef(null)
@@ -168,7 +185,7 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
 
   useEffect(() => {
     let vivo = true
-    setEstado('cargando'); setError(''); setCampos([]); setSucio(false); setMsg(null); setVerTodos(false); setPagina('')
+    setEstado('cargando'); setError(''); setSucio(false); setMsg(null); setPagina('')
     if (recurso.conContenido === false) { setEstado('sinContenido'); return () => { vivo = false } }
     ;(async () => {
       try {
@@ -192,13 +209,11 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
       if (!marco.current || e.source !== marco.current.contentWindow) return
       const d = e.data
       if (!d || d.fuente !== 'praxia-editor') return
-      if (d.tipo === 'listo' || d.tipo === 'lista') setCampos(Array.isArray(d.campos) ? d.campos : [])
-      else if (d.tipo === 'campo' && typeof d.ruta === 'string' && typeof d.valor === 'string') {
+      if (d.tipo === 'campo' && typeof d.ruta === 'string' && typeof d.valor === 'string') {
         if (!ponerRuta(ref.current.contenido, d.ruta, d.valor)) return
         setSucio(true); setMsg(null)
-        setCampos((cs) => cs.map((c) => (c.ruta === d.ruta ? { ...c, valor: d.valor } : c)))
         if (!d.parchado) pintar(ref.current.activo) // el texto no se pudo cambiar en pantalla: se vuelve a pintar con el JSON nuevo
-      } else if (d.tipo === 'sin_campo') setMsg({ tipo: 'warn', texto: 'Ese texto no viene de un campo que se pueda editar por clic. Búscalo en la lista de textos de la derecha.' })
+      } else if (d.tipo === 'sin_campo') setMsg({ tipo: 'warn', texto: 'Ese texto no viene de un campo que se pueda editar por clic.' })
     }
     window.addEventListener('message', alMensaje)
     return () => window.removeEventListener('message', alMensaje)
@@ -209,13 +224,6 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
     try { marco.current && marco.current.contentWindow.postMessage({ fuente: 'praxia-editor', tipo: 'modo', activo: v }, '*') } catch { /* iframe aún sin cargar */ }
   }
 
-  const editarLista = (c, valor) => {
-    if (valor === c.valor) return
-    if (!ponerRuta(ref.current.contenido, c.ruta, valor)) return
-    setSucio(true); setMsg(null)
-    setCampos((cs) => cs.map((x) => (x.ruta === c.ruta ? { ...x, valor } : x)))
-    pintar(ref.current.activo)
-  }
 
   const guardar = async () => {
     setOcupado('guardar'); setMsg(null)
@@ -256,8 +264,6 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
     return () => window.removeEventListener('keydown', tecla)
   }, [sucio, onCerrar])
 
-  const sinPantalla = useMemo(() => campos.filter((c) => !c.enPantalla), [campos])
-  const lista = verTodos ? campos : sinPantalla
 
   // ---- Distribución de la pantalla (solo aspecto): dividida, panel flotante o solo recurso. El iframe NO cambia de sitio en el árbol: solo cambian clases y medidas,
   // así no se recarga ni pierde su estado.
@@ -289,8 +295,8 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
   }
   const pesos = [['Vista 30%', 0.3], ['50 / 50', 0.5], ['Vista 70%', 0.7]]
   const estiloLado = modo === 'flotante' ? { left: flota.x, top: flota.y, width: flota.w, height: flota.min ? 46 : flota.h } : undefined
-  const nCampos = campos.length
   const actual = recursos.find((x) => x.id === recurso.id) || recurso
+  const urlGuion = vistaGuion(actual.enlaceGuion)
   const publicandoAhora = !!actual.publicando && !actual.publicandoSinRespuesta
   const elegirRecurso = (r) => {
     if (r.id === recurso.id || !onElegir) return
@@ -326,13 +332,8 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
         {publicandoAhora && <p className="er-msg info" role="status"><i className="er-gira" aria-hidden="true" /><span>Publicando en Drive. Este aviso se quita solo cuando n8n termina; puede seguir revisando otros recursos mientras tanto.</span></p>}
         {ocupado === 'h5p' && <p className="er-msg info" role="status"><i className="er-gira" aria-hidden="true" /><span>Armando el H5P con los cambios. Suele tardar unos 3 segundos; en algunos casos hasta 90. No cierre esta ventana.</span></p>}
 
-        {estado === 'sinContenido' && <div className="er-estado">{actual.estado === 'EN_PROCESO' || actual.publicando ? <CargaRecurso tam="grande" /> : <i className="er-estado-ic info" aria-hidden="true">{actual.estado === 'PENDIENTE' ? '…' : 'i'}</i>}<b>{actual.publicando ? 'Este recurso se está publicando' : actual.estado === 'EN_PROCESO' ? 'Este recurso se está generando' : actual.estado === 'PENDIENTE' ? 'Este recurso todavía no se genera' : 'Este recurso no se puede editar aquí'}</b><span>{actual.publicando ? 'n8n está armando el H5P y subiéndolo a Drive. Cuando termine, el recurso aparecerá como «Generado».' : actual.estado === 'EN_PROCESO' || actual.estado === 'PENDIENTE' ? 'Cuando n8n termine, aparecerá en la lista como «Por revisar» y podrá abrirlo para corregir sus textos.' : 'Se generó antes de que Praxia guardara su contenido, así que sus textos no se pueden corregir desde esta pantalla.'}</span></div>}
-        {estado === 'cargando' && <div className="er-estado"><CargaRecurso tam="grande" etiqueta="Abriendo el recurso" /><b>Abriendo el recurso…</b><span>Se está preparando la plantilla con su contenido.</span></div>}
-        {estado === 'error' && <div className="er-estado mal" role="alert"><i className="er-estado-ic" aria-hidden="true">!</i><b>No se pudo abrir el editor</b><span>{error}</span></div>}
-
         {estado === 'listo' && (
-          <>
-            <div className="er-barra">
+          <div className="er-barra">
               <div className="er-modos" role="tablist" aria-label="Distribución">
                 {[['dividida', 'Dividida', 'M3 5h18v14H3zM12 5v14'], ['flotante', 'Panel flotante', 'M3 5h18v14H3zM11 11h8v6h-8z'], ['recurso', 'Solo recurso', 'M4 5h16v14H4zM4 9h16']].map(([k, t, d]) => (
                   <button key={k} type="button" role="tab" aria-selected={modo === k} className={modo === k ? 'on' : ''} onClick={() => setModo(k)}>
@@ -349,52 +350,45 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
                   <button type="button" className="er-op" onClick={() => setInvertido(!invertido)} title="Intercambiar de lado">Intercambiar</button>
                 </div>
               )}
-              {modo === 'flotante' && <span className="er-ayuda">Arrastre el panel de textos desde su título; cambie su tamaño desde la esquina.</span>}
+              {modo === 'flotante' && <span className="er-ayuda">Arrastre el panel del guion desde su título; cambie su tamaño desde la esquina.</span>}
               {modo === 'recurso' && <span className="er-ayuda">Haga clic en cualquier texto del recurso para editarlo.</span>}
             </div>
+        )}
 
             <div ref={cuerpo} className={'er-cuerpo er-m-' + modo + ' er-o-' + orient + (invertido ? ' er-inv' : '')} style={{ '--f': frac }}>
               <div className="er-vista">
-                <iframe ref={marco} className="er-marco" title="Vista del recurso" sandbox="allow-scripts" srcDoc={pagina} />
+                {estado === 'listo' && <iframe ref={marco} className="er-marco" title="Vista del recurso" sandbox="allow-scripts" srcDoc={pagina} />}
+                {estado === 'sinContenido' && <div className="er-estado">{actual.estado === 'EN_PROCESO' || actual.publicando ? <CargaRecurso tam="grande" /> : <i className="er-estado-ic info" aria-hidden="true">{actual.estado === 'PENDIENTE' ? '…' : 'i'}</i>}<b>{actual.publicando ? 'Este recurso se está publicando' : actual.estado === 'EN_PROCESO' ? 'Este recurso se está generando' : actual.estado === 'PENDIENTE' ? 'Este recurso todavía no se genera' : 'Este recurso no se puede editar aquí'}</b><span>{actual.publicando ? 'n8n está armando el H5P y subiéndolo a Drive. Cuando termine, el recurso aparecerá como «Generado».' : actual.estado === 'EN_PROCESO' || actual.estado === 'PENDIENTE' ? 'Cuando n8n termine, aparecerá en la lista como «Por revisar» y podrá abrirlo para corregir sus textos.' : 'Se generó antes de que Praxia guardara su contenido, así que sus textos no se pueden corregir desde esta pantalla.'}</span></div>}
+                {estado === 'cargando' && <div className="er-estado"><CargaRecurso tam="grande" etiqueta="Abriendo el recurso" /><b>Abriendo el recurso…</b><span>Se está preparando la plantilla con su contenido.</span></div>}
+                {estado === 'error' && <div className="er-estado mal" role="alert"><i className="er-estado-ic" aria-hidden="true">!</i><b>No se pudo abrir el editor</b><span>{error}</span></div>}
               </div>
-              <div className={'er-asa' + (arrastre && arrastre.tipo === 'divisor' ? ' act' : '')} role="separator" aria-label="Repartir el espacio entre la vista y los textos" onMouseDown={(e) => empezar('divisor', e)}><i /></div>
-              <aside className={'er-lado' + (flota.min && modo === 'flotante' ? ' min' : '')} style={estiloLado} aria-label="Lista de textos">
+              <div className={'er-asa' + (arrastre && arrastre.tipo === 'divisor' ? ' act' : '')} role="separator" aria-label="Repartir el espacio entre la vista y el guion" onMouseDown={(e) => empezar('divisor', e)}><i /></div>
+              <aside className={'er-lado' + (flota.min && modo === 'flotante' ? ' min' : '')} style={estiloLado} aria-label="Guion del recurso">
                 <div className="er-lado-cab" onMouseDown={modo === 'flotante' ? (e) => { if (!e.target.closest('button')) empezar('mover', e) } : undefined}>
                   <div className="er-lado-tt">
-                    <b>{verTodos ? 'Todos los textos' : 'Textos que no se editan por clic'}</b>
-                    <span>{verTodos ? nCampos + ' en total' : sinPantalla.length + ' de ' + nCampos}</span>
+                    <b>Guion del recurso</b>
+                    <span>{urlGuion ? 'Para leerlo y compararlo con el recurso' : 'Sin guion para mostrar'}</span>
                   </div>
-                  <button type="button" className="er-link" onClick={() => setVerTodos((v) => !v)}>{verTodos ? 'Ver solo los de respaldo' : 'Ver todos (' + nCampos + ')'}</button>
+                  {actual.enlaceGuion && <a className="er-link" href={actual.enlaceGuion} target="_blank" rel="noopener noreferrer">Abrir en otra pestaña ↗</a>}
                   {modo === 'flotante' && <button type="button" className="er-mini" aria-label={flota.min ? 'Expandir el panel' : 'Minimizar el panel'} onClick={() => setFlota((f) => ({ ...f, min: !f.min }))}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true"><path d={flota.min ? 'M5 12h14M12 5v14' : 'M5 12h14'} /></svg></button>}
                 </div>
-                <div className="er-lado-cuerpo">
-                  {!lista.length && <p className="er-vacio">{verTodos ? 'No hay textos.' : 'Todos los textos se pueden editar con un clic.'}</p>}
-                  <ul>
-                    {lista.map((c) => (
-                      <li key={c.ruta}>
-                        <label>
-                          <span>{c.etiqueta}</span>
-                          {c.largo
-                            ? <textarea defaultValue={c.valor} key={c.ruta + '|' + c.valor} rows={4} onBlur={(e) => editarLista(c, e.target.value)} />
-                            : <input type="text" defaultValue={c.valor} key={c.ruta + '|' + c.valor} onBlur={(e) => editarLista(c, e.target.value)} />}
-                        </label>
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="er-pie">Solo se cambian textos. Los íconos y valores fijos (encabezado, tipo…) no se editan aquí.</p>
+                <div className="er-lado-cuerpo guion">
+                  {urlGuion
+                    ? <iframe className="er-guion-marco" title="Guion del recurso" src={urlGuion} sandbox="allow-scripts allow-same-origin allow-popups allow-forms" />
+                    : <p className="er-vacio">{actual.enlaceGuion ? 'El guion de este recurso no es un documento de Google que se pueda mostrar aquí. Ábralo con el enlace de arriba.' : 'Este recurso no tiene enlace al guion todavía.'}</p>}
                 </div>
                 {modo === 'flotante' && !flota.min && <span className="er-redim" aria-hidden="true" onMouseDown={(e) => empezar('redim', e)}><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M11 1L1 11M11 6L6 11" /></svg></span>}
               </aside>
               {arrastre && <div className={'er-capa ' + arrastre.tipo} onMouseMove={mover} onMouseUp={() => setArrastre(null)} />}
             </div>
 
+        {estado === 'listo' && (
             <footer className={'er-estadobar' + (sucio ? ' sucio' : '')}>
               <span className="er-punto" aria-hidden="true" />
               <b>{sucio ? 'Cambios sin guardar' : msg && msg.tipo === 'ok' ? 'Guardado' : 'Sin cambios pendientes'}</b>
               <span className="er-sp" />
               <span className="er-ayuda">Clic en un texto para editarlo · Enter confirma · Esc cierra si no hay cambios</span>
             </footer>
-          </>
         )}
         </div>
         </div>

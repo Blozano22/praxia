@@ -186,3 +186,14 @@
 .er-rec-ic .er-gira{margin:0}
 .er-un-ok .er-gira,.er-rec-ok .er-gira,.er-b .er-gira{border-color:rgba(255,255,255,.35);border-top-color:#fff}
 .er-estado .cgr{margin-bottom:6px}
+
+/* Panel del guion (a la derecha del recurso) y división por tema en la lista de recursos */
+.er-lado-cuerpo.guion{padding:0;display:flex;overflow:hidden}
+.er-guion-marco{flex:1;width:100%;height:100%;min-height:200px;border:0;background:#fff}
+.er-lado-cab .er-link{flex:none;text-decoration:none;font-weight:700;white-space:nowrap}
+.er-tm{margin:2px 0 4px}
+.er-tm-t{width:100%;display:flex;align-items:center;gap:7px;padding:5px 10px 5px 14px;border:0;background:none;color:var(--muted);font:inherit;font-size:.74rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase;cursor:pointer;text-align:left}
+.er-tm-t:hover{color:var(--nav)}
+.er-tm-t span{padding:0 7px;border-radius:99px;background:#e9edf4;color:#44506b;font-size:.66rem}
+.er-tm-t em{margin-left:auto;padding:1px 8px;border-radius:99px;background:#fff4d6;color:#7a5600;font-style:normal;font-size:.66rem;text-transform:none;letter-spacing:0}
+.er-tm ul{padding-top:2px}
