@@ -178,6 +178,11 @@ export const Q = Object.freeze({
     VALUES ($1, $2, $3, $4, $5, $6, $7, 'en_curso', $8)
     ON CONFLICT (propietario_id, proyecto_id, etapa, ejecucion_id) DO UPDATE SET
       ultimo_evento_en = greatest(pipeline_ejecuciones.ultimo_evento_en, EXCLUDED.ultimo_evento_en)`,
+  // Igual que pipeEjecucionTocar pero SIN crear la corrida si no existe: los avisos de un recurso ya terminado (GENERADO/ERROR) que llegan sin corrida
+  // conocida son los de «Publicar» tras aprobar (n8n los manda con el id de su propia ejecución, sin h5p_inicio ni h5p_fin) y no son una corrida de generación.
+  pipeEjecucionTocarExistente: `
+    UPDATE pipeline_ejecuciones SET ultimo_evento_en = greatest(ultimo_evento_en, $5)
+     WHERE propietario_id = $1 AND proyecto_id = $2 AND etapa = $3 AND ejecucion_id = $4`,
   pipeEjecucionFin: `
     INSERT INTO pipeline_ejecuciones (propietario_id, proyecto_id, etapa, ejecucion_id, trabajo_id, origen_trabajo_id, carpeta_raiz, estado, resumen, ultimo_evento_en, terminado_en)
     VALUES ($1, $2, $3, $4, $5, $6, $7, 'terminada', $8::jsonb, $9, $9)

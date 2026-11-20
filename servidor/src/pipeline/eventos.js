@@ -200,7 +200,9 @@ async function aplicar(c, ev, o, fecha, sec) {
     case 'h5p_recurso': {
       const r = await c.query(Q.pipeRecursoGuardar, [P, Y, await claveFila(c, P, Y, ev.id, ev.codigo), ev.unidad ?? null, null, null, null, null, ev.codigo || null, null, null, null, null, ev.estado,
         ev.observaciones || null, null, ev.enlace_recurso || null, null, fecha, sec, ev.plantilla || null, ev.contenido ? JSON.stringify(ev.contenido) : null, ev.revision_pendiente ?? null])
-      await c.query(Q.pipeEjecucionTocar, [...base, fecha])
+      // Un recurso que termina (GENERADO/ERROR) solo avanza una corrida que ya existe; si no hay corrida es una publicación tras aprobar y no debe aparecer como «generando».
+      if (ev.estado === 'GENERADO' || ev.estado === 'ERROR') await c.query(Q.pipeEjecucionTocarExistente, [P, Y, ev.etapa, eje, fecha])
+      else await c.query(Q.pipeEjecucionTocar, [...base, fecha])
       return r.rowCount
     }
     case 'h5p_fin':

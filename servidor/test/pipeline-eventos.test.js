@@ -411,6 +411,8 @@ test('etapa 2: un recurso «por revisar» se aprueba y n8n recibe la orden de pu
   const despues = new Date(Date.now() + 2000).toISOString()
   assert.equal((await enviar(aviso('h5p_recurso', 'h5p', { trabajo_id: tp, ejecucion_id: 'pub-' + tp, unidad: 1, id: 'pub1', estado: 'GENERADO', enlace_recurso: ENL, plantilla: 'g-11-doc-v01', fecha_evento: despues, secuencia: 90 }))).estado, 200)
   f = await lista(); assert.equal(f.estado, 'GENERADO'); assert.equal(f.publicando, false); assert.equal(f.enlaceRecurso, ENL); assert.equal(f.conContenido, true)
+  // publicar no es una corrida de generación: el aviso GENERADO de la publicación no crea una corrida «en curso» (la pantalla no debe decir «generando los recursos H5P»)
+  assert.equal((await una('ana', 'pipeline_ejecuciones', "ejecucion_id = $2", ['pub-' + tp])).length, 0)
   // volver a aprobar un recurso ya publicado: la orden pide reemplazar el MISMO archivo
   ordenesPublicar.length = 0
   assert.equal((await aprobar(ana)).status, 202)
