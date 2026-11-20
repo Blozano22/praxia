@@ -7,7 +7,7 @@ import { conUsuario, conTransaccion, sinUsuario } from './db.js'
 import { Q } from './consultas.js'
 import { config } from './config.js'
 import { extraerEnlaces } from './enlaces.js'
-import { armarSubida, compararEsquemas, MAX_HTML, NOMBRES_RESERVADOS } from './plantillas/subidas.js'
+import { armarSubida, compararEsquemas, esquemaDe, MAX_HTML, NOMBRES_RESERVADOS } from './plantillas/subidas.js'
 import { EsquemaLanzarH5p, EsquemaLanzarMatrices, lanzarH5p, lanzarMatrices, urlH5p, urlMatrices } from './pipeline/lanzar.js'
 import { CLAVE_PRUEBAS, pruebasEncendidas, urlPreparacion } from './pipeline/preparacion.js'
 import { invalidarAsignaciones } from './pipeline/asignaciones.js'
@@ -132,8 +132,55 @@ rutas.get('/proyectos/:id/pipeline/recursos/:recurso/contenido', exigirSesion, e
   } catch (err) { next(err) }
 })
 
-// Lanza la generación de matrices (las que faltan, o volver a generar con forzar). Responde 202 en cuanto n8n confirma la orden.
 const limiteLanzar = rateLimit({ windowMs: 60 * 1000, limit: Number(process.env.LIMITE_LANZAR_PIPELINE || 12), keyGenerator: (req) => (req.usuario ? 'u:' + req.usuario.id : ipKeyGenerator(req.ip)), standardHeaders: true, legacyHeaders: false })
+// Edición del contenido de un recurso desde la pantalla del curso. Solo se cambian TEXTOS: la estructura (campos y tipos) debe ser la misma que ya tenía.
+const MAX_CONTENIDO_EDITADO = 400 * 1024
+const EsquemaContenidoEditado = z.object({ contenido: z.record(z.string(), z.any()) })
+rutas.put('/proyectos/:id/pipeline/recursos/:recurso/contenido', exigirSesion, exigirPermiso('proyectos.crear'), limiteLanzar,
+  validar(z.object({ id: IdProyecto, recurso: z.string().min(1).max(100) }), 'params'), validar(EsquemaContenidoEditado, 'body'), async (req, res, next) => {
+    try {
+      const nuevo = req.bodyOk.contenido
+      if (JSON.stringify(nuevo).length > MAX_CONTENIDO_EDITADO) return res.status(413).json({ error: 'El contenido pesa más de ' + MAX_CONTENIDO_EDITADO / 1024 + ' KB.' })
+      const f = (await sinUsuario(Q.pipeLeerContenido, [req.usuario.id, req.paramsOk.id, req.paramsOk.recurso])).rows[0]
+      if (!f || !f.contenido) return res.status(404).json({ error: 'Este recurso no tiene contenido guardado para editar.' })
+      const cmp = compararEsquemas(esquemaDe(f.contenido), esquemaDe(nuevo))
+      if (!cmp.coincide) return res.status(400).json({ error: 'Solo se pueden editar textos: el contenido cambió de estructura (' + [...cmp.faltan.map((x) => 'falta ' + x.split(':')[0]), ...cmp.sobran.map((x) => 'sobra ' + x.split(':')[0])].slice(0, 5).join(', ') + ').' })
+      const r = await sinUsuario(Q.pipeContenidoGuardar, [req.usuario.id, req.paramsOk.id, req.paramsOk.recurso, JSON.stringify(nuevo)])
+      if (!r.rowCount) return res.status(404).json({ error: 'Este recurso no tiene contenido guardado para editar.' })
+      auditar(req.usuario.id, 'recurso.contenido_editar', 'proyecto', req.paramsOk.id, req)
+      res.json({ ok: true })
+    } catch (err) { next(err) }
+  })
+
+// Arma el .h5p con el contenido guardado (editado o no): el servidor llama al servicio de plantillas con su clave y entrega el archivo; la clave nunca llega al navegador.
+rutas.post('/proyectos/:id/pipeline/recursos/:recurso/h5p', exigirSesion, exigirPermiso('proyectos.ver_propios'), limiteLanzar,
+  validar(z.object({ id: IdProyecto, recurso: z.string().min(1).max(100) }), 'params'), async (req, res, next) => {
+    try {
+      if (!config.servicioPlantillasClave) return res.status(503).json({ error: 'El servicio de plantillas H5P no está configurado en el servidor (falta SERVICIO_PLANTILLAS_CLAVE).' })
+      const f = (await sinUsuario(Q.pipeLeerContenido, [req.usuario.id, req.paramsOk.id, req.paramsOk.recurso])).rows[0]
+      if (!f || !f.contenido) return res.status(404).json({ error: 'Este recurso no tiene contenido guardado.' })
+      if (!f.plantilla) return res.status(409).json({ error: 'Este recurso no tiene plantilla registrada.' })
+      let r
+      try {
+        r = await fetch(config.servicioPlantillasUrl + '/h5p', { method: 'POST', headers: { 'content-type': 'application/json', 'x-api-key': config.servicioPlantillasClave }, body: JSON.stringify({ plantilla: f.plantilla, contenido: f.contenido }), signal: AbortSignal.timeout(90 * 1000) })
+      } catch { return res.status(502).json({ error: 'El servicio de plantillas H5P no respondió. Inténtalo de nuevo en un momento.' }) }
+      if (!r.ok) {
+        let msg = ''
+        try { const t = await r.text(); try { msg = JSON.parse(t).error || JSON.parse(t).mensaje || '' } catch { msg = t } } catch { /* sin cuerpo */ }
+        const motivo = String(msg || '').replace(/\s+/g, ' ').slice(0, 300)
+        return res.status(r.status === 400 ? 422 : 502).json({ error: r.status === 400 ? 'El servicio no pudo armar el H5P con este contenido' + (motivo ? ': ' + motivo : '.') : 'El servicio de plantillas H5P respondió con un error (' + r.status + ').' })
+      }
+      const buf = Buffer.from(await r.arrayBuffer())
+      const sin = r.headers.get('x-iconos-sin-resolver')
+      const nombre = String(f.codigo || f.id).replace(/[^A-Za-z0-9_-]+/g, '_').slice(0, 60) || 'recurso'
+      res.set({ 'Content-Type': 'application/zip', 'Content-Disposition': 'attachment; filename="' + nombre + '.h5p"', 'Content-Length': String(buf.length), 'Cache-Control': 'no-store',
+        'Access-Control-Expose-Headers': 'X-Iconos-Sin-Resolver', ...(sin ? { 'X-Iconos-Sin-Resolver': sin.replace(/[^\x20-\x7E]/g, '').slice(0, 500) } : {}) })
+      auditar(req.usuario.id, 'recurso.h5p_descargar', 'proyecto', req.paramsOk.id, req)
+      res.send(buf)
+    } catch (err) { next(err) }
+  })
+
+// Lanza la generación de matrices (las que faltan, o volver a generar con forzar). Responde 202 en cuanto n8n confirma la orden.
 rutas.post('/proyectos/:id/pipeline/matrices', exigirSesion, exigirPermiso('proyectos.crear'), limiteLanzar, validar(z.object({ id: IdProyecto }), 'params'), validar(EsquemaLanzarMatrices, 'body'), async (req, res, next) => {
   try {
     const { unidades, forzar } = req.bodyOk

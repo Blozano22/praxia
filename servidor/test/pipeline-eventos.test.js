@@ -6,6 +6,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import crypto from 'node:crypto'
+import http from 'node:http'
 import { fileURLToPath } from 'node:url'
 import EmbeddedPostgres from 'embedded-postgres'
 import pg from 'pg'
@@ -20,7 +21,7 @@ const SECRETO_ANTERIOR = 'secreto-anterior-0123456789abcdef0123456789'
 const DOC = 'https://docs.google.com/document/d/guion_1-abc'
 const HOJA = 'https://docs.google.com/spreadsheets/d/matriz_1-abc/edit'
 
-let servidor, base, pool
+let servidor, base, pool, servicioH5p, ultimaPeticionServicio
 const ids = {} // personas
 const T = { ana: crypto.randomUUID(), beto: crypto.randomUUID(), ajeno: crypto.randomUUID() }
 let n = 0
@@ -35,11 +36,25 @@ before(async () => {
   const dueno = new pg.Client({ connectionString: `postgres://postgres:duenio@localhost:${PUERTO_PG}/ova` })
   await dueno.connect()
   await dueno.query("CREATE ROLE ova_app LOGIN PASSWORD 'appclave' NOSUPERUSER NOBYPASSRLS")
-  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
+  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
   await dueno.end()
   process.env.DATABASE_URL = `postgres://ova_app:appclave@localhost:${PUERTO_PG}/ova`
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex')
   process.env.N8N_EVENTOS_SECRETO = SECRETO
+  // «Servicio de plantillas H5P» simulado: arma un .h5p (aquí unos bytes cualquiera) si la clave es la correcta; 400 si la plantilla es «mala».
+  servicioH5p = http.createServer((req, res) => {
+    let cuerpo = ''
+    req.on('data', (d) => { cuerpo += d })
+    req.on('end', () => {
+      ultimaPeticionServicio = { url: req.url, clave: req.headers['x-api-key'], cuerpo: cuerpo ? JSON.parse(cuerpo) : null }
+      if (req.url !== '/h5p' || req.headers['x-api-key'] !== 'clave-del-servicio') { res.writeHead(401, { 'content-type': 'application/json' }); return res.end('{"error":"clave"}') }
+      if (ultimaPeticionServicio.cuerpo.plantilla === 'mala') { res.writeHead(400, { 'content-type': 'application/json' }); return res.end('{"error":"contenido inválido"}') }
+      res.writeHead(200, { 'content-type': 'application/zip', 'x-iconos-sin-resolver': 'np_99' }); res.end(Buffer.from('PK-h5p-simulado'))
+    })
+  })
+  await new Promise((r) => servicioH5p.listen(0, '127.0.0.1', r))
+  process.env.SERVICIO_PLANTILLAS_URL = 'http://127.0.0.1:' + servicioH5p.address().port
+  process.env.SERVICIO_PLANTILLAS_CLAVE = 'clave-del-servicio'
   process.env.N8N_EVENTOS_SECRETO_ANTERIOR = SECRETO_ANTERIOR
   const { crearApp } = await import('../src/app.js')
   const db = await import('../src/db.js')
@@ -57,6 +72,7 @@ before(async () => {
 
 after(async () => {
   servidor && servidor.close()
+  servicioH5p && servicioH5p.close()
   pool && (await pool.end())
   await servidorPg.stop()
   fs.rmSync(dir, { recursive: true, force: true })
@@ -310,6 +326,41 @@ test('el contenido de un recurso se lee por su ruta (solo el del propio curso) y
   assert.equal(d.recursos.find((x) => x.id === 'trabajando').conContenido, false)
   // sin contenido guardado: 404 con motivo
   assert.equal((await fetch(base + '/api/proyectos/curso-a/pipeline/recursos/trabajando/contenido', { headers: ana })).status, 404)
+})
+
+test('editar el contenido de un recurso: solo textos, solo el propio curso; y el .h5p se arma en el servidor con la clave del servicio', async () => {
+  const entrar = async (correo) => { const r = await fetch(base + '/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json', 'x-ova': '1' }, body: JSON.stringify({ correo, clave: CLAVE }) }); return { cookie: (r.headers.get('set-cookie') || '').split(';')[0], 'x-ova': '1', 'content-type': 'application/json' } }
+  const ana = await entrar('ana@u.co'), beto = await entrar('beto@u.co')
+  const url = '/api/proyectos/curso-a/pipeline/recursos/f1/contenido'
+  const put = (h, cuerpo) => fetch(base + url, { method: 'PUT', headers: h, body: JSON.stringify(cuerpo) })
+  assert.equal((await fetch(base + url, { method: 'PUT', headers: { 'x-ova': '1', 'content-type': 'application/json' }, body: '{}' })).status, 401)
+  assert.equal((await put(ana, { contenido: 'no' })).status, 400)
+  assert.equal((await put(ana, { contenido: { titulo: 'Editado', bloques: [{ texto: 'nuevo campo' }] } })).status, 400) // cambia la estructura
+  assert.equal((await put(ana, { contenido: { titulo: 5, bloques: [] } })).status, 400) // cambia un tipo
+  assert.equal((await put(ana, { contenido: { titulo: 'x'.repeat(450 * 1024), bloques: [] } })).status, 413)
+  assert.equal((await put(beto, { contenido: { titulo: 'de Beto', bloques: [] } })).status, 404) // el curso-a de Beto no tiene ese recurso
+  assert.equal((await put(ana, { contenido: { titulo: 'Título corregido', bloques: [] } })).status, 200)
+  const j = await (await fetch(base + url, { headers: ana })).json()
+  assert.equal(j.contenido.titulo, 'Título corregido'); assert.ok(j.editadoEn); assert.equal(typeof j.formacion === 'string' || j.formacion === null, true)
+  // un recurso sin contenido no se puede «crear» por esta vía
+  assert.equal((await fetch(base + '/api/proyectos/curso-a/pipeline/recursos/trabajando/contenido', { method: 'PUT', headers: ana, body: JSON.stringify({ contenido: { a: 'b' } }) })).status, 404)
+  // el aviso siguiente de n8n sigue mandando (una regeneración reemplaza lo editado)
+  await enviar(aviso('h5p_recurso', 'h5p', { ejecucion_id: 'h2', unidad: 1, id: 'f1', estado: 'GENERADO', contenido: { titulo: 'Regenerado', bloques: [] } }, 70))
+  assert.equal((await (await fetch(base + url, { headers: ana })).json()).contenido.titulo, 'Regenerado')
+  // .h5p: el servidor llama al servicio con la clave y entrega el archivo
+  const h5p = (h, id = 'f1') => fetch(base + '/api/proyectos/curso-a/pipeline/recursos/' + id + '/h5p', { method: 'POST', headers: h })
+  assert.equal((await fetch(base + '/api/proyectos/curso-a/pipeline/recursos/f1/h5p', { method: 'POST', headers: { 'x-ova': '1' } })).status, 401)
+  const ok = await h5p(ana)
+  assert.equal(ok.status, 200); assert.equal(ok.headers.get('content-type'), 'application/zip'); assert.match(ok.headers.get('content-disposition'), /attachment; filename="[A-Za-z0-9_-]+\.h5p"/)
+  assert.equal(ok.headers.get('x-iconos-sin-resolver'), 'np_99'); assert.equal(Buffer.from(await ok.arrayBuffer()).toString(), 'PK-h5p-simulado')
+  assert.equal(ultimaPeticionServicio.clave, 'clave-del-servicio'); assert.equal(ultimaPeticionServicio.cuerpo.plantilla, 'g-11-doc-v01'); assert.equal(ultimaPeticionServicio.cuerpo.contenido.titulo, 'Regenerado')
+  assert.equal((await h5p(ana, 'trabajando')).status, 404) // sin contenido
+  assert.equal((await h5p(beto)).status, 404) // otro curso
+  await pool.query("UPDATE pipeline_recursos SET plantilla = 'mala' WHERE propietario_id = $1 AND id = 'f1'", [ids.ana])
+  const mala = await h5p(ana); assert.equal(mala.status, 422); assert.match((await mala.json()).error, /contenido inválido/)
+  await pool.query("UPDATE pipeline_recursos SET plantilla = NULL WHERE propietario_id = $1 AND id = 'f1'", [ids.ana])
+  assert.equal((await h5p(ana)).status, 409)
+  await pool.query("UPDATE pipeline_recursos SET plantilla = 'g-11-doc-v01' WHERE propietario_id = $1 AND id = 'f1'", [ids.ana])
 })
 
 test('vista global: solo quien ve todos los cursos la lee; trae cifras por curso de todas las personas y los avisos sin atribuir', async () => {

@@ -40,6 +40,10 @@ export const config = {
   n8nPaqueteMaxMb: Number(process.env.N8N_PAQUETE_MAX_MB || 12),
   // Minutos máximos que se espera la respuesta de n8n antes de darla por fallida.
   n8nMinutosMaximo: Number(process.env.N8N_MINUTOS_MAXIMO || 45),
+  // Servicio de plantillas H5P (el mismo que usa n8n): arma el .h5p desde una plantilla y su contenido JSON. La clave (cabecera X-API-Key) es la misma SERVICIO_CLAVE de n8n.
+  // Sin clave, «Descargar .h5p» del editor responde 503.
+  servicioPlantillasUrl: (process.env.SERVICIO_PLANTILLAS_URL || 'https://proyectos.americana.edu.co/plantillas-diepo').replace(/\/+$/, ''),
+  servicioPlantillasClave: process.env.SERVICIO_PLANTILLAS_CLAVE || '',
   // Si la plataforma se publica en una subcarpeta (p. ej. /praxia), la cookie de sesión se limita a ella.
   rutaBase: process.env.RUTA_BASE || '/'
 }

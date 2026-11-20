@@ -246,8 +246,13 @@ export const Q = Object.freeze({
      ORDER BY unidad NULLS LAST, tema NULLS LAST, codigo NULLS LAST, id LIMIT 3000`,
   // El contenido (JSON) de UN recurso, para editarlo: solo de esa persona y ese curso.
   pipeLeerContenido: `
-    SELECT id, codigo, titulo, plantilla, enlace_recurso AS "enlaceRecurso", to_jsonb(r) -> 'contenido' AS contenido, actualizado_en AS "actualizadoEn"
+    SELECT id, codigo, titulo, plantilla, enlace_recurso AS "enlaceRecurso", to_jsonb(r) -> 'contenido' AS contenido, actualizado_en AS "actualizadoEn",
+           to_jsonb(r) ->> 'contenido_editado_en' AS "editadoEn", (SELECT s.formacion FROM plantilla_subidas s WHERE s.nombre = r.plantilla) AS formacion
       FROM pipeline_recursos r WHERE propietario_id = $1 AND proyecto_id = $2 AND id = $3`,
+  // Guarda el contenido editado a mano (solo si el recurso ya tenía contenido). No toca actualizado_en/secuencia: eso es del orden de los avisos de n8n.
+  pipeContenidoGuardar: `
+    UPDATE pipeline_recursos SET contenido = $4::jsonb, contenido_editado_en = now()
+     WHERE propietario_id = $1 AND proyecto_id = $2 AND id = $3 AND contenido IS NOT NULL RETURNING id`,
   pipeLeerEjecuciones: `
     SELECT etapa, ejecucion_id AS "ejecucionId", estado, maximo, plan, resumen, iniciado_en AS "iniciadoEn",
            ultimo_evento_en AS "ultimoEventoEn", terminado_en AS "terminadoEn",
