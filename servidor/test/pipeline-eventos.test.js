@@ -35,7 +35,7 @@ before(async () => {
   const dueno = new pg.Client({ connectionString: `postgres://postgres:duenio@localhost:${PUERTO_PG}/ova` })
   await dueno.connect()
   await dueno.query("CREATE ROLE ova_app LOGIN PASSWORD 'appclave' NOSUPERUSER NOBYPASSRLS")
-  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
+  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
   await dueno.end()
   process.env.DATABASE_URL = `postgres://ova_app:appclave@localhost:${PUERTO_PG}/ova`
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex')
@@ -182,6 +182,21 @@ test('H5P: el plan con lo omitido y su motivo, el avance por recurso y el resume
   const sinPl = await enviar(aviso('h5p_recurso', 'h5p', { ejecucion_id: 'h2', unidad: 1, id: 'f1', estado: 'ERROR', observaciones: 'x', plantilla: '' }, 54))
   assert.equal(sinPl.estado, 200)
   assert.equal((await una('ana', 'pipeline_recursos', "id = 'f1'"))[0].plantilla, 'g-11-doc-v01')
+  // El contenido final (JSON) viaja en h5p_recurso, como objeto o como texto JSON; lo no válido o muy grande se ignora sin rechazar el aviso (el estado sí se aplica) y se conserva el anterior.
+  const CONT = { titulo: 'Los cinco pasos', bloques: [{ texto: 'uno' }, { texto: 'dos' }] }
+  assert.equal((await enviar(aviso('h5p_recurso', 'h5p', { ejecucion_id: 'h2', unidad: 1, id: 'f1', estado: 'GENERADO', contenido: CONT }, 55))).estado, 200)
+  assert.deepEqual((await una('ana', 'pipeline_recursos', "id = 'f1'"))[0].contenido, CONT)
+  const CONT2 = { titulo: 'Segundo', bloques: [] }
+  await enviar(aviso('h5p_recurso', 'h5p', { ejecucion_id: 'h2', unidad: 1, id: 'f1', estado: 'GENERADO', contenido: JSON.stringify(CONT2) }, 56))
+  assert.deepEqual((await una('ana', 'pipeline_recursos', "id = 'f1'"))[0].contenido, CONT2)
+  for (const [k, malo] of [['texto roto', '{no es json'], ['lista', [1, 2]], ['vacío', ''], ['enorme', { x: 'y'.repeat(450 * 1024) }]]) {
+    const r = await enviar(aviso('h5p_recurso', 'h5p', { ejecucion_id: 'h2', unidad: 1, id: 'f1', estado: 'GENERADO', observaciones: 'tras ' + k, contenido: malo }, 57))
+    assert.equal(r.estado, 200, k)
+    const fila = (await una('ana', 'pipeline_recursos', "id = 'f1'"))[0]
+    assert.equal(fila.observaciones, 'tras ' + k); assert.deepEqual(fila.contenido, CONT2, k)
+  }
+  const reg = (await pool.query("SELECT carga FROM pipeline_eventos WHERE tipo = 'h5p_recurso' AND carga ->> 'contenido' IS NOT NULL LIMIT 1")).rows[0]
+  assert.match(reg.carga.contenido, /^objeto \(\d+ campos\)$/) // el registro de avisos no guarda el JSON completo
   const fin = await enviar(aviso('h5p_fin', 'h5p', { ejecucion_id: 'h2', resumen: { generados: 0, errores: 1, omitidos: 2, pendientes_restantes: 0 } }, 60))
   assert.equal(fin.datos.aplicados, 1)
   const [ej2] = await una('ana', 'pipeline_ejecuciones', "ejecucion_id = 'h2'")
@@ -270,6 +285,24 @@ test('lo que lleva tiempo sin avisos se marca «sin respuesta» (no cuenta como 
   assert.equal(d.matrices.find((m) => m.unidad === 1).sinRespuesta, false) // una matriz ya creada nunca está «sin respuesta»
   assert.equal(d.recursos.find((x) => x.id === 'atascado').sinRespuesta, true)
   assert.equal(d.recursos.find((x) => x.id === 'trabajando').sinRespuesta, false)
+})
+
+test('el contenido de un recurso se lee por su ruta (solo el del propio curso) y la lista solo dice si lo tiene', async () => {
+  const entrar = async (correo) => { const r = await fetch(base + '/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json', 'x-ova': '1' }, body: JSON.stringify({ correo, clave: CLAVE }) }); return { cookie: (r.headers.get('set-cookie') || '').split(';')[0], 'x-ova': '1' } }
+  const ana = await entrar('ana@u.co')
+  assert.equal((await fetch(base + '/api/proyectos/curso-a/pipeline/recursos/f1/contenido', { headers: { 'x-ova': '1' } })).status, 401)
+  const ok = await fetch(base + '/api/proyectos/curso-a/pipeline/recursos/f1/contenido', { headers: ana })
+  assert.equal(ok.status, 200)
+  const j = await ok.json()
+  assert.equal(j.id, 'f1'); assert.equal(j.contenido.titulo, 'Segundo'); assert.equal(j.plantilla, 'g-11-doc-v01')
+  assert.equal((await fetch(base + '/api/proyectos/curso-a/pipeline/recursos/no-existe/contenido', { headers: ana })).status, 404)
+  assert.equal((await fetch(base + '/api/proyectos/curso-b/pipeline/recursos/f1/contenido', { headers: ana })).status, 404) // otro curso: no se ve
+  const d = await (await fetch(base + '/api/proyectos/curso-a/pipeline', { headers: ana })).json()
+  const f1 = d.recursos.find((x) => x.id === 'f1')
+  assert.equal(f1.conContenido, true); assert.equal(f1.contenido, undefined) // la lista no carga el JSON
+  assert.equal(d.recursos.find((x) => x.id === 'trabajando').conContenido, false)
+  // sin contenido guardado: 404 con motivo
+  assert.equal((await fetch(base + '/api/proyectos/curso-a/pipeline/recursos/trabajando/contenido', { headers: ana })).status, 404)
 })
 
 test('vista global: solo quien ve todos los cursos la lee; trae cifras por curso de todas las personas y los avisos sin atribuir', async () => {

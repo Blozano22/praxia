@@ -122,6 +122,16 @@ rutas.get('/proyectos/:id/pipeline', exigirSesion, exigirPermiso('proyectos.ver_
   } catch (err) { next(err) }
 })
 
+// El contenido (JSON) con el que el flujo de H5P generó un recurso, para editarlo en pantalla. Solo el de esa persona y ese curso.
+rutas.get('/proyectos/:id/pipeline/recursos/:recurso/contenido', exigirSesion, exigirPermiso('proyectos.ver_propios'), validar(z.object({ id: IdProyecto, recurso: z.string().min(1).max(100) }), 'params'), async (req, res, next) => {
+  try {
+    const f = (await sinUsuario(Q.pipeLeerContenido, [req.usuario.id, req.paramsOk.id, req.paramsOk.recurso])).rows[0]
+    if (!f) return res.status(404).json({ error: 'No hay un recurso con ese identificador en este curso.' })
+    if (!f.contenido) return res.status(404).json({ error: 'Este recurso no tiene contenido guardado todavía.' })
+    res.json(f)
+  } catch (err) { next(err) }
+})
+
 // Lanza la generación de matrices (las que faltan, o volver a generar con forzar). Responde 202 en cuanto n8n confirma la orden.
 const limiteLanzar = rateLimit({ windowMs: 60 * 1000, limit: Number(process.env.LIMITE_LANZAR_PIPELINE || 12), keyGenerator: (req) => (req.usuario ? 'u:' + req.usuario.id : ipKeyGenerator(req.ip)), standardHeaders: true, legacyHeaders: false })
 rutas.post('/proyectos/:id/pipeline/matrices', exigirSesion, exigirPermiso('proyectos.crear'), limiteLanzar, validar(z.object({ id: IdProyecto }), 'params'), validar(EsquemaLanzarMatrices, 'body'), async (req, res, next) => {

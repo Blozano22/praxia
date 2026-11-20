@@ -60,6 +60,15 @@ const Comun = z.object({
 const ejecucion = z.union([z.string(), z.number()]).transform(String).pipe(z.string().min(1).max(100))
 
 // Tolerante a propósito: un nombre raro nunca debe tumbar el aviso entero (n8n descarta los 400 sin reintentar).
+// El contenido final del recurso (el JSON con el que se pintó la plantilla): un objeto, o ese mismo objeto como texto JSON (n8n suele mandarlo así).
+// Es tolerante: si no es un objeto o pasa de MAX_CONTENIDO se toma como «sin dato» (un 400 haría que n8n descartara todo el aviso, estado incluido).
+const MAX_CONTENIDO = 400 * 1024
+const ContenidoAviso = z.preprocess((v) => {
+  if (typeof v === 'string') { if (!v.trim()) return null; try { v = JSON.parse(v) } catch { return null } }
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null
+  if (JSON.stringify(v).length > MAX_CONTENIDO) { console.warn('[avisos] contenido de recurso demasiado grande: se ignora'); return null }
+  return v
+}, z.record(z.string(), z.any()).nullish())
 const PlantillaAviso = z.string().transform((x) => x.trim().toLowerCase().slice(0, 80))
 const Fila = z.object({
   id: idTexto,
@@ -104,7 +113,7 @@ const Evento = z.discriminatedUnion('evento', [
     evento: z.literal('h5p_recurso'), ejecucion_id: ejecucion,
     unidad: z.number().int().min(0).max(99).nullish(), id: idTexto, codigo: texto(100).nullish(),
     estado: z.enum(['PENDIENTE', 'EN_PROCESO', 'GENERADO', 'ERROR']), enlace_recurso: opc(UrlGoogle), observaciones: texto(2000).nullish(),
-    plantilla: opc(PlantillaAviso)
+    plantilla: opc(PlantillaAviso), contenido: ContenidoAviso
   }),
   Comun.extend({
     evento: z.literal('h5p_fin'), ejecucion_id: ejecucion,
@@ -114,8 +123,9 @@ const Evento = z.discriminatedUnion('evento', [
 
 // Lo que queda en el registro de avisos: el aviso sin las listas pesadas (se guardan resumidas).
 function resumir(ev) {
-  const { filas, guiones, resultados, plan, ...resto } = ev
+  const { filas, guiones, resultados, plan, contenido, ...resto } = ev
   const salida = { ...resto }
+  if (contenido) salida.contenido = 'objeto (' + Object.keys(contenido).length + ' campos)'
   if (guiones) salida.guiones = guiones.length
   if (resultados) salida.resultados = resultados.map((r) => ({ unidad: r.unidad, resultado: r.resultado, filas: r.filas ? r.filas.length : null }))
   if (plan) salida.plan = { a_generar: plan.a_generar.length, omitidas: plan.omitidas.length }
@@ -173,7 +183,7 @@ async function aplicar(c, ev, o, fecha, sec) {
           const claves = r.filas.map((f) => f.codigo || f.id)
           for (const [k, f] of r.filas.entries()) {
             await c.query(Q.pipeRecursoGuardar, [P, Y, claves[k], r.unidad, f.id_base || null, f.variante || null, f.alcance || null, f.tema ?? null, f.codigo || null, f.formato || null, f.titulo || null,
-              f.con_actividad ?? null, f.generador || null, f.estado, f.observaciones || null, f.enlace_guion || null, f.enlace_recurso || null, null, fecha, sec, f.plantilla || null])
+              f.con_actividad ?? null, f.generador || null, f.estado, f.observaciones || null, f.enlace_guion || null, f.enlace_recurso || null, null, fecha, sec, f.plantilla || null, null])
           }
           await c.query(Q.pipeRecursosQuitarSobrantes, [P, Y, r.unidad, claves, fecha])
         }
@@ -188,7 +198,7 @@ async function aplicar(c, ev, o, fecha, sec) {
       return n
     case 'h5p_recurso': {
       const r = await c.query(Q.pipeRecursoGuardar, [P, Y, await claveFila(c, P, Y, ev.id, ev.codigo), ev.unidad ?? null, null, null, null, null, ev.codigo || null, null, null, null, null, ev.estado,
-        ev.observaciones || null, null, ev.enlace_recurso || null, null, fecha, sec, ev.plantilla || null])
+        ev.observaciones || null, null, ev.enlace_recurso || null, null, fecha, sec, ev.plantilla || null, ev.contenido ? JSON.stringify(ev.contenido) : null])
       await c.query(Q.pipeEjecucionTocar, [...base, fecha])
       return r.rowCount
     }
