@@ -158,7 +158,7 @@ function Cronometro({ desde }) {
   return <span className="mx3-crono">{Math.floor(seg / 60)}:{String(seg % 60).padStart(2, '0')}</span>
 }
 
-function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, enviada, desdeEnvio, editar, aprobar, puedePublicar }) {
+function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, enviada, desdeEnvio, editar, aprobar, puedePublicar, fase }) {
   const [todos, setTodos] = useState(false)
   const [filtro, setFiltro] = useState('todos')
   const [confirmar, setConfirmar] = useState(false)
@@ -232,7 +232,8 @@ function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, envi
         </div>
       )}
 
-      {conteo.total > 0 && (
+      {/* El avance y la lista de recursos H5P se ven en la fase «Recursos H5P»; en la de matrices no se repiten. */}
+      {conteo.total > 0 && fase === 2 && (
         <div className="mx4-paso mx4-rec">
           <div className="mx4-fila-h5p">
             <span className={'mx4-ic ' + (completa ? 'ok' : 'n')} aria-hidden="true">2</span>
@@ -500,7 +501,7 @@ export default function MatricesH5P({ s }) {
           <h4 className="mx2-h mx3-h">Unidades</h4>
           <div className="mx-grid mx3-lista">
             {unidades.map((u) => (
-              <Unidad key={u.unidad} unidad={u.unidad} nombre={u.nombre} matriz={d.matrices.find((m) => m.unidad === u.unidad)} recursos={d.recursos.filter((r) => r.unidad === u.unidad)} puede={puede} ocupado={ocupado} lanzar={lanzar} enviada={lanzadoReciente && enviadas.includes(u.unidad)} desdeEnvio={yaEnCurso ? 0 : lanzadoEn} editar={setEditando} aprobar={aprobarDesdeFila} puedePublicar={puedePublicar} />
+              <Unidad key={u.unidad} unidad={u.unidad} nombre={u.nombre} matriz={d.matrices.find((m) => m.unidad === u.unidad)} recursos={d.recursos.filter((r) => r.unidad === u.unidad)} puede={puede} ocupado={ocupado} lanzar={lanzar} enviada={lanzadoReciente && enviadas.includes(u.unidad)} desdeEnvio={yaEnCurso ? 0 : lanzadoEn} editar={setEditando} aprobar={aprobarDesdeFila} puedePublicar={puedePublicar} fase={fase} />
             ))}
           </div>
         </>
