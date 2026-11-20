@@ -345,9 +345,7 @@ button.mx3-fase.bloq{cursor:not-allowed;opacity:.75}
 @media(max-width:700px){.mx4-lista .mx4-rt{flex-basis:100%;order:3;white-space:normal}.mx4-lista .mx4-rl{order:4;margin-left:34px;width:calc(100% - 34px)}.mx4-lista .mx4-re{margin-left:auto}}
 
 /* Animación de carga en las filas y paneles de generación */
-.mx4-lista .mx4-pt.en{width:30px;height:22px;border:0;background:none;border-radius:0}
 .mx3-anillo{display:grid;place-items:center;width:64px;height:56px}
-.mx3-gen-tx .cgr{margin-right:8px}
 
 /* Botón general para abrir el editor de recursos */
 .mx7-ed{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;margin:18px 0 0;padding:14px 18px;border-radius:16px;background:#fff;border:1.5px solid #d3dae8}

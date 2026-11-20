@@ -123,7 +123,7 @@ function ListaRecursos({ recursos, actualId, puedePublicar, sucio, onElegir, onA
                     return (
                       <li key={r.id} className={'er-rec ' + k + (r.id === actualId ? ' on' : '')}>
                         <button type="button" className="er-rec-btn" aria-current={r.id === actualId ? 'true' : undefined} onClick={() => onElegir(r)}>
-                          <span className={'er-rec-ic ' + k} aria-hidden="true">{k === 'en' ? <CargaRecurso /> : k === 'ok' ? '✓' : k === 'er' ? '!' : ''}</span>
+                          <span className={'er-rec-ic ' + k} aria-hidden="true">{k === 'en' ? <i className="er-gira" /> : k === 'ok' ? '✓' : k === 'er' ? '!' : ''}</span>
                           <span className="er-rec-tx"><b>{r.codigo || r.id}</b><small>{r.titulo || 'Sin título'}</small></span>
                           <span className={'er-rec-et ' + k}>{pub ? 'Publicando…' : sin ? 'Sin avisos' : r.enCola ? (r.regenera ? 'Se regenerará' : 'En cola') : TEXTO_ESTADO[r.estado] || r.estado}</span>
                         </button>
@@ -323,8 +323,8 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
         {recursos.length > 0 && navAbierta && <ListaRecursos recursos={recursos} actualId={recurso.id} puedePublicar={puedePublicar} sucio={sucio} onElegir={elegirRecurso} onAprobar={onAprobar} />}
         <div className="er-main">
         {msg && <p className={'er-msg ' + msg.tipo} role="status"><i className="er-msg-ic" aria-hidden="true">{msg.tipo === 'ok' ? '✓' : msg.tipo === 'bad' ? '!' : '!'}</i><span>{msg.texto}</span></p>}
-        {publicandoAhora && <p className="er-msg info" role="status"><CargaRecurso /><span>Publicando en Drive. Este aviso se quita solo cuando n8n termina; puede seguir revisando otros recursos mientras tanto.</span></p>}
-        {ocupado === 'h5p' && <p className="er-msg info" role="status"><CargaRecurso /><span>Armando el H5P con los cambios. Suele tardar unos 3 segundos; en algunos casos hasta 90. No cierre esta ventana.</span></p>}
+        {publicandoAhora && <p className="er-msg info" role="status"><i className="er-gira" aria-hidden="true" /><span>Publicando en Drive. Este aviso se quita solo cuando n8n termina; puede seguir revisando otros recursos mientras tanto.</span></p>}
+        {ocupado === 'h5p' && <p className="er-msg info" role="status"><i className="er-gira" aria-hidden="true" /><span>Armando el H5P con los cambios. Suele tardar unos 3 segundos; en algunos casos hasta 90. No cierre esta ventana.</span></p>}
 
         {estado === 'sinContenido' && <div className="er-estado">{actual.estado === 'EN_PROCESO' || actual.publicando ? <CargaRecurso tam="grande" /> : <i className="er-estado-ic info" aria-hidden="true">{actual.estado === 'PENDIENTE' ? '…' : 'i'}</i>}<b>{actual.publicando ? 'Este recurso se está publicando' : actual.estado === 'EN_PROCESO' ? 'Este recurso se está generando' : actual.estado === 'PENDIENTE' ? 'Este recurso todavía no se genera' : 'Este recurso no se puede editar aquí'}</b><span>{actual.publicando ? 'n8n está armando el H5P y subiéndolo a Drive. Cuando termine, el recurso aparecerá como «Generado».' : actual.estado === 'EN_PROCESO' || actual.estado === 'PENDIENTE' ? 'Cuando n8n termine, aparecerá en la lista como «Por revisar» y podrá abrirlo para corregir sus textos.' : 'Se generó antes de que Praxia guardara su contenido, así que sus textos no se pueden corregir desde esta pantalla.'}</span></div>}
         {estado === 'cargando' && <div className="er-estado"><CargaRecurso tam="grande" etiqueta="Abriendo el recurso" /><b>Abriendo el recurso…</b><span>Se está preparando la plantilla con su contenido.</span></div>}
