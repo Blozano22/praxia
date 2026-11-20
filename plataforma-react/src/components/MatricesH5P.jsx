@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from '../lib/api.js'
+import EditorRecurso from './EditorRecurso.jsx'
 import './matrices.css'
 
 // Paso «Matrices y H5P» del curso: muestra lo que n8n AVISÓ a Praxia (la matriz de cada unidad, sus recursos y las corridas de H5P).
@@ -120,7 +121,7 @@ const I_ALERTA = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" str
 const I_RELOJ = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path d="M12 8v4l2.5 2" /></svg>
 
 // Una línea por recurso: generado (verde), por generar (círculo vacío), en proceso o con error.
-function Fila({ r }) {
+function Fila({ r, editar }) {
   const mal = r.sinRespuesta || r.estado === 'ERROR'
   const hecho = r.estado === 'GENERADO' && !r.sinRespuesta
   const k = hecho ? 'ok' : mal ? 'er' : r.estado === 'EN_PROCESO' ? 'en' : 'pe'
@@ -133,6 +134,7 @@ function Fila({ r }) {
       <span className="mx4-rt" title={r.titulo || ''}>{r.titulo || 'Sin título'}</span>
       <span className="mx4-re">{texto}</span>
       <span className="mx4-rl">
+        {hecho && r.conContenido && editar && <button type="button" className="mx4-ed" onClick={() => editar(r)} title="Corregir los textos del recurso y volver a armar el H5P">Editar textos</button>}
         {hecho && r.enlaceRecurso && <a href={r.enlaceRecurso} target="_blank" rel="noopener noreferrer">Recurso ↗</a>}
         {r.enlaceGuion && <a href={r.enlaceGuion} target="_blank" rel="noopener noreferrer">Guion ↗</a>}
         {hecho && r.revisionPendiente > 0 && <span title="Campos que el generador dejó para revisión humana">REVISAR {r.revisionPendiente} campo{r.revisionPendiente === 1 ? '' : 's'}</span>}
@@ -153,7 +155,7 @@ function Cronometro({ desde }) {
   return <span className="mx3-crono">{Math.floor(seg / 60)}:{String(seg % 60).padStart(2, '0')}</span>
 }
 
-function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, enviada, desdeEnvio }) {
+function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, enviada, desdeEnvio, editar }) {
   const [todos, setTodos] = useState(false)
   const [filtro, setFiltro] = useState('todos')
   const [confirmar, setConfirmar] = useState(false)
@@ -251,7 +253,7 @@ function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, envi
                   <button key={k} type="button" role="tab" aria-selected={filtro === k} className={'mx4-f ' + k + (filtro === k ? ' on' : '')} onClick={() => setFiltro(k)}>{t} <b>{n}</b></button>
                 ))}
               </div>
-              <ul className="mx4-lista">{filas.map((r) => <Fila key={r.id} r={r} />)}</ul>
+              <ul className="mx4-lista">{filas.map((r) => <Fila key={r.id} r={r} editar={editar} />)}</ul>
             </div>
           )}
         </div>
@@ -270,6 +272,7 @@ export default function MatricesH5P({ s }) {
   const [faseSel, setFaseSel] = useState(null) // fase elegida a mano (1 = Matrices, 2 = Recursos H5P); null = la que corresponde al estado
   const [yaEnCurso, setYaEnCurso] = useState(0) // el servidor dijo que ya hay una generación en marcha
   const [enviadas, setEnviadas] = useState([]) // unidades cuya matriz se pidió hace poco
+  const [editando, setEditando] = useState(null) // recurso abierto en el editor de textos
   const [lanzadoEn, setLanzadoEn] = useState(0) // hasta que n8n avise del inicio pasan unos segundos: mientras tanto se sigue refrescando
 
   const cargar = useCallback(async () => {
@@ -484,11 +487,12 @@ export default function MatricesH5P({ s }) {
           <h4 className="mx2-h mx3-h">Unidades</h4>
           <div className="mx-grid mx3-lista">
             {unidades.map((u) => (
-              <Unidad key={u.unidad} unidad={u.unidad} nombre={u.nombre} matriz={d.matrices.find((m) => m.unidad === u.unidad)} recursos={d.recursos.filter((r) => r.unidad === u.unidad)} puede={puede} ocupado={ocupado} lanzar={lanzar} enviada={lanzadoReciente && enviadas.includes(u.unidad)} desdeEnvio={yaEnCurso ? 0 : lanzadoEn} />
+              <Unidad key={u.unidad} unidad={u.unidad} nombre={u.nombre} matriz={d.matrices.find((m) => m.unidad === u.unidad)} recursos={d.recursos.filter((r) => r.unidad === u.unidad)} puede={puede} ocupado={ocupado} lanzar={lanzar} enviada={lanzadoReciente && enviadas.includes(u.unidad)} desdeEnvio={yaEnCurso ? 0 : lanzadoEn} editar={setEditando} />
             ))}
           </div>
         </>
       )}
+      {editando && <EditorRecurso proyecto={s.id} recurso={editando} onCerrar={() => { setEditando(null); cargar() }} />}
     </div>
   )
 }

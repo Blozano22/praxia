@@ -308,3 +308,5 @@ button.mx3-fase.bloq{cursor:not-allowed;opacity:.75}
 .mx6-n{display:grid;place-items:center;height:44px;border-radius:10px;background:#eaf0fb;color:var(--nav);font-weight:800;font-size:1.2rem}
 .mx6-mot li>div{display:flex;flex-direction:column;gap:7px;min-width:0}.mx6-mot li>div>span{font-size:.88rem;font-weight:600}
 .mx6-b{height:6px;border-radius:99px;background:#e3e8f0;overflow:hidden}.mx6-b i{display:block;height:100%;background:#7d93c9}
+
+.mx4-ed{border:1px solid var(--nav);background:#fff;color:var(--nav);border-radius:8px;padding:3px 10px;font:inherit;font-size:.78rem;font-weight:700;cursor:pointer;white-space:nowrap}.mx4-ed:hover{background:#eef1f7}
