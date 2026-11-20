@@ -21,7 +21,7 @@ const SECRETO_ANTERIOR = 'secreto-anterior-0123456789abcdef0123456789'
 const DOC = 'https://docs.google.com/document/d/guion_1-abc'
 const HOJA = 'https://docs.google.com/spreadsheets/d/matriz_1-abc/edit'
 
-let servidor, base, pool, servicioH5p, ultimaPeticionServicio
+let servidor, base, pool, servicioH5p, ultimaPeticionServicio, n8nPublicar, ordenesPublicar = [], publicarFalla = false
 const ids = {} // personas
 const T = { ana: crypto.randomUUID(), beto: crypto.randomUUID(), ajeno: crypto.randomUUID() }
 let n = 0
@@ -36,7 +36,7 @@ before(async () => {
   const dueno = new pg.Client({ connectionString: `postgres://postgres:duenio@localhost:${PUERTO_PG}/ova` })
   await dueno.connect()
   await dueno.query("CREATE ROLE ova_app LOGIN PASSWORD 'appclave' NOSUPERUSER NOBYPASSRLS")
-  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
+  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
   await dueno.end()
   process.env.DATABASE_URL = `postgres://ova_app:appclave@localhost:${PUERTO_PG}/ova`
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex')
@@ -55,6 +55,18 @@ before(async () => {
   await new Promise((r) => servicioH5p.listen(0, '127.0.0.1', r))
   process.env.SERVICIO_PLANTILLAS_URL = 'http://127.0.0.1:' + servicioH5p.address().port
   process.env.SERVICIO_PLANTILLAS_CLAVE = 'clave-del-servicio'
+  // «n8n» simulado para la orden de PUBLICAR un recurso: guarda la orden y confirma (o falla si publicarFalla).
+  n8nPublicar = http.createServer((req, res) => {
+    let cuerpo = ''
+    req.on('data', (d) => { cuerpo += d })
+    req.on('end', () => {
+      ordenesPublicar.push(JSON.parse(cuerpo))
+      if (publicarFalla) { res.writeHead(500); return res.end('error') }
+      res.writeHead(202, { 'content-type': 'application/json' }); res.end('{"ok":true}')
+    })
+  })
+  await new Promise((r) => n8nPublicar.listen(0, '127.0.0.1', r))
+  process.env.N8N_PUBLICAR_URL = 'http://127.0.0.1:' + n8nPublicar.address().port + '/webhook/publicar'
   process.env.N8N_EVENTOS_SECRETO_ANTERIOR = SECRETO_ANTERIOR
   const { crearApp } = await import('../src/app.js')
   const db = await import('../src/db.js')
@@ -73,6 +85,7 @@ before(async () => {
 after(async () => {
   servidor && servidor.close()
   servicioH5p && servicioH5p.close()
+  n8nPublicar && n8nPublicar.close()
   pool && (await pool.end())
   await servidorPg.stop()
   fs.rmSync(dir, { recursive: true, force: true })
@@ -361,6 +374,61 @@ test('editar el contenido de un recurso: solo textos, solo el propio curso; y el
   await pool.query("UPDATE pipeline_recursos SET plantilla = NULL WHERE propietario_id = $1 AND id = 'f1'", [ids.ana])
   assert.equal((await h5p(ana)).status, 409)
   await pool.query("UPDATE pipeline_recursos SET plantilla = 'g-11-doc-v01' WHERE propietario_id = $1 AND id = 'f1'", [ids.ana])
+})
+
+test('etapa 2: un recurso «por revisar» se aprueba y n8n recibe la orden de publicar; mientras tanto figura «publicando» y el aviso GENERADO lo cierra', async () => {
+  const entrar = async (correo) => { const r = await fetch(base + '/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json', 'x-ova': '1' }, body: JSON.stringify({ correo, clave: CLAVE }) }); return { cookie: (r.headers.get('set-cookie') || '').split(';')[0], 'x-ova': '1', 'content-type': 'application/json' } }
+  const ana = await entrar('ana@u.co'), beto = await entrar('beto@u.co')
+  const CONT = { titulo: 'Por revisar', bloques: [{ texto: 'uno' }] }
+  // el curso de Ana (con su carpeta de Drive) tiene que existir para poder publicar
+  assert.equal((await fetch(base + '/api/proyectos/curso-a', { method: 'PUT', headers: ana, body: JSON.stringify({ id: 'curso-a', programa: 'P', curso: 'Curso A', creado: Date.now(), carpetaUrl: 'https://drive.google.com/drive/folders/carpetaAna', recursos: [], guiones: [], info: {} }) })).status, 200)
+  const lista = async () => (await (await fetch(base + '/api/proyectos/curso-a/pipeline', { headers: ana })).json()).recursos.find((x) => x.id === 'pub1')
+  const aprobar = (h, id = 'pub1') => fetch(base + '/api/proyectos/curso-a/pipeline/recursos/' + id + '/aprobar', { method: 'POST', headers: h })
+  // la etapa 1 termina con estado POR_REVISAR y el contenido
+  assert.equal((await enviar(aviso('h5p_recurso', 'h5p', { ejecucion_id: 'p1', unidad: 1, id: 'pub1', codigo: 'U1-T1-R9', estado: 'EN_PROCESO', plantilla: 'g-11-doc-v01' }, 80))).estado, 200)
+  assert.equal((await aprobar(ana)).status, 409) // todavía se está generando
+  assert.equal((await enviar(aviso('h5p_recurso', 'h5p', { ejecucion_id: 'p1', unidad: 1, id: 'pub1', estado: 'POR_REVISAR', contenido: CONT, revision_pendiente: 1 }, 81))).estado, 200)
+  let f = await lista()
+  assert.equal(f.estado, 'POR_REVISAR'); assert.equal(f.conContenido, true); assert.equal(f.publicando, false); assert.equal(f.revisionPendiente, 1)
+  // quién puede aprobar y qué se rechaza
+  assert.equal((await fetch(base + '/api/proyectos/curso-a/pipeline/recursos/pub1/aprobar', { method: 'POST', headers: { 'x-ova': '1' } })).status, 401)
+  assert.equal((await aprobar(ana, 'no-existe')).status, 404)
+  assert.equal((await aprobar(beto)).status, 404) // el curso-a de Beto no tiene ese recurso
+  assert.equal((await aprobar(ana, 'trabajando')).status, 409) // sin contenido
+  // aprobar: n8n recibe la orden completa (no hay archivo todavía: reemplazar=false)
+  ordenesPublicar.length = 0
+  const ok = await aprobar(ana)
+  assert.equal(ok.status, 202); const { trabajo_id: tp } = await ok.json()
+  assert.equal(ordenesPublicar.length, 1)
+  const o = ordenesPublicar[0]
+  assert.equal(o.trabajo_id, tp); assert.equal(o.proyecto_id, 'curso-a'); assert.equal(o.id, 'pub1'); assert.equal(o.codigo, 'U1-T1-R9'); assert.equal(o.plantilla, 'g-11-doc-v01')
+  assert.deepEqual(o.contenido, CONT); assert.equal(o.reemplazar, false); assert.equal(o.enlace_recurso, null); assert.match(o.carpeta_raiz, /drive\.google\.com\/drive\/folders\/carpetaAna/)
+  f = await lista(); assert.equal(f.publicando, true)
+  assert.equal((await aprobar(ana)).status, 409) // ya se está publicando: no se manda dos veces
+  assert.equal(ordenesPublicar.length, 1)
+  // n8n avisa con el trabajo_id de la orden: GENERADO con el enlace → deja de estar «publicando»; el contenido se conserva
+  const ENL = 'https://drive.google.com/file/d/archivo_pub1/view'
+  const despues = new Date(Date.now() + 2000).toISOString()
+  assert.equal((await enviar(aviso('h5p_recurso', 'h5p', { trabajo_id: tp, ejecucion_id: 'pub-' + tp, unidad: 1, id: 'pub1', estado: 'GENERADO', enlace_recurso: ENL, plantilla: 'g-11-doc-v01', fecha_evento: despues, secuencia: 90 }))).estado, 200)
+  f = await lista(); assert.equal(f.estado, 'GENERADO'); assert.equal(f.publicando, false); assert.equal(f.enlaceRecurso, ENL); assert.equal(f.conContenido, true)
+  // volver a aprobar un recurso ya publicado: la orden pide reemplazar el MISMO archivo
+  ordenesPublicar.length = 0
+  assert.equal((await aprobar(ana)).status, 202)
+  assert.equal(ordenesPublicar[0].reemplazar, true); assert.equal(ordenesPublicar[0].enlace_recurso, ENL)
+  // un error al publicar: queda ERROR, conserva el contenido y se puede reintentar
+  const tardio = new Date(Date.now() + 4000).toISOString()
+  await enviar(aviso('h5p_recurso', 'h5p', { ejecucion_id: 'pub-x', unidad: 1, id: 'pub1', estado: 'ERROR', observaciones: 'Drive no respondió', fecha_evento: tardio, secuencia: 91 }))
+  f = await lista(); assert.equal(f.estado, 'ERROR'); assert.equal(f.publicando, false); assert.equal(f.conContenido, true)
+  // si n8n no acepta la orden, la aprobación se deshace
+  publicarFalla = true
+  assert.equal((await aprobar(ana)).status, 502)
+  publicarFalla = false
+  f = await lista(); assert.equal(f.publicando, false)
+  assert.equal((await aprobar(ana)).status, 202) // y se puede volver a intentar
+  // un contenido nuevo por revisar anula la aprobación anterior
+  const nuevo = new Date(Date.now() + 6000).toISOString()
+  await enviar(aviso('h5p_recurso', 'h5p', { ejecucion_id: 'p2', unidad: 1, id: 'pub1', estado: 'POR_REVISAR', contenido: { titulo: 'Nuevo', bloques: [] }, fecha_evento: nuevo, secuencia: 92 }))
+  f = await lista(); assert.equal(f.estado, 'POR_REVISAR'); assert.equal(f.publicando, false)
 })
 
 test('vista global: solo quien ve todos los cursos la lee; trae cifras por curso de todas las personas y los avisos sin atribuir', async () => {

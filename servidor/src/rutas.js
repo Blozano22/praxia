@@ -8,7 +8,7 @@ import { Q } from './consultas.js'
 import { config } from './config.js'
 import { extraerEnlaces } from './enlaces.js'
 import { armarSubida, compararEsquemas, esquemaDe, MAX_HTML, NOMBRES_RESERVADOS } from './plantillas/subidas.js'
-import { EsquemaLanzarH5p, EsquemaLanzarMatrices, lanzarH5p, lanzarMatrices, urlH5p, urlMatrices } from './pipeline/lanzar.js'
+import { EsquemaLanzarH5p, EsquemaLanzarMatrices, lanzarH5p, lanzarMatrices, lanzarPublicar, urlH5p, urlMatrices, urlPublicar } from './pipeline/lanzar.js'
 import { CLAVE_PRUEBAS, pruebasEncendidas, urlPreparacion } from './pipeline/preparacion.js'
 import { invalidarAsignaciones } from './pipeline/asignaciones.js'
 import { publicarAviso, tomarAvisos } from './avisos.js'
@@ -118,7 +118,7 @@ rutas.get('/proyectos/:id/pipeline', exigirSesion, exigirPermiso('proyectos.ver_
     const [m, r, e] = await Promise.all([sinUsuario(Q.pipeLeerMatrices, p), sinUsuario(Q.pipeLeerRecursos, p), sinUsuario(Q.pipeLeerEjecuciones, p)])
     // El plan de una corrida puede ser largo: se entrega el conteo y la lista de lo omitido con su motivo, no todos los recursos a generar.
     const ejecuciones = e.rows.map((x) => ({ ...x, plan: x.plan ? { aGenerar: (x.plan.a_generar || []).length, omitidas: (x.plan.omitidas || []).slice(0, 500) } : null }))
-    res.json({ matrices: m.rows, recursos: r.rows, ejecuciones, generado: new Date().toISOString(), puedeGenerarMatrices: Boolean(await urlMatrices()), puedeGenerarH5p: Boolean(await urlH5p()), puedePreparar: Boolean(await urlPreparacion()) })
+    res.json({ matrices: m.rows, recursos: r.rows, ejecuciones, generado: new Date().toISOString(), puedeGenerarMatrices: Boolean(await urlMatrices()), puedeGenerarH5p: Boolean(await urlH5p()), puedePublicar: Boolean(await urlPublicar()), puedePreparar: Boolean(await urlPreparacion()) })
   } catch (err) { next(err) }
 })
 
@@ -133,10 +133,12 @@ rutas.get('/proyectos/:id/pipeline/recursos/:recurso/contenido', exigirSesion, e
 })
 
 const limiteLanzar = rateLimit({ windowMs: 60 * 1000, limit: Number(process.env.LIMITE_LANZAR_PIPELINE || 12), keyGenerator: (req) => (req.usuario ? 'u:' + req.usuario.id : ipKeyGenerator(req.ip)), standardHeaders: true, legacyHeaders: false })
+// Revisar y aprobar recursos se hace en tandas (decenas seguidas): su tope por minuto es mayor que el de lanzar generaciones.
+const limiteEditarRecurso = rateLimit({ windowMs: 60 * 1000, limit: Number(process.env.LIMITE_EDITAR_RECURSO || 90), keyGenerator: (req) => (req.usuario ? 'u:' + req.usuario.id : ipKeyGenerator(req.ip)), standardHeaders: true, legacyHeaders: false })
 // Edición del contenido de un recurso desde la pantalla del curso. Solo se cambian TEXTOS: la estructura (campos y tipos) debe ser la misma que ya tenía.
 const MAX_CONTENIDO_EDITADO = 400 * 1024
 const EsquemaContenidoEditado = z.object({ contenido: z.record(z.string(), z.any()) })
-rutas.put('/proyectos/:id/pipeline/recursos/:recurso/contenido', exigirSesion, exigirPermiso('proyectos.crear'), limiteLanzar,
+rutas.put('/proyectos/:id/pipeline/recursos/:recurso/contenido', exigirSesion, exigirPermiso('proyectos.crear'), limiteEditarRecurso,
   validar(z.object({ id: IdProyecto, recurso: z.string().min(1).max(100) }), 'params'), validar(EsquemaContenidoEditado, 'body'), async (req, res, next) => {
     try {
       const nuevo = req.bodyOk.contenido
@@ -152,8 +154,18 @@ rutas.put('/proyectos/:id/pipeline/recursos/:recurso/contenido', exigirSesion, e
     } catch (err) { next(err) }
   })
 
+// Aprobar el contenido de un recurso y pedir su publicación: n8n arma el .h5p y lo sube a Drive (si ya había archivo, reemplaza su contenido). El resultado llega por aviso.
+rutas.post('/proyectos/:id/pipeline/recursos/:recurso/aprobar', exigirSesion, exigirPermiso('proyectos.crear'), limiteEditarRecurso,
+  validar(z.object({ id: IdProyecto, recurso: z.string().min(1).max(100) }), 'params'), async (req, res, next) => {
+    try {
+      const r = await lanzarPublicar({ usuario: req.usuario, proyectoId: req.paramsOk.id, recursoId: req.paramsOk.recurso })
+      if (r.codigo === 202) auditar(req.usuario.id, 'recurso.aprobar_publicar', 'proyecto', req.paramsOk.id, req)
+      res.status(r.codigo).json(r.cuerpo)
+    } catch (err) { next(err) }
+  })
+
 // Arma el .h5p con el contenido guardado (editado o no): el servidor llama al servicio de plantillas con su clave y entrega el archivo; la clave nunca llega al navegador.
-rutas.post('/proyectos/:id/pipeline/recursos/:recurso/h5p', exigirSesion, exigirPermiso('proyectos.ver_propios'), limiteLanzar,
+rutas.post('/proyectos/:id/pipeline/recursos/:recurso/h5p', exigirSesion, exigirPermiso('proyectos.ver_propios'), limiteEditarRecurso,
   validar(z.object({ id: IdProyecto, recurso: z.string().min(1).max(100) }), 'params'), async (req, res, next) => {
     try {
       if (!config.servicioPlantillasClave) return res.status(503).json({ error: 'El servicio de plantillas H5P no está configurado en el servidor (falta SERVICIO_PLANTILLAS_CLAVE).' })
@@ -368,16 +380,16 @@ rutas.patch('/usuarios/:id/clave', ...admin, validar(z.object({ id: IdUsuario })
   })
 
 // ------------------------------------------------------------------ direcciones de n8n (compartidas por todas las personas)
-const CLAVES_N8N = { syllabus: 'n8n.syllabus', guiones: 'n8n.guiones', matrices: 'n8n.matrices', h5p: 'n8n.h5p', preparacion: 'n8n.preparacion' }
+const CLAVES_N8N = { syllabus: 'n8n.syllabus', guiones: 'n8n.guiones', matrices: 'n8n.matrices', h5p: 'n8n.h5p', publicar: 'n8n.publicar', preparacion: 'n8n.preparacion' }
 rutas.get('/config/n8n', exigirSesion, async (req, res, next) => {
   try {
     const f = (await sinUsuario(Q.configLeer, [[...Object.values(CLAVES_N8N), CLAVE_PRUEBAS]])).rows
     const v = (c) => (f.find((x) => x.clave === c) || {}).valor || ''
-    res.json({ syllabus: v(CLAVES_N8N.syllabus), guiones: v(CLAVES_N8N.guiones), matrices: v(CLAVES_N8N.matrices), h5p: v(CLAVES_N8N.h5p), preparacion: v(CLAVES_N8N.preparacion), pruebas_plantillas: pruebasEncendidas((f.find((x) => x.clave === CLAVE_PRUEBAS) || {}).valor) }) // '' = la dirección original
+    res.json({ syllabus: v(CLAVES_N8N.syllabus), guiones: v(CLAVES_N8N.guiones), matrices: v(CLAVES_N8N.matrices), h5p: v(CLAVES_N8N.h5p), publicar: v(CLAVES_N8N.publicar), preparacion: v(CLAVES_N8N.preparacion), pruebas_plantillas: pruebasEncendidas((f.find((x) => x.clave === CLAVE_PRUEBAS) || {}).valor) }) // '' = la dirección original
   } catch (e) { next(e) }
 })
 const UrlN8n = z.union([z.literal(''), z.string().trim().max(500).regex(/^https:\/\/\S+$/)])
-rutas.put('/config/n8n', ...admin, validar(z.object({ syllabus: UrlN8n.optional(), guiones: UrlN8n.optional(), matrices: UrlN8n.optional(), h5p: UrlN8n.optional(), preparacion: UrlN8n.optional(), pruebas_plantillas: z.boolean().optional() }).strict(), 'body'),
+rutas.put('/config/n8n', ...admin, validar(z.object({ syllabus: UrlN8n.optional(), guiones: UrlN8n.optional(), matrices: UrlN8n.optional(), h5p: UrlN8n.optional(), publicar: UrlN8n.optional(), preparacion: UrlN8n.optional(), pruebas_plantillas: z.boolean().optional() }).strict(), 'body'),
   async (req, res, next) => {
     try {
       // Modo de pruebas de plantillas: encendido, la preparación del curso asigna cualquier plantilla subida (aprobada o no). Se registra quién lo cambia.

@@ -21,6 +21,7 @@ async function urlConfigurada(clave, respaldo) {
 }
 export const urlMatrices = () => urlConfigurada('n8n.matrices', config.n8nMatricesUrl)
 export const urlH5p = () => urlConfigurada('n8n.h5p', config.n8nH5pUrl)
+export const urlPublicar = () => urlConfigurada('n8n.publicar', config.n8nPublicarUrl)
 
 const Unidades = z.array(z.number().int().min(1).max(200)).min(1).max(50)
 export const EsquemaLanzarMatrices = z.object({ unidades: Unidades, forzar: z.boolean().default(false) }).strict()
@@ -154,3 +155,27 @@ export async function lanzarH5p({ usuario, proyectoId, maximo, unidades, reinten
   return { codigo: 202, cuerpo: { trabajo_id: trabajoId, ...(maximo ? { maximo } : {}), ...(pedidas ? { unidades: pedidas } : {}), reintentarErrores, ...(ejecucion ? { ejecucion_id: ejecucion } : {}) } }
 }
 
+
+// Etapa 2 del H5P: la persona aprobó el contenido de un recurso y n8n debe armar el .h5p y publicarlo en Drive (si ya había un archivo, reemplaza el contenido del mismo archivo).
+// Devuelve { codigo, cuerpo }. El resultado llega después por un aviso h5p_recurso (GENERADO con el enlace, o ERROR); mientras tanto «aprobado_en» marca que se está publicando.
+export async function lanzarPublicar({ usuario, proyectoId, recursoId, publicarFn = publicar }) {
+  const url = await urlPublicar()
+  if (!url) return falla(503, 'La publicación de recursos H5P no está configurada en el servidor.')
+  const curso = await leerCurso(usuario, proyectoId)
+  if (curso.codigo) return curso
+  const previo = (await sinUsuario(Q.pipeLeerContenido, [usuario.id, proyectoId, recursoId])).rows[0]
+  if (!previo) return falla(404, 'No hay un recurso con ese identificador en este curso.')
+  if (!previo.contenido) return falla(409, 'Este recurso todavía no tiene contenido para aprobar.')
+  if (!previo.plantilla) return falla(409, 'Este recurso no tiene plantilla registrada.')
+  if (!['POR_REVISAR', 'GENERADO', 'ERROR'].includes(previo.estado)) return falla(409, 'Este recurso todavía se está generando: espere a que quede por revisar.')
+  const marcado = (await sinUsuario(Q.pipeAprobar, [usuario.id, proyectoId, recursoId])).rows[0]
+  if (!marcado) return falla(409, 'Este recurso ya se está publicando. Espere a que termine.', { ya: true })
+  const trabajoId = randomUUID()
+  await sinUsuario(Q.pipeOrigenGuardarPublicar, [trabajoId, usuario.id, proyectoId, curso.carpeta, 'h5p', marcado.unidad ?? null])
+  const reemplazar = /^https:\/\/(?:drive|docs)\.google\.com\//.test(marcado.enlaceRecurso || '')
+  const r = await entregar({ url, minutos: 2, trabajoId, publicarFn, nombre: 'la publicación del H5P',
+    cuerpo: { trabajo_id: trabajoId, proyecto_id: proyectoId, carpeta_raiz: curso.carpeta, id: marcado.id, codigo: marcado.codigo || null, unidad: marcado.unidad ?? null,
+      plantilla: marcado.plantilla, contenido: marcado.contenido, enlace_recurso: reemplazar ? marcado.enlaceRecurso : null, reemplazar } })
+  if (r.codigo !== 202) { await sinUsuario(Q.pipeAprobarRevertir, [usuario.id, proyectoId, recursoId]).catch(() => {}); return r }
+  return { codigo: 202, cuerpo: { trabajo_id: trabajoId, id: marcado.id, reemplazar } }
+}

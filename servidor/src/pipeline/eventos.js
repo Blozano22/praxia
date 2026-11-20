@@ -76,7 +76,7 @@ const Fila = z.object({
   tema: z.number().int().min(0).max(999).nullish(),
   codigo: texto(100).nullish(), formato: texto(100).nullish(), titulo: texto(500).nullish(),
   con_actividad: z.boolean().nullish(), generador: texto(30).nullish(),
-  estado: z.enum(['PENDIENTE', 'EN_PROCESO', 'GENERADO', 'ERROR']),
+  estado: z.enum(['PENDIENTE', 'EN_PROCESO', 'POR_REVISAR', 'GENERADO', 'ERROR']),
   observaciones: texto(2000).nullish(), enlace_guion: opc(UrlGoogle), enlace_recurso: opc(UrlGoogle),
   plantilla: opc(PlantillaAviso) // nombre de la plantilla de Praxia («g-11-doc-v01»); una cadena vacía cuenta como «sin dato»
 })
@@ -112,13 +112,13 @@ const Evento = z.discriminatedUnion('evento', [
   Comun.extend({
     evento: z.literal('h5p_recurso'), ejecucion_id: ejecucion,
     unidad: z.number().int().min(0).max(99).nullish(), id: idTexto, codigo: texto(100).nullish(),
-    estado: z.enum(['PENDIENTE', 'EN_PROCESO', 'GENERADO', 'ERROR']), enlace_recurso: opc(UrlGoogle), observaciones: texto(2000).nullish(),
+    estado: z.enum(['PENDIENTE', 'EN_PROCESO', 'POR_REVISAR', 'GENERADO', 'ERROR']), enlace_recurso: opc(UrlGoogle), observaciones: texto(2000).nullish(),
     plantilla: opc(PlantillaAviso), contenido: ContenidoAviso,
     revision_pendiente: z.preprocess((v) => (typeof v === 'string' && /^\d{1,4}$/.test(v.trim()) ? Number(v) : (Number.isInteger(v) && v >= 0 && v <= 9999 ? v : null)), z.number().nullish()) // campos que quedaron para revisión humana; lo no válido cuenta como «sin dato»
   }),
   Comun.extend({
     evento: z.literal('h5p_fin'), ejecucion_id: ejecucion,
-    resumen: z.object({ generados: entero.default(0), errores: entero.default(0), omitidos: entero.default(0), pendientes_restantes: entero.nullish() })
+    resumen: z.object({ generados: entero.default(0), errores: entero.default(0), omitidos: entero.default(0), pendientes_restantes: entero.nullish(), por_revisar: entero.nullish() })
   })
 ])
 

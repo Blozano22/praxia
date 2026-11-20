@@ -31,6 +31,7 @@ export const config = {
   // «Modo de pruebas de plantillas» cuando la administración aún no lo ha encendido ni apagado en «Conexión n8n»: ENCENDIDO por defecto mientras no estén aprobadas las plantillas
   // (para poder generar guiones de prueba en producción). PRUEBAS_PLANTILLAS=0 en el .env lo deja apagado por defecto.
   pruebasPlantillasPorDefecto: process.env.PRUEBAS_PLANTILLAS !== '0',
+  n8nPublicarUrl: process.env.N8N_PUBLICAR_URL || '', // vacío = «Aprobar y publicar» (arma el .h5p y lo sube a Drive) desactivado
   n8nPreparacionUrl: process.env.N8N_PREPARACION_URL || '', // vacío = «Preparar el curso» (asignar variantes antes de los guiones) desactivado
   // Secreto con el que n8n FIRMA los avisos a Praxia (HMAC-SHA256). Sin él el receptor de avisos queda desactivado.
   // El «anterior» permite rotarlo sin cortar los avisos: durante el cambio se aceptan los dos.

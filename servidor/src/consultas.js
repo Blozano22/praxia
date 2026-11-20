@@ -147,6 +147,11 @@ export const Q = Object.freeze({
   pipeOrigenGuardar: `
     INSERT INTO pipeline_origen (trabajo_id, propietario_id, proyecto_id, carpeta_raiz, etapa, unidad) VALUES ($1, $2, $3, $4, $5, $6)
     ON CONFLICT (trabajo_id) DO NOTHING`,
+  // Origen de una orden de PUBLICAR un recurso: igual que el de una corrida, pero con la fecha de creación 10 minutos atrás para que no cuente como «generación de H5P en curso»
+  // (pipeEnCurso mira los orígenes de los últimos 3 minutos sin ejecución): aprobar un recurso no debe impedir lanzar o seguir una generación.
+  pipeOrigenGuardarPublicar: `
+    INSERT INTO pipeline_origen (trabajo_id, propietario_id, proyecto_id, carpeta_raiz, etapa, unidad, creado) VALUES ($1, $2, $3, $4, $5, $6, now() - interval '10 minutes')
+    ON CONFLICT (trabajo_id) DO NOTHING`,
   pipeOrigenObtener: `SELECT trabajo_id, propietario_id, proyecto_id, carpeta_raiz, etapa, unidad FROM pipeline_origen WHERE trabajo_id = $1`,
   pipeEventoInsertar: `
     INSERT INTO pipeline_eventos (evento_id, tipo, etapa, trabajo_id, origen_trabajo_id, ejecucion_id, propietario_id, proyecto_id, secuencia, fecha_evento, resultado, motivo, carga)
@@ -218,6 +223,7 @@ export const Q = Object.freeze({
       omision = EXCLUDED.omision,
       plantilla = coalesce(EXCLUDED.plantilla, pipeline_recursos.plantilla),
       contenido = coalesce(EXCLUDED.contenido, pipeline_recursos.contenido),
+      aprobado_en = CASE WHEN EXCLUDED.estado = 'POR_REVISAR' THEN NULL ELSE pipeline_recursos.aprobado_en END, -- un contenido nuevo por revisar anula la aprobación anterior
       revision_pendiente = coalesce(EXCLUDED.revision_pendiente, pipeline_recursos.revision_pendiente),
       actualizado_en = EXCLUDED.actualizado_en,
       secuencia = EXCLUDED.secuencia
@@ -240,19 +246,29 @@ export const Q = Object.freeze({
       FROM pipeline_matrices WHERE propietario_id = $1 AND proyecto_id = $2 ORDER BY unidad`,
   pipeLeerRecursos: `
     SELECT id, unidad, tema, codigo, formato, titulo, generador, estado, observaciones, enlace_guion AS "enlaceGuion",
-           enlace_recurso AS "enlaceRecurso", omision, plantilla, (to_jsonb(r) -> 'contenido') IS NOT NULL AND (to_jsonb(r) -> 'contenido') <> 'null'::jsonb AS "conContenido", (to_jsonb(r) ->> 'revision_pendiente')::int AS "revisionPendiente", actualizado_en AS "actualizadoEn",
+           enlace_recurso AS "enlaceRecurso", omision, plantilla, (to_jsonb(r) -> 'contenido') IS NOT NULL AND (to_jsonb(r) -> 'contenido') <> 'null'::jsonb AS "conContenido",
+           (to_jsonb(r) ->> 'aprobado_en')::timestamptz AS "aprobadoEn",
+           COALESCE((to_jsonb(r) ->> 'aprobado_en')::timestamptz > actualizado_en, false) AS publicando,
+           COALESCE((to_jsonb(r) ->> 'aprobado_en')::timestamptz > actualizado_en AND (to_jsonb(r) ->> 'aprobado_en')::timestamptz < now() - interval '15 minutes', false) AS "publicandoSinRespuesta", (to_jsonb(r) ->> 'revision_pendiente')::int AS "revisionPendiente", actualizado_en AS "actualizadoEn",
            (estado = 'EN_PROCESO' AND actualizado_en < now() - interval '30 minutes') AS "sinRespuesta"
       FROM pipeline_recursos r WHERE propietario_id = $1 AND proyecto_id = $2
      ORDER BY unidad NULLS LAST, tema NULLS LAST, codigo NULLS LAST, id LIMIT 3000`,
   // El contenido (JSON) de UN recurso, para editarlo: solo de esa persona y ese curso.
   pipeLeerContenido: `
-    SELECT id, codigo, titulo, plantilla, enlace_recurso AS "enlaceRecurso", to_jsonb(r) -> 'contenido' AS contenido, actualizado_en AS "actualizadoEn",
+    SELECT id, codigo, titulo, plantilla, estado, enlace_recurso AS "enlaceRecurso", to_jsonb(r) -> 'contenido' AS contenido, actualizado_en AS "actualizadoEn",
            to_jsonb(r) ->> 'contenido_editado_en' AS "editadoEn", (SELECT s.formacion FROM plantilla_subidas s WHERE s.nombre = r.plantilla) AS formacion
       FROM pipeline_recursos r WHERE propietario_id = $1 AND proyecto_id = $2 AND id = $3`,
   // Guarda el contenido editado a mano (solo si el recurso ya tenía contenido). No toca actualizado_en/secuencia: eso es del orden de los avisos de n8n.
   pipeContenidoGuardar: `
     UPDATE pipeline_recursos SET contenido = $4::jsonb, contenido_editado_en = now()
      WHERE propietario_id = $1 AND proyecto_id = $2 AND id = $3 AND contenido IS NOT NULL RETURNING id`,
+  // Aprobar = pedir la publicación en Drive. Atómico: solo marca si hay contenido y no se está publicando ya (o la última orden lleva más de 15 minutos sin respuesta).
+  pipeAprobar: `
+    UPDATE pipeline_recursos SET aprobado_en = now()
+     WHERE propietario_id = $1 AND proyecto_id = $2 AND id = $3 AND contenido IS NOT NULL
+       AND (aprobado_en IS NULL OR aprobado_en <= actualizado_en OR aprobado_en < now() - interval '15 minutes')
+    RETURNING id, codigo, unidad, plantilla, contenido, enlace_recurso AS "enlaceRecurso", estado`,
+  pipeAprobarRevertir: `UPDATE pipeline_recursos SET aprobado_en = NULL WHERE propietario_id = $1 AND proyecto_id = $2 AND id = $3`,
   pipeLeerEjecuciones: `
     SELECT etapa, ejecucion_id AS "ejecucionId", estado, maximo, plan, resumen, iniciado_en AS "iniciadoEn",
            ultimo_evento_en AS "ultimoEventoEn", terminado_en AS "terminadoEn",
