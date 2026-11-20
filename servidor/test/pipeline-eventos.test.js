@@ -195,6 +195,13 @@ test('H5P: el plan con lo omitido y su motivo, el avance por recurso y el resume
     const fila = (await una('ana', 'pipeline_recursos', "id = 'f1'"))[0]
     assert.equal(fila.observaciones, 'tras ' + k); assert.deepEqual(fila.contenido, CONT2, k)
   }
+  // revision_pendiente: entero ≥ 0 (también como texto numérico); 0 se guarda; lo no válido es «sin dato» y no pisa lo guardado
+  await enviar(aviso('h5p_recurso', 'h5p', { ejecucion_id: 'h2', unidad: 1, id: 'f1', estado: 'GENERADO', revision_pendiente: 3 }, 58))
+  assert.equal((await una('ana', 'pipeline_recursos', "id = 'f1'"))[0].revision_pendiente, 3)
+  await enviar(aviso('h5p_recurso', 'h5p', { ejecucion_id: 'h2', unidad: 1, id: 'f1', estado: 'GENERADO', revision_pendiente: 'abc' }, 59))
+  assert.equal((await una('ana', 'pipeline_recursos', "id = 'f1'"))[0].revision_pendiente, 3)
+  await enviar(aviso('h5p_recurso', 'h5p', { ejecucion_id: 'h2', unidad: 1, id: 'f1', estado: 'GENERADO', revision_pendiente: '0' }, 60))
+  assert.equal((await una('ana', 'pipeline_recursos', "id = 'f1'"))[0].revision_pendiente, 0)
   const reg = (await pool.query("SELECT carga FROM pipeline_eventos WHERE tipo = 'h5p_recurso' AND carga ->> 'contenido' IS NOT NULL LIMIT 1")).rows[0]
   assert.match(reg.carga.contenido, /^objeto \(\d+ campos\)$/) // el registro de avisos no guarda el JSON completo
   const fin = await enviar(aviso('h5p_fin', 'h5p', { ejecucion_id: 'h2', resumen: { generados: 0, errores: 1, omitidos: 2, pendientes_restantes: 0 } }, 60))
@@ -299,7 +306,7 @@ test('el contenido de un recurso se lee por su ruta (solo el del propio curso) y
   assert.equal((await fetch(base + '/api/proyectos/curso-b/pipeline/recursos/f1/contenido', { headers: ana })).status, 404) // otro curso: no se ve
   const d = await (await fetch(base + '/api/proyectos/curso-a/pipeline', { headers: ana })).json()
   const f1 = d.recursos.find((x) => x.id === 'f1')
-  assert.equal(f1.conContenido, true); assert.equal(f1.contenido, undefined) // la lista no carga el JSON
+  assert.equal(f1.revisionPendiente, 0); assert.equal(f1.conContenido, true); assert.equal(f1.contenido, undefined) // la lista no carga el JSON
   assert.equal(d.recursos.find((x) => x.id === 'trabajando').conContenido, false)
   // sin contenido guardado: 404 con motivo
   assert.equal((await fetch(base + '/api/proyectos/curso-a/pipeline/recursos/trabajando/contenido', { headers: ana })).status, 404)

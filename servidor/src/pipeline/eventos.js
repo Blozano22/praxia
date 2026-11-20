@@ -113,7 +113,8 @@ const Evento = z.discriminatedUnion('evento', [
     evento: z.literal('h5p_recurso'), ejecucion_id: ejecucion,
     unidad: z.number().int().min(0).max(99).nullish(), id: idTexto, codigo: texto(100).nullish(),
     estado: z.enum(['PENDIENTE', 'EN_PROCESO', 'GENERADO', 'ERROR']), enlace_recurso: opc(UrlGoogle), observaciones: texto(2000).nullish(),
-    plantilla: opc(PlantillaAviso), contenido: ContenidoAviso
+    plantilla: opc(PlantillaAviso), contenido: ContenidoAviso,
+    revision_pendiente: z.preprocess((v) => (typeof v === 'string' && /^\d{1,4}$/.test(v.trim()) ? Number(v) : (Number.isInteger(v) && v >= 0 && v <= 9999 ? v : null)), z.number().nullish()) // campos que quedaron para revisión humana; lo no válido cuenta como «sin dato»
   }),
   Comun.extend({
     evento: z.literal('h5p_fin'), ejecucion_id: ejecucion,
@@ -183,7 +184,7 @@ async function aplicar(c, ev, o, fecha, sec) {
           const claves = r.filas.map((f) => f.codigo || f.id)
           for (const [k, f] of r.filas.entries()) {
             await c.query(Q.pipeRecursoGuardar, [P, Y, claves[k], r.unidad, f.id_base || null, f.variante || null, f.alcance || null, f.tema ?? null, f.codigo || null, f.formato || null, f.titulo || null,
-              f.con_actividad ?? null, f.generador || null, f.estado, f.observaciones || null, f.enlace_guion || null, f.enlace_recurso || null, null, fecha, sec, f.plantilla || null, null])
+              f.con_actividad ?? null, f.generador || null, f.estado, f.observaciones || null, f.enlace_guion || null, f.enlace_recurso || null, null, fecha, sec, f.plantilla || null, null, null])
           }
           await c.query(Q.pipeRecursosQuitarSobrantes, [P, Y, r.unidad, claves, fecha])
         }
@@ -198,7 +199,7 @@ async function aplicar(c, ev, o, fecha, sec) {
       return n
     case 'h5p_recurso': {
       const r = await c.query(Q.pipeRecursoGuardar, [P, Y, await claveFila(c, P, Y, ev.id, ev.codigo), ev.unidad ?? null, null, null, null, null, ev.codigo || null, null, null, null, null, ev.estado,
-        ev.observaciones || null, null, ev.enlace_recurso || null, null, fecha, sec, ev.plantilla || null, ev.contenido ? JSON.stringify(ev.contenido) : null])
+        ev.observaciones || null, null, ev.enlace_recurso || null, null, fecha, sec, ev.plantilla || null, ev.contenido ? JSON.stringify(ev.contenido) : null, ev.revision_pendiente ?? null])
       await c.query(Q.pipeEjecucionTocar, [...base, fecha])
       return r.rowCount
     }

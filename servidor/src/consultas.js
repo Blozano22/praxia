@@ -198,8 +198,8 @@ export const Q = Object.freeze({
     WHERE (pipeline_matrices.actualizado_en, pipeline_matrices.secuencia) <= (EXCLUDED.actualizado_en, EXCLUDED.secuencia)
     RETURNING unidad`,
   pipeRecursoGuardar: `
-    INSERT INTO pipeline_recursos (propietario_id, proyecto_id, id, unidad, id_base, variante, alcance, tema, codigo, formato, titulo, con_actividad, generador, estado, observaciones, enlace_guion, enlace_recurso, omision, actualizado_en, secuencia, plantilla, contenido)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22::jsonb)
+    INSERT INTO pipeline_recursos (propietario_id, proyecto_id, id, unidad, id_base, variante, alcance, tema, codigo, formato, titulo, con_actividad, generador, estado, observaciones, enlace_guion, enlace_recurso, omision, actualizado_en, secuencia, plantilla, contenido, revision_pendiente)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22::jsonb, $23)
     ON CONFLICT (propietario_id, proyecto_id, id) DO UPDATE SET
       unidad = coalesce(EXCLUDED.unidad, pipeline_recursos.unidad),
       id_base = coalesce(EXCLUDED.id_base, pipeline_recursos.id_base),
@@ -218,6 +218,7 @@ export const Q = Object.freeze({
       omision = EXCLUDED.omision,
       plantilla = coalesce(EXCLUDED.plantilla, pipeline_recursos.plantilla),
       contenido = coalesce(EXCLUDED.contenido, pipeline_recursos.contenido),
+      revision_pendiente = coalesce(EXCLUDED.revision_pendiente, pipeline_recursos.revision_pendiente),
       actualizado_en = EXCLUDED.actualizado_en,
       secuencia = EXCLUDED.secuencia
     WHERE (pipeline_recursos.actualizado_en, pipeline_recursos.secuencia) <= (EXCLUDED.actualizado_en, EXCLUDED.secuencia)
@@ -239,7 +240,7 @@ export const Q = Object.freeze({
       FROM pipeline_matrices WHERE propietario_id = $1 AND proyecto_id = $2 ORDER BY unidad`,
   pipeLeerRecursos: `
     SELECT id, unidad, tema, codigo, formato, titulo, generador, estado, observaciones, enlace_guion AS "enlaceGuion",
-           enlace_recurso AS "enlaceRecurso", omision, plantilla, (to_jsonb(r) -> 'contenido') IS NOT NULL AND (to_jsonb(r) -> 'contenido') <> 'null'::jsonb AS "conContenido", actualizado_en AS "actualizadoEn",
+           enlace_recurso AS "enlaceRecurso", omision, plantilla, (to_jsonb(r) -> 'contenido') IS NOT NULL AND (to_jsonb(r) -> 'contenido') <> 'null'::jsonb AS "conContenido", (to_jsonb(r) ->> 'revision_pendiente')::int AS "revisionPendiente", actualizado_en AS "actualizadoEn",
            (estado = 'EN_PROCESO' AND actualizado_en < now() - interval '30 minutes') AS "sinRespuesta"
       FROM pipeline_recursos r WHERE propietario_id = $1 AND proyecto_id = $2
      ORDER BY unidad NULLS LAST, tema NULLS LAST, codigo NULLS LAST, id LIMIT 3000`,

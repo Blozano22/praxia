@@ -135,6 +135,7 @@ function Fila({ r }) {
       <span className="mx4-rl">
         {hecho && r.enlaceRecurso && <a href={r.enlaceRecurso} target="_blank" rel="noopener noreferrer">Recurso ↗</a>}
         {r.enlaceGuion && <a href={r.enlaceGuion} target="_blank" rel="noopener noreferrer">Guion ↗</a>}
+        {hecho && r.revisionPendiente > 0 && <span title="Campos que el generador dejó para revisión humana">REVISAR {r.revisionPendiente} campo{r.revisionPendiente === 1 ? '' : 's'}</span>}
         {r.plantilla && <a href={'https://proyectos.americana.edu.co/praxia/plantillas-html/ver/' + encodeURIComponent(r.plantilla)} target="_blank" rel="noopener noreferrer" title="Plantilla con la que se genera este recurso">{r.plantilla.toUpperCase()} ↗</a>}
       </span>
       {nota && <p className="mx4-nota">{nota}</p>}
