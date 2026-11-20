@@ -243,7 +243,7 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
   const aprobarYPublicar = async () => {
     if (sucio && !(await guardar())) return
     setOcupado('aprobar'); setMsg(null)
-    try { const hecho = await onAprobar(recurso); if (hecho) onCerrar() }
+    try { const hecho = await onAprobar(actual); if (hecho) setMsg({ tipo: 'ok', texto: 'Enviado a publicar. Puede seguir revisando otros recursos mientras se publica.' }) }
     catch (e) { setMsg({ tipo: 'bad', texto: e.message || 'No se pudo aprobar el recurso.' }) }
     finally { setOcupado('') }
   }
@@ -290,6 +290,7 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
   const estiloLado = modo === 'flotante' ? { left: flota.x, top: flota.y, width: flota.w, height: flota.min ? 46 : flota.h } : undefined
   const nCampos = campos.length
   const actual = recursos.find((x) => x.id === recurso.id) || recurso
+  const publicandoAhora = !!actual.publicando && !actual.publicandoSinRespuesta
   const elegirRecurso = (r) => {
     if (r.id === recurso.id || !onElegir) return
     if (sucio && !window.confirm('Hay cambios sin guardar en este recurso. ¿Pasar a otro sin guardarlos?')) return
@@ -312,7 +313,7 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
             <i className="er-sw" aria-hidden="true" />
             Editar con clic
           </label>}
-          {estado === 'listo' && puedePublicar && onAprobar && ['POR_REVISAR', 'GENERADO', 'ERROR'].includes(recurso.estado) && <button type="button" className="er-b ok" onClick={aprobarYPublicar} disabled={!!ocupado} title="Aprobar este contenido: n8n arma el H5P y lo sube a Drive">{ocupado === 'aprobar' ? 'Enviando…' : recurso.estado === 'GENERADO' ? 'Aprobar y volver a publicar' : 'Aprobar y publicar'}</button>}
+          {estado === 'listo' && puedePublicar && onAprobar && ['POR_REVISAR', 'GENERADO', 'ERROR'].includes(actual.estado) && <button type="button" className="er-b ok" onClick={aprobarYPublicar} disabled={!!ocupado || publicandoAhora} title="Aprobar este contenido: n8n arma el H5P y lo sube a Drive">{ocupado === 'aprobar' ? 'Enviando…' : publicandoAhora ? 'Publicando…' : actual.estado === 'GENERADO' ? 'Aprobar y volver a publicar' : 'Aprobar y publicar'}</button>}
           {estado === 'listo' && <button type="button" className="er-b" onClick={guardar} disabled={!sucio || !!ocupado}>{ocupado === 'guardar' ? <><i className="er-gira" aria-hidden="true" />Guardando…</> : 'Guardar cambios'}</button>}
           {estado === 'listo' && <button type="button" className="er-b pri" onClick={descargar} disabled={!!ocupado}>{ocupado === 'h5p' ? <><i className="er-gira" aria-hidden="true" />Armando el H5P…</> : <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M4 20h16" /></svg>Descargar .h5p</>}</button>}
         </header>
@@ -321,6 +322,7 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
         {recursos.length > 0 && navAbierta && <ListaRecursos recursos={recursos} actualId={recurso.id} puedePublicar={puedePublicar} sucio={sucio} onElegir={elegirRecurso} onAprobar={onAprobar} />}
         <div className="er-main">
         {msg && <p className={'er-msg ' + msg.tipo} role="status"><i className="er-msg-ic" aria-hidden="true">{msg.tipo === 'ok' ? '✓' : msg.tipo === 'bad' ? '!' : '!'}</i><span>{msg.texto}</span></p>}
+        {publicandoAhora && <p className="er-msg info" role="status"><CargaRecurso /><span>Publicando en Drive. Este aviso se quita solo cuando n8n termina; puede seguir revisando otros recursos mientras tanto.</span></p>}
         {ocupado === 'h5p' && <p className="er-msg info" role="status"><CargaRecurso /><span>Armando el H5P con los cambios. Suele tardar unos 3 segundos; en algunos casos hasta 90. No cierre esta ventana.</span></p>}
 
         {estado === 'sinContenido' && <div className="er-estado">{actual.estado === 'EN_PROCESO' || actual.publicando ? <CargaRecurso tam="grande" /> : <i className="er-estado-ic info" aria-hidden="true">{actual.estado === 'PENDIENTE' ? '…' : 'i'}</i>}<b>{actual.publicando ? 'Este recurso se está publicando' : actual.estado === 'EN_PROCESO' ? 'Este recurso se está generando' : actual.estado === 'PENDIENTE' ? 'Este recurso todavía no se genera' : 'Este recurso no se puede editar aquí'}</b><span>{actual.publicando ? 'n8n está armando el H5P y subiéndolo a Drive. Cuando termine, el recurso aparecerá como «Generado».' : actual.estado === 'EN_PROCESO' || actual.estado === 'PENDIENTE' ? 'Cuando n8n termine, aparecerá en la lista como «Por revisar» y podrá abrirlo para corregir sus textos.' : 'Se generó antes de que Praxia guardara su contenido, así que sus textos no se pueden corregir desde esta pantalla.'}</span></div>}
