@@ -30,7 +30,119 @@ function armarPagina(esqueleto, contenido, titulo, formacion, activo) {
   return /<\/body>/i.test(h) ? h.replace(/<\/body>/i, () => editor + '</body>') : h + editor
 }
 
-export default function EditorRecurso({ proyecto, recurso, puedePublicar, onAprobar, onCerrar }) {
+// Lista de recursos del curso (lado izquierdo del editor): los generados, los que se están generando y los que esperan revisión, agrupados por unidad,
+// con un botón rápido para aprobar cada uno y otro para aprobar todos los de una unidad. Solo lee `recursos` (ya vienen de la pantalla de Matrices y H5P).
+const ORDEN_ESTADO = { POR_REVISAR: 0, ERROR: 1, EN_PROCESO: 2, GENERADO: 3, PENDIENTE: 4 }
+const TEXTO_ESTADO = { POR_REVISAR: 'Por revisar', ERROR: 'Con error', EN_PROCESO: 'Generando', GENERADO: 'Generado', PENDIENTE: 'Por generar' }
+
+function ListaRecursos({ recursos, actualId, puedePublicar, sucio, onElegir, onAprobar }) {
+  const [filtro, setFiltro] = useState('con') // con = los que ya tienen algo que ver; revisar; todos
+  const [cerradas, setCerradas] = useState({})
+  const [ocupados, setOcupados] = useState({}) // id → true mientras se aprueba
+  const [unidadBusy, setUnidadBusy] = useState(null)
+  const [aviso, setAviso] = useState(null) // { tipo, texto }
+  const conteo = useMemo(() => {
+    const c = { total: recursos.length, revisar: 0, generando: 0, generados: 0, errores: 0, pendientes: 0 }
+    recursos.forEach((r) => {
+      if (r.estado === 'POR_REVISAR') c.revisar++
+      else if (r.estado === 'EN_PROCESO') c.generando++
+      else if (r.estado === 'GENERADO') c.generados++
+      else if (r.estado === 'ERROR') c.errores++
+      else c.pendientes++
+    })
+    return c
+  }, [recursos])
+  const pasa = (r) => (filtro === 'todos' ? true : filtro === 'revisar' ? r.estado === 'POR_REVISAR' : r.estado !== 'PENDIENTE')
+  const grupos = useMemo(() => {
+    const m = new Map()
+    recursos.filter(pasa).forEach((r) => { const u = r.unidad == null ? 0 : r.unidad; if (!m.has(u)) m.set(u, []); m.get(u).push(r) })
+    return [...m.entries()].sort((a, b) => a[0] - b[0]).map(([u, l]) => [u, l.sort((a, b) => (ORDEN_ESTADO[a.estado] ?? 9) - (ORDEN_ESTADO[b.estado] ?? 9) || String(a.codigo || a.id).localeCompare(String(b.codigo || b.id)))])
+  }, [recursos, filtro]) // eslint-disable-line react-hooks/exhaustive-deps
+  const aprobable = (r) => puedePublicar && onAprobar && r.conContenido && !r.publicando && (r.estado === 'POR_REVISAR' || r.estado === 'ERROR')
+
+  const aprobarUno = async (r) => {
+    if (sucio && r.id === actualId) { setAviso({ tipo: 'warn', texto: 'Guarde o descarte los cambios del recurso abierto antes de aprobarlo.' }); return }
+    setOcupados((o) => ({ ...o, [r.id]: true })); setAviso(null)
+    try { await onAprobar(r) } catch (e) { setAviso({ tipo: 'bad', texto: (r.codigo || r.id) + ': ' + (e.message || 'No se pudo aprobar.') }) }
+    setOcupados((o) => { const n = { ...o }; delete n[r.id]; return n })
+  }
+  const aprobarUnidad = async (u, lista) => {
+    const por = lista.filter((r) => aprobable(r) && r.estado === 'POR_REVISAR')
+    if (!por.length) return
+    if (sucio && por.some((r) => r.id === actualId)) { setAviso({ tipo: 'warn', texto: 'Guarde o descarte los cambios del recurso abierto antes de aprobar la unidad.' }); return }
+    if (!window.confirm('Se aprobarán y publicarán ' + por.length + (por.length === 1 ? ' recurso' : ' recursos') + ' de la Unidad ' + u + '. ¿Continuar?')) return
+    setUnidadBusy(u); setAviso(null)
+    let hechos = 0
+    const fallos = []
+    for (const r of por) {
+      try { const ok = await onAprobar(r); if (ok !== false) hechos++ } catch (e) { fallos.push((r.codigo || r.id) + ' (' + (e.message || 'error') + ')') }
+    }
+    setUnidadBusy(null)
+    setAviso(fallos.length ? { tipo: 'warn', texto: 'Se aprobaron ' + hechos + ' de ' + por.length + '. Con problema: ' + fallos.join('; ') } : { tipo: 'ok', texto: 'Se aprobaron los ' + hechos + ' de la Unidad ' + u + '. n8n los está publicando en Drive.' })
+  }
+
+  const filtros = [['con', 'Con contenido', conteo.total - conteo.pendientes], ['revisar', 'Por revisar', conteo.revisar], ['todos', 'Todos', conteo.total]]
+  return (
+    <nav className="er-nav" aria-label="Recursos del curso">
+      <div className="er-nav-cab">
+        <b>Recursos del curso</b>
+        <span>{conteo.revisar > 0 ? conteo.revisar + (conteo.revisar === 1 ? ' por revisar' : ' por revisar') : 'Nada por revisar'} · {conteo.generando} generándose · {conteo.generados} publicados</span>
+      </div>
+      <div className="er-nav-filtros" role="tablist" aria-label="Filtrar">
+        {filtros.map(([k, t, n]) => <button key={k} type="button" role="tab" aria-selected={filtro === k} className={(filtro === k ? 'on ' : '') + (k === 'revisar' && n > 0 ? 'rv' : '')} onClick={() => setFiltro(k)}>{t} <b>{n}</b></button>)}
+      </div>
+      {aviso && <p className={'er-nav-aviso ' + aviso.tipo} role="status">{aviso.texto}<button type="button" aria-label="Cerrar aviso" onClick={() => setAviso(null)}>×</button></p>}
+      <div className="er-nav-lista">
+        {grupos.length === 0 && <p className="er-vacio">{filtro === 'revisar' ? 'No hay recursos por revisar.' : 'Todavía no hay recursos con contenido.'}</p>}
+        {grupos.map(([u, lista]) => {
+          const nRev = lista.filter((r) => r.estado === 'POR_REVISAR' && aprobable(r)).length
+          const cerrada = !!cerradas[u]
+          return (
+            <section key={u} className="er-un">
+              <header className="er-un-cab">
+                <button type="button" className="er-un-t" aria-expanded={!cerrada} onClick={() => setCerradas((c) => ({ ...c, [u]: !c[u] }))}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ transform: cerrada ? 'rotate(-90deg)' : 'none', transition: 'transform .15s' }}><path d="M6 9l6 6 6-6" /></svg>
+                  <b>{u === 0 ? 'Sin unidad' : 'Unidad ' + u}</b>
+                  <span>{lista.length}</span>
+                </button>
+                {puedePublicar && nRev > 0 && (
+                  <button type="button" className="er-un-ok" disabled={unidadBusy !== null} onClick={() => aprobarUnidad(u, lista)} title={'Aprobar y publicar los ' + nRev + ' recursos por revisar de esta unidad'}>
+                    {unidadBusy === u ? <><i className="er-gira" aria-hidden="true" />Aprobando…</> : <>Aprobar la unidad <em>{nRev}</em></>}
+                  </button>
+                )}
+              </header>
+              {!cerrada && (
+                <ul>
+                  {lista.map((r) => {
+                    const pub = !!r.publicando && !r.publicandoSinRespuesta
+                    const k = pub || r.estado === 'EN_PROCESO' ? 'en' : r.estado === 'POR_REVISAR' ? 'rv' : r.estado === 'GENERADO' ? 'ok' : r.estado === 'ERROR' ? 'er' : 'pe'
+                    return (
+                      <li key={r.id} className={'er-rec ' + k + (r.id === actualId ? ' on' : '')}>
+                        <button type="button" className="er-rec-btn" aria-current={r.id === actualId ? 'true' : undefined} onClick={() => onElegir(r)}>
+                          <span className={'er-rec-ic ' + k} aria-hidden="true">{k === 'en' ? <i className="er-gira" /> : k === 'ok' ? '✓' : k === 'er' ? '!' : k === 'rv' ? '●' : ''}</span>
+                          <span className="er-rec-tx"><b>{r.codigo || r.id}</b><small>{r.titulo || 'Sin título'}</small></span>
+                          <span className={'er-rec-et ' + k}>{pub ? 'Publicando…' : TEXTO_ESTADO[r.estado] || r.estado}</span>
+                        </button>
+                        {aprobable(r) && (
+                          <button type="button" className="er-rec-ok" disabled={!!ocupados[r.id] || unidadBusy !== null} onClick={() => aprobarUno(r)} aria-label={'Aprobar y publicar ' + (r.codigo || r.id)} title="Aprobar y publicar">
+                            {ocupados[r.id] ? <i className="er-gira" aria-hidden="true" /> : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" /></svg>}
+                          </button>
+                        )}
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </section>
+          )
+        })}
+      </div>
+      <p className="er-nav-pie">{conteo.pendientes > 0 ? conteo.pendientes + (conteo.pendientes === 1 ? ' recurso espera' : ' recursos esperan') + ' su generación.' : 'Todos los recursos ya se generaron.'}</p>
+    </nav>
+  )
+}
+
+export default function EditorRecurso({ proyecto, recurso, recursos = [], puedePublicar, onAprobar, onElegir, onCerrar }) {
   const [estado, setEstado] = useState('cargando') // cargando | listo | error
   const [error, setError] = useState('')
   const [pagina, setPagina] = useState('')
@@ -40,6 +152,7 @@ export default function EditorRecurso({ proyecto, recurso, puedePublicar, onApro
   const [msg, setMsg] = useState(null) // { tipo: 'ok' | 'bad' | 'warn', texto }
   const [ocupado, setOcupado] = useState('')
   const [verTodos, setVerTodos] = useState(false)
+  const [navAbierta, setNavAbierta] = useState(() => typeof window === 'undefined' || window.innerWidth > 860) // en pantallas angostas la lista de recursos se abre a demanda
   const ref = useRef({ contenido: null, esqueleto: '', titulo: '', formacion: null, activo: true })
   const marco = useRef(null)
   const ruta = '/proyectos/' + encodeURIComponent(proyecto) + '/pipeline/recursos/' + encodeURIComponent(recurso.id) + '/contenido'
@@ -51,6 +164,8 @@ export default function EditorRecurso({ proyecto, recurso, puedePublicar, onApro
 
   useEffect(() => {
     let vivo = true
+    setEstado('cargando'); setError(''); setCampos([]); setSucio(false); setMsg(null); setVerTodos(false); setPagina('')
+    if (recurso.conContenido === false) { setEstado('sinContenido'); return () => { vivo = false } }
     ;(async () => {
       try {
         const c = await api('GET', ruta)
@@ -65,7 +180,7 @@ export default function EditorRecurso({ proyecto, recurso, puedePublicar, onApro
       } catch (e) { if (vivo) { setError(e.message || 'No se pudo abrir el editor'); setEstado('error') } }
     })()
     return () => { vivo = false }
-  }, [ruta, pintar])
+  }, [ruta, pintar, recurso.conContenido])
 
   // Mensajes del módulo del iframe
   useEffect(() => {
@@ -171,11 +286,22 @@ export default function EditorRecurso({ proyecto, recurso, puedePublicar, onApro
   const pesos = [['Vista 30%', 0.3], ['50 / 50', 0.5], ['Vista 70%', 0.7]]
   const estiloLado = modo === 'flotante' ? { left: flota.x, top: flota.y, width: flota.w, height: flota.min ? 46 : flota.h } : undefined
   const nCampos = campos.length
+  const actual = recursos.find((x) => x.id === recurso.id) || recurso
+  const elegirRecurso = (r) => {
+    if (r.id === recurso.id || !onElegir) return
+    if (sucio && !window.confirm('Hay cambios sin guardar en este recurso. ¿Pasar a otro sin guardarlos?')) return
+    onElegir(r)
+    if (typeof window !== 'undefined' && window.innerWidth <= 860) setNavAbierta(false)
+  }
+  // Página completa: el resto de la pantalla no se desplaza detrás
+  useEffect(() => { const o = document.body.style.overflow; document.body.style.overflow = 'hidden'; return () => { document.body.style.overflow = o } }, [])
 
   return (
     <div className="er-fondo" role="dialog" aria-modal="true" aria-label={'Editar ' + (recurso.codigo || recurso.id)}>
       <div className="er-caja">
         <header className="er-cab">
+          <button type="button" className="er-volver" onClick={cerrar} aria-label="Volver a Matrices y H5P"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" /></svg>Volver</button>
+          {recursos.length > 0 && <button type="button" className={'er-navbtn' + (navAbierta ? ' on' : '')} aria-expanded={navAbierta} onClick={() => setNavAbierta(!navAbierta)}><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10" /></svg>Recursos</button>}
           <div className="er-tt"><b>{recurso.codigo || recurso.id}</b><span>{recurso.titulo || 'Sin título'}</span></div>
           <label className={'er-modo' + (activo ? ' on' : '')} title="Con esto activo, un clic en cualquier texto del recurso lo abre para editarlo">
             <input type="checkbox" checked={activo} onChange={(e) => cambiarModo(e.target.checked)} />
@@ -185,12 +311,15 @@ export default function EditorRecurso({ proyecto, recurso, puedePublicar, onApro
           {puedePublicar && onAprobar && ['POR_REVISAR', 'GENERADO', 'ERROR'].includes(recurso.estado) && <button type="button" className="er-b ok" onClick={aprobarYPublicar} disabled={!!ocupado} title="Aprobar este contenido: n8n arma el H5P y lo sube a Drive">{ocupado === 'aprobar' ? 'Enviando…' : recurso.estado === 'GENERADO' ? 'Aprobar y volver a publicar' : 'Aprobar y publicar'}</button>}
           <button type="button" className="er-b" onClick={guardar} disabled={!sucio || !!ocupado}>{ocupado === 'guardar' ? <><i className="er-gira" aria-hidden="true" />Guardando…</> : 'Guardar cambios'}</button>
           <button type="button" className="er-b pri" onClick={descargar} disabled={!!ocupado}>{ocupado === 'h5p' ? <><i className="er-gira" aria-hidden="true" />Armando el H5P…</> : <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M4 20h16" /></svg>Descargar .h5p</>}</button>
-          <button type="button" className="er-x" onClick={cerrar} aria-label="Cerrar el editor"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg></button>
         </header>
 
+        <div className={'er-cols' + (navAbierta ? ' nav' : '')}>
+        {recursos.length > 0 && navAbierta && <ListaRecursos recursos={recursos} actualId={recurso.id} puedePublicar={puedePublicar} sucio={sucio} onElegir={elegirRecurso} onAprobar={onAprobar} />}
+        <div className="er-main">
         {msg && <p className={'er-msg ' + msg.tipo} role="status"><i className="er-msg-ic" aria-hidden="true">{msg.tipo === 'ok' ? '✓' : msg.tipo === 'bad' ? '!' : '!'}</i><span>{msg.texto}</span></p>}
         {ocupado === 'h5p' && <p className="er-msg info" role="status"><i className="er-gira" aria-hidden="true" /><span>Armando el H5P con los cambios. Suele tardar unos 3 segundos; en algunos casos hasta 90. No cierre esta ventana.</span></p>}
 
+        {estado === 'sinContenido' && <div className="er-estado"><i className="er-estado-ic info" aria-hidden="true">{actual.estado === 'EN_PROCESO' || actual.estado === 'PENDIENTE' ? '…' : 'i'}</i><b>{actual.estado === 'EN_PROCESO' ? 'Este recurso se está generando' : actual.estado === 'PENDIENTE' ? 'Este recurso todavía no se genera' : 'Este recurso no se puede editar aquí'}</b><span>{actual.estado === 'EN_PROCESO' || actual.estado === 'PENDIENTE' ? 'Cuando n8n termine, aparecerá en la lista como «Por revisar» y podrá abrirlo para corregir sus textos.' : 'Se generó antes de que Praxia guardara su contenido, así que sus textos no se pueden corregir desde esta pantalla.'}</span></div>}
         {estado === 'cargando' && <div className="er-estado"><i className="er-gira grande" aria-hidden="true" /><b>Abriendo el recurso…</b><span>Se está preparando la plantilla con su contenido.</span></div>}
         {estado === 'error' && <div className="er-estado mal" role="alert"><i className="er-estado-ic" aria-hidden="true">!</i><b>No se pudo abrir el editor</b><span>{error}</span></div>}
 
@@ -260,6 +389,8 @@ export default function EditorRecurso({ proyecto, recurso, puedePublicar, onApro
             </footer>
           </>
         )}
+        </div>
+        </div>
       </div>
     </div>
   )

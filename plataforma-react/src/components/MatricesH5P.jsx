@@ -167,14 +167,17 @@ function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, envi
     recursos.forEach((r) => { c[r.estado] = (c[r.estado] || 0) + 1; if (String(r.generador || '').toUpperCase() === 'H5P') c.h5p++; else c.otros++ })
     return c
   }, [recursos])
+  const nRev = conteo.POR_REVISAR || 0
+  // Cuando hay recursos listos para revisar, la unidad se abre sola mostrando solo esos: no hay que desplegar nada para encontrarlos.
+  useEffect(() => { if (nRev > 0) { setTodos(true); setFiltro('revisar') } }, [nRev > 0]) // eslint-disable-line react-hooks/exhaustive-deps
   const esHecho = (r) => r.estado === 'GENERADO' && !r.sinRespuesta
   const filas = recursos.filter((r) => (filtro === 'generados' ? esHecho(r) : filtro === 'revisar' ? r.estado === 'POR_REVISAR' : filtro === 'pendientes' ? !esHecho(r) && r.estado !== 'POR_REVISAR' : true)).sort((a, b) => esHecho(b) - esHecho(a) || (b.estado === 'ERROR') - (a.estado === 'ERROR'))
   const porGenerar = conteo.PENDIENTE + conteo.EN_PROCESO
   const matrizMal = !!matriz && (matriz.estado === 'error' || !!matriz.sinRespuesta)
   const completa = conteo.total > 0 && conteo.GENERADO === conteo.total
-  const estadoU = matrizMal || conteo.ERROR > 0 ? 'bad' : completa ? 'ok' : conteo.GENERADO === 0 ? 'vacia' : 'en'
+  const estadoU = matrizMal || conteo.ERROR > 0 ? 'bad' : completa ? 'ok' : nRev > 0 ? 'rv' : conteo.GENERADO === 0 ? 'vacia' : 'en'
   const chipU = matrizMal ? 'Matriz con error' : completa ? 'Completa' : conteo.total === 0 ? 'Sin recursos' : conteo.ERROR > 0 ? 'Con errores' : conteo.POR_REVISAR > 0 ? 'Por revisar' : conteo.GENERADO === 0 ? 'Por generar' : conteo.EN_PROCESO > 0 ? 'Generando' : 'En progreso'
-  const resumenU = matrizMal ? 'Hay que reintentar la matriz' : completa ? 'Matriz y recursos listos' : conteo.total === 0 ? 'Matriz lista · sin recursos todavía' : conteo.GENERADO === 0 ? 'Matriz lista · recursos H5P sin generar' : 'Matriz lista · faltan ' + (conteo.total - conteo.GENERADO) + ' recursos'
+  const resumenU = matrizMal ? 'Hay que reintentar la matriz' : completa ? 'Matriz y recursos listos' : conteo.total === 0 ? 'Matriz lista · sin recursos todavía' : nRev > 0 ? (nRev === 1 ? '1 recurso generado, listo para revisar' : nRev + ' recursos generados, listos para revisar') + (conteo.total - conteo.GENERADO - nRev > 0 ? ' · faltan ' + (conteo.total - conteo.GENERADO - nRev) + ' por generar' : '') : conteo.GENERADO === 0 ? 'Matriz lista · recursos H5P sin generar' : 'Matriz lista · faltan ' + (conteo.total - conteo.GENERADO) + ' recursos'
   const generandoMat = (!!matriz && matriz.estado === 'generando' && !matriz.sinRespuesta) || (!matriz && !!enviada)
   // Sin matriz (o generándose sin recursos aún): una fila simple, sin tarjeta con datos vacíos.
   if (!matriz || (generandoMat && conteo.total === 0)) {
@@ -232,6 +235,17 @@ function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, envi
         </div>
       )}
 
+      {fase === 2 && nRev > 0 && (
+        <div className="mx4-cta" role="status">
+          <span className="mx4-cta-ic" aria-hidden="true">{I_CHECK}</span>
+          <div className="mx4-cta-tx">
+            <b>{nRev === 1 ? 'Hay 1 recurso listo para revisar' : 'Hay ' + nRev + ' recursos listos para revisar'}</b>
+            <span>Los textos ya se generaron y están en Praxia, todavía sin publicar. Revíselos, corrija lo que haga falta con «Editar textos» y apruebe para publicarlos en Drive.</span>
+          </div>
+          <button type="button" className="mx4-cta-b" disabled={todos && filtro === 'revisar'} onClick={() => { setTodos(true); setFiltro('revisar') }}>{todos && filtro === 'revisar' ? 'Están aquí abajo ↓' : 'Revisar ahora'}</button>
+        </div>
+      )}
+
       {/* El avance y la lista de recursos H5P se ven en la fase «Recursos H5P»; en la de matrices no se repiten. */}
       {conteo.total > 0 && fase === 2 && (
         <div className="mx4-paso mx4-rec">
@@ -239,7 +253,7 @@ function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, envi
             <span className={'mx4-ic ' + (completa ? 'ok' : 'n')} aria-hidden="true">2</span>
             <div className="mx4-paso-tx">
               <b>Recursos H5P</b>
-              <span className="mx4-cifra"><strong>{conteo.GENERADO}</strong> de {conteo.total} generados{conteo.POR_REVISAR > 0 ? ' · ' + conteo.POR_REVISAR + ' por revisar' : ''}{conteo.ERROR > 0 ? ' · ' + conteo.ERROR + ' con error' : ''}</span>
+              <span className="mx4-cifra"><strong>{conteo.GENERADO}</strong> de {conteo.total} generados{nRev > 0 && <em className="mx4-cifra-rv">{nRev} por revisar</em>}{conteo.ERROR > 0 ? ' · ' + conteo.ERROR + ' con error' : ''}</span>
             </div>
             <button type="button" className="mx4-ver" aria-expanded={todos} onClick={() => setTodos(!todos)}>
               {todos ? 'Ocultar recursos' : 'Ver los ' + conteo.total + ' recursos'}
@@ -248,6 +262,7 @@ function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, envi
           </div>
           <div className="mx4-barra" role="img" aria-label={conteo.GENERADO + ' generados de ' + conteo.total}>
             <i className="ok" style={{ width: (conteo.GENERADO / conteo.total) * 100 + '%' }} />
+            {nRev > 0 && <i className="rv" style={{ width: (nRev / conteo.total) * 100 + '%' }} />}
             {conteo.ERROR > 0 && <i className="er" style={{ width: (conteo.ERROR / conteo.total) * 100 + '%' }} />}
           </div>
           {todos && (
@@ -363,6 +378,7 @@ export default function MatricesH5P({ s }) {
   const listas = d ? d.matrices.filter((m) => ['creada', 'omitida', 'reemplazada'].includes(m.estado) && !m.sinRespuesta).length : 0
   const h5pOcupado = lanzando || (lanzadoReciente && !corridaNueva) || !!(d && d.ejecuciones.some((e) => e.etapa === 'h5p' && e.estado === 'en_curso' && !e.sinRespuesta))
   const conError = d ? d.recursos.filter((r) => r.estado === 'ERROR').length : 0
+  const porRevisarTotal = d ? d.recursos.filter((r) => r.estado === 'POR_REVISAR').length : 0
   const pendientes = d ? d.recursos.filter((r) => r.estado === 'PENDIENTE' && String(r.generador || '').toUpperCase() === 'H5P').length : 0
   const aprobadas = new Set((s.syllabus.documentos || []).filter((x) => x.aprobado).map((x) => x.unidad))
   const faltan = d ? unidades.map((u) => u.unidad).filter((n) => aprobadas.has(n) && (() => { const m = d.matrices.find((x) => x.unidad === n); return !m || m.estado === 'error' || m.sinRespuesta })()) : []
@@ -468,14 +484,16 @@ export default function MatricesH5P({ s }) {
             </div>
           </div>
           <div className="mx6-stats">
+            {porRevisarTotal > 0 && <div className="mx6-rev"><b>{porRevisarTotal}</b><span>{porRevisarTotal === 1 ? 'recurso listo para revisar' : 'recursos listos para revisar'}</span><small>Ya están generados: ábralos abajo, en su unidad.</small></div>}
             <div className="mx6-pend"><b>{pendientes}</b><span>{pendientes === 1 ? 'recurso por generar' : 'recursos por generar'}</span></div>
             {unidades.map((u) => {
               const rs = d.recursos.filter((r) => r.unidad === u.unidad)
               const hechos = rs.filter((r) => r.estado === 'GENERADO' && !r.sinRespuesta).length
+              const porRev = rs.filter((r) => r.estado === 'POR_REVISAR').length
               return (
                 <div key={u.unidad} className="mx6-u">
-                  <div><b>Unidad {u.unidad}</b><span><strong>{hechos}</strong> / {rs.length}</span></div>
-                  <div className="mx6-ub" role="img" aria-label={hechos + ' de ' + rs.length + ' generados'}><i style={{ width: (rs.length ? (hechos / rs.length) * 100 : 0) + '%' }} /></div>
+                  <div><b>Unidad {u.unidad}</b><span><strong>{hechos}</strong> / {rs.length}{porRev > 0 && <em className="mx6-u-rv"> · {porRev} por revisar</em>}</span></div>
+                  <div className="mx6-ub" role="img" aria-label={hechos + ' de ' + rs.length + ' generados' + (porRev ? ', ' + porRev + ' por revisar' : '')}><i style={{ width: (rs.length ? (hechos / rs.length) * 100 : 0) + '%' }} />{porRev > 0 && <i className="rv" style={{ width: (porRev / rs.length) * 100 + '%' }} />}</div>
                 </div>
               )
             })}
@@ -506,7 +524,7 @@ export default function MatricesH5P({ s }) {
           </div>
         </>
       )}
-      {editando && <EditorRecurso proyecto={s.id} recurso={editando} puedePublicar={puedePublicar} onAprobar={aprobarRecurso} onCerrar={() => { setEditando(null); cargar() }} />}
+      {editando && <EditorRecurso proyecto={s.id} recurso={editando} recursos={d ? d.recursos.filter((r) => String(r.generador || '').toUpperCase() === 'H5P') : []} puedePublicar={puedePublicar} onAprobar={aprobarRecurso} onElegir={setEditando} onCerrar={() => { setEditando(null); cargar() }} />}
     </div>
   )
 }

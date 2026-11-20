@@ -50,7 +50,7 @@
     if (p.length < 2) return null;
     var iguales = est.hojas.filter(function (h) { return h.plano === p; });
     if (iguales.length) return { hoja: iguales[0], tipo: 'exacto', ambiguo: iguales.length > 1, iguales: iguales };
-    var dentro = est.hojas.filter(function (h) { return h.plano.length >= 10 && p.indexOf(h.plano) >= 0; });   // el texto de la página envuelve al valor
+    var dentro = est.hojas.filter(function (h) { return h.plano.length >= 10 && p.indexOf(h.plano) >= 0 && h.plano.length >= p.length * 0.6; });   // el texto de la página envuelve al valor (y el valor es la mayor parte de él: un grupo grande con muchos textos no es el campo)
     if (dentro.length) { dentro.sort(function (a, b) { return b.plano.length - a.plano.length; }); return { hoja: dentro[0], tipo: 'contiene', ambiguo: false }; }
     return null;
   }
@@ -65,7 +65,7 @@
       if (a.closest && a.closest('#praxia-editor-caja')) return null;
       var r = null, propio = textoPropio(a);
       if (propio) r = buscarCampo(propio);
-      if (!r) r = a.children.length < 4 ? buscarCampo(a.textContent) : buscarExacto(a.textContent);   // contenedor con varios párrafos: solo si su texto completo ES el campo
+      if (!r) r = buscarExacto(a.textContent);   // contenedor: solo si su texto completo ES el campo (nunca un grupo que contiene varios textos)
       if (r && r.ambiguo && r.iguales) {      // el mismo texto está en varios campos: se elige por el orden de aparición en la página (el JSON y la página suelen seguir el mismo orden)
         var mismos = Array.prototype.filter.call(document.body.querySelectorAll('*'), function (e) { return plano(textoPropio(e)) === plano(propio); });
         var k = mismos.indexOf(a); if (k >= 0 && k < r.iguales.length) r = { hoja: r.iguales[k], tipo: 'exacto', ambiguo: mismos.length !== r.iguales.length };
@@ -102,20 +102,27 @@
     });
   }
   function resaltar(el) {
-    if (!el) { est.resalte.style.display = 'none'; return; }
+    if (!el) { est.resalte.style.display = 'none'; est.resalteEl = null; return; }
+    est.resalteEl = el;
     var r = el.getBoundingClientRect();
     est.resalte.style.cssText = 'display:block;left:' + (r.left - 3) + 'px;top:' + (r.top - 3) + 'px;width:' + (r.width + 6) + 'px;height:' + (r.height + 6) + 'px';
   }
-  function abrir(res) {
-    est.elemento = res.elemento; est.hoja = res; resaltar(res.elemento);
-    var c = est.caja, r = res.elemento.getBoundingClientRect(), ancho = Math.min(Math.max(r.width, 320), window.innerWidth - 16);
-    c.querySelector('small').textContent = etiqueta(res.hoja.ruta) + (res.ambiguo ? ' (el mismo texto aparece en más de un campo)' : '');
-    var ta = c.querySelector('textarea'); ta.value = leer(res.hoja.ruta);
-    c.style.width = ancho + 'px'; c.style.display = 'block';
+  function colocarCaja() {                        // el cuadro va junto al elemento elegido; se recalcula al desplazar la página
+    var c = est.caja, el = est.elemento; if (!c || !el) return;
+    var r = el.getBoundingClientRect(), ancho = Math.min(Math.max(r.width, 320), window.innerWidth - 16);
+    c.style.width = ancho + 'px';
     c.style.left = Math.max(8, Math.min(r.left, window.innerWidth - ancho - 8)) + 'px';
     var alto = c.offsetHeight, top = r.bottom + 8; if (top + alto > window.innerHeight - 8) top = Math.max(8, r.top - alto - 8);
-    c.style.top = top + 'px'; ta.focus(); ta.select();
+    c.style.top = top + 'px';
   }
+  function abrir(res) {
+    est.elemento = res.elemento; est.hoja = res; resaltar(res.elemento);
+    var c = est.caja;
+    c.querySelector('small').textContent = etiqueta(res.hoja.ruta) + (res.ambiguo ? ' (el mismo texto aparece en más de un campo)' : '');
+    var ta = c.querySelector('textarea'); ta.value = leer(res.hoja.ruta);
+    c.style.display = 'block'; colocarCaja(); ta.focus(); ta.select();
+  }
+  function alDesplazar() { if (est.elemento) { resaltar(est.elemento); colocarCaja(); } else if (est.resalteEl) resaltar(est.resalteEl); }
   function cerrar() { if (est.caja) est.caja.style.display = 'none'; est.elemento = null; est.hoja = null; resaltar(null); }
 
   // ---------- aplicar el cambio ----------
@@ -192,6 +199,8 @@
       crearUI();
       document.addEventListener('mousemove', alMover, true);
       document.addEventListener('click', alClic, true);
+      global.addEventListener('scroll', alDesplazar, true);
+      global.addEventListener('resize', alDesplazar);
       global.addEventListener('message', alMensaje);
       est.listo = true;
     }
