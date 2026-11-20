@@ -1,0 +1,11 @@
+/* Animación de carga de un recurso en generación. Cada tamaño es la misma animación (160×100) escalada. */
+.cgr{--e:.17;display:inline-block;flex:none;position:relative;width:calc(160px*var(--e));height:calc(100px*var(--e));vertical-align:middle}
+.cgr.medio{--e:.34}.cgr.grande{--e:.6}
+.cgr-c{position:absolute;left:50%;top:50%;width:160px;height:100px;margin:-50px 0 0 -80px;transform:scale(var(--e));transform-origin:50% 50%}
+.cgr-c i{position:absolute;top:50%;left:50%;display:block;width:160px;height:100px;margin-left:-80px;margin-top:-50px;border-radius:5px;background:#1e3f57;animation:cgr1 3s cubic-bezier(.55,.3,.24,.99) infinite}
+.cgr-c i:nth-child(2){width:150px;height:90px;margin-top:-45px;margin-left:-75px;border-radius:3px;background:#3c517d;animation-name:cgr2}
+.cgr-c i:nth-child(3){width:40px;height:20px;margin-top:50px;margin-left:-20px;border-radius:0 0 5px 5px;background:#6bb2cd;animation-name:cgr3}
+@keyframes cgr1{3%,97%{width:160px;height:100px;margin-top:-50px;margin-left:-80px}30%,36%{width:80px;height:120px;margin-top:-60px;margin-left:-40px}63%,69%{width:40px;height:80px;margin-top:-40px;margin-left:-20px}}
+@keyframes cgr2{3%,97%{height:90px;width:150px;margin-left:-75px;margin-top:-45px}30%,36%{width:70px;height:96px;margin-left:-35px;margin-top:-48px}63%,69%{width:32px;height:60px;margin-left:-16px;margin-top:-30px}}
+@keyframes cgr3{3%,97%{height:20px;width:40px;margin-left:-20px;margin-top:50px}30%,36%{width:8px;height:8px;margin-left:-5px;margin-top:49px;border-radius:8px}63%,69%{width:16px;height:4px;margin-left:-8px;margin-top:-37px;border-radius:10px}}
+@media (prefers-reduced-motion:reduce){.cgr-c i{animation:none}}

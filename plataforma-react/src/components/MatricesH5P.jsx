@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from '../lib/api.js'
 import EditorRecurso from './EditorRecurso.jsx'
+import CargaRecurso from './CargaRecurso.jsx'
 import './matrices.css'
 
 // Paso «Matrices y H5P» del curso: muestra lo que n8n AVISÓ a Praxia (la matriz de cada unidad, sus recursos y las corridas de H5P).
@@ -131,7 +132,7 @@ function Fila({ r, editar, aprobar, puedePublicar }) {
   const nota = porRevisar ? '' : r.estado === 'ERROR' ? r.observaciones : r.omision ? 'Se omitió: ' + motivoTexto(r.omision) : hecho ? '' : r.observaciones
   return (
     <li className={'mx4-r ' + k}>
-      <span className={'mx4-pt ' + k} aria-hidden="true">{hecho ? I_CHECK : mal ? I_ALERTA : null}</span>
+      <span className={'mx4-pt ' + k} aria-hidden="true">{hecho ? I_CHECK : mal ? I_ALERTA : k === 'en' ? <CargaRecurso /> : null}</span>
       <span className="mx4-cod">{r.codigo || r.id}</span>
       <span className="mx4-rt" title={r.titulo || ''}>{r.titulo || 'Sin título'}</span>
       <span className="mx4-re">{texto}</span>
@@ -188,7 +189,7 @@ function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, envi
           <div className="mx3-fila-tx">
             <b>Unidad {unidad}</b>
             {generandoMat
-              ? <span className="mx3-gen-tx"><span className="mx3-gira chico" aria-hidden="true" />Generando la matriz… <Cronometro desde={matriz ? matriz.actualizadoEn : desdeEnvio} /></span>
+              ? <span className="mx3-gen-tx"><CargaRecurso />Generando la matriz… <Cronometro desde={matriz ? matriz.actualizadoEn : desdeEnvio} /></span>
               : <span className="mx3-sin">{nombre && nombre !== 'Unidad ' + unidad ? nombre + ' · ' : ''}Sin matriz</span>}
           </div>
           {generandoMat
@@ -379,6 +380,8 @@ export default function MatricesH5P({ s }) {
   const h5pOcupado = lanzando || (lanzadoReciente && !corridaNueva) || !!(d && d.ejecuciones.some((e) => e.etapa === 'h5p' && e.estado === 'en_curso' && !e.sinRespuesta))
   const conError = d ? d.recursos.filter((r) => r.estado === 'ERROR').length : 0
   const porRevisarTotal = d ? d.recursos.filter((r) => r.estado === 'POR_REVISAR').length : 0
+  // Recursos H5P con contenido que ya se puede abrir en el editor: primero los por revisar, luego los que dieron error y al final los publicados
+  const editables = d ? d.recursos.filter((r) => String(r.generador || '').toUpperCase() === 'H5P' && r.conContenido && ['POR_REVISAR', 'ERROR', 'GENERADO'].includes(r.estado)).sort((a, b) => ({ POR_REVISAR: 0, ERROR: 1, GENERADO: 2 }[a.estado] - { POR_REVISAR: 0, ERROR: 1, GENERADO: 2 }[b.estado]) || (a.unidad || 0) - (b.unidad || 0) || String(a.codigo || a.id).localeCompare(String(b.codigo || b.id))) : []
   const pendientes = d ? d.recursos.filter((r) => r.estado === 'PENDIENTE' && String(r.generador || '').toUpperCase() === 'H5P').length : 0
   const aprobadas = new Set((s.syllabus.documentos || []).filter((x) => x.aprobado).map((x) => x.unidad))
   const faltan = d ? unidades.map((u) => u.unidad).filter((n) => aprobadas.has(n) && (() => { const m = d.matrices.find((x) => x.unidad === n); return !m || m.estado === 'error' || m.sinRespuesta })()) : []
@@ -427,7 +430,7 @@ export default function MatricesH5P({ s }) {
       {d && (enCursoMat.length > 0 || corridaH5p || soloEnviado) && (
         <section className="mx3-ahora proceso" aria-live="polite">
           <div className="mx3-ahora-fila">
-            <span className="mx3-anillo" aria-hidden="true"><span className="mx3-gira" /></span>
+            <span className="mx3-anillo" aria-hidden="true"><CargaRecurso tam="medio" /></span>
             <div className="mx3-ahora-tx">
               <span className="mx3-etq">EN PROCESO</span>
               <h3>{enCursoMat.length ? 'Generando ' + nombres(enCursoMat) : corridaH5p ? 'Generando los recursos H5P' : yaEnCurso ? 'Ya se están generando las matrices de este curso' : enviadas.length ? 'Generando ' + (enviadas.length === 1 ? 'la matriz de la Unidad ' + enviadas[0] : 'las matrices de las unidades ' + enviadas.join(', ')) : 'Orden enviada a n8n'}</h3>
@@ -466,6 +469,17 @@ export default function MatricesH5P({ s }) {
             </div>
             {puedeH5p && <button type="button" className="mx3-gran" onClick={() => setFaseSel(2)}>Ir a los recursos H5P</button>}
           </div>
+        </section>
+      )}
+
+      {d && fase === 2 && editables.length > 0 && (
+        <section className={'mx7-ed' + (porRevisarTotal > 0 ? ' prev' : '')} aria-label="Editor de recursos H5P">
+          <span className="mx7-ed-ic" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z" /></svg></span>
+          <div className="mx7-ed-tx">
+            <b>Editor de recursos H5P</b>
+            <span>{porRevisarTotal > 0 ? (porRevisarTotal === 1 ? 'Hay 1 recurso listo para revisar.' : 'Hay ' + porRevisarTotal + ' recursos listos para revisar.') : editables.length === 1 ? '1 recurso generado se puede revisar.' : editables.length + ' recursos generados se pueden revisar.'} Ábralo para ver la lista completa, corregir textos y aprobar sin desplegar cada recurso.</span>
+          </div>
+          <button type="button" className="mx7-ed-b" onClick={() => setEditando(editables[0])}>Abrir el editor<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg></button>
         </section>
       )}
 

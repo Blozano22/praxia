@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import CargaRecurso from './CargaRecurso.jsx'
 import { api, RUTA_API } from '../lib/api.js'
 import codigoEditor from '../lib/editor-campos.js?raw'
 import './editor-recurso.css'
@@ -121,7 +122,7 @@ function ListaRecursos({ recursos, actualId, puedePublicar, sucio, onElegir, onA
                     return (
                       <li key={r.id} className={'er-rec ' + k + (r.id === actualId ? ' on' : '')}>
                         <button type="button" className="er-rec-btn" aria-current={r.id === actualId ? 'true' : undefined} onClick={() => onElegir(r)}>
-                          <span className={'er-rec-ic ' + k} aria-hidden="true">{k === 'en' ? <i className="er-gira" /> : k === 'ok' ? '✓' : k === 'er' ? '!' : ''}</span>
+                          <span className={'er-rec-ic ' + k} aria-hidden="true">{k === 'en' ? <CargaRecurso /> : k === 'ok' ? '✓' : k === 'er' ? '!' : ''}</span>
                           <span className="er-rec-tx"><b>{r.codigo || r.id}</b><small>{r.titulo || 'Sin título'}</small></span>
                           <span className={'er-rec-et ' + k}>{pub ? 'Publicando…' : sin ? 'Sin avisos' : TEXTO_ESTADO[r.estado] || r.estado}</span>
                         </button>
@@ -306,24 +307,24 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
           <button type="button" className="er-volver" onClick={cerrar} aria-label="Volver a Matrices y H5P"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" /></svg>Volver</button>
           {recursos.length > 0 && <button type="button" className={'er-navbtn' + (navAbierta ? ' on' : '')} aria-expanded={navAbierta} onClick={() => setNavAbierta(!navAbierta)}><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10" /></svg>Recursos</button>}
           <div className="er-tt"><b>{recurso.codigo || recurso.id}</b><span>{recurso.titulo || 'Sin título'}</span></div>
-          {estado !== 'sinContenido' && <label className={'er-modo' + (activo ? ' on' : '')} title="Con esto activo, un clic en cualquier texto del recurso lo abre para editarlo">
+          {estado === 'listo' && <label className={'er-modo' + (activo ? ' on' : '')} title="Con esto activo, un clic en cualquier texto del recurso lo abre para editarlo">
             <input type="checkbox" checked={activo} onChange={(e) => cambiarModo(e.target.checked)} />
             <i className="er-sw" aria-hidden="true" />
             Editar con clic
           </label>}
-          {estado !== 'sinContenido' && puedePublicar && onAprobar && ['POR_REVISAR', 'GENERADO', 'ERROR'].includes(recurso.estado) && <button type="button" className="er-b ok" onClick={aprobarYPublicar} disabled={!!ocupado} title="Aprobar este contenido: n8n arma el H5P y lo sube a Drive">{ocupado === 'aprobar' ? 'Enviando…' : recurso.estado === 'GENERADO' ? 'Aprobar y volver a publicar' : 'Aprobar y publicar'}</button>}
-          {estado !== 'sinContenido' && <button type="button" className="er-b" onClick={guardar} disabled={!sucio || !!ocupado}>{ocupado === 'guardar' ? <><i className="er-gira" aria-hidden="true" />Guardando…</> : 'Guardar cambios'}</button>}
-          {estado !== 'sinContenido' && <button type="button" className="er-b pri" onClick={descargar} disabled={!!ocupado}>{ocupado === 'h5p' ? <><i className="er-gira" aria-hidden="true" />Armando el H5P…</> : <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M4 20h16" /></svg>Descargar .h5p</>}</button>}
+          {estado === 'listo' && puedePublicar && onAprobar && ['POR_REVISAR', 'GENERADO', 'ERROR'].includes(recurso.estado) && <button type="button" className="er-b ok" onClick={aprobarYPublicar} disabled={!!ocupado} title="Aprobar este contenido: n8n arma el H5P y lo sube a Drive">{ocupado === 'aprobar' ? 'Enviando…' : recurso.estado === 'GENERADO' ? 'Aprobar y volver a publicar' : 'Aprobar y publicar'}</button>}
+          {estado === 'listo' && <button type="button" className="er-b" onClick={guardar} disabled={!sucio || !!ocupado}>{ocupado === 'guardar' ? <><i className="er-gira" aria-hidden="true" />Guardando…</> : 'Guardar cambios'}</button>}
+          {estado === 'listo' && <button type="button" className="er-b pri" onClick={descargar} disabled={!!ocupado}>{ocupado === 'h5p' ? <><i className="er-gira" aria-hidden="true" />Armando el H5P…</> : <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M4 20h16" /></svg>Descargar .h5p</>}</button>}
         </header>
 
         <div className={'er-cols' + (navAbierta ? ' nav' : '')}>
         {recursos.length > 0 && navAbierta && <ListaRecursos recursos={recursos} actualId={recurso.id} puedePublicar={puedePublicar} sucio={sucio} onElegir={elegirRecurso} onAprobar={onAprobar} />}
         <div className="er-main">
         {msg && <p className={'er-msg ' + msg.tipo} role="status"><i className="er-msg-ic" aria-hidden="true">{msg.tipo === 'ok' ? '✓' : msg.tipo === 'bad' ? '!' : '!'}</i><span>{msg.texto}</span></p>}
-        {ocupado === 'h5p' && <p className="er-msg info" role="status"><i className="er-gira" aria-hidden="true" /><span>Armando el H5P con los cambios. Suele tardar unos 3 segundos; en algunos casos hasta 90. No cierre esta ventana.</span></p>}
+        {ocupado === 'h5p' && <p className="er-msg info" role="status"><CargaRecurso /><span>Armando el H5P con los cambios. Suele tardar unos 3 segundos; en algunos casos hasta 90. No cierre esta ventana.</span></p>}
 
-        {estado === 'sinContenido' && <div className="er-estado"><i className="er-estado-ic info" aria-hidden="true">{actual.estado === 'EN_PROCESO' || actual.estado === 'PENDIENTE' ? '…' : 'i'}</i><b>{actual.estado === 'EN_PROCESO' ? 'Este recurso se está generando' : actual.estado === 'PENDIENTE' ? 'Este recurso todavía no se genera' : 'Este recurso no se puede editar aquí'}</b><span>{actual.estado === 'EN_PROCESO' || actual.estado === 'PENDIENTE' ? 'Cuando n8n termine, aparecerá en la lista como «Por revisar» y podrá abrirlo para corregir sus textos.' : 'Se generó antes de que Praxia guardara su contenido, así que sus textos no se pueden corregir desde esta pantalla.'}</span></div>}
-        {estado === 'cargando' && <div className="er-estado"><i className="er-gira grande" aria-hidden="true" /><b>Abriendo el recurso…</b><span>Se está preparando la plantilla con su contenido.</span></div>}
+        {estado === 'sinContenido' && <div className="er-estado">{actual.estado === 'EN_PROCESO' || actual.publicando ? <CargaRecurso tam="grande" /> : <i className="er-estado-ic info" aria-hidden="true">{actual.estado === 'PENDIENTE' ? '…' : 'i'}</i>}<b>{actual.publicando ? 'Este recurso se está publicando' : actual.estado === 'EN_PROCESO' ? 'Este recurso se está generando' : actual.estado === 'PENDIENTE' ? 'Este recurso todavía no se genera' : 'Este recurso no se puede editar aquí'}</b><span>{actual.publicando ? 'n8n está armando el H5P y subiéndolo a Drive. Cuando termine, el recurso aparecerá como «Generado».' : actual.estado === 'EN_PROCESO' || actual.estado === 'PENDIENTE' ? 'Cuando n8n termine, aparecerá en la lista como «Por revisar» y podrá abrirlo para corregir sus textos.' : 'Se generó antes de que Praxia guardara su contenido, así que sus textos no se pueden corregir desde esta pantalla.'}</span></div>}
+        {estado === 'cargando' && <div className="er-estado"><CargaRecurso tam="grande" etiqueta="Abriendo el recurso" /><b>Abriendo el recurso…</b><span>Se está preparando la plantilla con su contenido.</span></div>}
         {estado === 'error' && <div className="er-estado mal" role="alert"><i className="er-estado-ic" aria-hidden="true">!</i><b>No se pudo abrir el editor</b><span>{error}</span></div>}
 
         {estado === 'listo' && (

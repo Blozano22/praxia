@@ -186,3 +186,6 @@
 .er-rec-ic .er-gira{margin:0}
 .er-rec-ic.en{border-color:transparent}.er-rec-ic.en .er-gira{width:18px;height:18px;color:#d99a00}
 .er-un-ok .er-gira,.er-rec-ok .er-gira,.er-b .er-gira{border-color:rgba(255,255,255,.35);border-top-color:#fff}
+.er-rec-ic.en{width:30px;border-radius:0}
+.er-rec-btn{grid-template-columns:30px minmax(0,1fr) auto}
+.er-estado .cgr{margin-bottom:6px}
