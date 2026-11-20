@@ -82,7 +82,8 @@
     s.textContent = '#praxia-editor-resalte{position:fixed;z-index:2147483646;pointer-events:none;border:2px dashed #00A6A0;border-radius:4px;background:rgba(0,166,160,.08);display:none}' +
       '#praxia-editor-caja{position:fixed;z-index:2147483647;background:#fff;color:#142749;border:1px solid #C8C8C8;border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.25);padding:10px;font:14px/1.4 system-ui,sans-serif;display:none}' +
       '#praxia-editor-caja small{display:block;color:#5b6b85;margin-bottom:6px;word-break:break-all}' +
-      '#praxia-editor-caja textarea{width:100%;box-sizing:border-box;min-height:90px;font:inherit;border:1px solid #9fb0c8;border-radius:6px;padding:8px;resize:vertical}' +
+      '#praxia-editor-caja textarea{width:100%;box-sizing:border-box;min-height:90px;font:inherit;border:1px solid #9fb0c8;border-radius:6px;padding:8px;resize:vertical;outline:none;box-shadow:none}' +
+      '#praxia-editor-caja textarea:focus{outline:none;box-shadow:none;border-color:#00665F}' +
       '#praxia-editor-caja .acciones{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}' +
       '#praxia-editor-caja button{font:inherit;padding:6px 14px;border-radius:6px;border:1px solid #00665F;background:#fff;color:#00665F;cursor:pointer}' +
       '#praxia-editor-caja button.guardar{background:#00665F;color:#fff}';

@@ -82,7 +82,7 @@ function ListaRecursos({ recursos, actualId, puedePublicar, sucio, onElegir, onA
     setAviso(fallos.length ? { tipo: 'warn', texto: 'Se aprobaron ' + hechos + ' de ' + por.length + '. Con problema: ' + fallos.join('; ') } : { tipo: 'ok', texto: 'Se aprobaron los ' + hechos + ' de la Unidad ' + u + '. n8n los está publicando en Drive.' })
   }
 
-  const filtros = [['con', 'Con contenido', conteo.total - conteo.pendientes], ['revisar', 'Por revisar', conteo.revisar], ['todos', 'Todos', conteo.total]]
+  const filtros = [['con', 'Disponibles', conteo.total - conteo.pendientes], ['revisar', 'Por revisar', conteo.revisar], ['todos', 'Todos', conteo.total]]
   return (
     <nav className="er-nav" aria-label="Recursos del curso">
       <div className="er-nav-cab">
@@ -90,7 +90,7 @@ function ListaRecursos({ recursos, actualId, puedePublicar, sucio, onElegir, onA
         <span>{conteo.revisar > 0 ? conteo.revisar + (conteo.revisar === 1 ? ' por revisar' : ' por revisar') : 'Nada por revisar'} · {conteo.generando} generándose · {conteo.generados} publicados</span>
       </div>
       <div className="er-nav-filtros" role="tablist" aria-label="Filtrar">
-        {filtros.map(([k, t, n]) => <button key={k} type="button" role="tab" aria-selected={filtro === k} className={(filtro === k ? 'on ' : '') + (k === 'revisar' && n > 0 ? 'rv' : '')} onClick={() => setFiltro(k)}>{t} <b>{n}</b></button>)}
+        {filtros.map(([k, t, n]) => <button key={k} type="button" role="tab" aria-selected={filtro === k} className={(filtro === k ? 'on ' : '') + (k === 'revisar' && n > 0 ? 'prev' : '')} onClick={() => setFiltro(k)}>{t} <b>{n}</b></button>)}
       </div>
       {aviso && <p className={'er-nav-aviso ' + aviso.tipo} role="status">{aviso.texto}<button type="button" aria-label="Cerrar aviso" onClick={() => setAviso(null)}>×</button></p>}
       <div className="er-nav-lista">
@@ -117,11 +117,11 @@ function ListaRecursos({ recursos, actualId, puedePublicar, sucio, onElegir, onA
                   {lista.map((r) => {
                     const pub = !!r.publicando && !r.publicandoSinRespuesta
                     const sin = !!r.sinRespuesta && !pub // lleva mucho sin avisos: no es «generando», es un aviso que no llegó
-                    const k = sin ? 'er' : pub || r.estado === 'EN_PROCESO' ? 'en' : r.estado === 'POR_REVISAR' ? 'rv' : r.estado === 'GENERADO' ? 'ok' : r.estado === 'ERROR' ? 'er' : 'pe'
+                    const k = sin ? 'er' : pub || r.estado === 'EN_PROCESO' ? 'en' : r.estado === 'POR_REVISAR' ? 'prev' : r.estado === 'GENERADO' ? 'ok' : r.estado === 'ERROR' ? 'er' : 'pe'
                     return (
                       <li key={r.id} className={'er-rec ' + k + (r.id === actualId ? ' on' : '')}>
                         <button type="button" className="er-rec-btn" aria-current={r.id === actualId ? 'true' : undefined} onClick={() => onElegir(r)}>
-                          <span className={'er-rec-ic ' + k} aria-hidden="true">{k === 'en' ? <i className="er-gira" /> : k === 'ok' ? '✓' : k === 'er' ? '!' : k === 'rv' ? '●' : ''}</span>
+                          <span className={'er-rec-ic ' + k} aria-hidden="true">{k === 'en' ? <i className="er-gira" /> : k === 'ok' ? '✓' : k === 'er' ? '!' : ''}</span>
                           <span className="er-rec-tx"><b>{r.codigo || r.id}</b><small>{r.titulo || 'Sin título'}</small></span>
                           <span className={'er-rec-et ' + k}>{pub ? 'Publicando…' : sin ? 'Sin avisos' : TEXTO_ESTADO[r.estado] || r.estado}</span>
                         </button>
@@ -306,14 +306,14 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
           <button type="button" className="er-volver" onClick={cerrar} aria-label="Volver a Matrices y H5P"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" /></svg>Volver</button>
           {recursos.length > 0 && <button type="button" className={'er-navbtn' + (navAbierta ? ' on' : '')} aria-expanded={navAbierta} onClick={() => setNavAbierta(!navAbierta)}><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10" /></svg>Recursos</button>}
           <div className="er-tt"><b>{recurso.codigo || recurso.id}</b><span>{recurso.titulo || 'Sin título'}</span></div>
-          <label className={'er-modo' + (activo ? ' on' : '')} title="Con esto activo, un clic en cualquier texto del recurso lo abre para editarlo">
+          {estado !== 'sinContenido' && <label className={'er-modo' + (activo ? ' on' : '')} title="Con esto activo, un clic en cualquier texto del recurso lo abre para editarlo">
             <input type="checkbox" checked={activo} onChange={(e) => cambiarModo(e.target.checked)} />
             <i className="er-sw" aria-hidden="true" />
             Editar con clic
-          </label>
-          {puedePublicar && onAprobar && ['POR_REVISAR', 'GENERADO', 'ERROR'].includes(recurso.estado) && <button type="button" className="er-b ok" onClick={aprobarYPublicar} disabled={!!ocupado} title="Aprobar este contenido: n8n arma el H5P y lo sube a Drive">{ocupado === 'aprobar' ? 'Enviando…' : recurso.estado === 'GENERADO' ? 'Aprobar y volver a publicar' : 'Aprobar y publicar'}</button>}
-          <button type="button" className="er-b" onClick={guardar} disabled={!sucio || !!ocupado}>{ocupado === 'guardar' ? <><i className="er-gira" aria-hidden="true" />Guardando…</> : 'Guardar cambios'}</button>
-          <button type="button" className="er-b pri" onClick={descargar} disabled={!!ocupado}>{ocupado === 'h5p' ? <><i className="er-gira" aria-hidden="true" />Armando el H5P…</> : <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M4 20h16" /></svg>Descargar .h5p</>}</button>
+          </label>}
+          {estado !== 'sinContenido' && puedePublicar && onAprobar && ['POR_REVISAR', 'GENERADO', 'ERROR'].includes(recurso.estado) && <button type="button" className="er-b ok" onClick={aprobarYPublicar} disabled={!!ocupado} title="Aprobar este contenido: n8n arma el H5P y lo sube a Drive">{ocupado === 'aprobar' ? 'Enviando…' : recurso.estado === 'GENERADO' ? 'Aprobar y volver a publicar' : 'Aprobar y publicar'}</button>}
+          {estado !== 'sinContenido' && <button type="button" className="er-b" onClick={guardar} disabled={!sucio || !!ocupado}>{ocupado === 'guardar' ? <><i className="er-gira" aria-hidden="true" />Guardando…</> : 'Guardar cambios'}</button>}
+          {estado !== 'sinContenido' && <button type="button" className="er-b pri" onClick={descargar} disabled={!!ocupado}>{ocupado === 'h5p' ? <><i className="er-gira" aria-hidden="true" />Armando el H5P…</> : <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M4 20h16" /></svg>Descargar .h5p</>}</button>}
         </header>
 
         <div className={'er-cols' + (navAbierta ? ' nav' : '')}>

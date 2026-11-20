@@ -311,12 +311,12 @@ button.mx3-fase.bloq{cursor:not-allowed;opacity:.75}
 
 .mx4-ed{display:inline-flex;align-items:center;gap:6px;min-height:30px;border:1.5px solid var(--brand);background:#fff;color:var(--brand);border-radius:9px;padding:0 12px;font:inherit;font-size:.78rem;font-weight:800;cursor:pointer;white-space:nowrap}.mx4-ed:hover{background:#e4f5ec}.mx4-ed:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
 
-.mx4-pt.rv{border-color:#d99a00;background:#fff4d6}.mx4-r.rv .mx4-re{color:#7a5600}.mx4-ed.ok{background:var(--brand);border-color:var(--brand);color:#fff}.mx4-ed.ok:hover{background:color-mix(in srgb,var(--brand) 86%,#000)}
+.mx4-pt.prev{border-color:#d99a00;background:#fff4d6}.mx4-r.prev .mx4-re{color:#7a5600}.mx4-ed.ok{background:var(--brand);border-color:var(--brand);color:#fff}.mx4-ed.ok:hover{background:color-mix(in srgb,var(--brand) 86%,#000)}
 
 /* ---------- Recursos listos para revisar: se nota de un vistazo ---------- */
-.mx4-card.rv{border-color:#f0dfa8}.mx4-card.rv .mx4-cab{background:#fffaf0}
-.mx4-card.rv .mx4-chip{background:#fff1c9;color:#6b4a00}
-.mx4-barra .rv{background:#e0a100}
+.mx4-card.prev{border-color:#f0dfa8}.mx4-card.prev .mx4-cab{background:#fffaf0}
+.mx4-card.prev .mx4-chip{background:#fff1c9;color:#6b4a00}
+.mx4-barra .prev{background:#e0a100}
 .mx4-cifra-rv{margin-left:8px;padding:2px 10px;border-radius:99px;background:#fff1c9;color:#6b4a00;font-style:normal;font-size:.76rem;font-weight:800;white-space:nowrap}
 .mx4-cta{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;margin:14px 22px 0;padding:14px 16px;border-radius:14px;background:#fff8e1;border:1.5px solid #f0dfa8}
 .mx4-cta-ic{flex:none;display:grid;place-items:center;width:38px;height:38px;border-radius:12px;background:#e0a100;color:#fff}
@@ -327,7 +327,7 @@ button.mx3-fase.bloq{cursor:not-allowed;opacity:.75}
 .mx4-cta-b:hover:not(:disabled){background:color-mix(in srgb,var(--nav) 84%,#fff)}.mx4-cta-b:disabled{background:#d8dde8;color:#5b6783;cursor:default}
 .mx6-rev{padding:14px 16px;border-radius:14px;background:#fff1c9;color:#6b4a00;display:flex;flex-direction:column;gap:2px;border:1.5px solid #e0b030}
 .mx6-rev b{font-size:2.1rem;font-weight:800;letter-spacing:-.03em;line-height:1.1;color:#6b4a00}.mx6-rev span{font-size:.85rem;font-weight:800}.mx6-rev small{font-size:.76rem;opacity:.85}
-.mx6-ub .rv{background:#e0a100}.mx6-u-rv{font-style:normal;color:#8a5d00;font-weight:700}
+.mx6-ub .prev{background:#e0a100}.mx6-u-rv{font-style:normal;color:#8a5d00;font-weight:700}
 
 /* ---------- Fila de recurso H5P: una línea compacta (código · título · estado · acciones) ---------- */
 .mx4-lista .mx4-r{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:10px 14px;min-height:0}
@@ -335,11 +335,11 @@ button.mx3-fase.bloq{cursor:not-allowed;opacity:.75}
 .mx4-lista .mx4-cod{flex:none;padding:3px 8px;border-radius:7px;background:#eef1f7;color:var(--nav);font-size:.74rem;letter-spacing:.02em}
 .mx4-lista .mx4-rt{flex:1 1 220px;min-width:0;font-size:.88rem}
 .mx4-lista .mx4-re{flex:none;padding:3px 10px;border-radius:99px;background:#eef1f7;font-size:.72rem}
-.mx4-lista .mx4-r.rv .mx4-re{background:#fff1c9;color:#6b4a00}.mx4-lista .mx4-r.ok .mx4-re{background:#e4f5ec}.mx4-lista .mx4-r.er .mx4-re{background:#fbe9e7}.mx4-lista .mx4-r.en .mx4-re{background:#e8eefb;color:#2a448f}
-.mx4-lista .mx4-r.rv{background:#fffdf5}
+.mx4-lista .mx4-r.prev .mx4-re{background:#fff1c9;color:#6b4a00}.mx4-lista .mx4-r.ok .mx4-re{background:#e4f5ec}.mx4-lista .mx4-r.er .mx4-re{background:#fbe9e7}.mx4-lista .mx4-r.en .mx4-re{background:#e8eefb;color:#2a448f}
+.mx4-lista .mx4-r.prev{background:#fffdf5}
 .mx4-lista .mx4-rl{flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-left:auto;min-width:0}
 .mx4-lista .mx4-rl a{display:inline-flex;align-items:center;min-height:28px;padding:0 9px;border-radius:8px;background:#f1f4f9;color:var(--nav);font-size:.74rem;font-weight:700;text-decoration:none}
 .mx4-lista .mx4-rl a:hover{background:#e3e8f0}
 .mx4-lista .mx4-nota{flex:1 1 100%;margin:0 0 0 34px;font-size:.78rem;color:#8c2620}
-.mx4-lista .mx4-r.rv .mx4-nota{color:#7a5d1a}
+.mx4-lista .mx4-r.prev .mx4-nota{color:#7a5d1a}
 @media(max-width:700px){.mx4-lista .mx4-rt{flex-basis:100%;order:3;white-space:normal}.mx4-lista .mx4-rl{order:4;margin-left:34px;width:calc(100% - 34px)}.mx4-lista .mx4-re{margin-left:auto}}

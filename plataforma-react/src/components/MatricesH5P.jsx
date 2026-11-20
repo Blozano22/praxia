@@ -126,7 +126,7 @@ function Fila({ r, editar, aprobar, puedePublicar }) {
   const hecho = r.estado === 'GENERADO' && !r.sinRespuesta
   const porRevisar = r.estado === 'POR_REVISAR' && !r.sinRespuesta
   const publicando = !!r.publicando && !r.publicandoSinRespuesta
-  const k = publicando ? 'en' : hecho ? 'ok' : mal ? 'er' : porRevisar ? 'rv' : r.estado === 'EN_PROCESO' ? 'en' : 'pe'
+  const k = publicando ? 'en' : hecho ? 'ok' : mal ? 'er' : porRevisar ? 'prev' : r.estado === 'EN_PROCESO' ? 'en' : 'pe'
   const texto = publicando ? 'Publicando…' : r.publicandoSinRespuesta ? 'Sin respuesta al publicar' : porRevisar ? 'Por revisar' : hecho ? 'Generado' : r.sinRespuesta ? 'Sin avisos' : r.estado === 'ERROR' ? 'Con error' : r.estado === 'EN_PROCESO' ? 'Generando' : 'Por generar'
   const nota = porRevisar ? '' : r.estado === 'ERROR' ? r.observaciones : r.omision ? 'Se omitió: ' + motivoTexto(r.omision) : hecho ? '' : r.observaciones
   return (
@@ -175,7 +175,7 @@ function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, envi
   const porGenerar = conteo.PENDIENTE + conteo.EN_PROCESO
   const matrizMal = !!matriz && (matriz.estado === 'error' || !!matriz.sinRespuesta)
   const completa = conteo.total > 0 && conteo.GENERADO === conteo.total
-  const estadoU = matrizMal || conteo.ERROR > 0 ? 'bad' : completa ? 'ok' : nRev > 0 ? 'rv' : conteo.GENERADO === 0 ? 'vacia' : 'en'
+  const estadoU = matrizMal || conteo.ERROR > 0 ? 'bad' : completa ? 'ok' : nRev > 0 ? 'prev' : conteo.GENERADO === 0 ? 'vacia' : 'en'
   const chipU = matrizMal ? 'Matriz con error' : completa ? 'Completa' : conteo.total === 0 ? 'Sin recursos' : conteo.ERROR > 0 ? 'Con errores' : conteo.POR_REVISAR > 0 ? 'Por revisar' : conteo.GENERADO === 0 ? 'Por generar' : conteo.EN_PROCESO > 0 ? 'Generando' : 'En progreso'
   const resumenU = matrizMal ? 'Hay que reintentar la matriz' : completa ? 'Matriz y recursos listos' : conteo.total === 0 ? 'Matriz lista · sin recursos todavía' : nRev > 0 ? (nRev === 1 ? '1 recurso generado, listo para revisar' : nRev + ' recursos generados, listos para revisar') + (conteo.total - conteo.GENERADO - nRev > 0 ? ' · faltan ' + (conteo.total - conteo.GENERADO - nRev) + ' por generar' : '') : conteo.GENERADO === 0 ? 'Matriz lista · recursos H5P sin generar' : 'Matriz lista · faltan ' + (conteo.total - conteo.GENERADO) + ' recursos'
   const generandoMat = (!!matriz && matriz.estado === 'generando' && !matriz.sinRespuesta) || (!matriz && !!enviada)
@@ -262,7 +262,7 @@ function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, envi
           </div>
           <div className="mx4-barra" role="img" aria-label={conteo.GENERADO + ' generados de ' + conteo.total}>
             <i className="ok" style={{ width: (conteo.GENERADO / conteo.total) * 100 + '%' }} />
-            {nRev > 0 && <i className="rv" style={{ width: (nRev / conteo.total) * 100 + '%' }} />}
+            {nRev > 0 && <i className="prev" style={{ width: (nRev / conteo.total) * 100 + '%' }} />}
             {conteo.ERROR > 0 && <i className="er" style={{ width: (conteo.ERROR / conteo.total) * 100 + '%' }} />}
           </div>
           {todos && (
@@ -493,7 +493,7 @@ export default function MatricesH5P({ s }) {
               return (
                 <div key={u.unidad} className="mx6-u">
                   <div><b>Unidad {u.unidad}</b><span><strong>{hechos}</strong> / {rs.length}{porRev > 0 && <em className="mx6-u-rv"> · {porRev} por revisar</em>}</span></div>
-                  <div className="mx6-ub" role="img" aria-label={hechos + ' de ' + rs.length + ' generados' + (porRev ? ', ' + porRev + ' por revisar' : '')}><i style={{ width: (rs.length ? (hechos / rs.length) * 100 : 0) + '%' }} />{porRev > 0 && <i className="rv" style={{ width: (porRev / rs.length) * 100 + '%' }} />}</div>
+                  <div className="mx6-ub" role="img" aria-label={hechos + ' de ' + rs.length + ' generados' + (porRev ? ', ' + porRev + ' por revisar' : '')}><i style={{ width: (rs.length ? (hechos / rs.length) * 100 : 0) + '%' }} />{porRev > 0 && <i className="prev" style={{ width: (porRev / rs.length) * 100 + '%' }} />}</div>
                 </div>
               )
             })}
