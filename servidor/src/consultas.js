@@ -383,6 +383,9 @@ export const Q = Object.freeze({
       formacion = EXCLUDED.formacion, plantilla = EXCLUDED.plantilla, plantilla_anterior = EXCLUDED.plantilla_anterior, estado = EXCLUDED.estado, motivo = EXCLUDED.motivo,
       trabajo_id = EXCLUDED.trabajo_id, repetida = EXCLUDED.repetida, asignada_en = CASE WHEN EXCLUDED.estado = 'asignada' THEN now() ELSE asignacion_variantes.asignada_en END, actualizado = now()`,
   // Si una plantilla se elimina o se mueve de categoría, o su categoría se elimina, lo asignado con ella queda INVÁLIDO (no se reasigna solo).
+  // Las subidas candidatas a eliminar en bloque, con la categoría en la que están (null = sin categoría). $1: categoría o null; $2: solo las archivadas.
+  subidasParaEliminar: `SELECT s.nombre, pc.categoria FROM plantilla_subidas s LEFT JOIN plantilla_categoria pc ON pc.plantilla = s.nombre
+     WHERE ($1::text IS NULL OR pc.categoria = $1::text) AND (NOT $2::boolean OR (to_jsonb(s) ->> 'archivada_en') IS NOT NULL) ORDER BY s.nombre`,
   subidaArchivar: `UPDATE plantilla_subidas SET archivada_en = now(), archivada_por = $2 WHERE nombre = $1 AND archivada_en IS NULL RETURNING nombre`,
   subidaRestaurar: `UPDATE plantilla_subidas SET archivada_en = NULL, archivada_por = NULL WHERE nombre = $1 AND archivada_en IS NOT NULL RETURNING nombre`,
   // Archiva todas las subidas activas (o solo las de una categoría si $2 no es null).

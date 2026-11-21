@@ -839,6 +839,25 @@ rutas.put('/plantillas/subidas/:nombre/archivo', exigirSesion, exigirPermiso('pl
     res.json({ ok: true })
   } catch (e) { next(e) }
 })
+// ELIMINAR en bloque las plantillas subidas (todas, o solo las archivadas; y opcionalmente solo las de una categoría). No tiene vuelta atrás: se borran de la base (el historial de revisión
+// queda). Hace lo mismo que eliminar una por una: la saca de su categoría, invalida lo asignado con ella en los cursos y, si un grupo de numeración se queda sin ninguna, su numeración vuelve a empezar.
+// Exige «confirmar: true» a propósito. Los recursos ya generados con ellas ya no se podrán abrir en el editor (necesitan su plantilla).
+rutas.post('/plantillas/subidas/eliminar-todas', exigirSesion, exigirPermiso('plantillas.revisar'), validar(z.object({
+  confirmar: z.literal(true), solo: z.enum(['todas', 'archivadas']).default('todas'), categoria: z.string().regex(/^[A-Za-z0-9-]{1,40}$/).optional()
+}).strict(), 'body'), async (req, res, next) => {
+  try {
+    const categoria = req.bodyOk.categoria ? req.bodyOk.categoria.toUpperCase() : null
+    const total = await conTransaccion(async (c) => {
+      const filas = (await c.query(Q.subidasParaEliminar, [categoria, req.bodyOk.solo === 'archivadas'])).rows
+      for (const f of filas) { await c.query(Q.subidaBorrar, [f.nombre]); await c.query(Q.categoriaQuitar, [f.nombre]) }
+      for (const f of filas) await reiniciarNumeracionSiVacia(c, f.categoria, f.nombre) // ya sin ninguna del grupo: vuelve a v01
+      if (filas.length) await invalidarAsignaciones(c, Q.asignInvalidarVarias, [filas.map((f) => f.nombre), 'plantilla_eliminada'])
+      return filas.length
+    })
+    await auditar(req.usuario.id, 'plantilla_eliminar_todas', 'plantilla', (categoria || 'todas') + (req.bodyOk.solo === 'archivadas' ? ' archivadas' : '') + ' (' + total + ')', req)
+    res.json({ ok: true, eliminadas: total })
+  } catch (e) { next(e) }
+})
 rutas.delete('/plantillas/subidas/:nombre', exigirSesion, exigirAlguno('plantillas.revisar', 'plantillas.subir'), validar(z.object({ nombre: NombreSubida }), 'params'), soloLoPropio, async (req, res, next) => {
   try {
     const r = await conTransaccion(async (c) => {

@@ -578,3 +578,5 @@
 .cat-arch-g>summary::-webkit-details-marker{display:none}
 .cat-arch-g>summary span{padding:0 8px;border-radius:99px;background:#e9edf4;color:#44506b;font-size:.7rem}
 .cat-arch-g li:first-child{border-top:0}
+
+.cat-arch-barra .btn{margin-left:0}.cat-arch-barra .btn:first-of-type{margin-left:auto}.cat-arch-elim{margin:0 0 10px}

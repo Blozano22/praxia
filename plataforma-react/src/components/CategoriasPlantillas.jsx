@@ -280,6 +280,15 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
     if (!window.confirm('Se archivarán las ' + n + ' plantillas subidas de ' + c.id + ' · ' + c.nombre + ': salen de la categoría y dejan de ofrecerse a n8n (no se borran, quedan en «Archivadas» agrupadas por categoría y se pueden restaurar). ¿Continuar?')) return
     hacer(() => api('POST', '/plantillas/subidas/archivar-todas', { categoria: c.id }), 'Plantillas de ' + c.id + ' archivadas')
   }
+  // ELIMINAR en bloque (sin vuelta atrás): hay que escribir ELIMINAR. Los recursos ya generados con esas plantillas ya no se podrán abrir en el editor.
+  const eliminarEnBloque = (solo) => {
+    const nArch = d && d.archivadas ? d.archivadas.length : 0
+    const n = solo === 'archivadas' ? nArch : subidasActivas.length + nArch
+    const r = window.prompt('Se ELIMINARÁN ' + n + (solo === 'archivadas' ? ' plantillas archivadas' : ' plantillas subidas (las de las categorías y las archivadas)') + '.\n\nNo se puede deshacer: se borran de Praxia y los recursos que ya se generaron con ellas ya no se podrán abrir en el editor. Las categorías no se borran y su numeración vuelve a empezar en v01.\n\nEscribe ELIMINAR para confirmar.')
+    if (r === null) return
+    if (r.trim().toUpperCase() !== 'ELIMINAR') { setError('No se eliminó nada: había que escribir ELIMINAR para confirmar.'); return }
+    hacer(() => api('POST', '/plantillas/subidas/eliminar-todas', { confirmar: true, solo }), 'Plantillas eliminadas')
+  }
   const restaurar = (nombre) => hacer(() => api('PUT', '/plantillas/subidas/' + encodeURIComponent(nombre) + '/archivo', { archivada: false }), 'Plantilla restaurada')
   const ocultar = (nombre, oculta) => hacer(() => api('PUT', '/plantillas/ocultas/' + encodeURIComponent(nombre), { oculta }), oculta ? 'Quitada de n8n' : 'Vuelve a ofrecerse a n8n')
   const eliminar = (nombre, delSistema = false) => hacer(async () => { await api('DELETE', (delSistema ? '/plantillas/sistema/' : '/plantillas/subidas/') + encodeURIComponent(nombre)); setBorrarSub('') }, 'Plantilla eliminada')
@@ -307,6 +316,7 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
             <div className="cat-arch-barra">
               <span><b>{subidasActivas.length}</b> {subidasActivas.length === 1 ? 'plantilla subida' : 'plantillas subidas'} en las categorías</span>
               <button type="button" className="btn sm" disabled={ocupado} onClick={archivarTodas} title="Las deja guardadas pero fuera de las categorías y de n8n, para volver a subirlas limpias">Archivar todas</button>
+              <button type="button" className="btn danger sm" disabled={ocupado} onClick={() => eliminarEnBloque('todas')} title="Las borra de Praxia (no se puede deshacer) y la numeración vuelve a empezar">Eliminar todas…</button>
             </div>
           )}
 
@@ -445,6 +455,7 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
           <details className="cat-arch">
             <summary>Archivadas <span>{d.archivadas.length}</span></summary>
             <p className="help">No se ven en las categorías ni las recibe n8n, pero siguen guardadas (y se siguen entregando por su dirección para editar los recursos que ya se generaron con ellas). Aquí quedan agrupadas por la categoría de la que salieron.</p>
+            {puedeCambiar && <p className="cat-arch-elim"><button type="button" className="btn danger sm" disabled={ocupado} onClick={() => eliminarEnBloque('archivadas')}>Eliminar las {d.archivadas.length} archivadas…</button></p>}
             <input type="search" className="cat-arch-buscar" placeholder="Buscar una archivada por nombre o categoría…" aria-label="Buscar entre las archivadas" value={buscarArch} onChange={(e) => setBuscarArch(e.target.value)} />
             {claves.length === 0 && <p className="help">No hay archivadas que coincidan con la búsqueda.</p>}
             {claves.map((k) => (
