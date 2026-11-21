@@ -210,6 +210,7 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
   const [ver, setVer] = useState('recurso') // qué tipo de categorías se ven: recurso | actividad
   const [grupo, setGrupo] = useState('') // filtro por grupo (generales, tecnológico…): '' = todos
   const [buscar, setBuscar] = useState('') // filtro por texto (ID o nombre)
+  const [buscarArch, setBuscarArch] = useState('') // búsqueda dentro de las archivadas
   const [nueva, setNueva] = useState(null) // { id, nombre, tipo } mientras se crea una categoría
   const [edit, setEdit] = useState(null) // { id, nombre, tipo } mientras se edita una
   const [borrar, setBorrar] = useState('') // id de categoría con la confirmación a la vista
@@ -273,6 +274,11 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
   const archivarTodas = () => {
     if (!window.confirm('Se archivarán las ' + subidasActivas.length + ' plantillas subidas: salen de todas las categorías y dejan de ofrecerse a n8n (no se borran y se pueden restaurar). Lo asignado con ellas en los cursos quedará sin plantilla hasta volver a prepararlo. ¿Continuar?')) return
     hacer(async () => { const r = await api('POST', '/plantillas/subidas/archivar-todas', {}); setError(''); return r }, 'Plantillas archivadas: las categorías quedaron limpias')
+  }
+  const archivarCategoria = (c) => {
+    const n = (todasPorCategoria[c.id] || []).filter((x) => d.subidas && d.subidas[x]).length
+    if (!window.confirm('Se archivarán las ' + n + ' plantillas subidas de ' + c.id + ' · ' + c.nombre + ': salen de la categoría y dejan de ofrecerse a n8n (no se borran, quedan en «Archivadas» agrupadas por categoría y se pueden restaurar). ¿Continuar?')) return
+    hacer(() => api('POST', '/plantillas/subidas/archivar-todas', { categoria: c.id }), 'Plantillas de ' + c.id + ' archivadas')
   }
   const restaurar = (nombre) => hacer(() => api('PUT', '/plantillas/subidas/' + encodeURIComponent(nombre) + '/archivo', { archivada: false }), 'Plantilla restaurada')
   const ocultar = (nombre, oculta) => hacer(() => api('PUT', '/plantillas/ocultas/' + encodeURIComponent(nombre), { oculta }), oculta ? 'Quitada de n8n' : 'Vuelve a ofrecerse a n8n')
@@ -379,6 +385,7 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
                   {puedeCambiar && !(edit && edit.id === c.id) && (
                     <div className="cat-acc">
                       <button className="btn sec sm" aria-expanded={gestionando === c.id} onClick={() => setGestionando(gestionando === c.id ? '' : c.id)}>{gestionando === c.id ? 'Cerrar variantes' : 'Gestionar variantes'}</button>
+                      {(todasPorCategoria[c.id] || []).some((x) => d.subidas && d.subidas[x]) && <button className="btn sec sm" disabled={ocupado} onClick={() => archivarCategoria(c)} title="Deja guardadas las plantillas subidas de esta categoría pero fuera de ella y de n8n">Archivar variantes</button>}
                       <button className="btn sec sm" onClick={() => setEdit({ id: c.id, nombre: c.nombre, tipo: c.tipo, formaciones: Object.fromEntries(((d.formaciones || {})[c.id] || []).map((f) => [f.formacion, f.prioridad])) })}>Editar</button>
                       {borrar === c.id
                         ? <><button className="btn danger sm" disabled={ocupado} onClick={() => quitar(c.id)}>Sí, eliminar</button><button className="btn sec sm" onClick={() => setBorrar('')}>No</button></>
@@ -427,22 +434,37 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
           )}
         </>
       )}
-      {d && (d.archivadas || []).length > 0 && (
-        <details className="cat-arch">
-          <summary>Archivadas <span>{d.archivadas.length}</span></summary>
-          <p className="help">No se ven en las categorías ni las recibe n8n, pero siguen guardadas (y se siguen entregando por su dirección para editar los recursos que ya se generaron con ellas).</p>
-          <ul>
-            {d.archivadas.map((a) => (
-              <li key={a.nombre}>
-                <span className="cat-arch-n" title={a.nombre}>{a.nombre.toUpperCase()}</span>
-                <span className="cat-arch-i">{a.categoria ? 'de ' + a.categoria : 'sin categoría'}{a.archivadaEn ? ' · archivada ' + new Date(a.archivadaEn).toLocaleDateString('es-CO', { dateStyle: 'medium' }) : ''}{a.por ? ' por ' + a.por : ''}</span>
-                <button type="button" className="lnk" onClick={() => setViendo(a.nombre)}>Ver</button>
-                {puedeCambiar && <button type="button" className="lnk" disabled={ocupado} onClick={() => restaurar(a.nombre)}>Restaurar</button>}
-              </li>
+      {d && (d.archivadas || []).length > 0 && (() => {
+        const q = buscarArch.trim().toLowerCase()
+        const lista = d.archivadas.filter((a) => !q || (a.nombre + ' ' + (a.categoria || 'sin categoria')).toLowerCase().includes(q))
+        const grupos = new Map()
+        lista.forEach((a) => { const k = a.categoria || ''; if (!grupos.has(k)) grupos.set(k, []); grupos.get(k).push(a) })
+        const claves = [...grupos.keys()].sort((x, y) => (x === '' ? 1 : 0) - (y === '' ? 1 : 0) || x.localeCompare(y, undefined, { numeric: true }))
+        const titulo = (k) => { const c = d.categorias.find((x) => x.id === k); return k ? k + (c ? ' · ' + c.nombre : '') : 'Sin categoría' }
+        return (
+          <details className="cat-arch">
+            <summary>Archivadas <span>{d.archivadas.length}</span></summary>
+            <p className="help">No se ven en las categorías ni las recibe n8n, pero siguen guardadas (y se siguen entregando por su dirección para editar los recursos que ya se generaron con ellas). Aquí quedan agrupadas por la categoría de la que salieron.</p>
+            <input type="search" className="cat-arch-buscar" placeholder="Buscar una archivada por nombre o categoría…" aria-label="Buscar entre las archivadas" value={buscarArch} onChange={(e) => setBuscarArch(e.target.value)} />
+            {claves.length === 0 && <p className="help">No hay archivadas que coincidan con la búsqueda.</p>}
+            {claves.map((k) => (
+              <details key={k || 'sin'} className="cat-arch-g" open={!!q}>
+                <summary>{titulo(k)} <span>{grupos.get(k).length}</span></summary>
+                <ul>
+                  {grupos.get(k).map((a) => (
+                    <li key={a.nombre}>
+                      <span className="cat-arch-n" title={a.nombre}>{a.nombre.toUpperCase()}</span>
+                      <span className="cat-arch-i">{a.archivadaEn ? 'archivada ' + new Date(a.archivadaEn).toLocaleDateString('es-CO', { dateStyle: 'medium' }) : ''}{a.por ? ' por ' + a.por : ''}</span>
+                      <button type="button" className="lnk" onClick={() => setViendo(a.nombre)}>Ver</button>
+                      {puedeCambiar && <button type="button" className="lnk" disabled={ocupado} onClick={() => restaurar(a.nombre)}>Restaurar</button>}
+                    </li>
+                  ))}
+                </ul>
+              </details>
             ))}
-          </ul>
-        </details>
-      )}
+          </details>
+        )
+      })()}
       {viendo && <VistaPlantilla nombre={viendo} subida={!!(d && ((d.subidas && d.subidas[viendo]) || (d.archivadas || []).some((x) => x.nombre === viendo)))} categoria={d ? (d.categorias.find((c) => c.id === d.asignaciones[viendo]) || null) : null} onCerrar={() => setViendo('')} />}
     </div>
   )

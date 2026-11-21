@@ -639,6 +639,8 @@ test('archivar plantillas subidas: salen de las categorías, del índice y del r
   assert.deepEqual(cats.plantillas.filter((n) => n.startsWith('g-12')), g12antes) // las de otras categorías no se tocaron
   const r3 = await sube(NUEVO); assert.equal(r3.status, 201); const n3 = (await r3.json()).nombre
   assert.ok(![n1, n2].includes(n3)); assert.deepEqual(await enCat(), [n3])
+  const num = (n) => Number(/v(\d+)$/.exec(n)[1])
+  assert.ok(num(n3) > num(n2), 'la numeración sigue la de las archivadas: ' + n2 + ' → ' + n3)
   // ya no hay nada activo en la categoría para archivar con «todas» salvo la nueva
   assert.equal((await (await dani('POST', '/plantillas/subidas/archivar-todas', { categoria: 'G-61' })).json()).archivadas, 1)
   for (const n of [n1, n2, n3]) assert.equal((await dani('DELETE', '/plantillas/subidas/' + n)).status, 200) // las archivadas también se pueden eliminar
