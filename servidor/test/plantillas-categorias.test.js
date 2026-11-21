@@ -647,9 +647,10 @@ test('archivar plantillas subidas: salen de las categorías, del índice y del r
   assert.equal((await dani('DELETE', '/plantillas/categorias/G-61')).status, 200)
 })
 
-test('eliminar en bloque las plantillas subidas: exige confirmar, solo quien revisa, respeta la categoría y el alcance, y la numeración vuelve a empezar', async () => {
+test('eliminar en bloque las plantillas subidas: exige confirmar, solo la administración (no quien revisa), respeta la categoría y el alcance, y la numeración vuelve a empezar', async () => {
   const dani = await entrar('dani@u.co')
   const ana = await entrar('ana@u.co')
+  const admin = await entrar('admin@u.co')
   const con = (campos) => '<!doctype html><html lang="es"><head><meta charset="utf-8"><title>{{TITULO}}</title></head><body><script type="application/json" id="contenido">/*CONTENIDO*/' + JSON.stringify(campos) + '/*FIN-CONTENIDO*/</script></body></html>'
   const C1 = { titulo: 'v', bloques: [{ texto: 'a' }] }
   assert.equal((await dani('POST', '/plantillas/categorias', { id: 'G-62', nombre: 'Prueba eliminar A' })).status, 201)
@@ -659,19 +660,20 @@ test('eliminar en bloque las plantillas subidas: exige confirmar, solo quien rev
   assert.equal(a1, 'g-62-v01')
   const nombres = async () => (await (await dani('GET', '/plantillas/categorias')).json())
   // sin confirmar, sin permiso o con datos de más: no se borra nada
-  assert.equal((await dani('POST', '/plantillas/subidas/eliminar-todas', {})).status, 400)
-  assert.equal((await dani('POST', '/plantillas/subidas/eliminar-todas', { confirmar: false })).status, 400)
-  assert.equal((await dani('POST', '/plantillas/subidas/eliminar-todas', { confirmar: true, extra: 1 })).status, 400)
+  assert.equal((await admin('POST', '/plantillas/subidas/eliminar-todas', {})).status, 400)
+  assert.equal((await admin('POST', '/plantillas/subidas/eliminar-todas', { confirmar: false })).status, 400)
+  assert.equal((await admin('POST', '/plantillas/subidas/eliminar-todas', { confirmar: true, extra: 1 })).status, 400)
   assert.equal((await ana('POST', '/plantillas/subidas/eliminar-todas', { confirmar: true })).status, 403)
+  assert.equal((await dani('POST', '/plantillas/subidas/eliminar-todas', { confirmar: true })).status, 403) // quien revisa plantillas tampoco: solo la administración
   assert.equal((await fetch(base + '/plantillas-html/' + a1 + '.html')).status, 200)
   // solo las archivadas de una categoría: archivo a2 y elimino solo esas
   assert.equal((await dani('PUT', '/plantillas/subidas/' + a2 + '/archivo', { archivada: true })).status, 200)
-  const solo = await dani('POST', '/plantillas/subidas/eliminar-todas', { confirmar: true, solo: 'archivadas', categoria: 'G-62' })
+  const solo = await admin('POST', '/plantillas/subidas/eliminar-todas', { confirmar: true, solo: 'archivadas', categoria: 'G-62' })
   assert.equal(solo.status, 200); assert.equal((await solo.json()).eliminadas, 1)
   assert.equal((await fetch(base + '/plantillas-html/' + a2 + '.html')).status, 404)
   assert.equal((await fetch(base + '/plantillas-html/' + a1 + '.html')).status, 200) // las activas siguen
   // toda una categoría: la otra no se toca y la numeración de la vaciada vuelve a v01
-  const cat = await dani('POST', '/plantillas/subidas/eliminar-todas', { confirmar: true, categoria: 'G-62' })
+  const cat = await admin('POST', '/plantillas/subidas/eliminar-todas', { confirmar: true, categoria: 'G-62' })
   assert.equal(cat.status, 200); assert.equal((await cat.json()).eliminadas, 2)
   let d = await nombres()
   assert.equal(d.plantillas.some((n) => n.startsWith('g-62-')), false); assert.equal(d.plantillas.includes(b1), true)
@@ -679,11 +681,11 @@ test('eliminar en bloque las plantillas subidas: exige confirmar, solo quien rev
   assert.equal(await sube('G-62'), 'g-62-v01') // la categoría quedó vacía: empieza de nuevo
   // todas (activas y archivadas)
   assert.equal((await dani('PUT', '/plantillas/subidas/' + b1 + '/archivo', { archivada: true })).status, 200)
-  const todas = await dani('POST', '/plantillas/subidas/eliminar-todas', { confirmar: true })
+  const todas = await admin('POST', '/plantillas/subidas/eliminar-todas', { confirmar: true })
   assert.equal(todas.status, 200); assert.ok((await todas.json()).eliminadas >= 2)
   d = await nombres()
   assert.deepEqual(d.plantillas.filter((n) => d.subidas && d.subidas[n]), []); assert.deepEqual(d.archivadas, [])
-  assert.equal((await dani('POST', '/plantillas/subidas/eliminar-todas', { confirmar: true })).status, 200) // sin nada que borrar no es un error
+  assert.equal((await admin('POST', '/plantillas/subidas/eliminar-todas', { confirmar: true })).status, 200) // sin nada que borrar no es un error
   for (const id of ['G-62', 'G-63']) assert.equal((await dani('DELETE', '/plantillas/categorias/' + id)).status, 200)
 })
 

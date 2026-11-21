@@ -203,7 +203,7 @@ function FilaSin({ nombre, actual = '', compacta, categorias, puedeCambiar, ocup
   )
 }
 
-export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
+export default function CategoriasPlantillas({ puedeCambiar = false, esAdmin = false, aviso }) {
   const [d, setD] = useState(null)
   const [error, setError] = useState('')
   const [ocupado, setOcupado] = useState(false)
@@ -316,7 +316,7 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
             <div className="cat-arch-barra">
               <span><b>{subidasActivas.length}</b> {subidasActivas.length === 1 ? 'plantilla subida' : 'plantillas subidas'} en las categorías</span>
               <button type="button" className="btn sm" disabled={ocupado} onClick={archivarTodas} title="Las deja guardadas pero fuera de las categorías y de n8n, para volver a subirlas limpias">Archivar todas</button>
-              <button type="button" className="btn danger sm" disabled={ocupado} onClick={() => eliminarEnBloque('todas')} title="Las borra de Praxia (no se puede deshacer) y la numeración vuelve a empezar">Eliminar todas…</button>
+              {esAdmin && <button type="button" className="btn danger sm" disabled={ocupado} onClick={() => eliminarEnBloque('todas')} title="Las borra de Praxia (no se puede deshacer) y la numeración vuelve a empezar">Eliminar todas…</button>}
             </div>
           )}
 
@@ -455,7 +455,7 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
           <details className="cat-arch">
             <summary>Archivadas <span>{d.archivadas.length}</span></summary>
             <p className="help">No se ven en las categorías ni las recibe n8n, pero siguen guardadas (y se siguen entregando por su dirección para editar los recursos que ya se generaron con ellas). Aquí quedan agrupadas por la categoría de la que salieron.</p>
-            {puedeCambiar && <p className="cat-arch-elim"><button type="button" className="btn danger sm" disabled={ocupado} onClick={() => eliminarEnBloque('archivadas')}>Eliminar las {d.archivadas.length} archivadas…</button></p>}
+            {esAdmin && <p className="cat-arch-elim"><button type="button" className="btn danger sm" disabled={ocupado} onClick={() => eliminarEnBloque('archivadas')}>Eliminar las {d.archivadas.length} archivadas…</button></p>}
             <input type="search" className="cat-arch-buscar" placeholder="Buscar una archivada por nombre o categoría…" aria-label="Buscar entre las archivadas" value={buscarArch} onChange={(e) => setBuscarArch(e.target.value)} />
             {claves.length === 0 && <p className="help">No hay archivadas que coincidan con la búsqueda.</p>}
             {claves.map((k) => (

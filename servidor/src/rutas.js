@@ -841,8 +841,8 @@ rutas.put('/plantillas/subidas/:nombre/archivo', exigirSesion, exigirPermiso('pl
 })
 // ELIMINAR en bloque las plantillas subidas (todas, o solo las archivadas; y opcionalmente solo las de una categoría). No tiene vuelta atrás: se borran de la base (el historial de revisión
 // queda). Hace lo mismo que eliminar una por una: la saca de su categoría, invalida lo asignado con ella en los cursos y, si un grupo de numeración se queda sin ninguna, su numeración vuelve a empezar.
-// Exige «confirmar: true» a propósito. Los recursos ya generados con ellas ya no se podrán abrir en el editor (necesitan su plantilla).
-rutas.post('/plantillas/subidas/eliminar-todas', exigirSesion, exigirPermiso('plantillas.revisar'), validar(z.object({
+// Solo la administración (usuarios.gestionar), no quien revisa plantillas. Exige «confirmar: true» a propósito. Los recursos ya generados con ellas ya no se podrán abrir en el editor (necesitan su plantilla).
+rutas.post('/plantillas/subidas/eliminar-todas', exigirSesion, exigirPermiso('usuarios.gestionar'), validar(z.object({
   confirmar: z.literal(true), solo: z.enum(['todas', 'archivadas']).default('todas'), categoria: z.string().regex(/^[A-Za-z0-9-]{1,40}$/).optional()
 }).strict(), 'body'), async (req, res, next) => {
   try {

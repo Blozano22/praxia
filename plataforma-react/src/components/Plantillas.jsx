@@ -354,7 +354,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
           <Titulo icono="codigo"><h1>Plantillas HTML</h1></Titulo>
         </div>
         <div className="pg-fila-tabs">{pestanas}</div>
-        <CategoriasPlantillas puedeCambiar={puedeRevisar} aviso={aviso} />
+        <CategoriasPlantillas puedeCambiar={puedeRevisar} esAdmin={!!(yo && yo.permisos && yo.permisos.includes('usuarios.gestionar'))} aviso={aviso} />
       </div>
     )
   }
