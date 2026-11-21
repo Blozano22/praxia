@@ -439,10 +439,14 @@ rutas.get('/plantillas/categorias', exigirSesion, exigirPermiso('plantillas.ver'
   try {
     const [c, a, u, o, fo] = await Promise.all([sinUsuario(Q.categoriasListar), sinUsuario(Q.categoriasAsignaciones), sinUsuario(Q.subidasListar), sinUsuario(Q.ocultasListar), sinUsuario(Q.formacionesListar)])
     const eliminadas = new Set(o.rows.filter((x) => x.eliminada).map((x) => x.plantilla))
-    const plantillas = [...new Set([...nombresPlantillasPublicadas(), ...u.rows.map((x) => x.nombre)])].filter((n) => !eliminadas.has(n)).sort()
+    const activas = u.rows.filter((x) => !x.archivada_en)
+    const archivadas = u.rows.filter((x) => x.archivada_en)
+    const catDe = Object.fromEntries(a.rows.map((x) => [x.plantilla, x.categoria]))
+    const plantillas = [...new Set([...nombresPlantillasPublicadas(), ...activas.map((x) => x.nombre)])].filter((n) => !eliminadas.has(n)).sort()
     res.json({
       categorias: c.rows, formaciones: formacionesPorCategoria(fo.rows), asignaciones: Object.fromEntries(a.rows.map((x) => [x.plantilla, x.categoria])), plantillas, ocultas: o.rows.filter((x) => !x.eliminada).map((x) => x.plantilla),
-      subidas: Object.fromEntries(u.rows.map((x) => [x.nombre, { por: x.por, actualizado: x.actualizado, ejemplo: !!x.ejemplo, propia: x.subida_por === req.usuario.id, formacion: x.formacion || null }]))
+      archivadas: archivadas.map((x) => ({ nombre: x.nombre, archivadaEn: x.archivada_en, por: x.archivada_por || null, categoria: catDe[x.nombre] || null, formacion: x.formacion || null })).sort((p, q) => String(q.archivadaEn).localeCompare(String(p.archivadaEn)) || p.nombre.localeCompare(q.nombre)),
+      subidas: Object.fromEntries(activas.map((x) => [x.nombre, { por: x.por, actualizado: x.actualizado, ejemplo: !!x.ejemplo, propia: x.subida_por === req.usuario.id, formacion: x.formacion || null }]))
     })
   } catch (e) { next(e) }
 })
@@ -804,6 +808,35 @@ rutas.get('/plantillas/subidas/:nombre/ejemplo', exigirSesion, exigirPermiso('pl
     if (!f.rows[0]) return res.status(404).json({ error: 'No hay una plantilla subida con ese nombre.' })
     const armada = armarSubida(f.rows[0].html_crudo)
     res.json({ html: armada.ok ? armada.ejemplo : null })
+  } catch (e) { next(e) }
+})
+// Archivar (y restaurar) plantillas subidas: no se borran, pero salen de las categorías, del índice de n8n y del reparto de variantes; lo asignado con ellas en los cursos queda
+// inválido (se puede volver a asignar con las nuevas). Siguen entregándose por su dirección, para poder editar los recursos que ya se generaron con ellas.
+rutas.post('/plantillas/subidas/archivar-todas', exigirSesion, exigirPermiso('plantillas.revisar'), validar(z.object({ categoria: z.string().regex(/^[A-Za-z0-9-]{1,40}$/).optional() }).strict(), 'body'), async (req, res, next) => {
+  try {
+    const categoria = req.bodyOk.categoria ? req.bodyOk.categoria.toUpperCase() : null
+    const nombres = await conTransaccion(async (c) => {
+      const r = await c.query(Q.subidasArchivarTodas, [req.usuario.nombre, categoria])
+      const lista = r.rows.map((x) => x.nombre)
+      if (lista.length) await invalidarAsignaciones(c, Q.asignInvalidarVarias, [lista, 'plantilla_archivada'])
+      return lista
+    })
+    await auditar(req.usuario.id, 'plantilla_archivar_todas', 'plantilla', (categoria || 'todas') + ' (' + nombres.length + ')', req)
+    res.json({ ok: true, archivadas: nombres.length })
+  } catch (e) { next(e) }
+})
+rutas.put('/plantillas/subidas/:nombre/archivo', exigirSesion, exigirPermiso('plantillas.revisar'), validar(z.object({ nombre: NombreSubida }), 'params'), validar(z.object({ archivada: z.boolean() }).strict(), 'body'), async (req, res, next) => {
+  try {
+    const { nombre } = req.paramsOk
+    const hecho = await conTransaccion(async (c) => {
+      if (!req.bodyOk.archivada) return (await c.query(Q.subidaRestaurar, [nombre])).rowCount > 0
+      const r = await c.query(Q.subidaArchivar, [nombre, req.usuario.nombre])
+      if (r.rowCount) await invalidarAsignaciones(c, Q.asignInvalidarVarias, [[nombre], 'plantilla_archivada'])
+      return r.rowCount > 0
+    })
+    if (!hecho) return res.status(404).json({ error: req.bodyOk.archivada ? 'No hay una plantilla subida activa con ese nombre.' : 'No hay una plantilla archivada con ese nombre.' })
+    await auditar(req.usuario.id, req.bodyOk.archivada ? 'plantilla_archivar' : 'plantilla_restaurar', 'plantilla', nombre, req)
+    res.json({ ok: true })
   } catch (e) { next(e) }
 })
 rutas.delete('/plantillas/subidas/:nombre', exigirSesion, exigirAlguno('plantillas.revisar', 'plantillas.subir'), validar(z.object({ nombre: NombreSubida }), 'params'), soloLoPropio, async (req, res, next) => {

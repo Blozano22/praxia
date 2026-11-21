@@ -31,7 +31,7 @@ before(async () => {
   await dueno.connect()
   await dueno.query("CREATE ROLE ova_app LOGIN PASSWORD 'appclave' NOSUPERUSER NOBYPASSRLS")
   const sql = (f) => fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8')
-  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql']) await dueno.query(sql(f))
+  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql']) await dueno.query(sql(f))
   await dueno.query(sql('001_esquema.sql')) // volver a migrar no debe repetir ni pisar el punto de partida
   await dueno.end()
   process.env.DATABASE_URL = `postgres://ova_app:appclave@localhost:${PUERTO_PG}/ova`
@@ -599,6 +599,50 @@ test('en una categoría compartida cada formación tiene sus propios campos: se 
   const solo = await sube(B, 'tecnologico'); assert.equal(solo.status, 409)
   assert.equal((await dani('PUT', '/plantillas/categorias/G-04/formaciones', { formaciones: [{ formacion: 'tecnologico', prioridad: 'P' }, { formacion: 'profesional', prioridad: 'P' }, { formacion: 'especializacion', prioridad: 'C' }, { formacion: 'doctorado', prioridad: 'C' }] })).status, 200)
   for (const n of creadas) assert.equal((await dani('DELETE', '/plantillas/subidas/' + n)).status, 200)
+})
+
+test('archivar plantillas subidas: salen de las categorías, del índice y del reparto sin borrarse, se siguen entregando, no frenan las nuevas y se pueden restaurar', async () => {
+  const dani = await entrar('dani@u.co')
+  const ana = await entrar('ana@u.co')
+  const con = (campos) => '<!doctype html><html lang="es"><head><meta charset="utf-8"><title>{{TITULO}}</title></head><body><script type="application/json" id="contenido">/*CONTENIDO*/' + JSON.stringify(campos) + '/*FIN-CONTENIDO*/</script></body></html>'
+  const VIEJO = { titulo: 'v', bloques: [{ texto: 'a' }] }
+  const NUEVO = { titulo: 'n', pasos: [{ nombre: 'x' }] } // otra estructura: con las viejas activas en la categoría se rechazaría
+  assert.equal((await dani('POST', '/plantillas/categorias', { id: 'G-61', nombre: 'Prueba de archivo' })).status, 201)
+  const sube = (campos) => dani('POST', '/plantillas/subidas', { html: con(campos), categoria: 'G-61' })
+  const r1 = await sube(VIEJO); assert.equal(r1.status, 201); const n1 = (await r1.json()).nombre
+  const r2 = await sube(VIEJO); assert.equal(r2.status, 201); const n2 = (await r2.json()).nombre
+  assert.equal((await sube(NUEVO)).status, 409) // con las viejas activas, la estructura distinta se rechaza
+  const enCat = async () => { const ix = await indice(); return ix.categorias.find((c) => c.id === 'G-61').variantes.map((v) => v.nombre) }
+  assert.deepEqual((await enCat()).sort(), [n1, n2].sort())
+  // solo quien revisa archiva
+  assert.equal((await ana('PUT', '/plantillas/subidas/' + n1 + '/archivo', { archivada: true })).status, 403)
+  assert.equal((await ana('POST', '/plantillas/subidas/archivar-todas', {})).status, 403)
+  assert.equal((await dani('PUT', '/plantillas/subidas/no-existe-xyz/archivo', { archivada: true })).status, 404)
+  // archivar una: sale del índice y de la pantalla de categorías, pero no se borra
+  assert.equal((await dani('PUT', '/plantillas/subidas/' + n1 + '/archivo', { archivada: true })).status, 200)
+  assert.equal((await dani('PUT', '/plantillas/subidas/' + n1 + '/archivo', { archivada: true })).status, 404) // ya estaba archivada
+  assert.deepEqual(await enCat(), [n2])
+  let cats = await (await dani('GET', '/plantillas/categorias')).json()
+  assert.equal(cats.plantillas.includes(n1), false); assert.equal(cats.plantillas.includes(n2), true)
+  assert.deepEqual(cats.archivadas.map((x) => [x.nombre, x.categoria]), [[n1, 'G-61']])
+  assert.equal((await fetch(base + '/plantillas-html/' + n1 + '.html')).status, 200) // se sigue entregando: los recursos ya generados la necesitan
+  // restaurar la devuelve
+  assert.equal((await dani('PUT', '/plantillas/subidas/' + n1 + '/archivo', { archivada: false })).status, 200)
+  assert.equal((await dani('PUT', '/plantillas/subidas/' + n1 + '/archivo', { archivada: false })).status, 404)
+  assert.deepEqual((await enCat()).sort(), [n1, n2].sort())
+  // archivar todas las de una categoría (y no las de otra): la categoría queda limpia y entra otra estructura; la numeración sigue, no repite nombres
+  const g12antes = (await (await dani('GET', '/plantillas/categorias')).json()).plantillas.filter((n) => n.startsWith('g-12'))
+  const todas = await dani('POST', '/plantillas/subidas/archivar-todas', { categoria: 'G-61' })
+  assert.equal(todas.status, 200); assert.equal((await todas.json()).archivadas, 2)
+  assert.deepEqual(await enCat(), [])
+  cats = await (await dani('GET', '/plantillas/categorias')).json()
+  assert.deepEqual(cats.plantillas.filter((n) => n.startsWith('g-12')), g12antes) // las de otras categorías no se tocaron
+  const r3 = await sube(NUEVO); assert.equal(r3.status, 201); const n3 = (await r3.json()).nombre
+  assert.ok(![n1, n2].includes(n3)); assert.deepEqual(await enCat(), [n3])
+  // ya no hay nada activo en la categoría para archivar con «todas» salvo la nueva
+  assert.equal((await (await dani('POST', '/plantillas/subidas/archivar-todas', { categoria: 'G-61' })).json()).archivadas, 1)
+  for (const n of [n1, n2, n3]) assert.equal((await dani('DELETE', '/plantillas/subidas/' + n)).status, 200) // las archivadas también se pueden eliminar
+  assert.equal((await dani('DELETE', '/plantillas/categorias/G-61')).status, 200)
 })
 
 test('borrar una categoría deja sus plantillas sin categoría; si falla la base de datos se entrega el archivo del build tal cual', async () => {

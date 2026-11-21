@@ -348,13 +348,13 @@ export const Q = Object.freeze({
   categoriaQuitar: `DELETE FROM plantilla_categoria WHERE plantilla = $1`,
   // ---- plantillas HTML subidas desde la pantalla
   // «calificable» se lee con to_jsonb para que el índice público y la pantalla sigan respondiendo aunque se reinicie el servidor antes de correr npm run db:migrar (sin la columna sale null).
-  subidasListar: `SELECT nombre, subida_nombre AS por, subida_por, creado, esquema, formacion, (to_jsonb(s) ->> 'calificable')::boolean AS calificable, actualizado, position('/*FIN-CONTENIDO*/' in html_crudo) > 0 AS ejemplo FROM plantilla_subidas s ORDER BY nombre`,
+  subidasListar: `SELECT nombre, subida_nombre AS por, subida_por, creado, esquema, formacion, (to_jsonb(s) ->> 'calificable')::boolean AS calificable, (to_jsonb(s) ->> 'archivada_en')::timestamptz AS archivada_en, to_jsonb(s) ->> 'archivada_por' AS archivada_por, actualizado, position('/*FIN-CONTENIDO*/' in html_crudo) > 0 AS ejemplo FROM plantilla_subidas s ORDER BY nombre`,
   subidaHtml: `SELECT html FROM plantilla_subidas WHERE nombre = $1`,
   subidaCrudo: `SELECT html_crudo FROM plantilla_subidas WHERE nombre = $1`,
   subidaCrear: `INSERT INTO plantilla_subidas (nombre, html_crudo, html, subida_por, subida_nombre, esquema, formacion, calificable) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8) ON CONFLICT (nombre) DO NOTHING RETURNING nombre`,
   subidaReemplazar: `UPDATE plantilla_subidas SET html_crudo = $2, html = $3, subida_por = $4, subida_nombre = $5, esquema = $6::jsonb, formacion = coalesce($7, formacion), calificable = coalesce($8, calificable), actualizado = now() WHERE nombre = $1 RETURNING nombre`,
   esquemaReferencia: `SELECT s.nombre, s.esquema FROM plantilla_subidas s JOIN plantilla_categoria pc ON pc.plantilla = s.nombre
-     WHERE pc.categoria = $1 AND s.esquema IS NOT NULL AND s.nombre <> $2 AND ($3::text IS NULL OR s.formacion = $3::text) AND ($4::boolean IS NULL OR s.calificable = $4::boolean) ORDER BY s.creado, s.nombre LIMIT 1`,
+     WHERE pc.categoria = $1 AND (to_jsonb(s) ->> 'archivada_en') IS NULL AND s.esquema IS NOT NULL AND s.nombre <> $2 AND ($3::text IS NULL OR s.formacion = $3::text) AND ($4::boolean IS NULL OR s.calificable = $4::boolean) ORDER BY s.creado, s.nombre LIMIT 1`,
   estadosListar: `SELECT DISTINCT ON (plantilla) plantilla, estado, creado FROM plantilla_historial ORDER BY plantilla, creado DESC, id DESC`,
   subidaEsquema: `SELECT esquema, formacion, calificable FROM plantilla_subidas WHERE nombre = $1`,
   subidaFormacionPoner: `UPDATE plantilla_subidas SET formacion = $2 WHERE nombre = $1`,
@@ -368,7 +368,7 @@ export const Q = Object.freeze({
     SELECT s.nombre, s.formacion, s.calificable, s.creado,
            coalesce((SELECT h.estado FROM plantilla_historial h WHERE h.plantilla = 'pub-' || s.nombre ORDER BY h.creado DESC, h.id DESC LIMIT 1), 'revision') AS ultimo
       FROM plantilla_categoria pc JOIN plantilla_subidas s ON s.nombre = pc.plantilla
-     WHERE pc.categoria = $1 ORDER BY s.creado, s.nombre`,
+     WHERE pc.categoria = $1 AND (to_jsonb(s) ->> 'archivada_en') IS NULL ORDER BY s.creado, s.nombre`,
   asignUsadas: `SELECT plantilla, count(*)::int AS veces, bool_or(NOT repetida) AS original FROM asignacion_variantes WHERE propietario_id = $1 AND proyecto_id = $2 AND categoria = $3 AND plantilla IS NOT NULL GROUP BY plantilla`,
   asignExistentes: `
     SELECT codigo, unidad, id_catalogo, id_base, categoria, formacion, plantilla, plantilla_anterior, estado, motivo, repetida, asignada_en FROM asignacion_variantes
@@ -383,6 +383,12 @@ export const Q = Object.freeze({
       formacion = EXCLUDED.formacion, plantilla = EXCLUDED.plantilla, plantilla_anterior = EXCLUDED.plantilla_anterior, estado = EXCLUDED.estado, motivo = EXCLUDED.motivo,
       trabajo_id = EXCLUDED.trabajo_id, repetida = EXCLUDED.repetida, asignada_en = CASE WHEN EXCLUDED.estado = 'asignada' THEN now() ELSE asignacion_variantes.asignada_en END, actualizado = now()`,
   // Si una plantilla se elimina o se mueve de categoría, o su categoría se elimina, lo asignado con ella queda INVÁLIDO (no se reasigna solo).
+  subidaArchivar: `UPDATE plantilla_subidas SET archivada_en = now(), archivada_por = $2 WHERE nombre = $1 AND archivada_en IS NULL RETURNING nombre`,
+  subidaRestaurar: `UPDATE plantilla_subidas SET archivada_en = NULL, archivada_por = NULL WHERE nombre = $1 AND archivada_en IS NOT NULL RETURNING nombre`,
+  // Archiva todas las subidas activas (o solo las de una categoría si $2 no es null).
+  subidasArchivarTodas: `UPDATE plantilla_subidas s SET archivada_en = now(), archivada_por = $1
+     WHERE s.archivada_en IS NULL AND ($2::text IS NULL OR EXISTS (SELECT 1 FROM plantilla_categoria pc WHERE pc.plantilla = s.nombre AND pc.categoria = $2::text)) RETURNING s.nombre`,
+  asignInvalidarVarias: `UPDATE asignacion_variantes SET plantilla_anterior = plantilla, plantilla = NULL, estado = 'invalida', motivo = $2, actualizado = now() WHERE plantilla = ANY($1::text[])`,
   asignInvalidarPlantilla: `UPDATE asignacion_variantes SET plantilla_anterior = plantilla, plantilla = NULL, estado = 'invalida', motivo = $2, actualizado = now() WHERE plantilla = $1`,
   asignInvalidarCategoria: `UPDATE asignacion_variantes SET plantilla_anterior = plantilla, plantilla = NULL, estado = 'invalida', motivo = 'categoria_eliminada', actualizado = now() WHERE categoria = $1 AND plantilla IS NOT NULL`,
   // ---- plantillas del sistema quitadas de n8n

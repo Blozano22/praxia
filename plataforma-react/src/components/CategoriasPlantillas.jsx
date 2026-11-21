@@ -268,6 +268,13 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
     const html = await leerArchivo(f)
     if (html !== null) hacer(() => api('PUT', '/plantillas/subidas/' + encodeURIComponent(nombre), { html }), 'Plantilla reemplazada')
   }
+  // Archivar: no se borran; salen de las categorías, del índice de n8n y del reparto de variantes (los recursos ya generados siguen pudiéndose editar). Se pueden restaurar.
+  const subidasActivas = d ? d.plantillas.filter((n) => d.subidas && d.subidas[n]) : []
+  const archivarTodas = () => {
+    if (!window.confirm('Se archivarán las ' + subidasActivas.length + ' plantillas subidas: salen de todas las categorías y dejan de ofrecerse a n8n (no se borran y se pueden restaurar). Lo asignado con ellas en los cursos quedará sin plantilla hasta volver a prepararlo. ¿Continuar?')) return
+    hacer(async () => { const r = await api('POST', '/plantillas/subidas/archivar-todas', {}); setError(''); return r }, 'Plantillas archivadas: las categorías quedaron limpias')
+  }
+  const restaurar = (nombre) => hacer(() => api('PUT', '/plantillas/subidas/' + encodeURIComponent(nombre) + '/archivo', { archivada: false }), 'Plantilla restaurada')
   const ocultar = (nombre, oculta) => hacer(() => api('PUT', '/plantillas/ocultas/' + encodeURIComponent(nombre), { oculta }), oculta ? 'Quitada de n8n' : 'Vuelve a ofrecerse a n8n')
   const eliminar = (nombre, delSistema = false) => hacer(async () => { await api('DELETE', (delSistema ? '/plantillas/sistema/' : '/plantillas/subidas/') + encodeURIComponent(nombre)); setBorrarSub('') }, 'Plantilla eliminada')
 
@@ -289,6 +296,13 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
               <button key={t} role="tab" aria-selected={ver === t} className={ver === t ? 'on' : ''} onClick={() => { setVer(t); setGrupo(''); setBuscar('') }}>{TIPOS[t][0]} <span>· {cuantas(t)}</span></button>
             ))}
           </div>
+
+          {puedeCambiar && subidasActivas.length > 0 && (
+            <div className="cat-arch-barra">
+              <span><b>{subidasActivas.length}</b> {subidasActivas.length === 1 ? 'plantilla subida' : 'plantillas subidas'} en las categorías</span>
+              <button type="button" className="btn sm" disabled={ocupado} onClick={archivarTodas} title="Las deja guardadas pero fuera de las categorías y de n8n, para volver a subirlas limpias">Archivar todas</button>
+            </div>
+          )}
 
           {delTipo.length > 1 && (
             <div className="cat-filtro">
@@ -413,7 +427,23 @@ export default function CategoriasPlantillas({ puedeCambiar = false, aviso }) {
           )}
         </>
       )}
-      {viendo && <VistaPlantilla nombre={viendo} subida={!!(d && d.subidas && d.subidas[viendo])} categoria={d ? (d.categorias.find((c) => c.id === d.asignaciones[viendo]) || null) : null} onCerrar={() => setViendo('')} />}
+      {d && (d.archivadas || []).length > 0 && (
+        <details className="cat-arch">
+          <summary>Archivadas <span>{d.archivadas.length}</span></summary>
+          <p className="help">No se ven en las categorías ni las recibe n8n, pero siguen guardadas (y se siguen entregando por su dirección para editar los recursos que ya se generaron con ellas).</p>
+          <ul>
+            {d.archivadas.map((a) => (
+              <li key={a.nombre}>
+                <span className="cat-arch-n" title={a.nombre}>{a.nombre.toUpperCase()}</span>
+                <span className="cat-arch-i">{a.categoria ? 'de ' + a.categoria : 'sin categoría'}{a.archivadaEn ? ' · archivada ' + new Date(a.archivadaEn).toLocaleDateString('es-CO', { dateStyle: 'medium' }) : ''}{a.por ? ' por ' + a.por : ''}</span>
+                <button type="button" className="lnk" onClick={() => setViendo(a.nombre)}>Ver</button>
+                {puedeCambiar && <button type="button" className="lnk" disabled={ocupado} onClick={() => restaurar(a.nombre)}>Restaurar</button>}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {viendo && <VistaPlantilla nombre={viendo} subida={!!(d && ((d.subidas && d.subidas[viendo]) || (d.archivadas || []).some((x) => x.nombre === viendo)))} categoria={d ? (d.categorias.find((c) => c.id === d.asignaciones[viendo]) || null) : null} onCerrar={() => setViendo('')} />}
     </div>
   )
 }

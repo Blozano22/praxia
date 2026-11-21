@@ -62,13 +62,14 @@ export function crearApp() {
     if (config.carpetaWeb) { try { base = JSON.parse(fs.readFileSync(path.join(config.carpetaWeb, 'plantillas-html', 'plantillas.json'), 'utf8')) } catch { /* sin build: solo las subidas */ } }
     try {
       const [c, a, u, o, fo, es] = await Promise.all([sinUsuario(Q.categoriasListar), sinUsuario(Q.categoriasAsignaciones), sinUsuario(Q.subidasListar), sinUsuario(Q.ocultasListar), sinUsuario(Q.formacionesListar), sinUsuario(Q.estadosListar).catch(() => ({ rows: [] }))])
+      const ua = u.rows.filter((x) => !x.archivada_en) // las archivadas no se ofrecen a n8n (siguen entregándose por su dirección)
       const de = Object.fromEntries(a.rows.map((x) => [x.plantilla, x.categoria]))
       const ocultas = new Set(o.rows.map((x) => x.plantilla)) // plantillas del sistema quitadas de n8n desde la pantalla
       // Praxia es la única fuente del catálogo: el índice lista solo las plantillas SUBIDAS desde la pantalla (las del sistema son archivos del código que usa la propia
       // plataforma y no se ofrecen a n8n). PLANTILLAS_INDICE_SOLO_SUBIDAS=0 devuelve el comportamiento anterior (subidas y las del build que no estén quitadas).
       const soloSubidas = process.env.PLANTILLAS_INDICE_SOLO_SUBIDAS !== '0'
-      const delBuild = soloSubidas ? [] : (base.plantillas || []).filter((p) => !u.rows.some((x) => x.nombre === p.nombre) && !ocultas.has(p.nombre))
-      const todas = [...delBuild, ...u.rows.map((x) => ({ nombre: x.nombre, archivo: x.nombre + '.html', subida: true }))].sort((x, y) => x.nombre.localeCompare(y.nombre))
+      const delBuild = soloSubidas ? [] : (base.plantillas || []).filter((p) => !ua.some((x) => x.nombre === p.nombre) && !ocultas.has(p.nombre))
+      const todas = [...delBuild, ...ua.map((x) => ({ nombre: x.nombre, archivo: x.nombre + '.html', subida: true }))].sort((x, y) => x.nombre.localeCompare(y.nombre))
       const tipoDe = Object.fromEntries(c.rows.map((k) => [k.id, k.tipo]))
       // Estado de revisión de cada plantilla (aprobada | en_revision | rechazada) y desde cuándo: el último paso del historial; sin historial, en_revision.
       // Las subidas se identifican en el historial como «pub-<nombre>»; las del sistema, por su nombre.
@@ -78,14 +79,14 @@ export function crearApp() {
       // ¿Los campos de la variante coinciden con los de su categoría? La referencia es la subida más antigua con ejemplo de la categoría; si la categoría sirve a varias
       // formaciones, de la categoría Y la formación de la variante (las que no tienen formación no se comparan). null si no hay con qué comparar.
       const compartidas = new Set(Object.entries(fo.rows.reduce((m, x) => ({ ...m, [x.categoria]: (m[x.categoria] || 0) + 1 }), {})).filter(([, n]) => n >= 2).map(([k]) => k))
-      const formDe = Object.fromEntries(u.rows.map((x) => [x.nombre, x.formacion || null])) // formación de la variante (elegida al subirla o según su ficha)
-      const calDe = Object.fromEntries(u.rows.map((x) => [x.nombre, typeof x.calificable === 'boolean' ? x.calificable : null])) // actividades: true calificable, false práctica
+      const formDe = Object.fromEntries(ua.map((x) => [x.nombre, x.formacion || null])) // formación de la variante (elegida al subirla o según su ficha)
+      const calDe = Object.fromEntries(ua.map((x) => [x.nombre, typeof x.calificable === 'boolean' ? x.calificable : null])) // actividades: true calificable, false práctica
       const claveBase = (n) => (de[n] ? (compartidas.has(de[n]) ? (formDe[n] ? de[n] + '|' + formDe[n] : null) : de[n]) : null)
       // en las categorías de actividad los campos se comparan también por tipo (la calificable lleva campos que la práctica no)
       const claveRef = (n) => { const k = claveBase(n); if (!k || tipoDe[de[n]] !== 'actividad') return k; return calDe[n] === null ? null : k + '|' + (calDe[n] ? 'c' : 'p') }
       const refDe = {}
-      for (const x of [...u.rows].sort((p, q) => new Date(p.creado) - new Date(q.creado) || p.nombre.localeCompare(q.nombre))) { const k = claveRef(x.nombre); if (x.esquema && k && !refDe[k]) refDe[k] = x.esquema }
-      const esqDe = Object.fromEntries(u.rows.map((x) => [x.nombre, x.esquema]))
+      for (const x of [...ua].sort((p, q) => new Date(p.creado) - new Date(q.creado) || p.nombre.localeCompare(q.nombre))) { const k = claveRef(x.nombre); if (x.esquema && k && !refDe[k]) refDe[k] = x.esquema }
+      const esqDe = Object.fromEntries(ua.map((x) => [x.nombre, x.esquema]))
       const esquemaOk = (n) => { const k = claveRef(n); return esqDe[n] && k && refDe[k] ? compararEsquemas(refDe[k], esqDe[n]).coincide : null }
       const plantillas = todas.map((p) => ({ ...p, id_catalogo: de[p.nombre] || null, tipo: tipoDe[de[p.nombre]] || null, ...estadoDe(p.nombre), esquema_ok: esquemaOk(p.nombre), formacion: formDe[p.nombre] || null, calificable: calDe[p.nombre] ?? null, esquema: esquemaEstructurado(esqDe[p.nombre]) }))
       const ORDEN_FORMACIONES = ['tecnologico', 'profesional', 'especializacion', 'doctorado']
