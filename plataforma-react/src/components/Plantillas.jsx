@@ -4,6 +4,7 @@ import { marcoPlantilla } from '../lib/vista.js'
 import { verNombre } from '../lib/nombres.js'
 import Titulo from './Titulo.jsx'
 import RevisionPlantilla, { ESTADO } from './RevisionPlantilla.jsx'
+import BancoIconos from './BancoIconos.jsx'
 import CategoriasPlantillas from './CategoriasPlantillas.jsx'
 import SubirVariante from './SubirVariante.jsx'
 import PlantillaPropia from './PlantillaPropia.jsx'
@@ -339,14 +340,27 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
     if (accion === 'eliminar' && siguiente) setTipo(siguiente)
     if (aviso && mensaje) aviso(mensaje)
   }
+  const puedeIconos = puedeCategorias || puedeRevisar || puedeSubirVariante // ver el banco de íconos (quien trabaja con las variantes)
   const puedeSubir = (puedeRevisar || puedeSubirVariante) && !!cats // quien revisa o quien tiene el rol de editor HTML
 
   const pestanas = (
     <div className="pg-tabs" role="tablist" aria-label="Qué ver">
       <button type="button" role="tab" aria-selected={vista === 'galeria'} className={vista === 'galeria' ? 'on' : ''} onClick={() => setVista('galeria')}>Galería de diseños</button>
       {puedeCategorias && <button type="button" role="tab" aria-selected={vista === 'categorias'} className={vista === 'categorias' ? 'on' : ''} onClick={() => setVista('categorias')}>Categorías para n8n</button>}
+      {puedeIconos && <button type="button" role="tab" aria-selected={vista === 'iconos'} className={vista === 'iconos' ? 'on' : ''} onClick={() => setVista('iconos')}>Banco de íconos</button>}
     </div>
   )
+  if (vista === 'iconos' && puedeIconos) {
+    return (
+      <div className="wrapx fade">
+        <div className="pl2-cab">
+          <Titulo icono="codigo"><h1>Plantillas HTML</h1></Titulo>
+        </div>
+        <div className="pg-fila-tabs">{pestanas}</div>
+        <BancoIconos puedeGestionar={puedeRevisar || puedeSubirVariante} aviso={aviso} />
+      </div>
+    )
+  }
   if (vista === 'categorias' && puedeCategorias) {
     return (
       <div className="wrapx fade">

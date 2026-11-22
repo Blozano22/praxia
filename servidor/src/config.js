@@ -45,6 +45,8 @@ export const config = {
   // Sin clave, «Descargar .h5p» del editor responde 503.
   servicioPlantillasUrl: (process.env.SERVICIO_PLANTILLAS_URL || 'https://proyectos.americana.edu.co/plantillas-diepo').replace(/\/+$/, ''),
   servicioPlantillasClave: process.env.SERVICIO_PLANTILLAS_CLAVE || '',
+  // Clave con la que el servicio de H5P consulta el banco de íconos (cabecera X-API-Key). Por defecto, la misma SERVICIO_CLAVE que ya usa Praxia con ese servicio.
+  iconosClave: process.env.ICONOS_CLAVE || process.env.SERVICIO_PLANTILLAS_CLAVE || '',
   // Si la plataforma se publica en una subcarpeta (p. ej. /praxia), la cookie de sesión se limita a ella.
   rutaBase: process.env.RUTA_BASE || '/'
 }

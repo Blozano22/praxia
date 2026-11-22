@@ -386,6 +386,28 @@ export const Q = Object.freeze({
   // Las subidas candidatas a eliminar en bloque, con la categoría en la que están (null = sin categoría). $1: categoría o null; $2: solo las archivadas.
   subidasParaEliminar: `SELECT s.nombre, pc.categoria FROM plantilla_subidas s LEFT JOIN plantilla_categoria pc ON pc.plantilla = s.nombre
      WHERE ($1::text IS NULL OR pc.categoria = $1::text) AND (NOT $2::boolean OR (to_jsonb(s) ->> 'archivada_en') IS NOT NULL) ORDER BY s.nombre`,
+  // ---- banco de íconos
+  icoUpsert: `INSERT INTO banco_iconos (id, tipo, svg, viewbox, hash, categoria, subcategoria, nombre_es, nombre_en, etiquetas_es, etiquetas_en, descripcion, prompt, estilo, tonos, conjunto, subido_nombre)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::text[], $11::text[], $12, $13, $14, $15, $16, $17)
+     ON CONFLICT (id) DO UPDATE SET tipo = EXCLUDED.tipo, svg = EXCLUDED.svg, viewbox = EXCLUDED.viewbox, hash = EXCLUDED.hash, categoria = EXCLUDED.categoria, subcategoria = EXCLUDED.subcategoria,
+       nombre_es = EXCLUDED.nombre_es, nombre_en = EXCLUDED.nombre_en, etiquetas_es = EXCLUDED.etiquetas_es, etiquetas_en = EXCLUDED.etiquetas_en, descripcion = EXCLUDED.descripcion, prompt = EXCLUDED.prompt,
+       estilo = EXCLUDED.estilo, tonos = EXCLUDED.tonos, conjunto = EXCLUDED.conjunto, subido_nombre = EXCLUDED.subido_nombre, actualizado = now()
+     RETURNING (xmax = 0) AS creado`,
+  icoDuplicado: `SELECT id FROM banco_iconos WHERE tipo = $1 AND hash = $2 AND id <> $3 AND archivado_en IS NULL LIMIT 1`,
+  icoUno: `SELECT * FROM banco_iconos WHERE id = $1`,
+  icoListar: `SELECT id, tipo, svg, categoria, subcategoria, nombre_es, nombre_en, etiquetas_es, etiquetas_en, descripcion, prompt, estilo, tonos, conjunto, subido_nombre, archivado_en, actualizado, count(*) OVER() AS total
+     FROM banco_iconos
+     WHERE ($1::text IS NULL OR tipo = $1) AND ($2::text = 'todos' OR (archivado_en IS NOT NULL) = ($2::text = 'archivados')) AND ($4::text IS NULL OR estilo = $4)
+       AND ($3::text IS NULL OR (id || ' ' || nombre_es || ' ' || nombre_en || ' ' || array_to_string(etiquetas_es, ' ') || ' ' || array_to_string(etiquetas_en, ' ') || ' ' || descripcion || ' ' || coalesce(categoria, '') || ' ' || coalesce(subcategoria, '') || ' ' || estilo || ' ' || coalesce(conjunto, '')) ILIKE '%' || $3 || '%')
+     ORDER BY actualizado DESC, id LIMIT $5 OFFSET $6`,
+  icoActualizar: `UPDATE banco_iconos SET tipo = $2, svg = $3, viewbox = $4, hash = $5, categoria = $6, subcategoria = $7, nombre_es = $8, nombre_en = $9, etiquetas_es = $10::text[], etiquetas_en = $11::text[],
+     descripcion = $12, prompt = $13, estilo = $14, tonos = $15, conjunto = $16, actualizado = now() WHERE id = $1 RETURNING id`,
+  icoArchivar: `UPDATE banco_iconos SET archivado_en = CASE WHEN $2::boolean THEN now() ELSE NULL END, archivado_por = CASE WHEN $2::boolean THEN $3::text ELSE NULL END, actualizado = now()
+     WHERE id = $1 AND (archivado_en IS NOT NULL) <> $2::boolean RETURNING id`,
+  icoVersion: `SELECT count(*)::int AS n, coalesce(floor(extract(epoch FROM max(actualizado)) * 1000)::bigint, 0)::text AS m FROM banco_iconos`,
+  icoLista: `SELECT id, tipo, svg, viewbox, categoria, subcategoria, nombre_es, nombre_en, etiquetas_es, etiquetas_en, descripcion, prompt, estilo, tonos, conjunto FROM banco_iconos
+     WHERE archivado_en IS NULL AND ($1::text IS NULL OR tipo = $1) AND ($2::text IS NULL OR estilo = $2) ORDER BY id`,
+  icoEstilos: `SELECT estilo, tipo, count(*)::int AS n FROM banco_iconos WHERE archivado_en IS NULL GROUP BY estilo, tipo ORDER BY estilo, tipo`,
   subidaArchivar: `UPDATE plantilla_subidas SET archivada_en = now(), archivada_por = $2 WHERE nombre = $1 AND archivada_en IS NULL RETURNING nombre`,
   subidaRestaurar: `UPDATE plantilla_subidas SET archivada_en = NULL, archivada_por = NULL WHERE nombre = $1 AND archivada_en IS NOT NULL RETURNING nombre`,
   // Archiva todas las subidas activas (o solo las de una categoría si $2 no es null).

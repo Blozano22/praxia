@@ -14,6 +14,7 @@ import { rutasGuiones } from './guiones/rutas.js'
 import { rutasUnidades } from './unidades/rutas.js'
 import { analizarCuerpoEventos, rutasEventosN8n } from './pipeline/eventos.js'
 import { rutasAsignaciones } from './pipeline/asignaciones.js'
+import { rutasBancoIconos, rutasIconos } from './iconos/rutas.js'
 
 export function crearApp() {
   const app = express()
@@ -41,6 +42,8 @@ export function crearApp() {
   app.use('/api/n8n', analizarCuerpoEventos, rutasEventosN8n, rutasAsignaciones) // avisos y asignación de variantes: misma firma
   app.use(express.json({ limit: '25mb' }))
   app.use(cookieParser())
+  app.use('/api/banco-iconos', rutasBancoIconos) // lo consume el servicio de H5P con su clave (X-API-Key), sin sesión
+  app.use('/api/iconos', exigirCabecera, rutasIconos) // la pantalla del banco de íconos
   app.use('/api/bibliografia', exigirCabecera, rutasBibliografia)
   app.use('/api/guiones', exigirCabecera, rutasGuiones)
   app.use('/api/unidades', exigirCabecera, rutasUnidades)

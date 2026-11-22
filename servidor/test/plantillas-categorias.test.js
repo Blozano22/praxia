@@ -31,11 +31,12 @@ before(async () => {
   await dueno.connect()
   await dueno.query("CREATE ROLE ova_app LOGIN PASSWORD 'appclave' NOSUPERUSER NOBYPASSRLS")
   const sql = (f) => fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8')
-  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql']) await dueno.query(sql(f))
+  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql']) await dueno.query(sql(f))
   await dueno.query(sql('001_esquema.sql')) // volver a migrar no debe repetir ni pisar el punto de partida
   await dueno.end()
   process.env.DATABASE_URL = `postgres://ova_app:appclave@localhost:${PUERTO_PG}/ova`
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex')
+  process.env.SERVICIO_PLANTILLAS_CLAVE = 'clave-del-banco' // el banco de íconos la usa por defecto con el servicio de H5P
   process.env.CARPETA_WEB = web
   process.env.PLANTILLAS_INDICE_SOLO_SUBIDAS = '0' // estas pruebas parten de un índice con las plantillas del build; la prueba de «solo subidas» lo cambia a propósito
   const { crearApp } = await import('../src/app.js')
@@ -687,6 +688,90 @@ test('eliminar en bloque las plantillas subidas: exige confirmar, solo la admini
   assert.deepEqual(d.plantillas.filter((n) => d.subidas && d.subidas[n]), []); assert.deepEqual(d.archivadas, [])
   assert.equal((await admin('POST', '/plantillas/subidas/eliminar-todas', { confirmar: true })).status, 200) // sin nada que borrar no es un error
   for (const id of ['G-62', 'G-63']) assert.equal((await dani('DELETE', '/plantillas/categorias/' + id)).status, 200)
+})
+
+test('banco de íconos: paquete validado ícono por ícono, edición, archivo y API del servicio con clave', async () => {
+  const dani = await entrar('dani@u.co')
+  const ana = await entrar('ana@u.co')
+  const edi = await entrar('edi@u.co')
+  const dib = (n) => '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24"><path d="M' + n + ' 2h10v10H' + n + 'z"/></svg>'
+  const meta = (id, n, extra = {}) => ({ id, svg: dib(n), tipo: 'recurso', nombre_es: 'Cuadro ' + n, nombre_en: 'Square ' + n, etiquetas_es: ['cuadro', 'forma', 'figura'], etiquetas_en: ['square', 'shape', 'figure'],
+    descripcion: 'Un cuadro simple para las pruebas del banco.', prompt: 'cuadrado simple', estilo: 'plano', tonos: 1, ...extra })
+  const clave = { 'x-api-key': 'clave-del-banco' }
+  const servicio = (ruta, cab = clave) => fetch(base + '/api/banco-iconos' + ruta, { headers: cab })
+
+  // paquete: los válidos entran y los malos se devuelven con su motivo
+  const paquete = { version: 1, conjunto: 'serie-prueba', iconos: [
+    meta('ico-a', 1),
+    meta('ico-b', 2, { tipo: 'actividad', tonos: 2, svg: '<svg viewBox="0 0 24 24"><path d="M2 2h5v5z" stroke="var(--ico-2)" fill="none"/><path d="M9 9h5v5z"/></svg>' }),
+    meta('ico-rojo', 3, { svg: '<svg viewBox="0 0 24 24"><path d="M2 2h5v5z" fill="#ff0000"/></svg>' }),
+    meta('ico-repetido', 1),                                   // el mismo dibujo que ico-a
+    meta('ico-pocas', 4, { etiquetas_es: ['solo', 'dos'] }),
+    meta('Ico_Mal', 5)
+  ] }
+  assert.equal((await ana('POST', '/iconos/paquete', paquete)).status, 403)                                  // una docente no sube íconos
+  assert.equal((await dani('POST', '/iconos/paquete', { version: 2, iconos: [] })).status, 400)
+  const r = await dani('POST', '/iconos/paquete', paquete)
+  assert.equal(r.status, 200)
+  const j = await r.json()
+  assert.deepEqual([j.total, j.creados, j.actualizados], [6, 2, 0])
+  assert.deepEqual(j.rechazados.map((x) => x.id).sort(), ['Ico_Mal', 'ico-pocas', 'ico-repetido', 'ico-rojo'])
+  assert.match(j.rechazados.find((x) => x.id === 'ico-rojo').motivo, /color fijo/)
+  assert.match(j.rechazados.find((x) => x.id === 'ico-repetido').motivo, /mismo dibujo que «ico-a»/)
+  assert.match(j.rechazados.find((x) => x.id === 'ico-pocas').motivo, /etiquetas/)
+  // subir otra vez el mismo paquete actualiza (no duplica)
+  const otra = await (await dani('POST', '/iconos/paquete', { version: 1, iconos: [meta('ico-a', 1, { nombre_es: 'Cuadro uno' })] })).json()
+  assert.deepEqual([otra.creados, otra.actualizados, otra.rechazados.length], [0, 1, 0])
+
+  // uno a mano: lo puede subir quien sube variantes (editor HTML); si el id ya existe, 409
+  assert.equal((await edi('POST', '/iconos', meta('ico-manual', 6))).status, 201)
+  assert.equal((await edi('POST', '/iconos', meta('ico-manual', 7))).status, 409)
+  assert.equal((await edi('POST', '/iconos', meta('ico-malo', 8, { svg: '<svg viewBox="0 0 24 24"><script>1</script><path d="M0 0h1v1z"/></svg>' }))).status, 400)
+
+  // lista de la pantalla: el SVG sale normalizado (sin width/height, con currentColor) y se filtra por tipo y texto
+  const lista = await (await dani('GET', '/iconos?tipo=recurso&q=Cuadro')).json()
+  const a = lista.iconos.find((x) => x.id === 'ico-a')
+  assert.ok(a); assert.equal(a.nombre_es, 'Cuadro uno'); assert.doesNotMatch(a.svg, /width="64"/); assert.match(a.svg, /fill="currentColor"/); assert.equal(a.archivado, false)
+  assert.equal(lista.iconos.some((x) => x.id === 'ico-b'), false)                                           // ese es de actividad
+  assert.equal((await (await dani('GET', '/iconos?tipo=actividad')).json()).iconos.some((x) => x.id === 'ico-b'), true)
+  assert.equal((await dani('GET', '/iconos?tipo=otro')).status, 400)
+
+  // editar: datos y svg; un svg malo o repetido se rechaza
+  assert.equal((await dani('PUT', '/iconos/ico-a', { descripcion: 'Descripción corregida del cuadro.' })).status, 200)
+  assert.equal((await dani('PUT', '/iconos/ico-a', { svg: '<svg viewBox="0 0 24 24"><path d="M0 0h1v1z" fill="red"/></svg>' })).status, 400)
+  assert.equal((await dani('PUT', '/iconos/ico-a', { svg: dib(6) })).status, 400)                              // repite el dibujo de ico-manual
+  assert.equal((await dani('PUT', '/iconos/no-existe', { descripcion: 'Una descripción cualquiera.' })).status, 404)
+  assert.equal((await ana('PUT', '/iconos/ico-a', { descripcion: 'Una descripción cualquiera.' })).status, 403)
+
+  // API del servicio: exige la clave; lista activos por tipo con versión y ETag; un ícono por id; búsqueda
+  assert.equal((await servicio('/lista', {})).status, 401)
+  assert.equal((await servicio('/lista', { 'x-api-key': 'otra' })).status, 401)
+  const l1 = await servicio('/lista?tipo=recurso')
+  assert.equal(l1.status, 200)
+  const lj = await l1.json()
+  assert.ok(lj.version && lj.total >= 2); assert.ok(lj.iconos.every((x) => x.tipo === 'recurso' && x.svg.startsWith('<svg')))
+  const etag = l1.headers.get('etag')
+  assert.equal((await servicio('/lista?tipo=recurso', { ...clave, 'if-none-match': etag })).status, 304)
+  assert.equal((await servicio('/lista?tipo=mal')).status, 400)
+  assert.equal((await servicio('/ico-a')).status, 200)
+  assert.equal((await servicio('/no-existe')).status, 404)
+  const bus = await (await servicio('/buscar?q=cuadro uno&tipo=recurso&limite=3')).json()
+  assert.equal(bus.iconos[0].id, 'ico-a'); assert.ok(bus.iconos[0].puntaje > 0); assert.ok(bus.iconos.length <= 3)
+  assert.equal((await (await servicio('/buscar?q=zzzzqq&tipo=recurso')).json()).total, 0)
+
+  // archivar: sale de la lista del servicio (cambia la versión) pero se sigue pudiendo pedir por id; restaurar lo devuelve
+  assert.equal((await dani('PUT', '/iconos/ico-a/archivo', { archivado: true })).status, 200)
+  assert.equal((await dani('PUT', '/iconos/ico-a/archivo', { archivado: true })).status, 404)
+  assert.equal((await ana('PUT', '/iconos/ico-a/archivo', { archivado: false })).status, 403)
+  const l2 = await servicio('/lista?tipo=recurso')
+  assert.notEqual(l2.headers.get('etag'), etag)
+  assert.equal((await l2.json()).iconos.some((x) => x.id === 'ico-a'), false)
+  const arch = await (await servicio('/ico-a')).json()
+  assert.equal(arch.archivado, true)
+  assert.equal((await (await dani('GET', '/iconos?estado=archivados')).json()).iconos.some((x) => x.id === 'ico-a'), true)
+  assert.equal((await (await dani('GET', '/iconos')).json()).iconos.some((x) => x.id === 'ico-a'), false)
+  assert.equal((await dani('PUT', '/iconos/ico-a/archivo', { archivado: false })).status, 200)
+  assert.equal((await (await servicio('/lista?tipo=recurso')).json()).iconos.some((x) => x.id === 'ico-a'), true)
 })
 
 test('borrar una categoría deja sus plantillas sin categoría; si falla la base de datos se entrega el archivo del build tal cual', async () => {
