@@ -61,10 +61,10 @@ test('forma del archivo: un solo svg con viewBox cuadrado, formas, bien cerrado 
   assert.match(motivo('<svg><path d="M0 0h5v5z"/></svg>'), /sin viewBox|no tiene viewBox/)
   assert.match(motivo(svg(P, 'viewBox="0 0 24 10"')), /cuadrado/)
   assert.match(motivo(svg('<g/>')), /sin formas|no tiene formas/)
-  assert.match(motivo(svg('<path d="M0 0h5v5z"')), /sin cerrar|bien cerradas|formado|texto|contenido/)
+  assert.match(motivo(svg('<path d="M0 0h5v5z"')), /sin cerrar|bien cerradas|formad|texto|contenido/)
   assert.match(motivo(svg(P) + svg(P)), /más de un|contenido suelto/)
   assert.match(motivo(svg('<svg viewBox="0 0 1 1"/>' + P)), /anidado/)
-  assert.match(motivo(svg(P.replace('M2 2', 'M2 2 <b>'))), /no se admite|texto suelto|no están bien/)
+  assert.match(motivo(svg(P.replace('M2 2', 'M2 2 <b>'))), /no se admite|texto suelto|no están bien|caracteres que no se permiten/)
   assert.match(motivo(svg('<path d="' + 'M0 0h1'.repeat(MAX_SVG) + '"/>')), /pesa más/)
   assert.match(motivo(svg('<path d="M0 0h5v5z"/><path id="a" d="M0 0"/><path id="a" d="M1 1"/>')), /repetido/)
 })
@@ -74,4 +74,46 @@ test('sin width/height ni tamaños en el raíz; el relleno del raíz se respeta 
   assert.equal(r.ok, true)
   assert.match(r.svg, /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" fill="none">/)
   assert.doesNotMatch(r.svg, /width="10"/)
+})
+
+test('ataques: ningún valor puede cerrar una comilla ni traer otro atributo (comillas simples), ni pasar nada que no esté en la lista', () => {
+  const casos = [
+    ['x', `<svg viewBox="0 0 24 24"><path d="M0 0h5v5z" x='1" onmouseover="alert(1)'/></svg>`],
+    ['points', `<svg viewBox="0 0 24 24"><polygon points='0,0 1,1" onmouseover="alert(1)'/></svg>`],
+    ['fill-rule', `<svg viewBox="0 0 24 24"><path d="M0 0h5v5z" fill-rule='evenodd" onclick="alert(1)'/></svg>`],
+    ['offset', `<svg viewBox="0 0 24 24"><defs><linearGradient id="g"><stop offset='0" onmouseover="alert(1)' stop-color="currentColor"/></linearGradient></defs>${P}</svg>`],
+    ['transform', `<svg viewBox="0 0 24 24"><path d="M0 0h5v5z" transform='rotate(1)" onclick="alert(1)'/></svg>`],
+    ['gradientTransform', `<svg viewBox="0 0 24 24"><defs><linearGradient id="g" gradientTransform='rotate(1)" onclick="alert(1)'><stop offset="0" stop-color="currentColor"/></linearGradient></defs>${P}</svg>`],
+    ['viewBox', `<svg viewBox='0 0 24 24" onload="alert(1)'>${P}</svg>`],
+    ['id', `<svg viewBox="0 0 24 24"><defs><linearGradient id='g" onclick="alert(1)'/></defs>${P}</svg>`],
+    ['stroke-linecap', `<svg viewBox="0 0 24 24"><path d="M0 0h5v5z" stroke-linecap="round;fill:red"/></svg>`],
+    ['stroke-dasharray', `<svg viewBox="0 0 24 24"><path d="M0 0h5v5z" stroke-dasharray="1;2"/></svg>`],
+    ['gradientUnits', `<svg viewBox="0 0 24 24"><defs><linearGradient id="g" gradientUnits="otra"/></defs>${P}</svg>`]
+  ]
+  for (const [nombre, svg] of casos) assert.equal(normalizarSvg(svg, 'x').ok, false, 'debía rechazarse: ' + nombre)
+  // lo que sale nunca trae atributos de evento, javascript:, href ni style, aunque se mezclen mayúsculas y minúsculas
+  for (const bueno of [svg('<path d="M0 0h5v5z" fill="currentColor" stroke="var(--ico-2)" stroke-width="2" stroke-linecap="round"/><circle cx="1" cy="1" r="1" fill="#fff" fill-opacity=".3"/>')]) {
+    const r = normalizarSvg(bueno, 'ok')
+    assert.equal(r.ok, true)
+    assert.doesNotMatch(r.svg, /\son\w+\s*=|javascript:|href|style=/i)
+  }
+})
+
+test('rendimiento: un archivo hostil se rechaza enseguida (Praxia es un solo proceso: no puede quedarse analizando)', () => {
+  const hostiles = [
+    '<svg viewBox="0 0 24 24"><path ' + ' '.repeat(50000) + '</svg>',
+    '<svg viewBox="0 0 24 24"><path d="' + 'x'.repeat(50000),
+    '<svg viewBox="0 0 24 24">' + '<'.repeat(50000) + '</svg>',
+    '<svg viewBox="0 0 24 24">' + '<title>'.repeat(6000) + '</svg>',
+    '<svg viewBox="0 0 24 24">' + '<!--'.repeat(12000) + '</svg>',
+    '<svg viewBox="0 0 24 24">' + '<?x'.repeat(16000) + '</svg>',
+    '<svg viewBox="0 0 24 24"><path d="M0 0" ' + ' a="1"'.repeat(8000),
+    '<svg viewBox="0 0 24 24">' + '<g>'.repeat(5000) + '</svg>',
+    '<svg viewBox="0 0 24 24">' + '<g/>'.repeat(10000) + '</svg>',
+    '<svg viewBox="0 0 24 24"><defs>' + '<linearGradient id="a"><stop offset="0" stop-color="currentColor"/>'.repeat(1500) + '</defs></svg>'
+  ]
+  const t0 = performance.now()
+  for (const h of hostiles) assert.equal(normalizarSvg(h, 'x').ok, false)
+  const ms = performance.now() - t0
+  assert.ok(ms < 1500, 'los 10 archivos hostiles tardaron ' + Math.round(ms) + ' ms')
 })

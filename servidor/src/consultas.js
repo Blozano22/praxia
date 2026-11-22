@@ -392,7 +392,7 @@ export const Q = Object.freeze({
      ON CONFLICT (id) DO UPDATE SET tipo = EXCLUDED.tipo, svg = EXCLUDED.svg, viewbox = EXCLUDED.viewbox, hash = EXCLUDED.hash, categoria = EXCLUDED.categoria, subcategoria = EXCLUDED.subcategoria,
        nombre_es = EXCLUDED.nombre_es, nombre_en = EXCLUDED.nombre_en, etiquetas_es = EXCLUDED.etiquetas_es, etiquetas_en = EXCLUDED.etiquetas_en, descripcion = EXCLUDED.descripcion, prompt = EXCLUDED.prompt,
        estilo = EXCLUDED.estilo, tonos = EXCLUDED.tonos, conjunto = EXCLUDED.conjunto, subido_nombre = EXCLUDED.subido_nombre, actualizado = now()
-     RETURNING (xmax = 0) AS creado`,
+     RETURNING (xmax = 0) AS creado, (archivado_en IS NOT NULL) AS archivado`,
   icoDuplicado: `SELECT id FROM banco_iconos WHERE tipo = $1 AND hash = $2 AND id <> $3 AND archivado_en IS NULL LIMIT 1`,
   icoUno: `SELECT * FROM banco_iconos WHERE id = $1`,
   icoListar: `SELECT id, tipo, svg, categoria, subcategoria, nombre_es, nombre_en, etiquetas_es, etiquetas_en, descripcion, prompt, estilo, tonos, conjunto, subido_nombre, archivado_en, actualizado, count(*) OVER() AS total

@@ -774,6 +774,58 @@ test('banco de íconos: paquete validado ícono por ícono, edición, archivo y 
   assert.equal((await (await servicio('/lista?tipo=recurso')).json()).iconos.some((x) => x.id === 'ico-a'), true)
 })
 
+test('banco de íconos (auditoría): lo hostil no se guarda, vaciar datos funciona, la búsqueda ignora tildes y re-subir un archivado avisa', async () => {
+  const dani = await entrar('dani@u.co')
+  const dib = (n) => '<svg viewBox="0 0 24 24"><path d="M' + n + ' 20h2v2H' + n + 'z"/></svg>'
+  const meta = (id, n, extra = {}) => ({ id, svg: dib(n), tipo: 'recurso', nombre_es: 'Auditoría ' + n, nombre_en: 'Audit ' + n, etiquetas_es: ['análisis', 'revisión', 'calidad'], etiquetas_en: ['analysis', 'review', 'quality'],
+    descripcion: 'Un ícono de prueba para la auditoría del banco.', prompt: 'ícono de prueba', estilo: 'plano', tonos: 1, categoria: 'pruebas', subcategoria: 'auditoria', conjunto: 'serie-auditoria', ...extra })
+  const clave = { 'x-api-key': 'clave-del-banco' }
+  const servicio = (ruta) => fetch(base + '/api/banco-iconos' + ruta, { headers: clave })
+
+  // un paquete con ataques: se rechazan todos, con motivo, y nada de eso llega a la base; el bueno entra
+  const ataques = [
+    ['atq-comilla', `<svg viewBox="0 0 24 24"><path d="M0 0h5v5z" x='1" onmouseover="alert(1)'/></svg>`],
+    ['atq-script', `<svg viewBox="0 0 24 24"><script>alert(1)</script><path d="M0 0h5v5z"/></svg>`],
+    ['atq-evento', `<svg viewBox="0 0 24 24" onload="alert(1)"><path d="M0 0h5v5z"/></svg>`],
+    ['atq-href', `<svg viewBox="0 0 24 24"><path d="M0 0h5v5z" href="javascript:alert(1)"/></svg>`],
+    ['atq-color', `<svg viewBox="0 0 24 24"><path d="M0 0h5v5z" fill="#00ff00"/></svg>`]
+  ]
+  const paquete = { version: 1, iconos: [meta('aud-bueno', 1), ...ataques.map(([id, svg], i) => meta(id, 10 + i, { svg })), 'no soy un objeto', null, 42] }
+  const r = await dani('POST', '/iconos/paquete', paquete)
+  assert.equal(r.status, 200)
+  const j = await r.json()
+  assert.equal(j.creados, 1)
+  assert.equal(j.rechazados.length, 5 + 3)                                  // los 5 ataques y los 3 elementos que no son íconos
+  assert.deepEqual(j.rechazados.filter((x) => x.id.startsWith('atq-')).map((x) => x.id).sort(), ataques.map((a) => a[0]).sort())
+  const todos = await (await dani('GET', '/iconos?q=atq-')).json()
+  assert.equal(todos.total, 0)
+  const guardado = await (await servicio('/aud-bueno')).json()
+  assert.doesNotMatch(guardado.svg, /\son\w+\s*=|javascript:|href=|style=|<script/i)
+  assert.match(guardado.svg, /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" viewBox="0 0 24 24"/)
+  // un paquete de más de 400, o sin la versión, o que no es un objeto, se rechaza completo
+  assert.equal((await dani('POST', '/iconos/paquete', { version: 1, iconos: Array.from({ length: 401 }, (_, i) => ({ id: 'x' + i })) })).status, 400)
+  assert.equal((await dani('POST', '/iconos/paquete', { iconos: [meta('sin-version', 30)] })).status, 400)
+  assert.equal((await dani('POST', '/iconos/paquete', [])).status, 400)
+
+  // vaciar categoría, subcategoría y conjunto desde la edición (antes se ignoraba y se conservaba el valor anterior)
+  assert.equal((await dani('PUT', '/iconos/aud-bueno', { categoria: '', subcategoria: '   ', conjunto: '' })).status, 200)
+  const vacio = await (await servicio('/aud-bueno')).json()
+  assert.equal(vacio.categoria, null); assert.equal(vacio.subcategoria, null); assert.equal(vacio.conjunto, null)
+
+  // búsqueda sin tildes, en cualquiera de los dos idiomas
+  assert.equal((await (await servicio('/buscar?q=analisis&tipo=recurso')).json()).iconos.some((x) => x.id === 'aud-bueno'), true)
+  assert.equal((await (await servicio('/buscar?q=REVISION calidad')).json()).iconos[0].id, 'aud-bueno')
+  assert.equal((await (await servicio('/buscar?q=quality')).json()).iconos.some((x) => x.id === 'aud-bueno'), true)
+  assert.equal((await dani('GET', '/iconos?q=an%C3%A1lisis')).status, 200)
+  assert.equal((await (await dani('GET', '/iconos?q=100%25')).json()).total, 0)                     // un % del usuario no actúa como comodín
+
+  // volver a subir un ícono archivado lo actualiza pero sigue archivado: el paquete lo avisa
+  assert.equal((await dani('PUT', '/iconos/aud-bueno/archivo', { archivado: true })).status, 200)
+  const otra = await (await dani('POST', '/iconos/paquete', { version: 1, iconos: [meta('aud-bueno', 1, { nombre_es: 'Auditoría corregida' })] })).json()
+  assert.deepEqual([otra.actualizados, otra.siguenArchivados], [1, ['aud-bueno']])
+  assert.equal((await (await servicio('/lista?tipo=recurso')).json()).iconos.some((x) => x.id === 'aud-bueno'), false)
+})
+
 test('borrar una categoría deja sus plantillas sin categoría; si falla la base de datos se entrega el archivo del build tal cual', async () => {
   const dani = await entrar('dani@u.co')
   assert.equal((await dani('DELETE', '/plantillas/categorias/G-20')).status, 200)

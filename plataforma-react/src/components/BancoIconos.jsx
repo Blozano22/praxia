@@ -115,6 +115,7 @@ export default function BancoIconos({ puedeGestionar = false, aviso }) {
         <div className={'bi-res' + (resultado.rechazados.length ? ' con-errores' : '')} role="status">
           <b>{resultado.creados} nuevos · {resultado.actualizados} actualizados · {resultado.rechazados.length} rechazados</b> <span>de {resultado.total} del paquete</span>
           <button type="button" className="lnk" onClick={() => setResultado(null)}>Cerrar</button>
+          {(resultado.siguenArchivados || []).length > 0 && <p className="bi-arch-aviso">{resultado.siguenArchivados.length === 1 ? 'Un ícono actualizado sigue archivado' : resultado.siguenArchivados.length + ' íconos actualizados siguen archivados'} (no se ofrecen al flujo de H5P hasta que los restaures): {resultado.siguenArchivados.slice(0, 8).join(', ')}{resultado.siguenArchivados.length > 8 ? '…' : ''}</p>}
           {resultado.rechazados.length > 0 && <ul>{resultado.rechazados.map((r, i) => <li key={r.id + i}><b>{r.id}</b>: {r.motivo}</li>)}</ul>}
         </div>
       )}

@@ -24,7 +24,7 @@ const limiteServicio = rateLimit({ windowMs: 60 * 1000, limit: 600, keyGenerator
 // ---- forma de los datos
 const Id = z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'solo a-z, 0-9 y guiones').max(80)
 const Texto = (min, max) => z.string().trim().min(min).max(max)
-const Opc = (max) => z.preprocess((v) => (typeof v === 'string' && v.trim() === '' ? undefined : v), z.string().trim().max(max).nullish())
+const Opc = (max) => z.preprocess((v) => (typeof v === 'string' && v.trim() === '' ? null : v), z.string().trim().max(max).nullish()) // «» = vaciar el dato
 const Etiquetas = z.array(z.string().trim().min(1).max(40)).min(3, 'mínimo 3 etiquetas').max(12, 'máximo 12 etiquetas')
 const Meta = z.object({
   tipo: z.enum(['recurso', 'actividad']),
@@ -59,7 +59,7 @@ async function guardar(bruto, conjuntoPaquete, usuario) {
   const dup = (await sinUsuario(Q.icoDuplicado, [d.tipo, n.hash, d.id])).rows[0]
   if (dup) return { id: d.id, error: 'es el mismo dibujo que «' + dup.id + '», que ya está en el banco' }
   const u = await sinUsuario(Q.icoUpsert, [d.id, d.tipo, n.svg, n.viewBox, n.hash, nulo(d.categoria), nulo(d.subcategoria), d.nombre_es, d.nombre_en, d.etiquetas_es, d.etiquetas_en, d.descripcion, d.prompt, d.estilo, d.tonos, nulo(d.conjunto), usuario.nombre || ''])
-  return { id: d.id, creado: !!u.rows[0].creado }
+  return { id: d.id, creado: !!u.rows[0].creado, archivado: !!u.rows[0].archivado }
 }
 const salida = (f) => ({ id: f.id, tipo: f.tipo, svg: f.svg, categoria: f.categoria, subcategoria: f.subcategoria, nombre_es: f.nombre_es, nombre_en: f.nombre_en, etiquetas_es: f.etiquetas_es, etiquetas_en: f.etiquetas_en,
   descripcion: f.descripcion, prompt: f.prompt, estilo: f.estilo, tonos: f.tonos, conjunto: f.conjunto, por: f.subido_nombre || null, archivado: !!f.archivado_en, archivadoEn: f.archivado_en || null, actualizado: f.actualizado })
@@ -88,12 +88,13 @@ rutasIconos.post('/paquete', exigirSesion, puedeEscribir, limiteEscribir, valida
     const { conjunto, iconos } = req.bodyOk
     let creados = 0, actualizados = 0
     const rechazados = []
+    const siguenArchivados = []
     for (const bruto of iconos) {
       const r = await guardar(bruto, conjunto, req.usuario)
-      if (r.error) rechazados.push({ id: r.id, motivo: r.error }); else if (r.creado) creados++; else actualizados++
+      if (r.error) rechazados.push({ id: r.id, motivo: r.error }); else { if (r.creado) creados++; else actualizados++; if (r.archivado) siguenArchivados.push(r.id) }
     }
     await auditar(req.usuario.id, 'icono_paquete', conjunto || 'sin-conjunto', req)
-    res.json({ ok: true, total: iconos.length, creados, actualizados, rechazados })
+    res.json({ ok: true, total: iconos.length, creados, actualizados, rechazados, siguenArchivados })
   } catch (e) { next(e) }
 })
 
