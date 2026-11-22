@@ -93,12 +93,16 @@ export default function SubirVariante({ cats, clase = '', formacion = '', catego
     if (nueva !== formSel) setFormSel(nueva)
   }, [categoria, revs, items]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Al cambiar de categoría se empieza sin tipo (si la ficha del archivo lo dice, el efecto de abajo lo vuelve a elegir).
+  useEffect(() => { if (!tipoManual) setTipoSel('') }, [categoria]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Tipo del grupo (actividades): el que diga la ficha del primer archivo que lo traiga, salvo que la persona lo haya elegido.
+  // Solo se SUBE a un tipo cuando la ficha lo dice; nunca se vuelve a vaciar mientras se revisa. Antes, al elegirse el tipo se pedía otra revisión (la clave de la revisión lleva el tipo),
+  // la revisión nueva aún no traía la ficha, el tipo se vaciaba solo, se volvía a pedir… y la pantalla oscilaba sin parar (cientos de peticiones y todo se movía).
   useEffect(() => {
     if (!esActividad || tipoManual) return
     const d = items.map((i) => revs[i.id] && revs[i.id].ficha && revs[i.id].ficha.calificable).find((x) => typeof x === 'boolean')
-    const nuevo = typeof d === 'boolean' ? (d ? 'c' : 'p') : ''
-    if (nuevo !== tipoSel) setTipoSel(nuevo)
+    if (typeof d === 'boolean') { const nuevo = d ? 'c' : 'p'; if (nuevo !== tipoSel) setTipoSel(nuevo) } else if (!items.length && tipoSel) setTipoSel('')
   }, [categoria, revs, items]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Si no hay categoría elegida y el primer archivo con ficha trae «Categoría Praxia», se preselecciona (nunca se cambia una ya elegida).
