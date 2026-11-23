@@ -475,7 +475,7 @@ export const Q = Object.freeze({
     INSERT INTO bib_trabajos (propietario_id, proyecto_id, estado, total, syllabus_doc) VALUES ($1, $2, 'pendiente', $3, $4) RETURNING id`,
   // La lectura más reciente de ese documento (de los últimos 14 días) para retomarla desde cualquier pestaña o equipo.
   bibTrabajoPorDoc: `
-    SELECT id, estado, creado FROM bib_trabajos
+    SELECT id, estado, creado, actualizado FROM bib_trabajos
      WHERE propietario_id = $1 AND syllabus_doc = $2 AND creado > now() - interval '14 days'
      ORDER BY creado DESC LIMIT 1`,
   bibTrabajoActualizar: `

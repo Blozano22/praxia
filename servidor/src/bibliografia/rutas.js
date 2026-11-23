@@ -8,7 +8,7 @@ import { Q } from '../consultas.js'
 import { exigirPermiso, exigirSesion } from '../seguridad.js'
 import { extraerEntradas, parseEntrada } from './entrada.js'
 import express from 'express'
-import { correrTrabajo, leerArchivoSubido } from './orquestador.js'
+import { correrTrabajo, esHuerfana, leerArchivoSubido } from './orquestador.js'
 import { aHtml, asignarLetras, citaEnTexto, listaDeReferencias, referencia } from './apa.js'
 
 export const rutasBibliografia = Router()
@@ -111,7 +111,8 @@ const QueryPorSyllabus = z.object({ url: z.string().max(500).regex(/^https:\/\/d
 rutasBibliografia.get('/trabajos/por-syllabus', limiteLeer, validar(QueryPorSyllabus, 'query'), async (req, res, next) => {
   try {
     const f = await conUsuario(req.usuario, async (cx) => (await cx.query(Q.bibTrabajoPorDoc, [req.usuario.id, idDoc(req.queryOk.url)])).rows[0])
-    if (!f) return res.status(404).json({ error: 'No encontrado' })
+    // Una lectura que quedó a medias porque el servidor se reinició no se retoma: se lee de nuevo.
+    if (!f || esHuerfana(f)) return res.status(404).json({ error: 'No encontrado' })
     res.json(f)
   } catch (e) { next(e) }
 })
@@ -129,6 +130,7 @@ rutasBibliografia.get('/trabajos/:id', limiteLeer, validar(z.object({ id: Id }),
       return { ...t, fuentes: lista }
     })
     if (!salida) return res.status(404).json({ error: 'No encontrado' })
+    if (esHuerfana(salida)) { salida.estado = 'error'; salida.detalle = 'La lectura se interrumpió porque el servidor se reinició' }
     res.json(salida)
   } catch (e) { next(e) }
 })

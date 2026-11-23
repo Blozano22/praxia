@@ -216,7 +216,14 @@ export async function leerArchivoSubido(usuario, fuenteId, datos, nombre) {
 
 // Corre un trabajo completo: cada fuente en su turno (de una en una, con respeto al servidor remoto) y al final
 // fija las citas de todas juntas (así «2020a» y «2020b» salen bien).
+// Lecturas que este proceso está corriendo ahora. Si el servidor se reinicia a mitad de una lectura, la fila queda «procesando» para
+// siempre; quien consulta compara con este conjunto (y con la última actualización) para saber que quedó huérfana.
+export const activos = new Set()
+export const MARGEN_HUERFANA_MS = 90 * 1000
+export const esHuerfana = (t) => Boolean(t) && (t.estado === 'pendiente' || t.estado === 'procesando') && !activos.has(t.id) && Date.now() - new Date(t.actualizado || t.creado).getTime() > MARGEN_HUERFANA_MS
+
 export async function correrTrabajo(usuario, trabajoId, ctx = {}) {
+  activos.add(trabajoId)
   const uid = usuario.id
   let resueltas = 0
   let fallidas = 0
@@ -238,5 +245,7 @@ export async function correrTrabajo(usuario, trabajoId, ctx = {}) {
     await marcar('listo')
   } catch (e) {
     await marcar('error', String(e.message).slice(0, 400))
+  } finally {
+    activos.delete(trabajoId)
   }
 }

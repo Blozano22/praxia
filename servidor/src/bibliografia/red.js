@@ -99,7 +99,7 @@ const agente = () => {
 }
 
 // fetch normal; si falla por cadena incompleta, completa los intermedios y reintenta una vez (con la verificación activa).
-async function pedir(u, opciones) {
+async function pedir(u, opciones, tiempoMs = 25000) {
   const usaIntermedios = intermedios.size > 0
   try {
     return await fetch(u, usaIntermedios ? { ...opciones, dispatcher: agente() } : opciones)
@@ -109,16 +109,16 @@ async function pedir(u, opciones) {
     let ok = false
     try { ok = await aprenderIntermedios(u.hostname.replace(/^\[|\]$/g, ''), u.port) } catch { ok = false }
     if (!ok && !usaIntermedios) throw e
-    return fetch(u, { ...opciones, dispatcher: agente(), signal: AbortSignal.timeout(25000) })
+    return fetch(u, { ...opciones, dispatcher: agente(), signal: AbortSignal.timeout(tiempoMs) })
   }
 }
 
 // Devuelve { url (final), estado, tipo, datos (Buffer) }. Lanza Error con un mensaje claro si no se puede.
-export async function descargar(texto, { maxBytes = MAX_BYTES, tiempoMs = 25000, aceptar = '*/*' } = {}) {
+export async function descargar(texto, { maxBytes = MAX_BYTES, tiempoMs = 90000, aceptar = '*/*' } = {}) {
   let url = texto
   for (let salto = 0; salto < 5; salto++) {
     const u = await validarDestino(url)
-    const r = await pedir(u, { redirect: 'manual', signal: AbortSignal.timeout(tiempoMs), headers: { 'user-agent': UA, accept: aceptar, 'accept-language': 'es,en;q=0.8' } })
+    const r = await pedir(u, { redirect: 'manual', signal: AbortSignal.timeout(tiempoMs), headers: { 'user-agent': UA, accept: aceptar, 'accept-language': 'es,en;q=0.8' } }, tiempoMs)
     if (r.status >= 300 && r.status < 400 && r.headers.get('location')) { url = new URL(r.headers.get('location'), u).href; continue }
     const largo = Number(r.headers.get('content-length') || 0)
     if (largo > maxBytes) throw new Error('El archivo es demasiado grande')

@@ -24,7 +24,13 @@ function resumen(w) {
   for (const l of [w.best_oa_location, ...(w.locations || [])]) if (l && l.pdf_url) pdfs.add(l.pdf_url)
   const oa = (w.open_access && w.open_access.oa_url) || ''
   if (oa && !pdfs.size) pdfs.add(oa)
-  return { doi: String(w.doi || '').replace(/^https?:\/\/doi\.org\//i, '').toLowerCase(), titulo: w.title || '', anio: w.publication_year ? String(w.publication_year) : '', pdfs: [...pdfs].slice(0, 4) }
+  // Si el PDF directo de un repositorio no responde (cortes, bloqueos), la página de otra copia abierta sirve: casi todos los
+  // repositorios (DSpace, DiVA, TU Delft…) declaran ahí el enlace del PDF y el lector lo sigue. Solo copias marcadas como abiertas.
+  const paginas = new Set()
+  for (const l of [w.best_oa_location, ...(w.locations || [])]) {
+    if (l && l.is_oa && l.landing_page_url && !l.pdf_url && !/^https?:\/\/(?:dx\.)?doi\.org\//i.test(l.landing_page_url)) paginas.add(l.landing_page_url)
+  }
+  return { doi: String(w.doi || '').replace(/^https?:\/\/doi\.org\//i, '').toLowerCase(), titulo: w.title || '', anio: w.publication_year ? String(w.publication_year) : '', pdfs: [...pdfs, ...paginas].slice(0, 6) }
 }
 
 export async function porDoi(doi) {
