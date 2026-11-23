@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../lib/api.js'
+import { promptGenerar, promptModificar } from '../lib/promptIconos.js'
 import './banco-iconos.css'
 
 // Banco de íconos: SVG reemplazables que el flujo de H5P coloca en los campos «icono» de las plantillas. Se suben en un paquete .json (o uno a uno), se ven con el color de cada
@@ -9,7 +10,6 @@ const FORMACIONES = [['tecnologico', 'Tecnológico', '#00665F'], ['profesional',
 const POR_PAGINA = 60
 const TIPOS = [['', 'Todos'], ['recurso', 'Recursos'], ['actividad', 'Actividades']]
 const ESTADOS = [['activos', 'Activos'], ['archivados', 'Archivados'], ['todos', 'Todos']]
-const formVacio = () => ({ id: '', tipo: 'recurso', nombre_es: '', nombre_en: '', etiquetas_es: '', etiquetas_en: '', descripcion: '', prompt: '', estilo: '', tonos: '1', conjunto: '', categoria: '', subcategoria: '', svg: '' })
 const comas = (t) => String(t || '').split(',').map((x) => x.trim()).filter(Boolean)
 const aForm = (i) => ({ id: i.id, tipo: i.tipo, nombre_es: i.nombre_es, nombre_en: i.nombre_en, etiquetas_es: (i.etiquetas_es || []).join(', '), etiquetas_en: (i.etiquetas_en || []).join(', '), descripcion: i.descripcion,
   prompt: i.prompt, estilo: i.estilo, tonos: String(i.tonos), conjunto: i.conjunto || '', categoria: i.categoria || '', subcategoria: i.subcategoria || '', svg: '' })
@@ -54,7 +54,8 @@ export default function BancoIconos({ puedeGestionar = false, aviso }) {
   const [ocupado, setOcupado] = useState(false)
   const [color, setColor] = useState(0)
   const [resultado, setResultado] = useState(null)
-  const [nuevo, setNuevo] = useState(null)
+  const [ia, setIa] = useState(null) // panel «generar con IA»: { tipo, estilo, conjunto, tonos, relieve, pedido }
+  const [copiado, setCopiado] = useState('')
   const [edit, setEdit] = useState(null)
   const entrada = useRef(null)
 
@@ -92,7 +93,14 @@ export default function BancoIconos({ puedeGestionar = false, aviso }) {
     setOcupado(false)
   }
   const leerSvg = (f) => leerArchivo(f, 200 * 1024)
-  const crear = () => hacer(async () => { await api('POST', '/iconos', aCuerpo(nuevo, true)); setNuevo(null) }, 'Ícono añadido')
+  const copiar = async (texto, clave) => {
+    try { await navigator.clipboard.writeText(texto) } catch {
+      const t = document.createElement('textarea'); t.value = texto; t.style.position = 'fixed'; t.style.opacity = '0'; document.body.appendChild(t); t.select()
+      try { document.execCommand('copy') } catch { setError('No se pudo copiar. Seleccione el texto y cópielo con Ctrl+C.'); t.remove(); return }
+      t.remove()
+    }
+    setCopiado(clave); setTimeout(() => setCopiado((c) => (c === clave ? '' : c)), 2500)
+  }
   const guardar = () => hacer(async () => { await api('PUT', '/iconos/' + encodeURIComponent(edit.id), aCuerpo(edit, false)); setEdit(null) }, 'Ícono guardado')
   const archivar = (i, v) => hacer(() => api('PUT', '/iconos/' + encodeURIComponent(i.id) + '/archivo', { archivado: v }), v ? 'Ícono archivado' : 'Ícono restaurado')
   const vista = { color: FORMACIONES[color][2], '--ico-2': '#142749' }
@@ -106,8 +114,8 @@ export default function BancoIconos({ puedeGestionar = false, aviso }) {
         <div className="bi-acciones">
           <input ref={entrada} type="file" accept=".json,application/json" hidden onChange={(e) => { const f = e.target.files && e.target.files[0]; e.target.value = ''; subirPaquete(f) }} />
           <button type="button" className="btn" disabled={ocupado} onClick={() => entrada.current && entrada.current.click()}>Subir un paquete (.json)</button>
-          <button type="button" className="btn sec" disabled={ocupado} onClick={() => setNuevo(nuevo ? null : formVacio())}>{nuevo ? 'Cancelar' : 'Añadir uno a mano'}</button>
-          <span className="help">Un paquete trae varios íconos con su SVG y sus datos; cada uno se valida por separado.</span>
+          <button type="button" className="btn sec" disabled={ocupado} onClick={() => setIa(ia ? null : { tipo: 'recurso', estilo: '', conjunto: '', tonos: '1', relieve: false, pedido: '' })}>{ia ? 'Cerrar' : 'Generar íconos con IA'}</button>
+          <span className="help">Un paquete trae varios íconos con su SVG y sus datos; cada uno se valida por separado. Para crearlos, use «Generar íconos con IA».</span>
         </div>
       )}
 
@@ -115,16 +123,26 @@ export default function BancoIconos({ puedeGestionar = false, aviso }) {
         <div className={'bi-res' + (resultado.rechazados.length ? ' con-errores' : '')} role="status">
           <b>{resultado.creados} nuevos · {resultado.actualizados} actualizados · {resultado.rechazados.length} rechazados</b> <span>de {resultado.total} del paquete</span>
           <button type="button" className="lnk" onClick={() => setResultado(null)}>Cerrar</button>
+          {(resultado.renombrados || []).length > 0 && <p className="bi-arch-aviso">{resultado.renombrados.length === 1 ? 'Un ícono traía un id que ya usa otro dibujo' : resultado.renombrados.length + ' íconos traían un id que ya usa otro dibujo'}: se guardaron los dos, el nuevo con otro id ({resultado.renombrados.slice(0, 6).map((x) => x.id + ' → ' + x.como).join(', ')}{resultado.renombrados.length > 6 ? '…' : ''}).</p>}
           {(resultado.siguenArchivados || []).length > 0 && <p className="bi-arch-aviso">{resultado.siguenArchivados.length === 1 ? 'Un ícono actualizado sigue archivado' : resultado.siguenArchivados.length + ' íconos actualizados siguen archivados'} (no se ofrecen al flujo de H5P hasta que los restaures): {resultado.siguenArchivados.slice(0, 8).join(', ')}{resultado.siguenArchivados.length > 8 ? '…' : ''}</p>}
           {resultado.rechazados.length > 0 && <ul>{resultado.rechazados.map((r, i) => <li key={r.id + i}><b>{r.id}</b>: {r.motivo}</li>)}</ul>}
         </div>
       )}
 
-      {puedeGestionar && nuevo && (
+      {puedeGestionar && ia && (
         <div className="bi-panel">
-          <h3>Añadir un ícono</h3>
-          <Campos f={nuevo} set={setNuevo} nuevo leerSvg={leerSvg} />
-          <div className="bi-btns"><button type="button" className="btn" disabled={ocupado} onClick={crear}>Añadir al banco</button><button type="button" className="btn sec" onClick={() => setNuevo(null)}>Cancelar</button></div>
+          <h3>Generar íconos con IA</h3>
+          <p className="help">Rellene lo que necesita y copie el prompt: ya trae todas las reglas del banco. Péguelo en su agente de IA (por ejemplo Claude o ChatGPT); le devolverá un archivo JSON que se sube con «Subir un paquete».</p>
+          <div className="bi-form">
+            <label>Tipo<select value={ia.tipo} onChange={(e) => setIa({ ...ia, tipo: e.target.value })}><option value="recurso">Recurso</option><option value="actividad">Actividad</option></select></label>
+            <label>Estilo<input value={ia.estilo} placeholder={ia.relieve ? 'relieve' : 'lineal'} maxLength={40} onChange={(e) => setIa({ ...ia, estilo: e.target.value })} list="bi-estilos" /><datalist id="bi-estilos">{estilos.map((x) => <option key={x} value={x} />)}</datalist></label>
+            <label>Conjunto (nombre del lote)<input value={ia.conjunto} placeholder="serie-2" maxLength={40} onChange={(e) => setIa({ ...ia, conjunto: e.target.value })} /></label>
+            <label>Tonos<select value={ia.tonos} onChange={(e) => setIa({ ...ia, tonos: e.target.value })}><option value="1">1 (un color)</option><option value="2">2 (principal y secundario)</option></select></label>
+            <label className="ancho bi-check"><span><input type="checkbox" checked={ia.relieve} onChange={(e) => setIa({ ...ia, relieve: e.target.checked })} /> Con relieve (degradados, brillos y sombras, sin colores fijos)</span></label>
+            <label className="ancho">Íconos que necesita (opcional: si lo deja vacío, el prompt trae un espacio para escribirlo en el agente)<textarea rows={3} value={ia.pedido} onChange={(e) => setIa({ ...ia, pedido: e.target.value })} placeholder="candado, escudo, lupa, bombilla, gráfico de barras…" /></label>
+          </div>
+          <textarea className="bi-prompt" readOnly rows={8} value={promptGenerar({ ...ia, tonos: Number(ia.tonos) })} onFocus={(e) => e.target.select()} aria-label="Prompt para generar los íconos" />
+          <div className="bi-btns"><button type="button" className="btn" onClick={() => copiar(promptGenerar({ ...ia, tonos: Number(ia.tonos) }), 'generar')}>{copiado === 'generar' ? 'Copiado ✓' : 'Copiar prompt'}</button><span className="help">Luego suba el archivo que le devuelva el agente con «Subir un paquete (.json)».</span></div>
         </div>
       )}
 
@@ -155,6 +173,7 @@ export default function BancoIconos({ puedeGestionar = false, aviso }) {
               <div className="bi-btns">
                 <button type="button" className="lnk" disabled={ocupado} onClick={() => setEdit(aForm(i))}>Editar</button>
                 <button type="button" className="lnk" disabled={ocupado} onClick={() => archivar(i, !i.archivado)}>{i.archivado ? 'Restaurar' : 'Archivar'}</button>
+                <button type="button" className="lnk" title="Copia un prompt con los datos y el SVG de este ícono para pedirle a un agente de IA que lo modifique" onClick={() => copiar(promptModificar(i), i.id)}>{copiado === i.id ? 'Copiado ✓' : 'Copiar para modificar con IA'}</button>
               </div>
             )}
           </li>

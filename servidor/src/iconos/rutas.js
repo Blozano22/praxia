@@ -54,12 +54,30 @@ async function guardar(bruto, conjuntoPaquete, usuario) {
   const r = IconoNuevo.safeParse({ ...(bruto || {}), conjunto: bruto && bruto.conjunto !== undefined ? bruto.conjunto : conjuntoPaquete })
   if (!r.success) return { id, error: resumen(r.error) }
   const d = r.data
-  const n = normalizarSvg(d.svg, d.id)
+  let n = normalizarSvg(d.svg, d.id)
   if (!n.ok) return { id: d.id, error: 'SVG: ' + n.error }
+  // La identidad de un ícono es su DIBUJO: el mismo dibujo con el mismo id solo actualiza sus datos (subir dos veces el mismo archivo no duplica), pero un id que ya usa OTRO
+  // dibujo NUNCA se reemplaza: el nuevo se guarda con un id libre (lapiz → lapiz-2, lapiz-3…) y se avisa. Para reemplazar un dibujo hay que hacerlo a propósito desde «Editar».
+  let destino = d.id
   const dup = (await sinUsuario(Q.icoDuplicado, [d.tipo, n.hash, d.id])).rows[0]
-  if (dup) return { id: d.id, error: 'es el mismo dibujo que «' + dup.id + '», que ya está en el banco' }
-  const u = await sinUsuario(Q.icoUpsert, [d.id, d.tipo, n.svg, n.viewBox, n.hash, nulo(d.categoria), nulo(d.subcategoria), d.nombre_es, d.nombre_en, d.etiquetas_es, d.etiquetas_en, d.descripcion, d.prompt, d.estilo, d.tonos, nulo(d.conjunto), usuario.nombre || ''])
-  return { id: d.id, creado: !!u.rows[0].creado, archivado: !!u.rows[0].archivado }
+  if (dup) {
+    if (!(dup.id.startsWith(d.id + '-') && /^\d+$/.test(dup.id.slice(d.id.length + 1)))) return { id: d.id, error: 'es el mismo dibujo que «' + dup.id + '», que ya está en el banco' }
+    destino = dup.id                                           // ya se había guardado antes con un id libre: es el mismo ícono
+  } else {
+    const previo = (await sinUsuario(Q.icoUno, [d.id])).rows[0]
+    if (previo && !(previo.hash === n.hash && previo.tipo === d.tipo)) {
+      destino = null
+      for (let k = 2; k <= 60 && !destino; k++) {
+        const cand = d.id.slice(0, 80 - String(k).length - 1) + '-' + k
+        const otro = (await sinUsuario(Q.icoUno, [cand])).rows[0]
+        if (!otro || (otro.hash === n.hash && otro.tipo === d.tipo)) destino = cand
+      }
+      if (!destino) return { id: d.id, error: 'el id «' + d.id + '» ya lo usa otro dibujo y no se encontró un id libre; cambie el id' }
+    }
+  }
+  if (destino !== d.id) { n = normalizarSvg(d.svg, destino); if (!n.ok) return { id: d.id, error: 'SVG: ' + n.error } }   // los id internos del SVG llevan el id final como prefijo
+  const u = await sinUsuario(Q.icoUpsert, [destino, d.tipo, n.svg, n.viewBox, n.hash, nulo(d.categoria), nulo(d.subcategoria), d.nombre_es, d.nombre_en, d.etiquetas_es, d.etiquetas_en, d.descripcion, d.prompt, d.estilo, d.tonos, nulo(d.conjunto), usuario.nombre || ''])
+  return { id: d.id, destino, creado: !!u.rows[0].creado, archivado: !!u.rows[0].archivado }
 }
 const salida = (f) => ({ id: f.id, tipo: f.tipo, svg: f.svg, categoria: f.categoria, subcategoria: f.subcategoria, nombre_es: f.nombre_es, nombre_en: f.nombre_en, etiquetas_es: f.etiquetas_es, etiquetas_en: f.etiquetas_en,
   descripcion: f.descripcion, prompt: f.prompt, estilo: f.estilo, tonos: f.tonos, conjunto: f.conjunto, por: f.subido_nombre || null, archivado: !!f.archivado_en, archivadoEn: f.archivado_en || null, actualizado: f.actualizado })
@@ -89,12 +107,13 @@ rutasIconos.post('/paquete', exigirSesion, puedeEscribir, limiteEscribir, valida
     let creados = 0, actualizados = 0
     const rechazados = []
     const siguenArchivados = []
+    const renombrados = []
     for (const bruto of iconos) {
       const r = await guardar(bruto, conjunto, req.usuario)
-      if (r.error) rechazados.push({ id: r.id, motivo: r.error }); else { if (r.creado) creados++; else actualizados++; if (r.archivado) siguenArchivados.push(r.id) }
+      if (r.error) rechazados.push({ id: r.id, motivo: r.error }); else { if (r.creado) creados++; else actualizados++; if (r.archivado) siguenArchivados.push(r.id); if (r.destino !== r.id) renombrados.push({ id: r.id, como: r.destino }) }
     }
     await auditar(req.usuario.id, 'icono_paquete', conjunto || 'sin-conjunto', req)
-    res.json({ ok: true, total: iconos.length, creados, actualizados, rechazados, siguenArchivados })
+    res.json({ ok: true, total: iconos.length, creados, actualizados, rechazados, siguenArchivados, renombrados })
   } catch (e) { next(e) }
 })
 

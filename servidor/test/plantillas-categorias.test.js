@@ -824,6 +824,27 @@ test('banco de íconos (auditoría): lo hostil no se guarda, vaciar datos funcio
   const otra = await (await dani('POST', '/iconos/paquete', { version: 1, iconos: [meta('aud-bueno', 1, { nombre_es: 'Auditoría corregida' })] })).json()
   assert.deepEqual([otra.actualizados, otra.siguenArchivados], [1, ['aud-bueno']])
   assert.equal((await (await servicio('/lista?tipo=recurso')).json()).iconos.some((x) => x.id === 'aud-bueno'), false)
+
+  // el mismo id con OTRO dibujo (dos personas suben un «lápiz» distinto): NO se reemplaza, se guardan los dos; el nuevo recibe un id libre y el paquete lo avisa
+  const mismo = await (await dani('POST', '/iconos/paquete', { version: 1, iconos: [meta('aud-bueno', 1)] })).json()
+  assert.deepEqual([mismo.renombrados, mismo.actualizados], [[], 1])                       // el mismo dibujo con el mismo id solo actualiza
+  const otroDibujo = await (await dani('POST', '/iconos/paquete', { version: 1, iconos: [meta('aud-bueno', 7)] })).json()
+  assert.deepEqual([otroDibujo.creados, otroDibujo.actualizados, otroDibujo.renombrados], [1, 0, [{ id: 'aud-bueno', como: 'aud-bueno-2' }]])
+  const orig = await (await servicio('/aud-bueno')).json(); const nuevo2 = await (await servicio('/aud-bueno-2')).json()
+  assert.notEqual(orig.svg, nuevo2.svg)                                                      // el original sigue intacto
+  assert.match(nuevo2.svg, /<svg/); assert.equal(nuevo2.tipo, 'recurso')
+  // un tercero con el mismo id y otro dibujo más: aud-bueno-3; y subir otra vez el mismo archivo no duplica nada
+  const tercero = await (await dani('POST', '/iconos/paquete', { version: 1, iconos: [meta('aud-bueno', 9)] })).json()
+  assert.deepEqual(tercero.renombrados, [{ id: 'aud-bueno', como: 'aud-bueno-3' }])
+  const total = (await (await dani('GET', '/iconos?estado=todos&q=Auditor')).json()).total
+  const repetido = await (await dani('POST', '/iconos/paquete', { version: 1, iconos: [meta('aud-bueno', 7), meta('aud-bueno', 9)] })).json()
+  assert.deepEqual([repetido.creados, repetido.actualizados, repetido.rechazados.length], [0, 2, 0])
+  assert.equal((await (await dani('GET', '/iconos?estado=todos&q=Auditor')).json()).total, total)
+  // los degradados de dos íconos con el mismo id de origen no chocan en la página: cada svg prefija con SU id final
+  const g1 = await dani('POST', '/iconos/paquete', { version: 1, iconos: [meta('degr', 3, { svg: '<svg viewBox="0 0 24 24"><defs><linearGradient id="g"><stop offset="0" stop-color="currentColor"/></linearGradient></defs><path d="M2 2h5v5z" fill="url(#g)"/></svg>' }),
+    meta('degr', 4, { svg: '<svg viewBox="0 0 24 24"><defs><linearGradient id="g"><stop offset="0" stop-color="currentColor" stop-opacity=".5"/></linearGradient></defs><path d="M9 9h5v5z" fill="url(#g)"/></svg>' })] })
+  assert.deepEqual((await g1.json()).renombrados, [{ id: 'degr', como: 'degr-2' }])
+  assert.match((await (await servicio('/degr')).json()).svg, /id="degr-g"/); assert.match((await (await servicio('/degr-2')).json()).svg, /id="degr-2-g"/)
 })
 
 test('borrar una categoría deja sus plantillas sin categoría; si falla la base de datos se entrega el archivo del build tal cual', async () => {
