@@ -26,7 +26,7 @@ before(async () => {
   dueno = new pg.Client({ connectionString: `postgres://postgres:duenio@localhost:${PUERTO_PG}/ova` })
   await dueno.connect()
   await dueno.query("CREATE ROLE ova_app LOGIN PASSWORD 'appclave' NOSUPERUSER NOBYPASSRLS")
-  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
+  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
   await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', '005_asignacion_variantes.sql'), 'utf8')) // volver a migrar no repite ni pisa nada
   process.env.DATABASE_URL = `postgres://ova_app:appclave@localhost:${PUERTO_PG}/ova`
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex')
@@ -101,33 +101,35 @@ test('la firma protege las dos rutas y el trabajo_id decide persona y curso', as
   assert.equal((await filas()).length, 0) // nada de lo rechazado quedó guardado
 })
 
-test('reparte solo entre las aprobadas de la formación, sin repetir en el curso (tampoco entre unidades); lo asignado no cambia al volver a pedir', async () => {
+test('reparte solo entre las aprobadas de la formación, sin repetir dentro de cada UNIDAD (la misma variante sí puede estar en otra unidad); lo asignado no cambia al volver a pedir', async () => {
   await categoria('TST-01')
   await categoria('TST-02') // existe, pero ningún recurso tiene aún asignada una variante de ella
   await variante('tst-01-v01', 'TST-01', 'tecnologico', 'aprobada')
   await variante('tst-01-v02', 'TST-01', 'tecnologico', 'aprobada')
   await variante('tst-01-v03', 'TST-01', 'tecnologico', 'revision') // aún no aprobada
   await variante('tst-01-v04', 'TST-01', 'doctorado', 'aprobada') // aprobada, pero de otra formación
-  const pedido = [rec('U1-T1-R1', 'TST-01'), rec('U1-T1-R2', 'TST-01'), rec('U2-T1-R1', 'TST-01', { unidad: 2 })]
+  const pedido = [rec('U1-T1-R1', 'TST-01'), rec('U1-T1-R2', 'TST-01'), rec('U1-T1-R3', 'TST-01'), rec('U2-T1-R1', 'TST-01', { unidad: 2 })]
   const r = await pedir(pedido)
   assert.equal(r.estado, 200)
   const p = porCodigo(r.datos)
   assert.equal(p['U1-T1-R1'].resultado, 'asignada'); assert.equal(p['U1-T1-R1'].plantilla, 'tst-01-v01')
   assert.equal(p['U1-T1-R2'].plantilla, 'tst-01-v02')
-  // hay más recursos que variantes elegibles: «sin variante» se dice, no se inventa ni se repite
-  assert.equal(p['U2-T1-R1'].resultado, 'pendiente'); assert.equal(p['U2-T1-R1'].plantilla, null); assert.equal(p['U2-T1-R1'].motivo, 'variantes_agotadas')
-  assert.deepEqual(r.datos.resumen, { asignadas: 2, ya_asignadas: 0, pendientes: 1, conflictos: 0, errores: 0 })
+  // en la unidad 1 hay más recursos que variantes elegibles: «sin variante» se dice, no se inventa ni se repite
+  assert.equal(p['U1-T1-R3'].resultado, 'pendiente'); assert.equal(p['U1-T1-R3'].plantilla, null); assert.equal(p['U1-T1-R3'].motivo, 'variantes_agotadas')
+  // la unidad 2 reparte desde cero: la misma variante que usa la unidad 1 está libre en ella
+  assert.equal(p['U2-T1-R1'].resultado, 'asignada'); assert.equal(p['U2-T1-R1'].plantilla, 'tst-01-v01')
+  assert.deepEqual(r.datos.resumen, { asignadas: 3, ya_asignadas: 0, pendientes: 1, conflictos: 0, errores: 0 })
   const bd = Object.fromEntries((await filas()).map((f) => [f.codigo, f]))
-  assert.equal(bd['U2-T1-R1'].estado, 'pendiente'); assert.equal(bd['U2-T1-R1'].unidad, 2); assert.equal(bd['U1-T1-R1'].id_catalogo, 'TST-01-A') // el id de catálogo se repite entre recursos: no es clave
+  assert.equal(bd['U1-T1-R3'].estado, 'pendiente'); assert.equal(bd['U1-T1-R3'].unidad, 1); assert.equal(bd['U2-T1-R1'].unidad, 2); assert.equal(bd['U1-T1-R1'].id_catalogo, 'TST-01-A') // el id de catálogo se repite entre recursos: no es clave
   // volver a pedir lo mismo no cambia nada de lo asignado
   const r2 = await pedir(pedido)
   const p2 = porCodigo(r2.datos)
   assert.equal(p2['U1-T1-R1'].resultado, 'ya_asignada'); assert.equal(p2['U1-T1-R1'].plantilla, 'tst-01-v01'); assert.equal(p2['U1-T1-R2'].resultado, 'ya_asignada')
-  assert.equal(p2['U2-T1-R1'].resultado, 'pendiente')
+  assert.equal(p2['U1-T1-R3'].resultado, 'pendiente'); assert.equal(p2['U2-T1-R1'].resultado, 'ya_asignada')
   // al aprobarse otra variante, lo pendiente se resuelve en la siguiente petición y lo ya asignado sigue igual
   await aprobar('tst-01-v03')
   const p3 = porCodigo((await pedir(pedido)).datos)
-  assert.equal(p3['U2-T1-R1'].resultado, 'asignada'); assert.equal(p3['U2-T1-R1'].plantilla, 'tst-01-v03')
+  assert.equal(p3['U1-T1-R3'].resultado, 'asignada'); assert.equal(p3['U1-T1-R3'].plantilla, 'tst-01-v03'); assert.equal(p3['U2-T1-R1'].plantilla, 'tst-01-v01')
   assert.equal(p3['U1-T1-R1'].plantilla, 'tst-01-v01'); assert.equal(p3['U1-T1-R2'].plantilla, 'tst-01-v02')
   // el mismo código no puede pasar a otra categoría sin orden explícita
   const c = porCodigo((await pedir([rec('U1-T1-R1', 'TST-02')])).datos)
@@ -149,18 +151,24 @@ test('motivos claros cuando no hay variante: categoría inexistente, de otra for
   assert.equal(porCodigo((await pedir([rec('U1-T2-R4', 'TST-04')])).datos)['U1-T2-R4'].motivo, 'categoria_sin_variantes')
 })
 
-test('unidades pedidas a la vez: la base garantiza que ninguna variante se repite en el curso', async () => {
+test('unidades pedidas a la vez: la base garantiza que ninguna variante se repite DENTRO DE UNA UNIDAD', async () => {
   await categoria('TST-05')
   for (const n of [1, 2, 3, 4, 5, 6]) await variante('tst-05-v0' + n, 'TST-05', 'tecnologico', 'aprobada')
   const unidad = (u) => [1, 2, 3].map((k) => rec('U' + u + '-T3-R' + k, 'TST-05', { unidad: u }))
   const todas = await Promise.all([3, 4, 5, 6].map((u) => pedir(unidad(u))))
   assert.ok(todas.every((x) => x.estado === 200))
   const asignadas = (await filas()).filter((f) => f.categoria === 'TST-05' && f.plantilla)
-  assert.equal(asignadas.length, 6) // 12 recursos para 6 variantes: las 6 se reparten
-  assert.equal(new Set(asignadas.map((f) => f.plantilla)).size, 6) // sin repetir
-  assert.equal((await filas()).filter((f) => f.categoria === 'TST-05' && f.estado === 'pendiente').length, 6)
-  // la regla está en la base y no solo en el servidor: un intento directo de repetir una variante falla
-  await assert.rejects(pool.query("INSERT INTO asignacion_variantes (propietario_id, proyecto_id, codigo, categoria, formacion, plantilla, estado) VALUES ($1, 'curso-a', 'U9-T1-R1', 'TST-05', 'tecnologico', $2, 'asignada')", [ids.ana, asignadas[0].plantilla]), (e) => e.code === '23505')
+  assert.equal(asignadas.length, 12) // 4 unidades × 3 recursos: cada unidad tiene variantes de sobra (6) y todas se asignan
+  for (const u of [3, 4, 5, 6]) {
+    const deLaUnidad = asignadas.filter((f) => f.unidad === u).map((f) => f.plantilla)
+    assert.equal(deLaUnidad.length, 3); assert.equal(new Set(deLaUnidad).size, 3) // sin repetir dentro de la unidad
+  }
+  assert.equal((await filas()).filter((f) => f.categoria === 'TST-05' && f.estado === 'pendiente').length, 0)
+  // la regla está en la base y no solo en el servidor: repetir una variante EN LA MISMA UNIDAD falla; en otra unidad, no
+  const f0 = asignadas[0]
+  const insertar = (codigo, unidad) => pool.query("INSERT INTO asignacion_variantes (propietario_id, proyecto_id, codigo, unidad, categoria, formacion, plantilla, estado) VALUES ($1, 'curso-a', $2, $3, 'TST-05', 'tecnologico', $4, 'asignada')", [ids.ana, codigo, unidad, f0.plantilla])
+  await assert.rejects(insertar('U' + f0.unidad + '-T9-R1', f0.unidad), (e) => e.code === '23505')
+  await insertar('U9-T9-R1', 9)
 })
 
 test('cada persona tiene lo suyo: el mismo identificador de curso en otra persona es otro curso; consultar por curso, unidad o códigos', async () => {

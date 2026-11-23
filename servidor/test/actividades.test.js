@@ -24,8 +24,8 @@ before(async () => {
   dueno = new pg.Client({ connectionString: `postgres://postgres:duenio@localhost:${PUERTO_PG}/ova` })
   await dueno.connect()
   await dueno.query("CREATE ROLE ova_app LOGIN PASSWORD 'appclave' NOSUPERUSER NOBYPASSRLS")
-  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
-  for (const f of ['001_esquema.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8')) // migrar de nuevo no repite ni pisa nada
+  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
+  for (const f of ['001_esquema.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8')) // migrar de nuevo no repite ni pisa nada
   process.env.DATABASE_URL = `postgres://ova_app:appclave@localhost:${PUERTO_PG}/ova`
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex')
   process.env.PRUEBAS_PLANTILLAS = '0' // por defecto el modo de pruebas de plantillas está encendido; estas pruebas parten de apagado
@@ -191,22 +191,25 @@ test('la calificable la marca n8n: recibe una variante calificable y las prácti
   assert.equal(p['U1-T3-R1'].plantilla, 'asg-01-tec-c-v1'); assert.equal(p['U1-T3-R1'].repetida, false)
   assert.deepEqual([p['U1-T1-R2'].plantilla, p['U1-T2-R1'].plantilla].sort(), ['asg-01-tec-p-v1', 'asg-01-tec-p-v2']) // las dos prácticas, sin repetir ni usar la calificable
   assert.ok(r.datos.resultados.every((x) => x.repetida === false && x.aviso === null))
-  // se agotaron las prácticas: se repite una y se avisa (no se deja el recurso sin variante)
-  const r2 = porCodigo((await pedir([rec('U2-T1-R1', 'ASG-01', false)])).datos)['U2-T1-R1']
+  // en otra unidad las prácticas están libres otra vez (la unicidad es por unidad)
+  const otraUnidad = porCodigo((await pedir([rec('U2-T9-R1', 'ASG-01', false)])).datos)['U2-T9-R1']
+  assert.equal(otraUnidad.resultado, 'asignada'); assert.equal(otraUnidad.repetida, false)
+  // se agotaron las prácticas DE LA UNIDAD 1: se repite una y se avisa (no se deja el recurso sin variante)
+  const r2 = porCodigo((await pedir([rec('U1-T9-R1', 'ASG-01', false)])).datos)['U1-T9-R1']
   assert.equal(r2.resultado, 'asignada'); assert.equal(r2.repetida, true); assert.match(r2.aviso, /repetida/i); assert.match(r2.plantilla, /^asg-01-tec-p-v[12]$/)
-  // la calificable también se puede repetir en el mismo curso (es la excepción)
-  const r3 = porCodigo((await pedir([rec('U2-T3-R1', 'ASG-01', true)])).datos)['U2-T3-R1']
+  // la calificable es una sola por categoría y formación: repetirla dentro de la unidad es lo normal (la excepción)
+  const r3 = porCodigo((await pedir([rec('U1-T3-R3', 'ASG-01', true)])).datos)['U1-T3-R3']
   assert.equal(r3.plantilla, 'asg-01-tec-c-v1'); assert.equal(r3.repetida, true)
   assert.equal(r3.aviso, null); assert.equal(r3.motivo, 'calificable_repetida') // repetir la calificable es lo normal: sin aviso
   // volver a pedir no cambia nada, y lo repetido sigue marcado como repetido
-  const r4 = await pedir([rec('U2-T1-R1', 'ASG-01', false), rec('U2-T3-R1', 'ASG-01', true)])
+  const r4 = await pedir([rec('U1-T9-R1', 'ASG-01', false), rec('U1-T3-R3', 'ASG-01', true)])
   const p4 = porCodigo(r4.datos)
-  assert.equal(p4['U2-T1-R1'].resultado, 'ya_asignada'); assert.equal(p4['U2-T1-R1'].plantilla, r2.plantilla); assert.equal(p4['U2-T1-R1'].repetida, true)
-  assert.equal(p4['U2-T3-R1'].plantilla, 'asg-01-tec-c-v1'); assert.equal(p4['U2-T3-R1'].repetida, true); assert.equal(p4['U2-T3-R1'].aviso, null)
+  assert.equal(p4['U1-T9-R1'].resultado, 'ya_asignada'); assert.equal(p4['U1-T9-R1'].plantilla, r2.plantilla); assert.equal(p4['U1-T9-R1'].repetida, true)
+  assert.equal(p4['U1-T3-R3'].plantilla, 'asg-01-tec-c-v1'); assert.equal(p4['U1-T3-R3'].repetida, true); assert.equal(p4['U1-T3-R3'].aviso, null)
   // recalcular desde cero con forzar tampoco falla con lo repetido
   assert.equal((await pedir([rec('U2-T1-R1', 'ASG-01', false)], { forzar: true })).estado, 200)
   const guardadas = (await dueno.query("SELECT codigo, repetida FROM asignacion_variantes WHERE categoria = 'ASG-01' ORDER BY codigo")).rows
-  assert.equal(guardadas.length, 5) // los cinco recursos pedidos (el que no decía si era calificable no se guardó)
+  assert.equal(guardadas.length, 7) // los siete recursos pedidos (el que no decía si era calificable no se guardó)
 })
 
 test('pedir un tipo que la categoría no tiene se dice con su motivo, y los recursos normales siguen sin repetir variantes', async () => {

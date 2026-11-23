@@ -1,6 +1,6 @@
 // Asignación de variantes de plantilla HTML por curso, ANTES de generar los guiones.
 // n8n pide variante para los recursos de un curso; Praxia las reparte entre las variantes APROBADAS de la formación del curso, sin repetir ninguna dentro de
-// la misma categoría en todo el curso (la regla la garantiza la base: sql/005), y guarda lo asignado. Lo asignado no cambia si se vuelve a pedir, salvo orden
+// la misma categoría dentro de cada UNIDAD (la regla la garantiza la base: sql/013; antes valía para todo el curso), y guarda lo asignado. Lo asignado no cambia si se vuelve a pedir, salvo orden
 // explícita (forzar). Misma protección que los avisos (src/pipeline/eventos.js): sin sesión, con FIRMA HMAC sobre el cuerpo, y la persona y el curso salen de
 // pipeline_origen a partir del trabajo_id (nunca de lo que diga n8n). Por eso las dos rutas son POST: la firma cubre el cuerpo, que lleva lo que se pide.
 //   POST /api/n8n/asignaciones/pedir      reparte (y guarda) variantes para una lista de recursos
@@ -74,7 +74,7 @@ function elegibles(variantes, formacion, formacionesCategoria, soloAprobadas, pr
 }
 
 const azar = (l) => l[Math.floor(Math.random() * l.length)]
-const avisoRepetida = (categoria) => 'Variante repetida: ya se usaron todas las de ese tipo en ' + categoria + ' dentro de este curso.'
+const avisoRepetida = (categoria) => 'Variante repetida: ya se usaron todas las de ese tipo en ' + categoria + ' dentro de esta unidad.'
 // La calificable es una sola variante por categoría y formación: repetirla en un curso es lo normal y no lleva aviso (motivo «calificable_repetida»).
 const forma = (f) => ({ codigo: f.codigo, unidad: f.unidad, id_catalogo: f.id_catalogo, id_base: f.id_base, categoria: f.categoria, formacion: f.formacion, plantilla: f.plantilla, estado: f.estado, motivo: f.motivo,
   repetida: !!f.repetida, aviso: f.repetida && f.motivo !== 'calificable_repetida' ? avisoRepetida(f.categoria) : null,
@@ -99,11 +99,19 @@ rutasAsignaciones.post('/asignaciones/pedir', limite, async (req, res, next) => 
         if (!porCategoria[cat]) {
           const vars = (await c.query(Q.asignElegibles, [cat])).rows
           const us = (await c.query(Q.asignUsadas, [o.propietario_id, o.proyecto_id, cat])).rows
-          // usadas = variantes ya dadas a un recurso del curso (sin contar las repetidas); veces = cuántos recursos tienen cada una (para repartir las repeticiones)
-          porCategoria[cat] = { vars, usadas: new Set(us.filter((x) => x.original).map((x) => x.plantilla)), veces: new Map(us.map((x) => [x.plantilla, x.veces])) }
+          // La unicidad es POR UNIDAD: por cada unidad, usadas = variantes ya dadas a un recurso de esa unidad (sin contar las repetidas); veces = cuántos recursos tienen cada una (para repartir las repeticiones)
+          const porUnidad = new Map()
+          for (const x of us) {
+            if (!porUnidad.has(x.unidad)) porUnidad.set(x.unidad, { usadas: new Set(), veces: new Map() })
+            const u = porUnidad.get(x.unidad)
+            if (x.original) u.usadas.add(x.plantilla)
+            u.veces.set(x.plantilla, x.veces)
+          }
+          porCategoria[cat] = { vars, porUnidad }
         }
         return porCategoria[cat]
       }
+      const usoDe = (cat, unidad) => { const k = unidad ?? -1; if (!cat.porUnidad.has(k)) cat.porUnidad.set(k, { usadas: new Set(), veces: new Map() }); return cat.porUnidad.get(k) }
       const salida = []
       for (const r of b.recursos) {
         const ex = existentes[r.codigo]
@@ -119,10 +127,11 @@ rutasAsignaciones.post('/asignaciones/pedir', limite, async (req, res, next) => 
         // En las categorías de actividad hay que saber si el recurso es la calificable o una práctica: lo dice n8n (lo lee de la tabla de la unidad); Praxia no lo adivina.
         if (esAct && typeof r.calificable !== 'boolean') { salida.push({ codigo: r.codigo, resultado: 'error', motivo: 'falta_calificable', categoria: r.categoria, plantilla: null }); continue }
         const cat = await cargar(r.categoria)
+        const uso = usoDe(cat, unidad) // lo usado en ESTA unidad
         if (ex && ex.plantilla && b.forzar) { // recalcular desde cero libera la suya
-          const pc = porCategoria[ex.categoria] || (await cargar(ex.categoria))
-          if (!ex.repetida) pc.usadas.delete(ex.plantilla)
-          pc.veces.set(ex.plantilla, Math.max(0, (pc.veces.get(ex.plantilla) || 0) - 1))
+          const uf = usoDe(porCategoria[ex.categoria] || (await cargar(ex.categoria)), ex.unidad)
+          if (!ex.repetida) uf.usadas.delete(ex.plantilla)
+          uf.veces.set(ex.plantilla, Math.max(0, (uf.veces.get(ex.plantilla) || 0) - 1))
         }
         // actividades: solo las del tipo pedido (calificable o práctica)
         const delTipo = esAct ? cat.vars.filter((v) => v.calificable === r.calificable) : cat.vars
@@ -131,25 +140,25 @@ rutasAsignaciones.post('/asignaciones/pedir', limite, async (req, res, next) => 
         let libre, repetida = false
         if (esAct) {
           // al azar entre las libres; si ya se usaron todas, se REPITE una (la menos usada) y se avisa en vez de dejar el recurso sin variante
-          const libres = lista.filter((v) => !cat.usadas.has(v.nombre))
+          const libres = lista.filter((v) => !uso.usadas.has(v.nombre))
           const preferidas = pruebas ? libres.filter((v) => v.formacion === b.formacion) : [] // en pruebas, si hay libres de la formación del curso, esas primero
           libre = libres.length ? azar(preferidas.length ? preferidas : libres) : null
           if (!libre && lista.length) {
-            const min = Math.min(...lista.map((v) => cat.veces.get(v.nombre) || 0))
-            libre = azar(lista.filter((v) => (cat.veces.get(v.nombre) || 0) === min))
+            const min = Math.min(...lista.map((v) => uso.veces.get(v.nombre) || 0))
+            libre = azar(lista.filter((v) => (uso.veces.get(v.nombre) || 0) === min))
             repetida = true
           }
-        } else libre = lista.find((v) => !cat.usadas.has(v.nombre))
+        } else libre = lista.find((v) => !uso.usadas.has(v.nombre))
         const base = [o.propietario_id, o.proyecto_id, r.codigo, unidad, r.id_catalogo || null, r.id_base || null, r.categoria, b.formacion]
         const anterior = ex ? (ex.plantilla || ex.plantilla_anterior || null) : null
         if (libre) {
-          if (!repetida) cat.usadas.add(libre.nombre)
-          cat.veces.set(libre.nombre, (cat.veces.get(libre.nombre) || 0) + 1)
+          if (!repetida) uso.usadas.add(libre.nombre)
+          uso.veces.set(libre.nombre, (uso.veces.get(libre.nombre) || 0) + 1)
           const motivoRep = r.calificable === true ? 'calificable_repetida' : 'variante_repetida'
           await c.query(Q.asignGuardar, [...base, libre.nombre, null, 'asignada', repetida ? motivoRep : null, b.trabajo_id, repetida])
           salida.push({ codigo: r.codigo, resultado: 'asignada', categoria: r.categoria, formacion: b.formacion, plantilla: libre.nombre, motivo: repetida ? motivoRep : null, repetida, aviso: repetida && r.calificable !== true ? avisoRepetida(r.categoria) : null })
         } else {
-          const m = motivo || 'variantes_agotadas' // había elegibles pero ya las tienen otros recursos del curso
+          const m = motivo || 'variantes_agotadas' // había elegibles pero ya las tienen otros recursos de la misma unidad
           await c.query(Q.asignGuardar, [...base, null, anterior, 'pendiente', m, b.trabajo_id, false])
           salida.push({ codigo: r.codigo, resultado: 'pendiente', categoria: r.categoria, formacion: b.formacion, plantilla: null, motivo: m, repetida: false, aviso: null })
         }

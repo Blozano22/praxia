@@ -369,7 +369,7 @@ export const Q = Object.freeze({
            coalesce((SELECT h.estado FROM plantilla_historial h WHERE h.plantilla = 'pub-' || s.nombre ORDER BY h.creado DESC, h.id DESC LIMIT 1), 'revision') AS ultimo
       FROM plantilla_categoria pc JOIN plantilla_subidas s ON s.nombre = pc.plantilla
      WHERE pc.categoria = $1 AND (to_jsonb(s) ->> 'archivada_en') IS NULL ORDER BY s.creado, s.nombre`,
-  asignUsadas: `SELECT plantilla, count(*)::int AS veces, bool_or(NOT repetida) AS original FROM asignacion_variantes WHERE propietario_id = $1 AND proyecto_id = $2 AND categoria = $3 AND plantilla IS NOT NULL GROUP BY plantilla`,
+  asignUsadas: `SELECT coalesce(unidad, -1) AS unidad, plantilla, count(*)::int AS veces, bool_or(NOT repetida) AS original FROM asignacion_variantes WHERE propietario_id = $1 AND proyecto_id = $2 AND categoria = $3 AND plantilla IS NOT NULL GROUP BY coalesce(unidad, -1), plantilla`,
   asignExistentes: `
     SELECT codigo, unidad, id_catalogo, id_base, categoria, formacion, plantilla, plantilla_anterior, estado, motivo, repetida, asignada_en FROM asignacion_variantes
      WHERE propietario_id = $1 AND proyecto_id = $2 AND codigo = ANY($3::text[])`,

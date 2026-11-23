@@ -35,7 +35,7 @@ before(async () => {
   dueno = new pg.Client({ connectionString: `postgres://postgres:duenio@localhost:${PUERTO_PG}/ova` })
   await dueno.connect()
   await dueno.query("CREATE ROLE ova_app LOGIN PASSWORD 'appclave' NOSUPERUSER NOBYPASSRLS")
-  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
+  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
   n8n = http.createServer((req, res) => {
     const partes = []
     req.on('data', (c) => partes.push(c))
@@ -132,7 +132,7 @@ test('la preparación asigna las variantes de todo el curso y los guiones de cad
   for (const n of [1, 2]) await variante('tst-01-v0' + n, 'TST-01')
   assert.equal((await ana('PUT', '/proyectos/curso-g', curso('curso-g'))).status, 200)
   const bib = await bibliografia('curso-g')
-  planPrep['curso-g'] = [rec('U1-PRES', 'TST-01'), rec('U1-T1-R1', 'TST-01'), rec('U2-T1-R1', 'TST-01')] // hay más recursos que variantes: el de la unidad 2 se queda sin variante
+  planPrep['curso-g'] = [rec('U1-PRES', 'TST-01'), rec('U1-T1-R1', 'TST-01'), rec('U2-PRES', 'TST-01'), rec('U2-T1-R1', 'TST-01'), rec('U2-T1-R2', 'TST-01')] // la unidad 2 tiene más recursos que variantes (2): el último se queda sin variante
   const r = await ana('POST', '/guiones/trabajos', pedido('curso-g', bib, 1))
   assert.equal(r.status, 202)
   const t1 = await terminado(ana, 'curso-g', 1)
@@ -160,7 +160,7 @@ test('la preparación asigna las variantes de todo el curso y los guiones de cad
   assert.equal(r3.status, 202)
   const t3 = await terminado(ana, 'curso-g', 2)
   assert.equal(t3.estado, 'listo', t3.error)
-  assert.deepEqual(guiones[1].asignaciones.map((a) => [a.codigo, a.plantilla]), [['U2-T1-R1', 'tst-01-v03']])
+  assert.deepEqual(guiones[1].asignaciones.map((a) => [a.codigo, a.plantilla]), [['U2-PRES', 'tst-01-v01'], ['U2-T1-R1', 'tst-01-v02'], ['U2-T1-R2', 'tst-01-v03']])
   await limpiar(ana, t3)
   // con todo asignado, otra generación de una unidad NO vuelve a llamar a la preparación: se reutiliza lo asignado
   assert.equal(prep.length, 3) // la 1.ª (curso entero), la 2.ª (unidad 2 con algo pendiente) y la 3.ª (al aprobarse otra variante)
@@ -199,8 +199,9 @@ test('dos unidades pedidas a la vez comparten una sola preparación y no repiten
   const [t1, t2] = [await terminado(ana, 'curso-h', 1), await terminado(ana, 'curso-h', 2)]
   assert.equal(t1.estado, 'listo', t1.error); assert.equal(t2.estado, 'listo', t2.error)
   assert.equal(prep.length - antesPrep, 1) // una sola llamada a la preparación
-  const usadas = guiones.slice(antesGui).flatMap((g) => g.asignaciones.map((x) => x.plantilla))
-  assert.equal(usadas.length, 4); assert.equal(new Set(usadas).size, 4) // ninguna repetida en el curso
+  const nuevos = guiones.slice(antesGui)
+  assert.equal(nuevos.length, 2)
+  for (const g of nuevos) { const usadas = g.asignaciones.map((x) => x.plantilla); assert.equal(usadas.length, 2); assert.equal(new Set(usadas).size, 2) } // ninguna repetida dentro de cada unidad
   await limpiar(ana, t1); await limpiar(ana, t2)
 })
 

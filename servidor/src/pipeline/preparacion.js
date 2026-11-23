@@ -63,7 +63,7 @@ export async function exigirAprobadas(usuario, proyectoId) {
 }
 
 const MOTIVOS = {
-  variantes_agotadas: 'ya no quedan variantes libres en su categoría para este curso', sin_variantes_aprobadas: 'no hay variantes aprobadas', sin_variantes_de_la_formacion: 'no hay variantes de la formación del curso',
+  variantes_agotadas: 'ya no quedan variantes libres en su categoría para esta unidad', sin_variantes_aprobadas: 'no hay variantes aprobadas', sin_variantes_de_la_formacion: 'no hay variantes de la formación del curso',
   categoria_sin_variantes: 'la categoría no tiene variantes', categoria_no_es_de_la_formacion: 'la categoría no es de la formación del curso', categoria_inexistente: 'la categoría no existe',
   plantilla_eliminada: 'su plantilla se eliminó', categoria_eliminada: 'su categoría se eliminó'
 }
