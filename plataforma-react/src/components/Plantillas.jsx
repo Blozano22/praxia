@@ -302,7 +302,17 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
   const elegir = (k) => { setTipo(k); setQ('') }
 
   const abrir = () => { const u = URL.createObjectURL(new Blob([conFormacion(html, formacion)], { type: 'text/html;charset=utf-8' })); window.open(u, '_blank', 'noopener'); setTimeout(() => URL.revokeObjectURL(u), 60000) }
-  const bajar = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' })); a.download = nombre; document.body.append(a); a.click(); a.remove() }
+  const bajar = async () => {
+    let blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+    if (publica) { // plantilla subida: se entrega el archivo original tal cual se subió
+      try {
+        const r = await fetch(RUTA_API + '/plantillas/subidas/' + encodeURIComponent(publica) + '/original', { credentials: 'same-origin', headers: { 'x-ova': '1' } })
+        if (!r.ok) throw new Error('x')
+        blob = new Blob([await r.arrayBuffer()], { type: 'text/html;charset=utf-8' })
+      } catch { if (aviso) aviso('No se pudo descargar el archivo original.'); return }
+    }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nombre; document.body.append(a); a.click(); a.remove()
+  }
 
   // ---- Estado de revisión de cada categoría: qué diseños ya se revisaron (aprobados) y cuáles faltan.
   const resumenDe = (items) => {

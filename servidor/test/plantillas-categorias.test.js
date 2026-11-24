@@ -271,6 +271,16 @@ test('una plantilla puede traer su contenido de ejemplo entre /*CONTENIDO*/ y /*
   assert.equal((await fetch(base + '/plantillas-html/ver/sin-ejemplo')).status, 404) // sin ejemplo no hay nada que mostrar
   assert.equal((await (await dani('GET', '/plantillas/categorias')).json()).subidas['sin-ejemplo'].ejemplo, false)
   assert.equal((await dani('GET', '/plantillas/subidas/no-hay/ejemplo')).status, 404)
+  // descarga: el archivo original, byte a byte
+  const orig = con('{ "titulo": "Mi ejemplo", "texto": "uno </script> dos" }')
+  const dl = await dani('GET', '/plantillas/subidas/con-ejemplo/original')
+  assert.equal(dl.status, 200)
+  assert.equal(await dl.text(), orig)
+  assert.match(dl.headers.get('content-disposition'), /attachment; filename="con-ejemplo\.html"/)
+  assert.equal(dl.headers.get('x-content-type-options'), 'nosniff')
+  assert.equal(dl.headers.get('cache-control'), 'no-store')
+  assert.equal((await dani('GET', '/plantillas/subidas/no-hay/original')).status, 404)
+  assert.equal((await fetch(base + '/api/plantillas/subidas/con-ejemplo/original', { headers: { 'x-ova': '1' } })).status, (await fetch(base + '/api/plantillas/subidas/con-ejemplo/ejemplo', { headers: { 'x-ova': '1' } })).status)
   for (const n of ['con-ejemplo', 'sin-ejemplo']) assert.equal((await dani('DELETE', '/plantillas/subidas/' + n)).status, 200)
 })
 

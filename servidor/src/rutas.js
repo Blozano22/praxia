@@ -810,6 +810,15 @@ rutas.get('/plantillas/subidas/:nombre/ejemplo', exigirSesion, exigirPermiso('pl
     res.json({ html: armada.ok ? armada.ejemplo : null })
   } catch (e) { next(e) }
 })
+// Descarga de una plantilla subida: el archivo original, tal cual se subió (sin armar).
+rutas.get('/plantillas/subidas/:nombre/original', exigirSesion, exigirPermiso('plantillas.ver'), validar(z.object({ nombre: NombreSubida }), 'params'), async (req, res, next) => {
+  try {
+    const f = await sinUsuario(Q.subidaCrudo, [req.paramsOk.nombre])
+    if (!f.rows[0]) return res.status(404).json({ error: 'No hay una plantilla subida con ese nombre.' })
+    res.set({ 'Content-Type': 'text/html; charset=utf-8', 'Content-Disposition': 'attachment; filename="' + req.paramsOk.nombre.replace(/[^A-Za-z0-9._-]/g, '_') + '.html"', 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'no-store' })
+    res.send(f.rows[0].html_crudo)
+  } catch (e) { next(e) }
+})
 // Archivar (y restaurar) plantillas subidas: no se borran, pero salen de las categorías, del índice de n8n y del reparto de variantes; lo asignado con ellas en los cursos queda
 // inválido (se puede volver a asignar con las nuevas). Siguen entregándose por su dirección, para poder editar los recursos que ya se generaron con ellas.
 rutas.post('/plantillas/subidas/archivar-todas', exigirSesion, exigirPermiso('plantillas.revisar'), validar(z.object({ categoria: z.string().regex(/^[A-Za-z0-9-]{1,40}$/).optional() }).strict(), 'body'), async (req, res, next) => {
