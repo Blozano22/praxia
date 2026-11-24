@@ -174,7 +174,6 @@ export default function BancoIconos({ puedeGestionar = false, aviso }) {
               <div className="bi-btns">
                 <button type="button" className="lnk" disabled={ocupado} onClick={() => setEdit(aForm(i))}>Editar</button>
                 <button type="button" className="lnk" disabled={ocupado} onClick={() => archivar(i, !i.archivado)}>{i.archivado ? 'Restaurar' : 'Archivar'}</button>
-                <button type="button" className="lnk" title="Copia un prompt con los datos y el SVG de este ícono para pedirle a una IA que lo modifique. Pegue el SVG que le devuelva en Editar → Reemplazar el SVG" onClick={() => copiar(promptModificar(i), i.id)}>{copiado === i.id ? 'Copiado ✓ (luego Editar → pegar el SVG)' : 'Copiar para modificar con IA'}</button>
               </div>
             )}
           </li>
@@ -187,6 +186,12 @@ export default function BancoIconos({ puedeGestionar = false, aviso }) {
           <div className="bi-modal">
             <h3>Editar «{edit.id}»</h3>
             <Campos f={edit} set={setEdit} nuevo={false} leerSvg={leerSvg} />
+            {(() => { const orig = datos.iconos.find((x) => x.id === edit.id); return orig && (
+              <div className="bi-btns">
+                <button type="button" className="btn sec" onClick={() => copiar(promptModificar(orig), 'mod-' + orig.id)}>{copiado === 'mod-' + orig.id ? 'Copiado ✓' : 'Copiar prompt para IA'}</button>
+                <span className="help">Péguelo en ChatGPT, describa el cambio y pegue aquí el SVG que le devuelva.</span>
+              </div>
+            ) })()}
             <div className="bi-btns"><button type="button" className="btn" disabled={ocupado} onClick={guardar}>Guardar</button><button type="button" className="btn sec" onClick={() => setEdit(null)}>Cancelar</button></div>
           </div>
         </div>
