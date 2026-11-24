@@ -22,11 +22,10 @@ const REGLAS_SVG = `REGLAS DEL SVG (el banco rechaza el ícono completo si no se
 const FORMATO = `FORMATO DE ENTREGA: un único archivo JSON (paquete) con esta forma exacta:
 {
   "version": 1,
-  "conjunto": "<nombre-del-conjunto>",
   "iconos": [
     {
-      "id": "<conjunto>-<concepto>",
-      "tipo": "recurso" | "actividad",
+      "id": "candado-seguridad",
+      "tipo": "recurso",
       "nombre_es": "Candado",
       "nombre_en": "Padlock",
       "etiquetas_es": ["candado", "seguridad", "privacidad"],
@@ -42,12 +41,12 @@ const FORMATO = `FORMATO DE ENTREGA: un único archivo JSON (paquete) con esta f
   ]
 }
 Reglas de los datos:
-· id: solo a-z minúsculas, 0-9 y guiones, máximo 80; único en todo el banco. Debe empezar con el nombre del conjunto (así dos conjuntos distintos nunca chocan). Si el id ya lo usa OTRO dibujo, el banco NO lo reemplaza: guarda el nuevo con un sufijo (-2, -3…) y lo avisa; el mismo dibujo con el mismo id solo actualiza los datos.
-· tipo: "recurso" o "actividad" (un ícono sirve a un solo tipo; si hace falta en los dos, genere dos con id distintos).
+· id: solo a-z minúsculas, 0-9 y guiones, máximo 80; único en todo el banco. Descriptivo, en minúsculas y con guiones (por ejemplo "candado-seguridad"). Si el id ya lo usa OTRO dibujo, el banco NO lo reemplaza: guarda el nuevo con un sufijo (-2, -3…) y lo avisa; el mismo dibujo con el mismo id solo actualiza los datos.
+· tipo: siempre "recurso".
 · nombre_es y nombre_en: 1 a 80 caracteres. etiquetas_es y etiquetas_en: entre 3 y 12 palabras o sinónimos cada una (máximo 40 caracteres cada una), en el idioma correspondiente.
 · descripcion: entre 10 y 400 caracteres; el flujo que genera los recursos usa este texto (junto con nombres y etiquetas) para ELEGIR el ícono, así que debe decir con claridad qué idea representa.
 · prompt: entre 3 y 2000 caracteres.
-· estilo: solo a-z, 0-9 y guiones, máximo 40; igual en todos los íconos del conjunto (un recurso usa íconos de un solo estilo).
+· estilo: solo a-z, 0-9 y guiones, máximo 40; igual en todos los íconos del paquete.
 · tonos: 1 (un solo color) o 2 (principal y secundario con var(--ico-2, currentColor)).
 · categoria y subcategoria: opcionales, texto libre de hasta 80 caracteres; son solo informativas.
 · No repita el mismo dibujo con dos id distintos del mismo tipo (el banco lo rechaza como duplicado).
@@ -59,7 +58,7 @@ const AUTORREVISION = `ANTES DE RESPONDER, revise cada ícono contra esta lista 
 [ ] ningún color fijo: solo currentColor, var(--ico-2, currentColor), none, url(#id); blanco/negro solo con opacidad menor que 1
 [ ] los id internos son válidos y todo url(#...) apunta a un id que existe
 [ ] el dibujo ocupa del 80 % al 90 % del cuadro, centrado, igual margen en todo el conjunto, sombras dentro del cuadro
-[ ] cada ícono tiene todos los campos del formato, id único con el prefijo del conjunto, etiquetas en ambos idiomas y descripción útil
+[ ] cada ícono tiene todos los campos del formato, id único y descriptivo, etiquetas en ambos idiomas y descripción útil
 [ ] el JSON es válido (comillas escapadas) y no hay texto fuera del JSON`
 
 const TECNICA_RELIEVE = `TÉCNICA DE RELIEVE (sin colores fijos): construya cada ícono con una forma base rellena con un degradado lineal de currentColor (primer stop con stop-opacity de .7 a .8 y el último con stop-opacity="1"), más capas encima: un brillo con fill="#fff" y fill-opacity entre .25 y .5 (una elipse o curva en la parte superior izquierda) y una sombra con fill="#000" y fill-opacity entre .12 y .3 en la parte inferior o derecha. Bordes redondeados. Los detalles internos en el color secundario solo si el ícono tiene 2 tonos.`
@@ -72,15 +71,15 @@ const tecnica = (estilo, relieve) => (relieve ? TECNICA_RELIEVE : /lineal|trazo|
 const limpiarId = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40)
 
 // Prompt para GENERAR un paquete de íconos nuevo.
-export function promptGenerar({ tipo = 'recurso', estilo = '', conjunto = '', tonos = 1, relieve = false, pedido = '' } = {}) {
+export function promptGenerar({ estilo = '', tonos = 1, relieve = false, pedido = '', categoria = '' } = {}) {
   const est = limpiarId(estilo) || (relieve ? 'relieve' : 'lineal')
-  const conj = limpiarId(conjunto) || 'nombre-del-conjunto'
+  const cat = String(categoria || '').trim().slice(0, 80)
   const solicitud = String(pedido || '').trim() || PEDIDO
   return `Eres un diseñador de íconos SVG. Debes generar un PAQUETE de íconos para el banco de íconos de la plataforma Praxia. Un sistema automático valida cada SVG con reglas estrictas y rechaza los que no las cumplen, así que sigue las reglas al pie de la letra.
 
 QUÉ NECESITO
-· Tipo de íconos: ${tipo === 'actividad' ? 'actividad (para actividades de autoaprendizaje)' : 'recurso (para recursos educativos interactivos)'}.
-· Conjunto: "${conj}". Estilo: "${est}". Tonos: ${Number(tonos) === 2 ? '2 (color principal currentColor y secundario var(--ico-2, currentColor))' : '1 (solo currentColor)'}.
+· Tipo de íconos: recurso (para recursos educativos interactivos); en el JSON, "tipo": "recurso".
+${cat ? '· Categoría: "' + cat + '" (úsala en el campo "categoria" de cada ícono).\n' : ''}· Estilo: "${est}". Tonos: ${Number(tonos) === 2 ? '2 (color principal currentColor y secundario var(--ico-2, currentColor))' : '1 (solo currentColor)'}.
 · Los íconos son para cursos universitarios de cualquier tema: deben ser claros, reconocibles y neutros, y comunicar una sola idea cada uno.
 · Íconos solicitados:
 ${solicitud}
@@ -93,40 +92,40 @@ ${FORMATO}
 
 ${AUTORREVISION}
 
-RESPUESTA: entregue SOLO el contenido del archivo JSON (que se guardará como paquete-iconos-${conj}.json). Sin explicaciones, sin comentarios y sin bloques de código. Si algún ícono pedido no puede cumplir las reglas, no lo incluya y no lo invente.`
+RESPUESTA: entregue SOLO el contenido del archivo JSON (que se guardará como paquete-iconos.json). Sin explicaciones, sin comentarios y sin bloques de código. Si algún ícono pedido no puede cumplir las reglas, no lo incluya y no lo invente.`
 }
 
-// Prompt para MODIFICAR un ícono que ya está en el banco: lleva sus datos y su SVG actual.
-export function promptModificar(icono, cambio = '') {
-  const datos = {
-    id: icono.id, tipo: icono.tipo, nombre_es: icono.nombre_es, nombre_en: icono.nombre_en, etiquetas_es: icono.etiquetas_es, etiquetas_en: icono.etiquetas_en,
-    descripcion: icono.descripcion, prompt: icono.prompt, estilo: icono.estilo, tonos: icono.tonos, categoria: icono.categoria || undefined, subcategoria: icono.subcategoria || undefined, conjunto: icono.conjunto || undefined
-  }
-  const solicitud = String(cambio || '').trim() || '[ESCRIBA AQUÍ QUÉ CAMBIO NECESITA. Ejemplo: «hazlo más simple», «cambia el candado a abierto», «agrega un segundo tono en el detalle»]'
-  return `Eres un diseñador de íconos SVG. Debes MODIFICAR un ícono que ya está en el banco de íconos de la plataforma Praxia y devolverlo listo para volver a subir. Un sistema automático valida el SVG con reglas estrictas y lo rechaza si no las cumple.
+const AUTORREVISION_SVG = `ANTES DE RESPONDER, revise el SVG contra esta lista y corrija lo que falle:
+[ ] un solo <svg> con viewBox cuadrado, sin width/height, sin texto, fondo transparente
+[ ] solo elementos y atributos permitidos; sin class, style, filter, use, image, text ni atributos on*
+[ ] ningún color fijo: solo currentColor, var(--ico-2, currentColor), none, url(#id); blanco/negro solo con opacidad menor que 1
+[ ] los id internos son válidos y todo url(#...) apunta a un id que existe
+[ ] el dibujo ocupa del 80 % al 90 % del cuadro, centrado, con sombras dentro del cuadro
+[ ] la respuesta es solo el código <svg>…</svg>, sin JSON ni explicaciones`
 
-ÍCONO ACTUAL
-Datos:
+// Prompt para MODIFICAR un ícono que ya está en el banco: la IA devuelve SOLO el SVG (se pega en Editar → Reemplazar el SVG).
+export function promptModificar(icono, cambio = '') {
+  const datos = { nombre_es: icono.nombre_es, nombre_en: icono.nombre_en, descripcion: icono.descripcion, estilo: icono.estilo, tonos: icono.tonos }
+  const solicitud = String(cambio || '').trim() || '[ESCRIBA AQUÍ QUÉ CAMBIO NECESITA. Ejemplo: «hazlo más simple», «cambia el candado a abierto», «agrega un segundo tono en el detalle»]'
+  return `Eres un diseñador de íconos SVG. Debes MODIFICAR el SVG de un ícono que ya está en el banco de íconos de la plataforma Praxia. Un sistema automático valida el SVG con reglas estrictas y lo rechaza si no las cumple.
+
+ÍCONO ACTUAL (solo como contexto)
 ${JSON.stringify(datos, null, 2)}
 
-SVG actual (ya normalizado; sus id internos empiezan por «${icono.id}-»):
+SVG actual:
 ${icono.svg}
 
 CAMBIO QUE NECESITO
 ${solicitud}
 
 CÓMO MODIFICARLO
-· Parte del SVG actual y cambia solo lo necesario; conserva el estilo, el margen interior, el peso de los trazos y las proporciones, para que siga viéndose igual de bien junto al resto del conjunto («${icono.estilo}»).
-· Si el cambio es solo de datos (nombre, etiquetas, descripción), deja el svg tal cual.
-· Usa un "id" NUEVO para la versión modificada: el mismo id con el sufijo -v2 (o -v3…), empezando igual que el conjunto. El banco nunca reemplaza un ícono por otro con distinto dibujo: el original se conserva y se puede archivar después.
-· Actualiza "descripcion", "etiquetas_es" y "etiquetas_en" si el cambio altera lo que representa, y deja en "prompt" el prompt con el que se generó esta versión.
-· Si el ícono pasa a usar un segundo color, cambia "tonos" a 2 y usa var(--ico-2, currentColor) en esas partes.
+· Parte del SVG actual y cambia solo lo necesario; conserva el estilo («${icono.estilo}»), el margen interior, el peso de los trazos y las proporciones.
+· Es el mismo ícono: no cambies su identificador ni crees una versión nueva.
+· Si el ícono pasa a usar un segundo color, usa var(--ico-2, currentColor) en esas partes.
 
 ${REGLAS_SVG}
 
-${FORMATO}
+${AUTORREVISION_SVG}
 
-${AUTORREVISION}
-
-RESPUESTA: entregue SOLO el contenido del archivo JSON con el ícono modificado (un paquete con un solo ícono, "conjunto": "${icono.conjunto || 'el mismo conjunto'}"). Sin explicaciones, sin comentarios y sin bloques de código.`
+RESPUESTA: entregue SOLO el código SVG modificado: un único <svg>…</svg>. Sin JSON, sin explicaciones, sin comentarios y sin bloques de código.`
 }

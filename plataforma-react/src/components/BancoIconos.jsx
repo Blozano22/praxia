@@ -54,7 +54,7 @@ export default function BancoIconos({ puedeGestionar = false, aviso }) {
   const [ocupado, setOcupado] = useState(false)
   const [color, setColor] = useState(0)
   const [resultado, setResultado] = useState(null)
-  const [ia, setIa] = useState(null) // panel «generar con IA»: { tipo, estilo, conjunto, tonos, relieve, pedido }
+  const [ia, setIa] = useState(null) // panel «generar con IA»: { estilo, tonos, relieve, pedido, categoria }
   const [copiado, setCopiado] = useState('')
   const [edit, setEdit] = useState(null)
   const entrada = useRef(null)
@@ -114,8 +114,8 @@ export default function BancoIconos({ puedeGestionar = false, aviso }) {
         <div className="bi-acciones">
           <input ref={entrada} type="file" accept=".json,application/json" hidden onChange={(e) => { const f = e.target.files && e.target.files[0]; e.target.value = ''; subirPaquete(f) }} />
           <button type="button" className="btn" disabled={ocupado} onClick={() => entrada.current && entrada.current.click()}>Subir un paquete (.json)</button>
-          <button type="button" className="btn sec" disabled={ocupado} onClick={() => setIa(ia ? null : { tipo: 'recurso', estilo: '', conjunto: '', tonos: '1', relieve: false, pedido: '' })}>{ia ? 'Cerrar' : 'Generar íconos con IA'}</button>
-          <span className="help">Un paquete trae varios íconos con su SVG y sus datos; cada uno se valida por separado. Para crearlos, use «Generar íconos con IA».</span>
+          <button type="button" className="btn sec" disabled={ocupado} onClick={() => setIa(ia ? null : { estilo: '', tonos: '1', relieve: false, pedido: '', categoria: '' })}>{ia ? 'Cerrar' : 'Generar íconos con IA'}</button>
+          <span className="help">Para crear íconos nuevos, use «Generar íconos con IA».</span>
         </div>
       )}
 
@@ -132,17 +132,18 @@ export default function BancoIconos({ puedeGestionar = false, aviso }) {
       {puedeGestionar && ia && (
         <div className="bi-panel">
           <h3>Generar íconos con IA</h3>
-          <p className="help">Rellene lo que necesita y copie el prompt: ya trae todas las reglas del banco. Péguelo en su agente de IA (por ejemplo Claude o ChatGPT); le devolverá un archivo JSON que se sube con «Subir un paquete».</p>
+          <ol className="help">
+            <li>Escriba qué íconos necesita.</li>
+            <li>Copie el prompt y péguelo en ChatGPT u otra IA.</li>
+            <li>Guarde la respuesta como archivo .json.</li>
+            <li>Súbalo con «Subir un paquete (.json)».</li>
+          </ol>
           <div className="bi-form">
-            <label>Tipo<select value={ia.tipo} onChange={(e) => setIa({ ...ia, tipo: e.target.value })}><option value="recurso">Recurso</option><option value="actividad">Actividad</option></select></label>
-            <label>Estilo<input value={ia.estilo} placeholder={ia.relieve ? 'relieve' : 'lineal'} maxLength={40} onChange={(e) => setIa({ ...ia, estilo: e.target.value })} list="bi-estilos" /><datalist id="bi-estilos">{estilos.map((x) => <option key={x} value={x} />)}</datalist></label>
-            <label>Conjunto (nombre del lote)<input value={ia.conjunto} placeholder="serie-2" maxLength={40} onChange={(e) => setIa({ ...ia, conjunto: e.target.value })} /></label>
-            <label>Tonos<select value={ia.tonos} onChange={(e) => setIa({ ...ia, tonos: e.target.value })}><option value="1">1 (un color)</option><option value="2">2 (principal y secundario)</option></select></label>
-            <label className="ancho bi-check"><span><input type="checkbox" checked={ia.relieve} onChange={(e) => setIa({ ...ia, relieve: e.target.checked })} /> Con relieve (degradados, brillos y sombras, sin colores fijos)</span></label>
-            <label className="ancho">Íconos que necesita (opcional: si lo deja vacío, el prompt trae un espacio para escribirlo en el agente)<textarea rows={3} value={ia.pedido} onChange={(e) => setIa({ ...ia, pedido: e.target.value })} placeholder="candado, escudo, lupa, bombilla, gráfico de barras…" /></label>
+            <label className="ancho">Íconos que necesita<textarea rows={3} value={ia.pedido} onChange={(e) => setIa({ ...ia, pedido: e.target.value })} placeholder="candado, escudo, lupa, bombilla, gráfico de barras…" /></label>
+            <label>Categoría (opcional)<input value={ia.categoria} maxLength={80} onChange={(e) => setIa({ ...ia, categoria: e.target.value })} /></label>
           </div>
           <textarea className="bi-prompt" readOnly rows={8} value={promptGenerar({ ...ia, tonos: Number(ia.tonos) })} onFocus={(e) => e.target.select()} aria-label="Prompt para generar los íconos" />
-          <div className="bi-btns"><button type="button" className="btn" onClick={() => copiar(promptGenerar({ ...ia, tonos: Number(ia.tonos) }), 'generar')}>{copiado === 'generar' ? 'Copiado ✓' : 'Copiar prompt'}</button><span className="help">Luego suba el archivo que le devuelva el agente con «Subir un paquete (.json)».</span></div>
+          <div className="bi-btns"><button type="button" className="btn" onClick={() => copiar(promptGenerar({ ...ia, tonos: Number(ia.tonos) }), 'generar')}>{copiado === 'generar' ? 'Copiado ✓' : 'Copiar prompt'}</button></div>
         </div>
       )}
 
@@ -173,7 +174,7 @@ export default function BancoIconos({ puedeGestionar = false, aviso }) {
               <div className="bi-btns">
                 <button type="button" className="lnk" disabled={ocupado} onClick={() => setEdit(aForm(i))}>Editar</button>
                 <button type="button" className="lnk" disabled={ocupado} onClick={() => archivar(i, !i.archivado)}>{i.archivado ? 'Restaurar' : 'Archivar'}</button>
-                <button type="button" className="lnk" title="Copia un prompt con los datos y el SVG de este ícono para pedirle a un agente de IA que lo modifique" onClick={() => copiar(promptModificar(i), i.id)}>{copiado === i.id ? 'Copiado ✓' : 'Copiar para modificar con IA'}</button>
+                <button type="button" className="lnk" title="Copia un prompt con los datos y el SVG de este ícono para pedirle a una IA que lo modifique. Pegue el SVG que le devuelva en Editar → Reemplazar el SVG" onClick={() => copiar(promptModificar(i), i.id)}>{copiado === i.id ? 'Copiado ✓ (luego Editar → pegar el SVG)' : 'Copiar para modificar con IA'}</button>
               </div>
             )}
           </li>
