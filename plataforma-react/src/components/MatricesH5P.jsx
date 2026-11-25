@@ -124,7 +124,7 @@ const I_ALERTA = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" str
 const I_RELOJ = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path d="M12 8v4l2.5 2" /></svg>
 
 // Una línea por recurso: generado (verde), por generar (círculo vacío), en proceso o con error.
-function Fila({ r, editar, aprobar, puedePublicar }) {
+function Fila({ r, editar, aprobar, puedePublicar, hija, etiqueta }) {
   const mal = r.sinRespuesta || r.estado === 'ERROR'
   const hecho = r.estado === 'GENERADO' && !r.sinRespuesta
   const porRevisar = r.estado === 'POR_REVISAR' && !r.sinRespuesta
@@ -133,9 +133,10 @@ function Fila({ r, editar, aprobar, puedePublicar }) {
   const texto = publicando ? 'Publicando…' : r.publicandoSinRespuesta ? 'Sin respuesta al publicar' : r.enCola && r.regenera ? 'Se regenerará' : porRevisar ? 'Por revisar' : r.enCola ? 'En cola' : hecho ? 'Generado' : r.sinRespuesta ? 'Sin avisos' : r.estado === 'ERROR' ? 'Con error' : r.estado === 'EN_PROCESO' ? 'Generando' : 'Por generar'
   const nota = porRevisar ? '' : r.estado === 'ERROR' ? r.observaciones : r.omision ? 'Se omitió: ' + motivoTexto(r.omision) : hecho ? '' : r.observaciones
   return (
-    <li className={'mx4-r ' + k}>
+    <li className={'mx4-r ' + k + (hija ? ' hija' : '')}>
       <span className={'mx4-pt ' + k} aria-hidden="true">{hecho ? I_CHECK : mal ? I_ALERTA : null}</span>
       <span className="mx4-cod">{r.codigo || r.id}</span>
+      {etiqueta && <span className="mx4-act">Actividad</span>}
       <span className="mx4-rt" title={r.titulo || ''}>{r.titulo || 'Sin título'}</span>
       <span className="mx4-re">{texto}</span>
       <span className="mx4-rl">
@@ -166,7 +167,7 @@ function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, envi
   const [filtro, setFiltro] = useState('todos')
   const [confirmar, setConfirmar] = useState(false)
   const conteo = useMemo(() => {
-    const c = { total: recursos.length, PENDIENTE: 0, EN_PROCESO: 0, GENERADO: 0, ERROR: 0, enCola: 0, h5p: 0, otros: 0 }
+    const c = { total: recursos.length, actividades: recursos.filter((r) => /-T\d+-A\d+$/i.test(String(r.codigo || ''))).length, PENDIENTE: 0, EN_PROCESO: 0, GENERADO: 0, ERROR: 0, enCola: 0, h5p: 0, otros: 0 }
     recursos.forEach((r) => { c[r.estado] = (c[r.estado] || 0) + 1; if (r.enCola) c.enCola++; if (String(r.generador || '').toUpperCase() === 'H5P') c.h5p++; else c.otros++ })
     return c
   }, [recursos])
@@ -256,7 +257,7 @@ function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, envi
             <span className={'mx4-ic ' + (completa ? 'ok' : 'n')} aria-hidden="true">2</span>
             <div className="mx4-paso-tx">
               <b>Recursos H5P</b>
-              <span className="mx4-cifra"><strong>{conteo.GENERADO}</strong> de {conteo.total} generados{nRev > 0 && <em className="mx4-cifra-rv">{nRev} por revisar</em>}{conteo.enCola > 0 && <em className="mx4-cifra-rv">{conteo.enCola} en cola</em>}{conteo.ERROR > 0 ? ' · ' + conteo.ERROR + ' con error' : ''}</span>
+              <span className="mx4-cifra"><strong>{conteo.GENERADO}</strong> de {conteo.total} generados{conteo.actividades > 0 && <em className="mx4-cifra-rv">{conteo.actividades} son actividades</em>}{nRev > 0 && <em className="mx4-cifra-rv">{nRev} por revisar</em>}{conteo.enCola > 0 && <em className="mx4-cifra-rv">{conteo.enCola} en cola</em>}{conteo.ERROR > 0 ? ' · ' + conteo.ERROR + ' con error' : ''}</span>
             </div>
             <button type="button" className="mx4-ver" aria-expanded={todos} onClick={() => setTodos(!todos)}>
               {todos ? 'Ocultar recursos' : 'Ver los ' + conteo.total + ' recursos'}
@@ -276,14 +277,30 @@ function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, envi
                 ))}
               </div>
               <ul className="mx4-lista">{(() => {
+                const cod = (r) => String(r.codigo || r.id || '')
+                const pos = (r) => { const x = /-([RA])(\d+)$/i.exec(cod(r)); return x ? Number(x[2]) : Infinity }
+                const esAct = (r) => /-T\d+-A\d+$/i.test(cod(r))
+                const clave = (r) => cod(r).replace(/-[RA](\d+)$/i, '').toUpperCase() + '|' + pos(r)
+                const mk = (r, extra) => <Fila key={r.id} r={r} editar={editar} aprobar={aprobar} puedePublicar={puedePublicar} {...extra} />
+                const pres = filas.filter((r) => /-PRES$/i.test(cod(r)))
+                const resto = filas.filter((r) => !/-PRES$/i.test(cod(r)))
+                const recs = resto.filter((r) => !esAct(r))
+                const acts = resto.filter(esAct)
+                const dueño = new Set(recs.map(clave))
+                const hijas = {}
+                acts.forEach((a) => { if (dueño.has(clave(a))) (hijas[clave(a)] = hijas[clave(a)] || []).push(a) })
+                // Recursos por posición numérica (R1, R2…); las actividades sueltas (sin su recurso) van como filas normales.
+                const items = [...recs, ...acts.filter((a) => !dueño.has(clave(a)))].sort((a, b) => temaDe(a) - temaDe(b) || pos(a) - pos(b) || (esAct(a) - esAct(b)) || cod(a).localeCompare(cod(b), undefined, { numeric: true }))
+                const out = []
+                if (pres.length) out.push(<li key="pres" className="mx4-tema">Presentación de la unidad</li>, ...pres.map((r) => mk(r)))
                 let ult = null
-                return filas.flatMap((r) => {
+                items.forEach((r) => {
                   const t = temaDe(r)
-                  const fila = <Fila key={r.id} r={r} editar={editar} aprobar={aprobar} puedePublicar={puedePublicar} />
-                  if (t === ult) return [fila]
-                  ult = t
-                  return [<li key={'tema-' + t} className="mx4-tema">{t === 0 ? 'Sin tema' : 'Tema ' + t}</li>, fila]
+                  if (t !== ult) { ult = t; out.push(<li key={'tema-' + t} className="mx4-tema">{t === 0 ? 'Sin tema' : 'Tema ' + t}</li>) }
+                  out.push(mk(r, esAct(r) ? { etiqueta: true } : {}))
+                  ;(hijas[clave(r)] || []).forEach((a) => { if (!esAct(r)) out.push(mk(a, { hija: true, etiqueta: true })) })
                 })
+                return out
               })()}</ul>
             </div>
           )}

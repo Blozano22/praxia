@@ -357,3 +357,11 @@ button.mx3-fase.bloq{cursor:not-allowed;opacity:.75}
 .mx7-ed.prev{background:#fff8e1;border-color:#f0dfa8}.mx7-ed.prev .mx7-ed-ic{background:#e0a100;color:#fff}.mx7-ed.prev .mx7-ed-tx b{color:#6b4a00}.mx7-ed.prev .mx7-ed-tx span{color:#7a5d1a}
 
 .mx4-lista>.mx4-tema{list-style:none;margin:10px 0 2px;padding:0 4px;font-size:.72rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}.mx4-lista>.mx4-tema:first-child{margin-top:0}
+
+/* Actividad colgada de su recurso (estilo árbol) */
+.mx4-lista .mx4-act{flex:none;padding:2px 8px;border-radius:99px;border:1px solid color-mix(in srgb,var(--nav) 18%,#fff);background:#fff;color:var(--muted);font-size:.66rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase}
+.mx4-lista .mx4-r.hija{position:relative;padding-left:46px;border-top-color:transparent}
+.mx4-lista .mx4-r.hija:before{content:"";position:absolute;left:26px;top:0;height:calc(50% + 1px);width:14px;border-left:2px solid #c9d3e3;border-bottom:2px solid #c9d3e3;border-bottom-left-radius:8px;pointer-events:none}
+.mx4-lista .mx4-r.hija:not(:last-child):after{content:"";position:absolute;left:26px;top:50%;bottom:0;border-left:2px solid #c9d3e3;pointer-events:none}
+.mx4-lista .mx4-r.hija .mx4-nota{margin-left:34px}
+@media(max-width:700px){.mx4-lista .mx4-r.hija{padding-left:30px}.mx4-lista .mx4-r.hija:before,.mx4-lista .mx4-r.hija:not(:last-child):after{left:14px}.mx4-lista .mx4-r.hija:before{width:10px}}
