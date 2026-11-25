@@ -31,7 +31,7 @@ before(async () => {
   await dueno.query(`CREATE TABLE plantilla_revisiones (id bigserial PRIMARY KEY, plantilla text NOT NULL, estado text NOT NULL, observacion text NOT NULL DEFAULT '',
     doc_url text, usuario_id uuid, usuario_nombre text NOT NULL, creado timestamptz NOT NULL DEFAULT now())`)
   await dueno.query("INSERT INTO plantilla_revisiones (plantilla, estado, observacion, usuario_nombre) VALUES ('antigua', 'aprobada', 'de la primera versión', 'Persona Antigua')")
-  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
+  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql', '014_tipo_bibliografia.sql', '015_imagen_consumo_recurso.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
   await dueno.end()
   process.env.DATABASE_URL = `postgres://ova_app:appclave@localhost:${PUERTO_PG}/ova`
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex')

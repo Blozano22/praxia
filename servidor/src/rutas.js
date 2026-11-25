@@ -10,6 +10,7 @@ import { extraerEnlaces } from './enlaces.js'
 import { armarSubida, compararEsquemas, esquemaDe, MAX_HTML, NOMBRES_RESERVADOS } from './plantillas/subidas.js'
 import { EsquemaLanzarH5p, EsquemaLanzarMatrices, lanzarH5p, lanzarMatrices, lanzarPublicar, urlH5p, urlMatrices, urlPublicar } from './pipeline/lanzar.js'
 import { CLAVE_PRUEBAS, pruebasEncendidas, urlPreparacion } from './pipeline/preparacion.js'
+import { esUrlImagen } from './pipeline/eventos.js'
 import { invalidarAsignaciones } from './pipeline/asignaciones.js'
 import { publicarAviso, tomarAvisos } from './avisos.js'
 import { COOKIE, claveValida, compararClave, emitirSesion, exigirAlguno, exigirPermiso, exigirSesion, hashClave } from './seguridad.js'
@@ -121,6 +122,18 @@ rutas.get('/proyectos/:id/pipeline', exigirSesion, exigirPermiso('proyectos.ver_
     res.json({ matrices: m.rows, recursos: r.rows, ejecuciones, generado: new Date().toISOString(), puedeGenerarMatrices: Boolean(await urlMatrices()), puedeGenerarH5p: Boolean(await urlH5p()), puedePublicar: Boolean(await urlPublicar()), puedePreparar: Boolean(await urlPreparacion()) })
   } catch (err) { next(err) }
 })
+
+// Cambia la imagen (URL https) de un recurso del curso; solo la persona dueña del curso. Una cadena vacía la quita.
+rutas.put('/proyectos/:id/pipeline/recursos/imagen', exigirSesion, exigirPermiso('proyectos.crear'), validar(z.object({ id: IdProyecto }), 'params'),
+  validar(z.object({ recursoId: z.string().min(1).max(100), imagenUrl: z.string().max(500).refine((v) => v === '' || esUrlImagen(v), 'La imagen debe ser un enlace https sin espacios ni comillas.') }), 'body'),
+  async (req, res, next) => {
+    try {
+      const { recursoId, imagenUrl } = req.bodyOk
+      const r = await sinUsuario(Q.pipeRecursoImagen, [req.usuario.id, req.paramsOk.id, recursoId, imagenUrl || null])
+      if (!r.rows.length) return res.status(404).json({ error: 'No se encontró ese recurso en el curso.' })
+      res.json(r.rows[0])
+    } catch (err) { next(err) }
+  })
 
 // El contenido (JSON) con el que el flujo de H5P generó un recurso, para editarlo en pantalla. Solo el de esa persona y ese curso.
 rutas.get('/proyectos/:id/pipeline/recursos/:recurso/contenido', exigirSesion, exigirPermiso('proyectos.ver_propios'), validar(z.object({ id: IdProyecto, recurso: z.string().min(1).max(100) }), 'params'), async (req, res, next) => {
@@ -419,7 +432,7 @@ const formacionDelId = (id) => { const m = /^ACT-E-[0-9]{2,3}-(TEC|PRO|ESP|DOC)$
 const errorFormacionDelId = (id, otras) => ({ error: id + ' es una categoría de la formación ' + formacionDelId(id) + ' (la lleva en su código): no se puede marcar para ' + otras.join(', ') + '.' })
 const NombrePlantilla = z.string().regex(/^[a-z0-9-]{1,80}$/)
 const NombreCategoria = z.string().trim().min(1).max(120)
-const TipoPlantilla = z.enum(['recurso', 'actividad'])
+const TipoPlantilla = z.enum(['recurso', 'actividad', 'bibliografia'])
 export const nombresPlantillasPublicadas = () => {
   try {
     const f = path.join(config.carpetaWeb, 'plantillas-html', 'plantillas.json')

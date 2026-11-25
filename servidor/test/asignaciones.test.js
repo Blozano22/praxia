@@ -26,7 +26,7 @@ before(async () => {
   dueno = new pg.Client({ connectionString: `postgres://postgres:duenio@localhost:${PUERTO_PG}/ova` })
   await dueno.connect()
   await dueno.query("CREATE ROLE ova_app LOGIN PASSWORD 'appclave' NOSUPERUSER NOBYPASSRLS")
-  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
+  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql', '014_tipo_bibliografia.sql', '015_imagen_consumo_recurso.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
   await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', '005_asignacion_variantes.sql'), 'utf8')) // volver a migrar no repite ni pisa nada
   process.env.DATABASE_URL = `postgres://ova_app:appclave@localhost:${PUERTO_PG}/ova`
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex')
@@ -235,6 +235,15 @@ test('una variante sin formación (subida antigua) solo se reparte si su categor
   await categoria('TST-08', ['tecnologico']) // categoría de una sola formación
   await variante('tst-08-v01', 'TST-08', null, 'aprobada')
   assert.equal(porCodigo((await pedir([rec('U3-T2-R1', 'TST-08')])).datos)['U3-T2-R1'].plantilla, 'tst-08-v01')
+})
+
+test('las categorías de bibliografía no se reparten a ningún recurso', async () => {
+  await dueno.query("INSERT INTO plantilla_categorias (id, nombre, tipo) VALUES ('TSB-01', 'Bibliografía', 'bibliografia')")
+  await dueno.query("INSERT INTO plantilla_categoria_formacion (categoria, formacion) VALUES ('TSB-01', 'tecnologico')")
+  await variante('tsb-01-v01', 'TSB-01', 'tecnologico', 'aprobada')
+  const r = porCodigo((await pedir([rec('U1-T1-R9', 'TSB-01')])).datos)
+  assert.equal(r['U1-T1-R9'].resultado, 'error'); assert.equal(r['U1-T1-R9'].motivo, 'categoria_de_bibliografia'); assert.equal(r['U1-T1-R9'].plantilla, null)
+  assert.equal((await filas()).filter((f) => f.categoria === 'TSB-01').length, 0)
 })
 
 test('si se despliega el código antes de migrar (la tabla no existe), eliminar y mover plantillas siguen funcionando', async () => {

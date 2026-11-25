@@ -208,8 +208,8 @@ export const Q = Object.freeze({
     WHERE (pipeline_matrices.actualizado_en, pipeline_matrices.secuencia) <= (EXCLUDED.actualizado_en, EXCLUDED.secuencia)
     RETURNING unidad`,
   pipeRecursoGuardar: `
-    INSERT INTO pipeline_recursos (propietario_id, proyecto_id, id, unidad, id_base, variante, alcance, tema, codigo, formato, titulo, con_actividad, generador, estado, observaciones, enlace_guion, enlace_recurso, omision, actualizado_en, secuencia, plantilla, contenido, revision_pendiente)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22::jsonb, $23)
+    INSERT INTO pipeline_recursos (propietario_id, proyecto_id, id, unidad, id_base, variante, alcance, tema, codigo, formato, titulo, con_actividad, generador, estado, observaciones, enlace_guion, enlace_recurso, omision, actualizado_en, secuencia, plantilla, contenido, revision_pendiente, imagen_url, consumo)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22::jsonb, $23, $24, $25::jsonb)
     ON CONFLICT (propietario_id, proyecto_id, id) DO UPDATE SET
       unidad = coalesce(EXCLUDED.unidad, pipeline_recursos.unidad),
       id_base = coalesce(EXCLUDED.id_base, pipeline_recursos.id_base),
@@ -230,10 +230,17 @@ export const Q = Object.freeze({
       contenido = coalesce(EXCLUDED.contenido, pipeline_recursos.contenido),
       aprobado_en = CASE WHEN EXCLUDED.estado = 'POR_REVISAR' THEN NULL ELSE pipeline_recursos.aprobado_en END, -- un contenido nuevo por revisar anula la aprobación anterior
       revision_pendiente = coalesce(EXCLUDED.revision_pendiente, pipeline_recursos.revision_pendiente),
+      imagen_url = coalesce(EXCLUDED.imagen_url, pipeline_recursos.imagen_url),
+      consumo = coalesce(EXCLUDED.consumo, pipeline_recursos.consumo),
       actualizado_en = EXCLUDED.actualizado_en,
       secuencia = EXCLUDED.secuencia
     WHERE (pipeline_recursos.actualizado_en, pipeline_recursos.secuencia) <= (EXCLUDED.actualizado_en, EXCLUDED.secuencia)
     RETURNING id`,
+  // La persona cambia a mano la imagen de un recurso (solo la suya; no toca la secuencia de avisos de n8n).
+  pipeRecursoImagen: `
+    UPDATE pipeline_recursos SET imagen_url = $4
+     WHERE propietario_id = $1 AND proyecto_id = $2 AND id = $3
+    RETURNING id, imagen_url AS "imagenUrl"`,
   // Plan de una corrida: marca el motivo de omisión en las filas que ya se conocen (sin crear filas).
   pipeRecursoOmitir: `
     UPDATE pipeline_recursos SET omision = $4, actualizado_en = $5, secuencia = $6
@@ -251,7 +258,7 @@ export const Q = Object.freeze({
       FROM pipeline_matrices WHERE propietario_id = $1 AND proyecto_id = $2 ORDER BY unidad`,
   pipeLeerRecursos: `
     SELECT id, unidad, tema, codigo, formato, titulo, generador, estado, observaciones, enlace_guion AS "enlaceGuion",
-           enlace_recurso AS "enlaceRecurso", omision, plantilla, (to_jsonb(r) -> 'contenido') IS NOT NULL AND (to_jsonb(r) -> 'contenido') <> 'null'::jsonb AS "conContenido",
+           enlace_recurso AS "enlaceRecurso", omision, plantilla, imagen_url AS "imagenUrl", consumo, (to_jsonb(r) -> 'contenido') IS NOT NULL AND (to_jsonb(r) -> 'contenido') <> 'null'::jsonb AS "conContenido",
            (to_jsonb(r) ->> 'aprobado_en')::timestamptz AS "aprobadoEn",
            COALESCE((to_jsonb(r) ->> 'aprobado_en')::timestamptz > actualizado_en, false) AS publicando,
            COALESCE((to_jsonb(r) ->> 'aprobado_en')::timestamptz > actualizado_en AND (to_jsonb(r) ->> 'aprobado_en')::timestamptz < now() - interval '15 minutes', false) AS "publicandoSinRespuesta", (to_jsonb(r) ->> 'revision_pendiente')::int AS "revisionPendiente", actualizado_en AS "actualizadoEn",
@@ -272,7 +279,7 @@ export const Q = Object.freeze({
     UPDATE pipeline_recursos SET aprobado_en = now()
      WHERE propietario_id = $1 AND proyecto_id = $2 AND id = $3 AND contenido IS NOT NULL
        AND (aprobado_en IS NULL OR aprobado_en <= actualizado_en OR aprobado_en < now() - interval '15 minutes')
-    RETURNING id, codigo, unidad, plantilla, contenido, enlace_recurso AS "enlaceRecurso", estado`,
+    RETURNING id, codigo, unidad, plantilla, contenido, enlace_recurso AS "enlaceRecurso", estado, imagen_url AS "imagenUrl"`,
   pipeAprobarRevertir: `UPDATE pipeline_recursos SET aprobado_en = NULL WHERE propietario_id = $1 AND proyecto_id = $2 AND id = $3`,
   pipeLeerEjecuciones: `
     SELECT etapa, ejecucion_id AS "ejecucionId", estado, maximo, plan, resumen, iniciado_en AS "iniciadoEn",

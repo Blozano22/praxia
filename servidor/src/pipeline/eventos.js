@@ -42,6 +42,10 @@ const texto = (n) => z.string().transform((s) => s.slice(0, n))
 const idTexto = z.union([z.string(), z.number()]).transform(String).pipe(z.string().min(1).max(100))
 const UrlGoogle = z.string().max(600).regex(/^https:\/\/(docs|drive)\.google\.com\//)
 const entero = z.number().int().min(0).max(1e9)
+// Imagen del recurso y consumo de IA: un valor inválido (http, con espacios o comillas, demasiado grande) se ignora en vez de rechazar el aviso.
+export const esUrlImagen = (v) => typeof v === 'string' && v.length <= 500 && /^https:\/\/[^\s"'<>]+$/.test(v)
+const ImagenUrl = z.preprocess((v) => (esUrlImagen(v) ? v : undefined), z.string().optional())
+const Consumo = z.preprocess((v) => (v && typeof v === 'object' && !Array.isArray(v) && JSON.stringify(v).length <= 4000 ? v : undefined), z.record(z.string(), z.unknown()).optional())
 // n8n arma los avisos con cadenas vacías donde no hay dato (origen_trabajo_id: '', enlace_recurso: ''…): una cadena vacía cuenta como «sin dato»,
 // no como un identificador o un enlace mal formados (antes se rechazaban con 400 y el emisor de n8n descarta los 400 sin reintentar).
 const sinVacio = (v) => (typeof v === 'string' && v.trim() === '' ? null : v)
@@ -113,7 +117,7 @@ const Evento = z.discriminatedUnion('evento', [
     evento: z.literal('h5p_recurso'), ejecucion_id: ejecucion,
     unidad: z.number().int().min(0).max(99).nullish(), id: idTexto, codigo: texto(100).nullish(),
     estado: z.enum(['PENDIENTE', 'EN_PROCESO', 'POR_REVISAR', 'GENERADO', 'ERROR']), enlace_recurso: opc(UrlGoogle), observaciones: texto(2000).nullish(),
-    plantilla: opc(PlantillaAviso), contenido: ContenidoAviso,
+    plantilla: opc(PlantillaAviso), contenido: ContenidoAviso, imagen_url: ImagenUrl, consumo: Consumo,
     revision_pendiente: z.preprocess((v) => (typeof v === 'string' && /^\d{1,4}$/.test(v.trim()) ? Number(v) : (Number.isInteger(v) && v >= 0 && v <= 9999 ? v : null)), z.number().nullish()) // campos que quedaron para revisión humana; lo no válido cuenta como «sin dato»
   }),
   Comun.extend({
@@ -184,7 +188,7 @@ async function aplicar(c, ev, o, fecha, sec) {
           const claves = r.filas.map((f) => f.codigo || f.id)
           for (const [k, f] of r.filas.entries()) {
             await c.query(Q.pipeRecursoGuardar, [P, Y, claves[k], r.unidad, f.id_base || null, f.variante || null, f.alcance || null, f.tema ?? null, f.codigo || null, f.formato || null, f.titulo || null,
-              f.con_actividad ?? null, f.generador || null, f.estado, f.observaciones || null, f.enlace_guion || null, f.enlace_recurso || null, null, fecha, sec, f.plantilla || null, null, null])
+              f.con_actividad ?? null, f.generador || null, f.estado, f.observaciones || null, f.enlace_guion || null, f.enlace_recurso || null, null, fecha, sec, f.plantilla || null, null, null, null, null])
           }
           await c.query(Q.pipeRecursosQuitarSobrantes, [P, Y, r.unidad, claves, fecha])
         }
@@ -199,7 +203,7 @@ async function aplicar(c, ev, o, fecha, sec) {
       return n
     case 'h5p_recurso': {
       const r = await c.query(Q.pipeRecursoGuardar, [P, Y, await claveFila(c, P, Y, ev.id, ev.codigo), ev.unidad ?? null, null, null, null, null, ev.codigo || null, null, null, null, null, ev.estado,
-        ev.observaciones || null, null, ev.enlace_recurso || null, null, fecha, sec, ev.plantilla || null, ev.contenido ? JSON.stringify(ev.contenido) : null, ev.revision_pendiente ?? null])
+        ev.observaciones || null, null, ev.enlace_recurso || null, null, fecha, sec, ev.plantilla || null, ev.contenido ? JSON.stringify(ev.contenido) : null, ev.revision_pendiente ?? null, ev.imagen_url || null, ev.consumo ? JSON.stringify(ev.consumo) : null])
       // Un recurso que termina (GENERADO/ERROR) solo avanza una corrida que ya existe; si no hay corrida es una publicación tras aprobar y no debe aparecer como «generando».
       if (ev.estado === 'GENERADO' || ev.estado === 'ERROR') await c.query(Q.pipeEjecucionTocarExistente, [P, Y, ev.etapa, eje, fecha])
       else await c.query(Q.pipeEjecucionTocar, [...base, fecha])

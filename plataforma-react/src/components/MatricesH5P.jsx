@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from '../lib/api.js'
+import { resumenConsumo, tokensDe, costoDe, usd, miles, esUrlImagen } from '../lib/consumo.js'
 import EditorRecurso from './EditorRecurso.jsx'
 import CargaRecurso from './CargaRecurso.jsx'
 import './matrices.css'
@@ -150,6 +151,7 @@ function Fila({ r, editar, aprobar, puedePublicar, hija, etiqueta }) {
     <li className={'mx4-r ' + k + (hija ? ' hija' : '')}>
       <span className={'mx4-pt ' + k} aria-hidden="true">{hecho ? I_CHECK : mal ? I_ALERTA : null}</span>
       <span className="mx4-cod">{r.codigo || r.id}</span>
+      {esUrlImagen(r.imagenUrl) && <a className="mx4-img" href={r.imagenUrl} target="_blank" rel="noopener noreferrer" title="Imagen del recurso (abrir)"><img src={r.imagenUrl} alt="" loading="lazy" referrerPolicy="no-referrer" /></a>}
       {etiqueta && <span className="mx4-act">Actividad</span>}
       <span className="mx4-rt" title={r.titulo || ''}>{r.titulo || 'Sin título'}</span>
       <span className="mx4-re">{texto}</span>
@@ -158,6 +160,7 @@ function Fila({ r, editar, aprobar, puedePublicar, hija, etiqueta }) {
         {r.conContenido && !publicando && !r.enCola && ['POR_REVISAR', 'ERROR'].includes(r.estado) && puedePublicar && aprobar && <button type="button" className="mx4-ed ok" onClick={() => aprobar(r)} title="Aprobar el contenido: n8n arma el H5P y lo sube a Drive">Aprobar y publicar</button>}
         {hecho && r.enlaceRecurso && <a href={r.enlaceRecurso} target="_blank" rel="noopener noreferrer">Recurso ↗</a>}
         {r.enlaceGuion && <a href={r.enlaceGuion} target="_blank" rel="noopener noreferrer">Guion ↗</a>}
+        {r.consumo && <span className="mx4-cons" title="Tokens de texto y costo estimado de este recurso">{miles(tokensDe(r.consumo))} tokens · {usd(costoDe(r.consumo))}{r.consumo.costo_parcial ? ' (parcial)' : ''}</span>}
         {hecho && r.revisionPendiente > 0 && <span title="Campos que el generador dejó para revisión humana">REVISAR {r.revisionPendiente} campo{r.revisionPendiente === 1 ? '' : 's'}</span>}
         {r.plantilla && <a href={'https://proyectos.americana.edu.co/praxia/plantillas-html/ver/' + encodeURIComponent(r.plantilla)} target="_blank" rel="noopener noreferrer" title="Plantilla con la que se genera este recurso">{r.plantilla.toUpperCase()} ↗</a>}
       </span>
@@ -583,6 +586,23 @@ export default function MatricesH5P({ s }) {
       )}
 
       {fase === 2 && ultimaH5P && !corridaH5p && !(d && !(enCursoMat.length > 0 || corridaH5p || soloEnviado) && puedeH5p && listas > 0 && !todoAlDia) && <Corrida e={ultimaH5P} />}
+
+      {d && (() => {
+        const rs = d.recursos.filter((r) => String(r.generador || '').toUpperCase() === 'H5P')
+        const c = resumenConsumo(rs)
+        if (!c.conConsumo) return null
+        return (
+          <section className="mx4-consumo" aria-label="Consumo del curso">
+            <h4 className="mx2-h mx3-h">Consumo del curso{c.parcial ? ' (parcial)' : ''}</h4>
+            <div className="mx4-consumo-f">
+              <span><b>{miles(c.tokens)}</b> tokens</span>
+              <span><b>{c.imagenes}</b> {c.imagenes === 1 ? 'imagen' : 'imágenes'}</span>
+              <span><b>{usd(c.costo)}</b> costo estimado{c.parcial ? ' (parcial)' : ''}</span>
+            </div>
+            {c.parcial && <small>Hay recursos sin consumo avisado o con costo parcial: el total puede ser mayor.</small>}
+          </section>
+        )
+      })()}
 
       {d && (
         <>

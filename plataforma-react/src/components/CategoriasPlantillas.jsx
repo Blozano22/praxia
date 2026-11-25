@@ -30,7 +30,7 @@ export function grupoDe(c) {
 const numeroDe = (id) => { const m = /-([0-9]{2,3})(?:-|$)/.exec(String(id || '')); return m ? Number(m[1]) : 0 }
 export const ordenarCategorias = (lista) => [...lista].sort((a, b) => grupoDe(a).orden - grupoDe(b).orden || numeroDe(a.id) - numeroDe(b.id) || String(a.id).localeCompare(String(b.id)))
 export const MAX_BYTES = 1536 * 1024
-const TIPOS = { recurso: ['Recursos', 'Recurso'], actividad: ['Actividades', 'Actividad de autoaprendizaje'] }
+const TIPOS = { recurso: ['Recursos', 'Recurso'], actividad: ['Actividades', 'Actividad de autoaprendizaje'], bibliografia: ['Bibliografía', 'Bibliografía'] }
 export const kb = (b) => (b < 1024 * 1024 ? Math.max(1, Math.round(b / 1024)) + ' KB' : (b / 1024 / 1024).toFixed(1) + ' MB')
 
 // Etiquetas de las formaciones a las que sirve una categoría (con P / C: prioritaria o complementaria).
@@ -129,7 +129,7 @@ export function ListaCategorias({ valor, categorias, onChange, etiqueta, vacio, 
           </div>
           <div className="cs-dd-lista" role="listbox" aria-label={etiqueta}>
             {conVacio && !t && <button type="button" role="option" aria-selected={!valor} className={'cs-op' + (!valor ? ' sel' : '')} onClick={() => elegir('')}><span className="cs-op-n">{vacio}</span></button>}
-            {['recurso', 'actividad'].map((tp) => {
+            {['recurso', 'actividad', 'bibliografia'].map((tp) => {
               const lista = categorias.filter((c) => c.tipo === tp && (!t || (c.id + ' ' + c.nombre).toLowerCase().includes(t)))
               if (!lista.length) return null
               return (
@@ -160,7 +160,7 @@ function SelectCategoria({ valor, categorias, ocupado, onChange, etiqueta, vacio
       <span className="cs-ic">{I_ETQ}</span>
       <select className={'cs-sel' + (valor ? ' lista' : '')} aria-label={etiqueta} value={valor} disabled={ocupado} onChange={(e) => onChange(e.target.value)}>
         <option value="">{vacio}</option>
-        {['recurso', 'actividad'].map((t) => (
+        {['recurso', 'actividad', 'bibliografia'].map((t) => (
           <optgroup key={t} label={TIPOS[t][0]}>{categorias.filter((c) => c.tipo === t).map((c) => <option key={c.id} value={c.id}>{c.id} · {c.nombre}</option>)}</optgroup>
         ))}
       </select>
@@ -296,7 +296,7 @@ export default function CategoriasPlantillas({ puedeCambiar = false, esAdmin = f
   const idValido = nueva ? RE_ID.test(nueva.id.trim().toUpperCase()) : false
   const idRepetido = nueva && d ? d.categorias.some((c) => c.id === nueva.id.trim().toUpperCase()) : false
   const propsFila = { categorias: d ? d.categorias : [], puedeCambiar, ocupado, onAsignar: asignar, onReemplazar: reemplazar, onEliminar: eliminar, onOcultar: ocultar, onVer: setViendo, confirmando: borrarSub, setConfirmando: setBorrarSub }
-  const OPC_TIPO = [['recurso', 'Recurso'], ['actividad', 'Actividad']]
+  const OPC_TIPO = [['recurso', 'Recurso'], ['actividad', 'Actividad'], ['bibliografia', 'Bibliografía']]
 
   return (
     <div className="cat">
@@ -307,7 +307,7 @@ export default function CategoriasPlantillas({ puedeCambiar = false, esAdmin = f
       {d && (
         <>
           <div className="cat-tipos" role="tablist" aria-label="Tipo de HTML">
-            {['recurso', 'actividad'].map((t) => (
+            {['recurso', 'actividad', 'bibliografia'].map((t) => (
               <button key={t} role="tab" aria-selected={ver === t} className={ver === t ? 'on' : ''} onClick={() => { setVer(t); setGrupo(''); setBuscar('') }}>{TIPOS[t][0]} <span>· {cuantas(t)}</span></button>
             ))}
           </div>
@@ -336,12 +336,12 @@ export default function CategoriasPlantillas({ puedeCambiar = false, esAdmin = f
             <div className="cat-barra">
               {!nueva && (
                 <>
-                  <button className="btn" onClick={() => setNueva({ id: '', nombre: '', tipo: ver, formaciones: {} })}>+ Nueva categoría de {ver === 'actividad' ? 'actividad' : 'recurso'}</button>
+                  <button className="btn" onClick={() => setNueva({ id: '', nombre: '', tipo: ver, formaciones: {} })}>+ Nueva categoría de {ver === 'actividad' ? 'actividad' : ver === 'bibliografia' ? 'bibliografía' : 'recurso'}</button>
                 </>
               )}
               {nueva && (
                 <form className="card cat-form" onSubmit={(e) => { e.preventDefault(); if (idValido && !idRepetido && nueva.nombre.trim()) crear() }}>
-                  <div className="cat-campo"><span className="cat-lbl">Se crea como</span><span className="cat-tipo-fijo">{nueva.tipo === 'actividad' ? 'Actividad' : 'Recurso'}</span><small>{nueva.tipo === 'actividad' ? 'Una actividad de autoaprendizaje (como un crucigrama).' : 'Un tipo de HTML que n8n elige para mostrar contenido.'}</small></div>
+                  <div className="cat-campo"><span className="cat-lbl">Se crea como</span><span className="cat-tipo-fijo">{nueva.tipo === 'actividad' ? 'Actividad' : nueva.tipo === 'bibliografia' ? 'Bibliografía' : 'Recurso'}</span><small>{nueva.tipo === 'bibliografia' ? 'Una plantilla por formación para mostrar las referencias de cada recurso.' : nueva.tipo === 'actividad' ? 'Una actividad de autoaprendizaje (como un crucigrama).' : 'Un tipo de HTML que n8n elige para mostrar contenido.'}</small></div>
                   <label>ID del catálogo
                     <input value={nueva.id} onChange={(e) => { const id = e.target.value; const fid = formacionDelId(id); setNueva({ ...nueva, id, ...(fid ? { formaciones: { [fid]: (nueva.formaciones || {})[fid] || 'P' } } : {}) }) }} placeholder={nueva.tipo === 'actividad' ? 'ACT-G-01' : 'G-13'} maxLength={16} aria-invalid={!!nueva.id && (!idValido || idRepetido)} />
                     <small className={nueva.id && (!idValido || idRepetido) ? 'mal' : ''}>{idRepetido ? 'Ya existe una categoría con ese ID.' : 'Letras y número: G-13, PRE-10, ACT-G-01, ACT-E-03-TEC…'}</small>

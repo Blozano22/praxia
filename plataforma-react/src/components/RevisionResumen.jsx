@@ -31,7 +31,7 @@ function contar(items) {
 }
 
 export default function RevisionResumen({ items, clase = '', puedeRevisar, onIr, enHeader = false }) {
-  const deQue = clase === 'actividad' ? 'actividades' : clase === 'recurso' ? 'recursos' : 'plantillas' // la revisión es de la clase que se está viendo
+  const deQue = clase === 'actividad' ? 'actividades' : clase === 'recurso' ? 'recursos' : clase === 'bibliografia' ? 'bibliografías' : 'plantillas' // la revisión es de la clase que se está viendo
   const [abierto, setAbierto] = useState(false)
   // Quien revisa entra directo a «Mis revisiones» si hay corregidas esperando su nueva revisión.
   const esperanAlInicio = puedeRevisar && items.some((i) => i.espera)

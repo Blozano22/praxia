@@ -38,7 +38,7 @@ const NOTAS = {
 const corto = (g) => g.replace(/ \(.*\)$/, '')
 // Hay dos clases de HTML: los recursos y las actividades de autoaprendizaje (el crucigrama, el cuestionario…). La galería muestra una clase a la vez.
 const esActividad = (g) => /^(Actividades|Crucigramas)/.test(g)
-const CLASES = { recurso: 'Recursos', actividad: 'Actividades' }
+const CLASES = { recurso: 'Recursos', actividad: 'Actividades', bibliografia: 'Bibliografía' }
 
 
 // Flecha de los selectores (categoría / diseño): icono grande dentro de un botón redondo.
@@ -155,7 +155,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
   // categoría van en «Sin categoría». Las revisiones y observaciones de cada diseño siguen atadas a su clave (no cambia al reagrupar).
   // Mientras no se conocen las categorías se muestran las familias de siempre.
   const gruposPorClase = useMemo(() => {
-    const res = { recurso: [], actividad: [] }
+    const res = { recurso: [], actividad: [], bibliografia: [] }
     const claseFija = (g) => (esActividad(g) ? 'actividad' : 'recurso')
     if (!cats) { gruposTodos.forEach(([g, l]) => res[claseFija(g)].push([g, l])); return res }
     const porCat = new Map()
@@ -177,7 +177,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
       if (!porCat.has(c.id)) porCat.set(c.id, { c, items: [] })
       porCat.get(c.id).items.push([ej || 'pub-' + n, n, true, !ej && !ejSub])
     })
-    ;[...porCat.values()].sort((x, y) => x.c.id.localeCompare(y.c.id)).forEach(({ c, items }) => res[c.tipo === 'actividad' ? 'actividad' : 'recurso'].push([c.nombre || c.id, items, c.id]))
+    ;[...porCat.values()].sort((x, y) => x.c.id.localeCompare(y.c.id)).forEach(({ c, items }) => res[c.tipo === 'actividad' || c.tipo === 'bibliografia' ? c.tipo : 'recurso'].push([c.nombre || c.id, items, c.id]))
     ;['recurso', 'actividad'].forEach((t) => { if (sin[t].length) res[t].push(['Sin categoría', sin[t]]) })
     return res
   }, [cats, activas, gruposTodos, revisiones])
@@ -194,7 +194,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
       return !f || f === formacion
     }))
     const filtra = (l) => l.filter(([, , id]) => sirve(id)).map(([g, items, id]) => [g, deFormacion(id, items), id]).filter(([, items]) => items.length)
-    return { recurso: filtra(gruposPorClase.recurso), actividad: filtra(gruposPorClase.actividad) }
+    return { recurso: filtra(gruposPorClase.recurso), actividad: filtra(gruposPorClase.actividad), bibliografia: filtra(gruposPorClase.bibliografia) }
   }, [gruposPorClase, formacion, cats])
   const prioridadEn = (id) => { const f = formacion && cats ? ((cats.formaciones || {})[id] || []).find((x) => x.formacion === formacion) : null; return f ? f.prioridad : '' }
   const grupos = gruposClase[clase]
@@ -266,7 +266,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
   // Todas las plantillas de la galería con su estado de revisión (para el botón «Revisión»: conteo, «mis plantillas» y «general»).
   const itemsRev = useMemo(() => {
     const out = []
-    ;['recurso', 'actividad'].forEach((cl) => gruposPorClase[cl].forEach(([g, l, id]) => l.forEach(([k, n]) => {
+    ;['recurso', 'actividad', 'bibliografia'].forEach((cl) => gruposPorClase[cl].forEach(([g, l, id]) => l.forEach(([k, n]) => {
       const nom = k.startsWith('pub-') ? k.slice(4) : (nombrePublico(k) || '')
       const info = cats && cats.subidas && nom ? cats.subidas[nom] : null
       const r = revisiones.find((x) => x.plantilla === k) // la más nueva
@@ -411,7 +411,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
         <div>
           <span className="pg-lb">Clase de HTML</span>
           <div className="pg-seg" role="tablist" aria-label="Clase de HTML">
-            {['recurso', 'actividad'].map((c) => {
+            {['recurso', 'actividad', 'bibliografia'].map((c) => {
               const g = gruposClase[c]
               const total = g.reduce((a, [, l]) => a + l.length, 0)
               return <button key={c} type="button" role="tab" aria-selected={clase === c} className={clase === c ? 'on' : ''} onClick={() => { setClase(c); setQ('') }}>{CLASES[c]} <span>· {total}</span></button>

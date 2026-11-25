@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import CargaRecurso from './CargaRecurso.jsx'
 import { api, RUTA_API } from '../lib/api.js'
+import { tokensDe, costoDe, imagenesDe, usd, miles, esUrlImagen } from '../lib/consumo.js'
 import codigoEditor from '../lib/editor-campos.js?raw'
 import './editor-recurso.css'
 
@@ -298,6 +299,21 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
   const actual = recursos.find((x) => x.id === recurso.id) || recurso
   const urlGuion = vistaGuion(actual.enlaceGuion)
   const publicandoAhora = !!actual.publicando && !actual.publicandoSinRespuesta
+  // Imagen del recurso: miniatura con enlace y campo para cambiar la URL (https). Cadena vacía = quitarla.
+  const [imgNueva, setImgNueva] = useState(null) // null = sin tocar; texto = lo que se está escribiendo
+  const [imgGuardada, setImgGuardada] = useState({}) // id → URL guardada en esta sesión (hasta que la lista del curso se refresque)
+  const imgActual = actual.id in imgGuardada ? imgGuardada[actual.id] : actual.imagenUrl || ''
+  const imgCampo = imgNueva === null ? imgActual : imgNueva
+  const imgValida = imgCampo === '' || esUrlImagen(imgCampo)
+  const guardarImagen = async () => {
+    setOcupado('imagen'); setMsg(null)
+    try {
+      await api('PUT', '/proyectos/' + encodeURIComponent(proyecto) + '/pipeline/recursos/imagen', { recursoId: actual.id, imagenUrl: imgCampo.trim() })
+      setImgGuardada((g) => ({ ...g, [actual.id]: imgCampo.trim() })); setImgNueva(null); setMsg({ tipo: 'ok', texto: imgCampo.trim() ? 'Imagen guardada. Se usará al publicar.' : 'Imagen quitada.' })
+    } catch (e) { setMsg({ tipo: 'bad', texto: e.message || 'No se pudo guardar la imagen.' }) }
+    finally { setOcupado('') }
+  }
+  useEffect(() => { setImgNueva(null) }, [recurso.id])
   const elegirRecurso = (r) => {
     if (r.id === recurso.id || !onElegir) return
     if (sucio && !window.confirm('Hay cambios sin guardar en este recurso. ¿Pasar a otro sin guardarlos?')) return
@@ -371,6 +387,14 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
                   </div>
                   {actual.enlaceGuion && <a className="er-link" href={actual.enlaceGuion} target="_blank" rel="noopener noreferrer">Abrir en otra pestaña ↗</a>}
                   {modo === 'flotante' && <button type="button" className="er-mini" aria-label={flota.min ? 'Expandir el panel' : 'Minimizar el panel'} onClick={() => setFlota((f) => ({ ...f, min: !f.min }))}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true"><path d={flota.min ? 'M5 12h14M12 5v14' : 'M5 12h14'} /></svg></button>}
+                </div>
+                <div className="er-img">
+                  {esUrlImagen(imgActual) && <a href={imgActual} target="_blank" rel="noopener noreferrer" title="Abrir la imagen"><img src={imgActual} alt="Imagen del recurso" referrerPolicy="no-referrer" /></a>}
+                  <label>Imagen del recurso (enlace https)
+                    <input type="url" value={imgCampo} maxLength={500} placeholder="https://…" onChange={(e) => setImgNueva(e.target.value)} aria-invalid={!imgValida} />
+                  </label>
+                  <button type="button" className="er-b" onClick={guardarImagen} disabled={!!ocupado || !imgValida || imgCampo.trim() === imgActual}>{ocupado === 'imagen' ? 'Guardando…' : 'Guardar imagen'}</button>
+                  {actual.consumo && <small className="er-cons">{miles(tokensDe(actual.consumo))} tokens · {imagenesDe(actual.consumo)} img · {usd(costoDe(actual.consumo))}{actual.consumo.costo_parcial ? ' (parcial)' : ''}</small>}
                 </div>
                 <div className="er-lado-cuerpo guion">
                   {urlGuion

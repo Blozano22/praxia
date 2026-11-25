@@ -9,6 +9,7 @@ import { config } from '../config.js'
 import { conTransaccion, conUsuario, sinUsuario } from '../db.js'
 import { Q } from '../consultas.js'
 import { publicar } from '../guiones/rutas.js'
+import { esUrlImagen } from './eventos.js'
 
 const RE_CARPETA = /^https:\/\/drive\.google\.com\/drive\/(?:u\/\d+\/)?folders\/[A-Za-z0-9_-]+/
 const LISTAS = ['creada', 'omitida', 'reemplazada'] // estados de una matriz que ya se puede usar
@@ -175,7 +176,8 @@ export async function lanzarPublicar({ usuario, proyectoId, recursoId, publicarF
   const reemplazar = /^https:\/\/(?:drive|docs)\.google\.com\//.test(marcado.enlaceRecurso || '')
   const r = await entregar({ url, minutos: 2, trabajoId, publicarFn, nombre: 'la publicación del H5P',
     cuerpo: { trabajo_id: trabajoId, proyecto_id: proyectoId, carpeta_raiz: curso.carpeta, id: marcado.id, codigo: marcado.codigo || null, unidad: marcado.unidad ?? null,
-      plantilla: marcado.plantilla, contenido: marcado.contenido, enlace_recurso: reemplazar ? marcado.enlaceRecurso : null, reemplazar } })
+      plantilla: marcado.plantilla, contenido: marcado.contenido, enlace_recurso: reemplazar ? marcado.enlaceRecurso : null, reemplazar,
+      ...(esUrlImagen(marcado.imagenUrl) ? { imagen_url: marcado.imagenUrl } : {}) } })
   if (r.codigo !== 202) { await sinUsuario(Q.pipeAprobarRevertir, [usuario.id, proyectoId, recursoId]).catch(() => {}); return r }
   return { codigo: 202, cuerpo: { trabajo_id: trabajoId, id: marcado.id, reemplazar } }
 }

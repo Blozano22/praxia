@@ -36,7 +36,7 @@ before(async () => {
   const dueno = new pg.Client({ connectionString: `postgres://postgres:duenio@localhost:${PUERTO_PG}/ova` })
   await dueno.connect()
   await dueno.query("CREATE ROLE ova_app LOGIN PASSWORD 'appclave' NOSUPERUSER NOBYPASSRLS")
-  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
+  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql', '014_tipo_bibliografia.sql', '015_imagen_consumo_recurso.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
   await dueno.end()
   process.env.DATABASE_URL = `postgres://ova_app:appclave@localhost:${PUERTO_PG}/ova`
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex')
@@ -403,6 +403,7 @@ test('etapa 2: un recurso «por revisar» se aprueba y n8n recibe la orden de pu
   const o = ordenesPublicar[0]
   assert.equal(o.trabajo_id, tp); assert.equal(o.proyecto_id, 'curso-a'); assert.equal(o.id, 'pub1'); assert.equal(o.codigo, 'U1-T1-R9'); assert.equal(o.plantilla, 'g-11-doc-v01')
   assert.deepEqual(o.contenido, CONT); assert.equal(o.reemplazar, false); assert.equal(o.enlace_recurso, null); assert.match(o.carpeta_raiz, /drive\.google\.com\/drive\/folders\/carpetaAna/)
+  assert.equal('imagen_url' in o, false) // sin imagen en la fila no se manda el campo
   f = await lista(); assert.equal(f.publicando, true)
   assert.equal((await aprobar(ana)).status, 409) // ya se está publicando: no se manda dos veces
   assert.equal(ordenesPublicar.length, 1)
@@ -416,7 +417,15 @@ test('etapa 2: un recurso «por revisar» se aprueba y n8n recibe la orden de pu
   // volver a aprobar un recurso ya publicado: la orden pide reemplazar el MISMO archivo
   ordenesPublicar.length = 0
   assert.equal((await aprobar(ana)).status, 202)
-  assert.equal(ordenesPublicar[0].reemplazar, true); assert.equal(ordenesPublicar[0].enlace_recurso, ENL)
+  assert.equal(ordenesPublicar[0].reemplazar, true); assert.equal(ordenesPublicar[0].enlace_recurso, ENL); assert.equal('imagen_url' in ordenesPublicar[0], false)
+  // con imagen https válida en la fila, la orden la lleva de primer nivel; una inválida guardada a mano no se manda
+  const IMGP = 'https://drive.google.com/thumbnail?id=pub1&sz=w800'
+  await pool.query("UPDATE pipeline_recursos SET imagen_url = $2, aprobado_en = NULL WHERE propietario_id = $1 AND id = 'pub1'", [ids.ana, IMGP])
+  ordenesPublicar.length = 0
+  assert.equal((await aprobar(ana)).status, 202); assert.equal(ordenesPublicar[0].imagen_url, IMGP)
+  await pool.query("UPDATE pipeline_recursos SET imagen_url = 'http://x.co/a.png', aprobado_en = NULL WHERE propietario_id = $1 AND id = 'pub1'", [ids.ana])
+  ordenesPublicar.length = 0
+  assert.equal((await aprobar(ana)).status, 202); assert.equal('imagen_url' in ordenesPublicar[0], false)
   // un error al publicar: queda ERROR, conserva el contenido y se puede reintentar
   const tardio = new Date(Date.now() + 4000).toISOString()
   await enviar(aviso('h5p_recurso', 'h5p', { ejecucion_id: 'pub-x', unidad: 1, id: 'pub1', estado: 'ERROR', observaciones: 'Drive no respondió', fecha_evento: tardio, secuencia: 91 }))
@@ -530,4 +539,40 @@ test('el mismo «ID del recurso» en DOS unidades del curso no se pisa (la clave
   assert.equal((await enviar(fin(23, [f('G-05-A', 'U23-T1-R1')], 6))).estado, 200)
   const nueva = await una('ana', 'pipeline_recursos', 'proyecto_id = $2 AND unidad = 23', ['curso-a'])
   assert.equal(nueva.length, 1); assert.equal(nueva[0].id, 'U23-T1-R1')
+})
+
+test('imagen y consumo del recurso: se guardan, un aviso posterior sin ellos no los borra, lo inválido se ignora y la persona puede cambiar la imagen', async () => {
+  const IMG = 'https://drive.google.com/thumbnail?id=abc123&sz=w1600'
+  const consumo = { texto: { modelo: 'm', entrada: 1000, salida: 500, llamadas: 2 }, imagenes: [{ modelo: 'i', calidad: 'media', tamano: '1024', uso: 'portada' }], costo_estimado_usd: 0.0421, costo_parcial: false }
+  const h = (estado, seg, extra = {}) => aviso('h5p_recurso', 'h5p', { ejecucion_id: 'img', unidad: 8, id: 'img1', estado, ...extra }, 300 + seg)
+  assert.equal((await enviar(h('GENERADO', 1, { imagen_url: IMG, consumo }))).datos.aplicados, 1)
+  let f = (await una('ana', 'pipeline_recursos', "id = 'img1'"))[0]
+  assert.equal(f.imagen_url, IMG); assert.equal(f.consumo.costo_estimado_usd, 0.0421); assert.equal(f.consumo.texto.entrada, 1000)
+  // aviso posterior sin los campos (o con basura): no los pisa y el aviso se aplica
+  assert.equal((await enviar(h('GENERADO', 2, { enlace_recurso: 'https://drive.google.com/file/d/x1/view' }))).datos.aplicados, 1)
+  const mal = await enviar(h('GENERADO', 3, { imagen_url: 'http://inseguro.example/a.png', consumo: 'texto' }))
+  assert.equal(mal.estado, 200); assert.equal(mal.datos.aplicados, 1)
+  assert.equal((await enviar(h('GENERADO', 4, { imagen_url: 'https://x.co/a b.png' }))).datos.aplicados, 1)
+  f = (await una('ana', 'pipeline_recursos', "id = 'img1'"))[0]
+  assert.equal(f.estado, 'GENERADO'); assert.equal(f.imagen_url, IMG); assert.equal(f.consumo.costo_estimado_usd, 0.0421)
+  // lectura y cambio manual (solo la persona dueña del curso)
+  const entrar = async (correo) => {
+    const r = await fetch(base + '/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json', 'x-ova': '1' }, body: JSON.stringify({ correo, clave: CLAVE }) })
+    const cookie = (r.headers.get('set-cookie') || '').split(';')[0]
+    return (ruta, metodo = 'GET', cuerpo) => fetch(base + '/api' + ruta, { method: metodo, headers: { cookie, 'x-ova': '1', 'content-type': 'application/json' }, body: cuerpo ? JSON.stringify(cuerpo) : undefined })
+  }
+  const ana = await entrar('ana@u.co')
+  const lista = await (await ana('/proyectos/curso-a/pipeline')).json()
+  const leida = lista.recursos.find((x) => x.id === 'img1')
+  assert.equal(leida.imagenUrl, IMG); assert.equal(leida.consumo.costo_estimado_usd, 0.0421)
+  const NUEVA = 'https://drive.google.com/thumbnail?id=nueva&sz=w800'
+  const ruta = '/proyectos/curso-a/pipeline/recursos/imagen'
+  assert.equal((await ana(ruta, 'PUT', { recursoId: 'img1', imagenUrl: 'http://x.co/a.png' })).status, 400)
+  assert.equal((await ana(ruta, 'PUT', { recursoId: 'img1', imagenUrl: 'https://x.co/a b' })).status, 400)
+  assert.equal((await ana(ruta, 'PUT', { recursoId: 'no-hay', imagenUrl: NUEVA })).status, 404)
+  assert.equal((await ana(ruta, 'PUT', { recursoId: 'img1', imagenUrl: NUEVA })).status, 200)
+  assert.equal((await una('ana', 'pipeline_recursos', "id = 'img1'"))[0].imagen_url, NUEVA)
+  assert.equal((await una('beto', 'pipeline_recursos', "id = 'img1'")).length, 0) // el curso de Beto (mismo identificador) no se toca
+  const beto = await entrar('beto@u.co')
+  assert.equal((await beto(ruta, 'PUT', { recursoId: 'img1', imagenUrl: NUEVA })).status, 404) // su curso no tiene ese recurso
 })

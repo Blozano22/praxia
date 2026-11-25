@@ -90,7 +90,7 @@ rutasAsignaciones.post('/asignaciones/pedir', limite, async (req, res, next) => 
     const resultados = await conTransaccion(async (c) => {
       // Un curso a la vez: las unidades que se piden en paralelo esperan su turno y ven lo que acaba de asignar la anterior.
       await c.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['asign:' + o.propietario_id + ':' + o.proyecto_id])
-      const cats = new Map((await c.query(Q.categoriasListar)).rows.map((k) => [k.id, k.tipo])) // categoría → 'recurso' | 'actividad'
+      const cats = new Map((await c.query(Q.categoriasListar)).rows.map((k) => [k.id, k.tipo])) // categoría → 'recurso' | 'actividad' | 'bibliografia'
       const formDe = {}
       for (const x of (await c.query(Q.formacionesListar)).rows) (formDe[x.categoria] ||= []).push(x.formacion)
       const existentes = Object.fromEntries((await c.query(Q.asignExistentes, [o.propietario_id, o.proyecto_id, b.recursos.map((r) => r.codigo)])).rows.map((f) => [f.codigo, f]))
@@ -117,6 +117,7 @@ rutasAsignaciones.post('/asignaciones/pedir', limite, async (req, res, next) => 
         const ex = existentes[r.codigo]
         const unidad = r.unidad ?? unidadDe(r.codigo)
         if (!cats.has(r.categoria)) { salida.push({ codigo: r.codigo, resultado: 'error', motivo: 'categoria_inexistente', categoria: r.categoria, plantilla: null }); continue }
+        if (cats.get(r.categoria) === 'bibliografia') { salida.push({ codigo: r.codigo, resultado: 'error', motivo: 'categoria_de_bibliografia', categoria: r.categoria, plantilla: null }); continue } // no se reparten por recurso
         if (ex && ex.estado === 'asignada' && !b.forzar) {
           // Idempotente: lo ya asignado no cambia. Si ahora piden otra categoría para ese código, se avisa en vez de pisarlo.
           if (ex.categoria !== r.categoria) { salida.push({ ...forma(ex), resultado: 'conflicto', motivo: 'ya_asignada_en_otra_categoria' }); continue }

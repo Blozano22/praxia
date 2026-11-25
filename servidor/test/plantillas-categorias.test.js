@@ -31,7 +31,7 @@ before(async () => {
   await dueno.connect()
   await dueno.query("CREATE ROLE ova_app LOGIN PASSWORD 'appclave' NOSUPERUSER NOBYPASSRLS")
   const sql = (f) => fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8')
-  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql']) await dueno.query(sql(f))
+  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql', '014_tipo_bibliografia.sql', '015_imagen_consumo_recurso.sql']) await dueno.query(sql(f))
   await dueno.query(sql('001_esquema.sql')) // volver a migrar no debe repetir ni pisar el punto de partida
   await dueno.end()
   process.env.DATABASE_URL = `postgres://ova_app:appclave@localhost:${PUERTO_PG}/ova`
@@ -183,7 +183,8 @@ test('cada categoría es de un tipo: «recurso» o «actividad» de autoaprendiz
   // sin decir el tipo, es un recurso
   assert.equal((await dani('POST', '/plantillas/categorias', { id: 'G-30', nombre: 'Otro recurso' })).status, 201)
   assert.equal((await dani('POST', '/plantillas/categorias', { id: 'ACT-01', nombre: 'Crucigrama', tipo: 'actividad' })).status, 201)
-  assert.equal((await dani('POST', '/plantillas/categorias', { id: 'ACT-02', nombre: 'Mala', tipo: 'juego' })).status, 400) // solo esos dos tipos
+  assert.equal((await dani('POST', '/plantillas/categorias', { id: 'ACT-02', nombre: 'Mala', tipo: 'juego' })).status, 400) // solo los tres tipos
+  assert.equal((await dani('POST', '/plantillas/categorias', { id: 'BIB-01', nombre: 'Bibliografía', tipo: 'bibliografia' })).status, 201)
   let j = await (await dani('GET', '/plantillas/categorias')).json()
   assert.equal(j.categorias.find((c) => c.id === 'G-30').tipo, 'recurso'); assert.equal(j.categorias.find((c) => c.id === 'ACT-01').tipo, 'actividad')
   assert.equal((await dani('PUT', '/plantillas/asignacion/crucigrama', { categoria: 'ACT-01' })).status, 200)
@@ -195,7 +196,7 @@ test('cada categoría es de un tipo: «recurso» o «actividad» de autoaprendiz
   assert.deepEqual(j.categorias.find((c) => c.id === 'G-30'), { id: 'G-30', nombre: 'Otra actividad', tipo: 'actividad' })
   // el índice público lo trae por categoría y por plantilla
   const ix = await indice()
-  assert.equal(ix.categorias.find((c) => c.id === 'ACT-01').tipo, 'actividad')
+  assert.equal(ix.categorias.find((c) => c.id === 'ACT-01').tipo, 'actividad'); assert.equal(ix.categorias.find((c) => c.id === 'BIB-01').tipo, 'bibliografia')
   assert.deepEqual([ix.plantillas.find((p) => p.nombre === 'crucigrama').tipo, ix.plantillas.find((p) => p.nombre === 'acordeon').tipo, ix.plantillas.find((p) => p.nombre === 'nueva-plantilla').tipo], ['actividad', 'recurso', null])
   assert.equal((await dani('DELETE', '/plantillas/categorias/ACT-01')).status, 200)
   assert.equal((await dani('DELETE', '/plantillas/categorias/G-30')).status, 200)
