@@ -24,7 +24,7 @@ const MOTIVO = {
   sin_lector: 'Todavía no hay lector del guion para este tipo de recurso',
   sin_variante_disponible: 'No queda una variante libre de este tipo: se reintenta sola en la siguiente corrida',
   tipo_inactivo: 'Este tipo de recurso está desactivado',
-  supera_maximo: 'Superó el máximo de recursos de la corrida'
+  supera_maximo: 'Quedó fuera por el máximo de la corrida: genere de nuevo'
 }
 const motivoTexto = (m) => MOTIVO[m] || String(m || '').replace(/_/g, ' ')
 // Tema de un recurso: el que avisó n8n o, si falta, el del código («U1-T4-R6» → 4). 0 = sin tema.
@@ -37,6 +37,19 @@ const hace = (c) => {
   if (s < 3600) return 'hace ' + Math.round(s / 60) + ' min'
   if (s < 86400) return 'hace ' + Math.round(s / 3600) + ' h'
   return fecha(c)
+}
+
+// Recursos que quedaron sin generar por el tope de la corrida (0 si no aplica).
+function pendientesPorTope(e) {
+  if (!e || e.estado === 'en_curso') return 0
+  const rest = e.resumen && e.resumen.pendientes_restantes != null ? Number(e.resumen.pendientes_restantes) || 0 : 0
+  const om = (e.plan && e.plan.omitidas ? e.plan.omitidas : []).filter((o) => o.motivo === 'supera_maximo').length
+  return Math.max(rest, om)
+}
+function AvisoTope({ e }) {
+  const n = pendientesPorTope(e)
+  if (!n) return null
+  return <p className="mx-nada" role="status"><b>Quedan {n} {n === 1 ? 'recurso' : 'recursos'} sin generar</b> (n8n genera hasta un máximo por corrida). Pulse «Generar H5P» otra vez para continuar.</p>
 }
 
 function Pill({ par }) { return <span className={'pill ' + par[0]}>{par[1]}</span> }
@@ -108,6 +121,7 @@ function Corrida({ e }) {
         <div><b>{omitidas.length || (r ? r.omitidos ?? 0 : 0)}</b><span>omitidos</span></div>
         {r && r.pendientes_restantes != null && <div><b>{r.pendientes_restantes}</b><span>pendientes</span></div>}
       </div>
+      <AvisoTope e={e} />
       {nadaQueGenerar && <p className="mx-nada"><b>n8n revisó los recursos pero no generó ninguno.</b> {porMotivo.map(([m, n]) => n + ' × ' + motivoTexto(m)).join(' · ')}.</p>}
       {omitidas.length > 0 && (
         <details className="mx-omitidas">
@@ -538,6 +552,7 @@ export default function MatricesH5P({ s }) {
               <button type="button" className="mx6-gen" disabled={h5pOcupado} onClick={() => lanzarH5p(false)}>{lanzando ? 'Enviando…' : 'Generar H5P'}<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg></button>
             </div>
           </div>
+          <AvisoTope e={ultimaH5P} />
           <div className="mx6-stats">
             {porRevisarTotal > 0 && <div className="mx6-rev"><b>{porRevisarTotal}</b><span>{porRevisarTotal === 1 ? 'recurso listo para revisar' : 'recursos listos para revisar'}</span><small>Ya están generados: ábralos abajo, en su unidad.</small></div>}
             <div className="mx6-pend"><b>{pendientes}</b><span>{pendientes === 1 ? 'recurso por generar' : 'recursos por generar'}</span></div>
