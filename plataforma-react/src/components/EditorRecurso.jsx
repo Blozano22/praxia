@@ -42,7 +42,7 @@ const ORDEN_ESTADO = { POR_REVISAR: 0, ERROR: 1, EN_PROCESO: 2, GENERADO: 3, PEN
 const TEXTO_ESTADO = { POR_REVISAR: 'Por revisar', ERROR: 'Con error', EN_PROCESO: 'Generando', GENERADO: 'Generado', PENDIENTE: 'Por generar' }
 
 function ListaRecursos({ recursos, actualId, puedePublicar, sucio, onElegir, onAprobar }) {
-  const [filtro, setFiltro] = useState('con') // con = los que ya tienen algo que ver; revisar; todos
+  const [filtro, setFiltro] = useState(() => (recursos.some((r) => r.estado !== 'PENDIENTE' || r.enCola) ? 'con' : 'todos')) // con = los que ya tienen algo que ver; revisar; todos
   const [cerradas, setCerradas] = useState({})
   const [ocupados, setOcupados] = useState({}) // id → true mientras se aprueba
   const [unidadBusy, setUnidadBusy] = useState(null)
@@ -138,7 +138,7 @@ function ListaRecursos({ recursos, actualId, puedePublicar, sucio, onElegir, onA
                     const k = sin ? 'er' : pub || r.estado === 'EN_PROCESO' ? 'en' : r.estado === 'POR_REVISAR' ? 'prev' : r.estado === 'GENERADO' ? 'ok' : r.estado === 'ERROR' ? 'er' : 'pe'
                     return (
                       <li key={r.id} className={'er-rec ' + k + (r.id === actualId ? ' on' : '')}>
-                        <button type="button" className="er-rec-btn" aria-current={r.id === actualId ? 'true' : undefined} onClick={() => onElegir(r)}>
+                        <button type="button" className="er-rec-btn" disabled={!r.conContenido && r.id !== actualId} aria-current={r.id === actualId ? 'true' : undefined} onClick={() => onElegir(r)}>
                           <span className={'er-rec-ic ' + k} aria-hidden="true">{k === 'en' ? <i className="er-gira" /> : k === 'ok' ? '✓' : k === 'er' ? '!' : ''}</span>
                           <span className="er-rec-tx"><b>{r.codigo || r.id}</b><small>{r.titulo || 'Sin título'}</small></span>
                           <span className={'er-rec-et ' + k}>{pub ? 'Publicando…' : sin ? 'Sin avisos' : r.enCola ? (r.regenera ? 'Se regenerará' : 'En cola') : TEXTO_ESTADO[r.estado] || r.estado}</span>
@@ -358,7 +358,7 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
             <div ref={cuerpo} className={'er-cuerpo er-m-' + modo + ' er-o-' + orient + (invertido ? ' er-inv' : '')} style={{ '--f': frac }}>
               <div className="er-vista">
                 {estado === 'listo' && <iframe ref={marco} className="er-marco" title="Vista del recurso" sandbox="allow-scripts" srcDoc={pagina} />}
-                {estado === 'sinContenido' && <div className="er-estado">{actual.estado === 'EN_PROCESO' || actual.publicando ? <CargaRecurso tam="grande" /> : <i className="er-estado-ic info" aria-hidden="true">{actual.estado === 'PENDIENTE' ? '…' : 'i'}</i>}<b>{actual.publicando ? 'Este recurso se está publicando' : actual.estado === 'EN_PROCESO' ? 'Este recurso se está generando' : actual.estado === 'PENDIENTE' ? 'Este recurso todavía no se genera' : 'Este recurso no se puede editar aquí'}</b><span>{actual.publicando ? 'n8n está armando el H5P y subiéndolo a Drive. Cuando termine, el recurso aparecerá como «Generado».' : actual.estado === 'EN_PROCESO' || actual.estado === 'PENDIENTE' ? 'Cuando n8n termine, aparecerá en la lista como «Por revisar» y podrá abrirlo para corregir sus textos.' : 'Se generó antes de que Praxia guardara su contenido, así que sus textos no se pueden corregir desde esta pantalla.'}</span></div>}
+                {estado === 'sinContenido' && <div className="er-estado">{actual.esperando || actual.estado === 'EN_PROCESO' || actual.publicando ? <CargaRecurso tam="grande" /> : <i className="er-estado-ic info" aria-hidden="true">{actual.estado === 'PENDIENTE' ? '…' : 'i'}</i>}<b>{actual.esperando ? 'Los recursos se están generando' : actual.publicando ? 'Este recurso se está publicando' : actual.estado === 'EN_PROCESO' ? 'Este recurso se está generando' : actual.estado === 'PENDIENTE' ? 'Este recurso todavía no se genera' : 'Este recurso no se puede editar aquí'}</b><span>{actual.esperando ? 'Se irán habilitando en la lista a medida que se generen; el primero se abrirá solo.' : actual.publicando ? 'n8n está armando el H5P y subiéndolo a Drive. Cuando termine, el recurso aparecerá como «Generado».' : actual.estado === 'EN_PROCESO' || actual.estado === 'PENDIENTE' ? 'Cuando n8n termine, aparecerá en la lista como «Por revisar» y podrá abrirlo para corregir sus textos.' : 'Se generó antes de que Praxia guardara su contenido, así que sus textos no se pueden corregir desde esta pantalla.'}</span></div>}
                 {estado === 'cargando' && <div className="er-estado"><CargaRecurso tam="grande" etiqueta="Abriendo el recurso" /><b>Abriendo el recurso…</b><span>Se está preparando la plantilla con su contenido.</span></div>}
                 {estado === 'error' && <div className="er-estado mal" role="alert"><i className="er-estado-ic" aria-hidden="true">!</i><b>No se pudo abrir el editor</b><span>{error}</span></div>}
               </div>

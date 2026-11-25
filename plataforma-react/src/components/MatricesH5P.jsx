@@ -420,6 +420,9 @@ export default function MatricesH5P({ s }) {
   const porRevisarTotal = d ? d.recursos.filter((r) => r.estado === 'POR_REVISAR').length : 0
   // Recursos H5P con contenido que ya se puede abrir en el editor: primero los por revisar, luego los que dieron error y al final los publicados
   const editables = d ? d.recursos.filter((r) => String(r.generador || '').toUpperCase() === 'H5P' && r.conContenido && ['POR_REVISAR', 'ERROR', 'GENERADO'].includes(r.estado)).sort((a, b) => ({ POR_REVISAR: 0, ERROR: 1, GENERADO: 2 }[a.estado] - { POR_REVISAR: 0, ERROR: 1, GENERADO: 2 }[b.estado]) || (a.unidad || 0) - (b.unidad || 0) || String(a.codigo || a.id).localeCompare(String(b.codigo || b.id))) : []
+  const h5pActivo = !!d && (lanzadoReciente || d.recursos.some((r) => String(r.generador || '').toUpperCase() === 'H5P' && (r.estado === 'EN_PROCESO' || r.enCola)))
+  const ESPERA = { id: '__espera', codigo: 'Editor de recursos', titulo: 'Esperando que se genere el primero', conContenido: false, estado: 'PENDIENTE', esperando: true }
+  useEffect(() => { if (editando && editando.esperando && editables.length > 0) setEditando(editables[0]) }, [editando, editables.length]) // eslint-disable-line react-hooks/exhaustive-deps
   const pendientes = d ? d.recursos.filter((r) => r.estado === 'PENDIENTE' && String(r.generador || '').toUpperCase() === 'H5P').length : 0
   const aprobadas = new Set((s.syllabus.documentos || []).filter((x) => x.aprobado).map((x) => x.unidad))
   const faltan = d ? unidades.map((u) => u.unidad).filter((n) => aprobadas.has(n) && (() => { const m = d.matrices.find((x) => x.unidad === n); return !m || m.estado === 'error' || m.sinRespuesta })()) : []
@@ -510,14 +513,14 @@ export default function MatricesH5P({ s }) {
         </section>
       )}
 
-      {d && fase === 2 && editables.length > 0 && (
+      {d && fase === 2 && (editables.length > 0 || h5pActivo) && (
         <section className={'mx7-ed' + (porRevisarTotal > 0 ? ' prev' : '')} aria-label="Editor de recursos H5P">
           <span className="mx7-ed-ic" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z" /></svg></span>
           <div className="mx7-ed-tx">
             <b>Editor de recursos H5P</b>
-            <span>{porRevisarTotal > 0 ? (porRevisarTotal === 1 ? 'Hay 1 recurso listo para revisar.' : 'Hay ' + porRevisarTotal + ' recursos listos para revisar.') : editables.length === 1 ? '1 recurso generado se puede revisar.' : editables.length + ' recursos generados se pueden revisar.'} Ábralo para ver la lista completa, corregir textos y aprobar sin desplegar cada recurso.</span>
+            <span>{editables.length === 0 ? 'Los recursos se irán habilitando en el editor a medida que se generen.' : porRevisarTotal > 0 ? (porRevisarTotal === 1 ? 'Hay 1 recurso listo para revisar.' : 'Hay ' + porRevisarTotal + ' recursos listos para revisar.') : editables.length === 1 ? '1 recurso generado se puede revisar.' : editables.length + ' recursos generados se pueden revisar.'} Ábralo para ver la lista completa, corregir textos y aprobar sin desplegar cada recurso.</span>
           </div>
-          <button type="button" className="mx7-ed-b" onClick={() => setEditando(editables[0])}>Abrir el editor<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg></button>
+          <button type="button" className="mx7-ed-b" onClick={() => setEditando(editables[0] || ESPERA)}>Abrir el editor<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg></button>
         </section>
       )}
 
