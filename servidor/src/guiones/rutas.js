@@ -140,7 +140,9 @@ rutasGuiones.post('/trabajos', exigirPermiso('proyectos.crear'), limiteCrear, va
     // Carpeta del curso: viaja a n8n junto con proyecto_id para que la matriz y los avisos posteriores sepan a qué curso pertenecen (7.1a del plan).
     let carpeta = null
     try { carpeta = ((await conUsuario(req.usuario, (cx) => cx.query(Q.pipeCarpetaDeProyecto, [req.usuario.id, proyecto]))).rows[0] || {}).carpeta || null } catch (e) { console.error('[pipeline] no se pudo leer la carpeta del curso', e && e.message) }
-    const cuerpoN8n = { unidad_url: unidadUrl, ...(syllabusUrl ? { syllabus_url: syllabusUrl } : {}), unidad, bibliografia: p.cuerpo, proyecto_id: proyecto, ...(carpeta ? { carpeta_raiz: carpeta } : {}) }
+    const cuerpoN8n = { unidad_url: unidadUrl, ...(syllabusUrl ? { syllabus_url: syllabusUrl } : {}), unidad, bibliografia: p.cuerpo, proyecto_id: proyecto, ...(carpeta ? { carpeta_raiz: carpeta, carpeta_destino_url: carpeta } : {}) }
+    // carpeta_destino_url es el campo con el que el flujo de guiones decide DÓNDE crea «Guiones Un…»: sin él la carpeta cae junto al documento
+    // de la unidad (que, si es de otra cuenta, queda en «Compartido conmigo») o en una carpeta fija. carpeta_raiz sigue viajando para la matriz.
     const grande = paqueteGrande(cuerpoN8n)
     if (grande) return res.status(413).json({ error: grande })
     // Antes de los guiones, si hay flujo de preparación: se asignan las variantes del curso y las de esta unidad viajan en el pedido (campo «asignaciones»).
