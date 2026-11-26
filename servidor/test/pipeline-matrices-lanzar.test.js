@@ -12,7 +12,7 @@ import EmbeddedPostgres from 'embedded-postgres'
 import pg from 'pg'
 
 const aqui = path.dirname(fileURLToPath(import.meta.url))
-const PUERTO_PG = 54338
+const PUERTO_PG = 54381
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ova-pg-mat-'))
 const servidorPg = new EmbeddedPostgres({ databaseDir: dir, user: 'postgres', password: 'duenio', port: PUERTO_PG, persistent: false })
 const CLAVE = 'ClaveSegura123'
@@ -289,3 +289,49 @@ test('H5P: el máximo es opcional; sin él Praxia no lo envía a n8n (lo define 
   assert.equal('maximo' in enviado, false); assert.equal(enviado.reintentar_errores, false)
   assert.equal((await ana('POST', '/proyectos/curso-x/pipeline/h5p', { maximo: 0 })).status, 400) // si viene, se valida
 }) 
+
+test('regenerar: la orden lleva solo «regenerar» (sin unidades), valida estado/plantilla/códigos, conserva el enlace hasta el aviso y el POR_REVISAR nuevo reemplaza el contenido', async () => {
+  const ana = await entrar('ana@u.co')
+  assert.equal((await ana('PUT', '/proyectos/curso-rg', curso('curso-rg'))).status, 200)
+  const mat = await ana('POST', '/proyectos/curso-rg/pipeline/matrices', { unidades: [1] })
+  const tm = (await mat.json()).trabajo_id
+  const f = (s) => new Date(Date.now() - 600 * 1000 + s * 1000).toISOString()
+  assert.equal((await firmado({ evento_id: 'rg-m-fin-0001', evento: 'matrices_fin', etapa: 'matrices', proyecto_id: 'curso-rg', ejecucion_id: 'ej-rg-m', trabajo_id: tm, origen_trabajo_id: tm, secuencia: 1, fecha_evento: f(1),
+    resultados: [{ unidad: 1, formacion: 'Tecnológico', resultado: 'creada', matriz: { id: 'MR1', url: 'https://docs.google.com/spreadsheets/d/mr1abcdefgh/edit', nombre: 'M' }, filas: [] }] })).status, 200)
+  respuestaN8n = { estado: 200, cuerpo: { ok: true } }
+  const gen = await ana('POST', '/proyectos/curso-rg/pipeline/h5p', {})
+  assert.equal(gen.status, 202)
+  const t = (await gen.json()).trabajo_id
+  const ENL = 'https://drive.google.com/file/d/archivoViejo123/view'
+  let sec = 1
+  const aviso = (id, codigo, estado, extra = {}) => firmado({ evento_id: 'rg-r-' + id + '-' + estado + '-' + (++sec), evento: 'h5p_recurso', etapa: 'h5p', trabajo_id: t, proyecto_id: 'curso-rg', ejecucion_id: 'ej-rg', secuencia: sec, fecha_evento: f(sec), unidad: 1, id, codigo, estado, ...extra })
+  assert.equal((await aviso('r1', 'U1-T1-R1', 'GENERADO', { plantilla: 'quiz', enlace_recurso: ENL, contenido: { v: 'viejo' } })).status, 200)
+  assert.equal((await aviso('r2', 'U1-T1-R2', 'ERROR', { plantilla: 'quiz', observaciones: 'x' })).status, 200)
+  assert.equal((await aviso('r3', 'U1-T1-R3', 'PENDIENTE')).status, 200) // sin plantilla ni avance
+  assert.equal((await aviso('r4', 'U1-T1-R4', 'EN_PROCESO', { plantilla: 'quiz' })).status, 200)
+  assert.equal((await firmado({ evento_id: 'rg-fin-0001', evento: 'h5p_fin', etapa: 'h5p', trabajo_id: t, proyecto_id: 'curso-rg', ejecucion_id: 'ej-rg', secuencia: 99, fecha_evento: f(99), resumen: {} })).status, 200)
+  await pool.query("UPDATE pipeline_recursos SET contenido_editado_en = now() WHERE proyecto_id = 'curso-rg' AND id = 'r1'").catch(() => {})
+  // validaciones
+  assert.equal((await ana('POST', '/proyectos/curso-rg/pipeline/h5p', { regenerar: [] })).status, 400)
+  assert.equal((await ana('POST', '/proyectos/curso-rg/pipeline/h5p', { regenerar: ['cualquiera'] })).status, 400)
+  const antes = recibidas.length
+  for (const malo of ['U1-T1-R3', 'U1-T1-R4', 'U1-T1-R9']) { // pendiente, en proceso, inexistente/ajeno
+    const r = await ana('POST', '/proyectos/curso-rg/pipeline/h5p', { regenerar: ['U1-T1-R1', malo] })
+    assert.equal(r.status, 409); assert.deepEqual((await r.json()).invalidos, [malo])
+  }
+  assert.equal(recibidas.length, antes)
+  // lanzar
+  const ok = await ana('POST', '/proyectos/curso-rg/pipeline/h5p', { regenerar: ['U1-T1-R1', 'U1-T1-R2'] })
+  assert.equal(ok.status, 202)
+  const j = await ok.json()
+  assert.deepEqual(recibidas.at(-1), { trabajo_id: j.trabajo_id, proyecto_id: 'curso-rg', carpeta_raiz: CARPETA, regenerar: ['U1-T1-R1', 'U1-T1-R2'], reintentar_errores: false })
+  const fila = async (id) => (await pool.query("SELECT estado, enlace_recurso, contenido, contenido_editado_en FROM pipeline_recursos WHERE proyecto_id = 'curso-rg' AND id = $1", [id])).rows[0]
+  let r1 = await fila('r1')
+  assert.equal(r1.estado, 'EN_PROCESO'); assert.equal(r1.enlace_recurso, ENL); assert.deepEqual(r1.contenido, { v: 'viejo' })
+  assert.equal((await ana('POST', '/proyectos/curso-rg/pipeline/h5p', { regenerar: ['U1-T1-R1'] })).status, 409) // ya hay una corrida / ya en proceso
+  // el aviso nuevo POR_REVISAR reemplaza el contenido, descarta lo editado y conserva el enlace
+  const nuevo = (id, codigo, extra) => firmado({ evento_id: 'rg-n-' + id + '-0001', evento: 'h5p_recurso', etapa: 'h5p', trabajo_id: j.trabajo_id, proyecto_id: 'curso-rg', ejecucion_id: 'ej-rg2', secuencia: 1, fecha_evento: new Date(Date.now() + 5000).toISOString(), unidad: 1, id, codigo, ...extra })
+  assert.equal((await nuevo('r1', 'U1-T1-R1', { estado: 'POR_REVISAR', plantilla: 'quiz', contenido: { v: 'nuevo' } })).status, 200)
+  r1 = await fila('r1')
+  assert.equal(r1.estado, 'POR_REVISAR'); assert.deepEqual(r1.contenido, { v: 'nuevo' }); assert.equal(r1.enlace_recurso, ENL); assert.equal(r1.contenido_editado_en, null)
+})

@@ -25,6 +25,7 @@ const MOTIVO = {
   sin_lector: 'Todavía no hay lector del guion para este tipo de recurso',
   sin_variante_disponible: 'No queda una variante libre de este tipo: se reintenta sola en la siguiente corrida',
   tipo_inactivo: 'Este tipo de recurso está desactivado',
+  no_encontrado: 'No se encontró este recurso en las matrices',
   supera_maximo: 'Quedó fuera por el máximo de la corrida: genere de nuevo'
 }
 const motivoTexto = (m) => MOTIVO[m] || String(m || '').replace(/_/g, ' ')
@@ -139,13 +140,13 @@ const I_ALERTA = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" str
 const I_RELOJ = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path d="M12 8v4l2.5 2" /></svg>
 
 // Una línea por recurso: generado (verde), por generar (círculo vacío), en proceso o con error.
-function Fila({ r, editar, aprobar, puedePublicar, hija, etiqueta }) {
+function Fila({ r, editar, aprobar, regenerar, bloqueado, puedePublicar, hija, etiqueta }) {
   const mal = r.sinRespuesta || r.estado === 'ERROR'
   const hecho = r.estado === 'GENERADO' && !r.sinRespuesta
   const porRevisar = r.estado === 'POR_REVISAR' && !r.sinRespuesta
   const publicando = !!r.publicando && !r.publicandoSinRespuesta
   const k = publicando ? 'en' : hecho ? 'ok' : mal ? 'er' : porRevisar ? 'prev' : r.estado === 'EN_PROCESO' ? 'en' : 'pe'
-  const texto = publicando ? 'Publicando…' : r.publicandoSinRespuesta ? 'Sin respuesta al publicar' : r.enCola && r.regenera ? 'Se regenerará' : porRevisar ? 'Por revisar' : r.enCola ? 'En cola' : hecho ? 'Generado' : r.sinRespuesta ? 'Sin avisos' : r.estado === 'ERROR' ? 'Con error' : r.estado === 'EN_PROCESO' ? 'Generando' : 'Por generar'
+  const texto = publicando ? 'Publicando…' : r.publicandoSinRespuesta ? 'Sin respuesta al publicar' : r.enCola && r.regenera ? 'Se regenerará' : porRevisar ? 'Por revisar' : r.enCola ? 'En cola' : hecho ? 'Generado' : r.sinRespuesta ? 'Sin avisos' : r.estado === 'ERROR' ? 'Con error' : r.estado === 'EN_PROCESO' ? (r.conContenido ? 'Regenerando…' : 'Generando') : 'Por generar'
   const nota = porRevisar ? '' : r.estado === 'ERROR' ? r.observaciones : r.omision ? 'Se omitió: ' + motivoTexto(r.omision) : hecho ? '' : r.observaciones
   return (
     <li className={'mx4-r ' + k + (hija ? ' hija' : '')}>
@@ -158,6 +159,7 @@ function Fila({ r, editar, aprobar, puedePublicar, hija, etiqueta }) {
       <span className="mx4-rl">
         {r.conContenido && !publicando && !r.enCola && ['POR_REVISAR', 'GENERADO', 'ERROR'].includes(r.estado) && editar && <button type="button" className="mx4-ed" onClick={() => editar(r)} title="Corregir los textos del recurso antes de publicarlo">Editar textos</button>}
         {r.conContenido && !publicando && !r.enCola && ['POR_REVISAR', 'ERROR'].includes(r.estado) && puedePublicar && aprobar && <button type="button" className="mx4-ed ok" onClick={() => aprobar(r)} title="Aprobar el contenido: n8n arma el H5P y lo sube a Drive">Aprobar y publicar</button>}
+        {r.plantilla && !publicando && !r.enCola && ['POR_REVISAR', 'GENERADO', 'ERROR'].includes(r.estado) && puedePublicar && regenerar && <button type="button" className="mx4-ed" disabled={bloqueado} onClick={() => regenerar(r)} title="Crear de nuevo con la misma plantilla">Regenerar</button>}
         {hecho && r.enlaceRecurso && <a href={r.enlaceRecurso} target="_blank" rel="noopener noreferrer">Recurso ↗</a>}
         {r.enlaceGuion && <a href={r.enlaceGuion} target="_blank" rel="noopener noreferrer">Guion ↗</a>}
         {r.consumo && <span className="mx4-cons" title="Tokens de texto y costo estimado de este recurso">{miles(tokensDe(r.consumo))} tokens · {usd(costoDe(r.consumo))}{r.consumo.costo_parcial ? ' (parcial)' : ''}</span>}
@@ -179,7 +181,7 @@ function Cronometro({ desde }) {
   return <span className="mx3-crono">{Math.floor(seg / 60)}:{String(seg % 60).padStart(2, '0')}</span>
 }
 
-function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, enviada, desdeEnvio, editar, aprobar, puedePublicar, fase }) {
+function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, enviada, desdeEnvio, editar, aprobar, regenerar, bloqueado, puedePublicar, fase }) {
   const [todos, setTodos] = useState(false)
   const [filtro, setFiltro] = useState('todos')
   const [confirmar, setConfirmar] = useState(false)
@@ -298,7 +300,7 @@ function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, envi
                 const pos = (r) => { const x = /-([RA])(\d+)$/i.exec(cod(r)); return x ? Number(x[2]) : Infinity }
                 const esAct = (r) => /-T\d+-A\d+$/i.test(cod(r))
                 const clave = (r) => cod(r).replace(/-[RA](\d+)$/i, '').toUpperCase() + '|' + pos(r)
-                const mk = (r, extra) => <Fila key={r.id} r={r} editar={editar} aprobar={aprobar} puedePublicar={puedePublicar} {...extra} />
+                const mk = (r, extra) => <Fila key={r.id} r={r} editar={editar} aprobar={aprobar} regenerar={regenerar} bloqueado={bloqueado} puedePublicar={puedePublicar} {...extra} />
                 const pres = filas.filter((r) => /-PRES$/i.test(cod(r)))
                 const resto = filas.filter((r) => !/-PRES$/i.test(cod(r)))
                 const recs = resto.filter((r) => !esAct(r))
@@ -355,6 +357,16 @@ export default function MatricesH5P({ s }) {
     cargar()
     return true
   }
+  // Regenerar = crear de nuevo con la misma plantilla; queda un borrador «Por revisar» y publicarlo reemplaza el archivo ya publicado.
+  const regenerarRecurso = async (r) => {
+    if (!window.confirm('Se creará de nuevo con la misma plantilla y se perderán las ediciones hechas a mano. Si ya estaba publicado, el archivo se reemplazará solo cuando vuelva a aprobarlo.')) return false
+    await api('POST', '/proyectos/' + encodeURIComponent(s.id) + '/pipeline/h5p', { regenerar: [r.codigo] })
+    setLanzadoEn(Date.now()); setYaEnCurso(0); setEnviadas([])
+    setAviso('Regenerando… ' + r.codigo + ' aparecerá como «Por revisar» cuando n8n termine.')
+    cargar()
+    return true
+  }
+  const regenerarDesdeFila = async (r) => { try { await regenerarRecurso(r) } catch (e) { setError(e.message || 'No se pudo regenerar el recurso.') } }
   const aprobarDesdeFila = async (r) => { try { await aprobarRecurso(r) } catch (e) { setError(e.message || 'No se pudo aprobar el recurso.') } }
   const [editando, setEditando] = useState(null) // recurso abierto en el editor de textos
   const [lanzadoEn, setLanzadoEn] = useState(0) // hasta que n8n avise del inicio pasan unos segundos: mientras tanto se sigue refrescando
@@ -609,12 +621,12 @@ export default function MatricesH5P({ s }) {
           <h4 className="mx2-h mx3-h">Unidades</h4>
           <div className="mx-grid mx3-lista">
             {unidades.map((u) => (
-              <Unidad key={u.unidad} unidad={u.unidad} nombre={u.nombre} matriz={d.matrices.find((m) => m.unidad === u.unidad)} recursos={d.recursos.filter((r) => r.unidad === u.unidad)} puede={puede} ocupado={ocupado} lanzar={lanzar} enviada={lanzadoReciente && enviadas.includes(u.unidad)} desdeEnvio={yaEnCurso ? 0 : lanzadoEn} editar={setEditando} aprobar={aprobarDesdeFila} puedePublicar={puedePublicar} fase={fase} />
+              <Unidad key={u.unidad} unidad={u.unidad} nombre={u.nombre} matriz={d.matrices.find((m) => m.unidad === u.unidad)} recursos={d.recursos.filter((r) => r.unidad === u.unidad)} puede={puede} ocupado={ocupado} lanzar={lanzar} enviada={lanzadoReciente && enviadas.includes(u.unidad)} desdeEnvio={yaEnCurso ? 0 : lanzadoEn} editar={setEditando} aprobar={aprobarDesdeFila} regenerar={regenerarDesdeFila} bloqueado={h5pOcupado} puedePublicar={puedePublicar} fase={fase} />
             ))}
           </div>
         </>
       )}
-      {editando && <EditorRecurso proyecto={s.id} recurso={editando} recursos={d ? d.recursos.filter((r) => String(r.generador || '').toUpperCase() === 'H5P') : []} puedePublicar={puedePublicar} onAprobar={aprobarRecurso} onElegir={setEditando} onCerrar={() => { setEditando(null); cargar() }} />}
+      {editando && <EditorRecurso proyecto={s.id} recurso={editando} recursos={d ? d.recursos.filter((r) => String(r.generador || '').toUpperCase() === 'H5P') : []} puedePublicar={puedePublicar} onAprobar={aprobarRecurso} onRegenerar={regenerarRecurso} regenerarBloqueado={h5pOcupado} onElegir={setEditando} onCerrar={() => { setEditando(null); cargar() }} />}
     </div>
   )
 }

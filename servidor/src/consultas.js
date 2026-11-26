@@ -231,6 +231,7 @@ export const Q = Object.freeze({
       omision = EXCLUDED.omision,
       plantilla = coalesce(EXCLUDED.plantilla, pipeline_recursos.plantilla),
       contenido = coalesce(EXCLUDED.contenido, pipeline_recursos.contenido),
+      contenido_editado_en = CASE WHEN EXCLUDED.contenido IS NOT NULL THEN NULL ELSE pipeline_recursos.contenido_editado_en END, -- contenido nuevo (p. ej. al regenerar) descarta las ediciones a mano
       aprobado_en = CASE WHEN EXCLUDED.estado = 'POR_REVISAR' THEN NULL ELSE pipeline_recursos.aprobado_en END, -- un contenido nuevo por revisar anula la aprobación anterior
       revision_pendiente = coalesce(EXCLUDED.revision_pendiente, pipeline_recursos.revision_pendiente),
       imagen_url = coalesce(EXCLUDED.imagen_url, pipeline_recursos.imagen_url),
@@ -283,6 +284,19 @@ export const Q = Object.freeze({
      WHERE propietario_id = $1 AND proyecto_id = $2 AND id = $3 AND contenido IS NOT NULL
        AND (aprobado_en IS NULL OR aprobado_en <= actualizado_en OR aprobado_en < now() - interval '15 minutes')
     RETURNING id, codigo, unidad, plantilla, contenido, enlace_recurso AS "enlaceRecurso", estado, imagen_url AS "imagenUrl"`,
+  // Regenerar: filas del curso (por código de posición) con su estado y plantilla, para validar la petición.
+  pipeRegenerarLeer: `
+    SELECT id, codigo, unidad, estado, plantilla, actualizado_en AS "actualizadoEn"
+      FROM pipeline_recursos WHERE propietario_id = $1 AND proyecto_id = $2 AND codigo = ANY($3::text[])`,
+  // Marca EN_PROCESO sin tocar enlace_recurso, imagen_url, consumo ni contenido; actualizado_en = ahora para que el vencimiento (30 min) cuente desde aquí.
+  pipeRegenerarMarcar: `
+    UPDATE pipeline_recursos SET estado = 'EN_PROCESO', actualizado_en = now()
+     WHERE propietario_id = $1 AND proyecto_id = $2 AND id = ANY($3::text[]) AND estado IN ('POR_REVISAR','GENERADO','ERROR')
+    RETURNING id`,
+  pipeRegenerarRevertir: `
+    UPDATE pipeline_recursos r SET estado = x.estado, actualizado_en = x.act
+      FROM (SELECT unnest($3::text[]) AS id, unnest($4::text[]) AS estado, unnest($5::timestamptz[]) AS act) x
+     WHERE r.propietario_id = $1 AND r.proyecto_id = $2 AND r.id = x.id AND r.estado = 'EN_PROCESO'`,
   pipeAprobarRevertir: `UPDATE pipeline_recursos SET aprobado_en = NULL WHERE propietario_id = $1 AND proyecto_id = $2 AND id = $3`,
   pipeLeerEjecuciones: `
     SELECT etapa, ejecucion_id AS "ejecucionId", estado, maximo, plan, resumen, iniciado_en AS "iniciadoEn",

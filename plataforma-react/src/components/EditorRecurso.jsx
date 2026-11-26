@@ -166,7 +166,7 @@ function ListaRecursos({ recursos, actualId, puedePublicar, sucio, onElegir, onA
   )
 }
 
-export default function EditorRecurso({ proyecto, recurso, recursos = [], puedePublicar, onAprobar, onElegir, onCerrar }) {
+export default function EditorRecurso({ proyecto, recurso, recursos = [], puedePublicar, onAprobar, onRegenerar, regenerarBloqueado, onElegir, onCerrar }) {
   const [estado, setEstado] = useState('cargando') // cargando | listo | error
   const [error, setError] = useState('')
   const [pagina, setPagina] = useState('')
@@ -258,6 +258,13 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
     finally { setOcupado('') }
   }
 
+  const regenerarEste = async () => {
+    setOcupado('regenerar'); setMsg(null)
+    try { const hecho = await onRegenerar(actual); if (hecho) { setMsg({ tipo: 'ok', texto: 'Regenerando… el borrador nuevo aparecerá como «Por revisar».' }) } }
+    catch (e) { setMsg({ tipo: 'bad', texto: e.message || 'No se pudo regenerar el recurso.' }) }
+    finally { setOcupado('') }
+  }
+
   const cerrar = () => { if (sucio && !window.confirm('Hay cambios sin guardar. ¿Cerrar sin guardarlos?')) return; onCerrar() }
   useEffect(() => {
     const tecla = (e) => { if (e.key === 'Escape' && !sucio) onCerrar() }
@@ -337,6 +344,7 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
             Editar con clic
           </label>}
           {estado === 'listo' && puedePublicar && onAprobar && ['POR_REVISAR', 'GENERADO', 'ERROR'].includes(actual.estado) && <button type="button" className="er-b ok" onClick={aprobarYPublicar} disabled={!!ocupado || publicandoAhora} title="Aprobar este contenido: n8n arma el H5P y lo sube a Drive">{ocupado === 'aprobar' ? 'Enviando…' : publicandoAhora ? 'Publicando…' : actual.estado === 'GENERADO' ? 'Aprobar y volver a publicar' : 'Aprobar y publicar'}</button>}
+          {estado === 'listo' && puedePublicar && onRegenerar && ['POR_REVISAR', 'GENERADO', 'ERROR'].includes(actual.estado) && <button type="button" className="er-b" onClick={regenerarEste} disabled={!!ocupado || publicandoAhora || !!regenerarBloqueado} title="Crear de nuevo con la misma plantilla">{ocupado === 'regenerar' ? 'Regenerando…' : 'Regenerar'}</button>}
           {estado === 'listo' && <button type="button" className="er-b" onClick={guardar} disabled={!sucio || !!ocupado}>{ocupado === 'guardar' ? <><i className="er-gira" aria-hidden="true" />Guardando…</> : 'Guardar cambios'}</button>}
           {estado === 'listo' && <button type="button" className="er-b pri" onClick={descargar} disabled={!!ocupado}>{ocupado === 'h5p' ? <><i className="er-gira" aria-hidden="true" />Armando el H5P…</> : <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M4 20h16" /></svg>Descargar .h5p</>}</button>}
         </header>

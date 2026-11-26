@@ -220,9 +220,9 @@ rutas.post('/proyectos/:id/pipeline/matrices', exigirSesion, exigirPermiso('proy
 // Lanza la generación de recursos H5P de las matrices ya listas. Responde 202 cuando n8n ya planificó y aceptó la corrida.
 rutas.post('/proyectos/:id/pipeline/h5p', exigirSesion, exigirPermiso('proyectos.crear'), limiteLanzar, validar(z.object({ id: IdProyecto }), 'params'), validar(EsquemaLanzarH5p, 'body'), async (req, res, next) => {
   try {
-    const { maximo, unidades, reintentarErrores } = req.bodyOk
-    const r = await lanzarH5p({ usuario: req.usuario, proyectoId: req.paramsOk.id, maximo, unidades, reintentarErrores })
-    if (r.codigo === 202) auditar(req.usuario.id, reintentarErrores ? 'h5p.reintentar' : 'h5p.generar', 'proyecto', req.paramsOk.id, req)
+    const { maximo, unidades, reintentarErrores, regenerar } = req.bodyOk
+    const r = await lanzarH5p({ usuario: req.usuario, proyectoId: req.paramsOk.id, maximo, unidades, reintentarErrores, regenerar })
+    if (r.codigo === 202) auditar(req.usuario.id, regenerar ? 'h5p.regenerar' : reintentarErrores ?'h5p.reintentar' : 'h5p.generar', 'proyecto', req.paramsOk.id, req)
     res.status(r.codigo).json(r.cuerpo)
   } catch (err) { next(err) }
 })

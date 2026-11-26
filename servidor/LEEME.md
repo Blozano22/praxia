@@ -218,6 +218,7 @@ Praxia entrega la orden y n8n responde enseguida; el resultado llega por los avi
 | `N8N_H5P_URL` | orquestador de H5P | `{ trabajo_id, proyecto_id, carpeta_raiz, unidades?:[n], reintentar_errores }` (Praxia ya no manda `maximo`: cuántos recursos se generan lo define n8n; si el pedido lo trae, se reenvía) | 2xx tras planificar, idealmente `{ ejecucion_id, plan }`; `409` si ya hay una corrida |
 
 Rutas de Praxia (sesión y permiso `proyectos.crear`): `POST /api/proyectos/:id/pipeline/matrices` y `POST /api/proyectos/:id/pipeline/h5p`. Solo una generación por curso y etapa a la vez (409). Si n8n no acepta la orden, el curso no queda bloqueado. El flujo de guiones recibe además `proyecto_id` y `carpeta_raiz` (cambio 7.1a del plan).
+`regenerar` (opcional, array de hasta 200 códigos de posición como `["U1-T1-R2"]`): si viene, n8n solo toma esas filas (ya creadas: POR_REVISAR, GENERADO o ERROR, con plantilla) y la orden NO lleva `unidades`. Praxia las marca EN_PROCESO conservando enlace, imagen, consumo y contenido; n8n no toca «Enlace del recurso» y el aviso `h5p_recurso` POR_REVISAR nuevo reemplaza el contenido (descarta lo editado a mano). Un código que no esté en las matrices se omite con motivo `no_encontrado`.
 
 ### Vista global (coordinación)
 

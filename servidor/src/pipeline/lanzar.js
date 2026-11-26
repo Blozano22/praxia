@@ -12,6 +12,7 @@ import { publicar } from '../guiones/rutas.js'
 import { esUrlImagen } from './eventos.js'
 
 const RE_CARPETA = /^https:\/\/drive\.google\.com\/drive\/(?:u\/\d+\/)?folders\/[A-Za-z0-9_-]+/
+const RE_CODIGO = /^U\d{1,3}-(?:T\d{1,3}-R\d{1,3}|PRES)$/
 const LISTAS = ['creada', 'omitida', 'reemplazada'] // estados de una matriz que ya se puede usar
 
 // Las direcciones de los webhooks las guarda el administrador en «Conexión n8n» (tabla configuracion); si no hay una guardada ahí,
@@ -29,7 +30,8 @@ export const EsquemaLanzarMatrices = z.object({ unidades: Unidades, forzar: z.bo
 export const EsquemaLanzarH5p = z.object({
   maximo: z.number().int().min(1).max(200).optional(), // opcional: cuántos recursos tiene la corrida como tope. Praxia ya no lo pide; lo define n8n
   unidades: Unidades.optional(),
-  reintentarErrores: z.boolean().default(false)
+  reintentarErrores: z.boolean().default(false),
+  regenerar: z.array(z.string().regex(RE_CODIGO)).min(1).max(200).optional() // códigos de posición de recursos ya creados que se vuelven a generar
 }).strict()
 
 const falla = (codigo, error, extra = {}) => ({ codigo, cuerpo: { error, ...extra } })
@@ -130,11 +132,24 @@ export async function lanzarMatrices({ usuario, proyectoId, unidades, forzar, pu
   return { codigo: 202, cuerpo: { trabajo_id: trabajoId, unidades: pedidas, forzar, ...(ejecucion ? { ejecucion_id: ejecucion } : {}) } }
 }
 
-export async function lanzarH5p({ usuario, proyectoId, maximo, unidades, reintentarErrores, publicarFn = publicar }) {
+export async function lanzarH5p({ usuario, proyectoId, maximo, unidades, reintentarErrores, regenerar, publicarFn = publicar }) {
   const url = await urlH5p()
   if (!url) return falla(503, 'La generación de H5P no está configurada en el servidor.')
   const curso = await leerCurso(usuario, proyectoId)
   if (curso.codigo) return curso
+
+  // Regenerar: solo filas ya creadas del curso, por revisar / generadas / con error y con plantilla asignada (la plantilla nunca cambia).
+  let codigosReg = null
+  let filasReg = []
+  if (regenerar && regenerar.length) {
+    codigosReg = [...new Set(regenerar)]
+    filasReg = (await sinUsuario(Q.pipeRegenerarLeer, [usuario.id, proyectoId, codigosReg])).rows
+    const porCodigo = new Map(filasReg.map((f) => [f.codigo, f]))
+    const invalidos = codigosReg.filter((c) => { const f = porCodigo.get(c); return !f || !['POR_REVISAR', 'GENERADO', 'ERROR'].includes(f.estado) || !f.plantilla })
+    if (invalidos.length) return falla(409, 'No se pueden regenerar estos recursos (no existen en el curso, siguen pendientes o en proceso, o no tienen plantilla): ' + invalidos.join(', ') + '.', { invalidos })
+    unidades = [...new Set(filasReg.map((f) => f.unidad).filter((u) => Number.isInteger(u)))].sort((a, b) => a - b)
+    if (!unidades.length) unidades = undefined
+  }
 
   // Solo se puede generar H5P de unidades que ya tienen su matriz.
   const listas = new Set((await sinUsuario(Q.pipeLeerMatrices, [usuario.id, proyectoId])).rows.filter((m) => LISTAS.includes(m.estado)).map((m) => m.unidad))
@@ -148,12 +163,20 @@ export async function lanzarH5p({ usuario, proyectoId, maximo, unidades, reinten
 
   const trabajoId = await reservar({ usuarioId: usuario.id, proyectoId, carpeta: curso.carpeta, etapa: 'h5p', unidad: pedidas && pedidas.length === 1 ? pedidas[0] : null })
   if (!trabajoId) return falla(409, 'Ya se están generando los recursos H5P de este curso. Espere a que termine.', { ya: true })
+  // Regenerar: las filas pasan a EN_PROCESO sin perder enlace, imagen, consumo ni contenido hasta que llegue el aviso nuevo.
+  if (codigosReg) {
+    const ids = filasReg.map((f) => f.id)
+    await sinUsuario(Q.pipeRegenerarMarcar, [usuario.id, proyectoId, ids])
+  }
   // El orquestador responde después de planificar (lee las matrices): se le da más margen que a una simple confirmación.
   const r = await entregar({ url, minutos: 5, trabajoId, publicarFn, nombre: 'recursos H5P',
-    cuerpo: { trabajo_id: trabajoId, proyecto_id: proyectoId, carpeta_raiz: curso.carpeta, ...(maximo ? { maximo } : {}), ...(pedidas ? { unidades: pedidas } : {}), reintentar_errores: reintentarErrores } })
-  if (r.codigo !== 202) return r
+    cuerpo: { trabajo_id: trabajoId, proyecto_id: proyectoId, carpeta_raiz: curso.carpeta, ...(maximo ? { maximo } : {}), ...(pedidas && !codigosReg ? { unidades: pedidas } : {}), ...(codigosReg ? { regenerar: codigosReg } : {}), reintentar_errores: reintentarErrores } })
+  if (r.codigo !== 202) {
+    if (codigosReg) await sinUsuario(Q.pipeRegenerarRevertir, [usuario.id, proyectoId, filasReg.map((f) => f.id), filasReg.map((f) => f.estado), filasReg.map((f) => f.actualizadoEn)]).catch(() => {})
+    return r
+  }
   const ejecucion = r.ack && typeof r.ack.ejecucion_id === 'string' ? r.ack.ejecucion_id.slice(0, 100) : undefined
-  return { codigo: 202, cuerpo: { trabajo_id: trabajoId, ...(maximo ? { maximo } : {}), ...(pedidas ? { unidades: pedidas } : {}), reintentarErrores, ...(ejecucion ? { ejecucion_id: ejecucion } : {}) } }
+  return { codigo: 202, cuerpo: { trabajo_id: trabajoId, ...(maximo ? { maximo } : {}), ...(pedidas && !codigosReg ? { unidades: pedidas } : {}), ...(codigosReg ? { regenerar: codigosReg } : {}), reintentarErrores, ...(ejecucion ? { ejecucion_id: ejecucion } : {}) } }
 }
 
 
