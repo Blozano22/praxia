@@ -361,6 +361,13 @@ export const Q = Object.freeze({
   subidasListar: `SELECT nombre, subida_nombre AS por, subida_por, creado, esquema, formacion, (to_jsonb(s) ->> 'calificable')::boolean AS calificable, (to_jsonb(s) ->> 'archivada_en')::timestamptz AS archivada_en, to_jsonb(s) ->> 'archivada_por' AS archivada_por, actualizado, position('/*FIN-CONTENIDO*/' in html_crudo) > 0 AS ejemplo FROM plantilla_subidas s ORDER BY nombre`,
   subidaHtml: `SELECT html FROM plantilla_subidas WHERE nombre = $1`,
   subidaCrudo: `SELECT html_crudo FROM plantilla_subidas WHERE nombre = $1`,
+  // Descarga masiva: cada subida con su original, categoría, formación, tipo de actividad y último estado de revisión.
+  subidasMasivas: `SELECT s.nombre, s.html_crudo, s.formacion, (to_jsonb(s) ->> 'calificable')::boolean AS calificable, (to_jsonb(s) ->> 'archivada_en') AS archivada_en,
+      s.actualizado, pc.categoria, c.nombre AS categoria_nombre, c.tipo,
+      coalesce((SELECT h.estado FROM plantilla_historial h WHERE h.plantilla = 'pub-' || s.nombre ORDER BY h.creado DESC, h.id DESC LIMIT 1), 'revision') AS estado,
+      (SELECT count(*)::int FROM plantilla_categoria_formacion f WHERE f.categoria = pc.categoria) AS formaciones
+    FROM plantilla_subidas s LEFT JOIN plantilla_categoria pc ON pc.plantilla = s.nombre LEFT JOIN plantilla_categorias c ON c.id = pc.categoria
+    WHERE ($1::text IS NULL OR c.tipo = $1::text) AND ($2::text IS NULL OR pc.categoria = $2::text) ORDER BY pc.categoria, s.nombre`,
   subidaCrear: `INSERT INTO plantilla_subidas (nombre, html_crudo, html, subida_por, subida_nombre, esquema, formacion, calificable) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8) ON CONFLICT (nombre) DO NOTHING RETURNING nombre`,
   subidaReemplazar: `UPDATE plantilla_subidas SET html_crudo = $2, html = $3, subida_por = $4, subida_nombre = $5, esquema = $6::jsonb, formacion = coalesce($7, formacion), calificable = coalesce($8, calificable), actualizado = now() WHERE nombre = $1 RETURNING nombre`,
   esquemaReferencia: `SELECT s.nombre, s.esquema FROM plantilla_subidas s JOIN plantilla_categoria pc ON pc.plantilla = s.nombre

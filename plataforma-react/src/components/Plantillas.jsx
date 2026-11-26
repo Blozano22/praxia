@@ -397,6 +397,8 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
             Subir variante
           </button>
         )}
+        <a className="btn" href={RUTA_API + '/plantillas/subidas/descarga-masiva.zip?tipo=' + clase} download title={'ZIP con las plantillas subidas de ' + CLASES[clase].toLowerCase() + ', tal cual se subieron, en carpetas, más un índice'}>Descargar todas (ZIP)</a>
+        <a className="btn" href={RUTA_API + '/plantillas/subidas/descarga-masiva.zip'} download title="ZIP con todas las plantillas subidas (recursos, actividades y bibliografía)">Descargar todo</a>
       </div>
 
       <div className="pg-fila-tabs">

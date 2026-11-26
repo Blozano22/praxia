@@ -9,6 +9,7 @@ import { Q } from './consultas.js'
 import { config } from './config.js'
 import { extraerEnlaces } from './enlaces.js'
 import { armarSubida, compararEsquemas, esquemaDe, MAX_HTML, NOMBRES_RESERVADOS } from './plantillas/subidas.js'
+import { crearZip, sanear } from './plantillas/zip.js'
 import { EsquemaLanzarH5p, EsquemaLanzarMatrices, lanzarH5p, lanzarMatrices, lanzarPublicar, urlH5p, urlMatrices, urlPublicar } from './pipeline/lanzar.js'
 import { CLAVE_PRUEBAS, pruebasEncendidas, urlPreparacion } from './pipeline/preparacion.js'
 import { esUrlImagen } from './pipeline/eventos.js'
@@ -818,6 +819,36 @@ rutas.post('/plantillas/subidas/:nombre/mover', exigirSesion, exigirAlguno('plan
     if (e.sinNombre) return res.status(409).json({ error: 'No se pudo asignar un nombre libre en esa categoría.' })
     next(e)
   }
+})
+// Descarga masiva de las plantillas subidas (no las del sistema) en un ZIP: <Tipo>/<ID categoría> <nombre>/[<formación>/]<plantilla>.html, cada una tal cual se subió, e indice.csv.
+// Filtros opcionales: ?tipo=recurso|actividad|bibliografia y ?categoria=ID. Se arma en memoria (tope ~200 MB → 413).
+const TIPOS_CARPETA = { recurso: 'Recursos', actividad: 'Actividades', bibliografia: 'Bibliografía' }
+const MAX_ZIP = 200 * 1024 * 1024
+rutas.get('/plantillas/subidas/descarga-masiva.zip', exigirSesion, exigirPermiso('plantillas.ver'), validar(z.object({ tipo: TipoPlantilla.optional(), categoria: IdCategoria.optional() }).strict(), 'query'), async (req, res, next) => {
+  try {
+    const q = req.queryOk || req.query
+    const filas = (await sinUsuario(Q.subidasMasivas, [q.tipo || null, q.categoria || null])).rows
+    if (filas.reduce((s, f) => s + Buffer.byteLength(f.html_crudo || ''), 0) > MAX_ZIP) return res.status(413).json({ error: 'Las plantillas pesan demasiado para un solo ZIP; filtre por tipo o categoría.' })
+    const usados = new Set()
+    const entradas = []
+    const csv = [['nombre', 'categoria', 'nombre_categoria', 'tipo', 'formacion', 'estado', 'calificable']]
+    for (const f of filas) {
+      const partes = [f.tipo ? TIPOS_CARPETA[f.tipo] || sanear(f.tipo) : 'Sin categoría', f.categoria ? sanear(f.categoria + ' ' + f.categoria_nombre) : 'Sin categoría']
+      if (f.formaciones > 1 && f.formacion) partes.push(sanear(f.formacion))
+      const base = partes.join('/') + '/' + sanear(f.nombre, 100)
+      let ruta = base + '.html'
+      for (let i = 2; usados.has(ruta.toLowerCase()); i++) ruta = base + '-' + i + '.html'
+      usados.add(ruta.toLowerCase())
+      entradas.push({ ruta, datos: Buffer.from(f.html_crudo || '', 'utf8'), fecha: f.actualizado ? new Date(f.actualizado) : undefined })
+      csv.push([f.nombre, f.categoria || '', f.categoria_nombre || '', f.tipo || '', f.formacion || '', f.archivada_en ? 'archivada' : f.estado, f.tipo === 'actividad' && typeof f.calificable === 'boolean' ? (f.calificable ? 'si' : 'no') : ''])
+    }
+    const celda = (v) => { const t = String(v).replace(/^([=+\-@])/, "'$1"); return /[;"\r\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t }
+    entradas.push({ ruta: 'indice.csv', datos: Buffer.concat([Buffer.from('﻿'), Buffer.from(csv.map((r) => r.map(celda).join(';')).join('\r\n') + '\r\n', 'utf8')]) })
+    const zip = crearZip(entradas)
+    if (zip.length > MAX_ZIP) return res.status(413).json({ error: 'El ZIP pasa de 200 MB; filtre por tipo o categoría.' })
+    res.set({ 'Content-Type': 'application/zip', 'Content-Disposition': 'attachment; filename="plantillas-praxia-' + new Date().toISOString().slice(0, 10) + '.zip"', 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'no-store' })
+    res.send(zip)
+  } catch (e) { next(e) }
 })
 // Vista previa de una plantilla subida: si traía contenido de ejemplo, el HTML con ese contenido puesto (se arma al pedirlo desde el HTML original guardado).
 rutas.get('/plantillas/subidas/:nombre/ejemplo', exigirSesion, exigirPermiso('plantillas.ver'), validar(z.object({ nombre: NombreSubida }), 'params'), async (req, res, next) => {
