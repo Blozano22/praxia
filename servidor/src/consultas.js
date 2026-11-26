@@ -429,6 +429,11 @@ export const Q = Object.freeze({
      WHERE propietario_id = $1 AND proyecto_id = $2 AND id = ANY($3::text[]) AND estado = 'EN_PROCESO' AND estado_previo IS NOT NULL
        AND ($5::timestamptz IS NULL OR actualizado_en <= $5)
     RETURNING id`,
+  // Cola de «regenerar» (ver sql/027): códigos que esperan a que termine la corrida H5P en curso.
+  colaAgregar: `
+    INSERT INTO regenerar_cola (propietario_id, proyecto_id, codigo, pedido_por) SELECT $1::uuid, $2::text, unnest($3::text[]), $4::uuid ON CONFLICT DO NOTHING`,
+  colaListar: `SELECT codigo FROM regenerar_cola WHERE propietario_id = $1 AND proyecto_id = $2 ORDER BY pedido_en, codigo`,
+  colaQuitar: `DELETE FROM regenerar_cola WHERE propietario_id = $1 AND proyecto_id = $2 AND codigo = ANY($3::text[])`,
   pipeRegenerarPendientes: `
     SELECT id, codigo FROM pipeline_recursos WHERE propietario_id = $1 AND proyecto_id = $2 AND estado = 'EN_PROCESO' AND estado_previo IS NOT NULL`,
   pipeAprobarRevertir: `UPDATE pipeline_recursos SET aprobado_en = NULL WHERE propietario_id = $1 AND proyecto_id = $2 AND id = $3`,

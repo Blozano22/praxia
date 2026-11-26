@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../lib/api.js'
 import Titulo from './Titulo.jsx'
 import DisenoCurso from './DisenoCurso.jsx'
+import { leerHash, ponerHash } from '../lib/hashEstado.js'
 
 // Inicio del diseñador: los cursos que la coordinación le asignó; cada uno abre su vista de diseño (matrices y H5P).
 const ESTADOS = { asignado: 'Asignado', en_revision_docente: 'En revisión del docente', en_diseno: 'Sin asignar' }
@@ -9,7 +10,9 @@ const ESTADOS = { asignado: 'Asignado', en_revision_docente: 'En revisión del d
 export default function MisCursosDiseno() {
   const [filas, setFilas] = useState(null)
   const [error, setError] = useState('')
-  const [abierto, setAbierto] = useState(null)
+  // El curso abierto queda en la dirección (?p=<dueño>&c=<curso>): al recargar la página se vuelve a abrir (y DisenoCurso/MatricesH5P restauran el editor).
+  const [abierto, setAbierto] = useState(() => (leerHash('p') && leerHash('c') ? { propietario_id: leerHash('p'), proyecto_id: leerHash('c') } : null))
+  useEffect(() => { ponerHash(abierto ? { p: abierto.propietario_id, c: abierto.proyecto_id } : { p: '', c: '', r: '', parte: '' }) }, [abierto])
   useEffect(() => { api('GET', '/diseno/mios').then(setFilas).catch((e) => setError(e.message || 'No se pudo cargar.')) }, [])
   if (abierto) return <DisenoCurso propietario={abierto.propietario_id} proyecto={abierto.proyecto_id} onVolver={() => setAbierto(null)} />
   return (

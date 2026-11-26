@@ -135,7 +135,7 @@ export async function lanzarMatrices({ usuario, proyectoId, unidades, forzar, co
   return { codigo: 202, cuerpo: { trabajo_id: trabajoId, unidades: pedidas, forzar, conservar, ...(ejecucion ? { ejecucion_id: ejecucion } : {}) } }
 }
 
-export async function lanzarH5p({ usuario, proyectoId, maximo, unidades, reintentarErrores, regenerar, publicarFn = publicar }) {
+export async function lanzarH5p({ usuario, proyectoId, maximo, unidades, reintentarErrores, regenerar, encolar = false, pedidoPor = null, publicarFn = publicar }) {
   const url = await urlH5p()
   if (!url) return falla(503, 'La generación de H5P no está configurada en el servidor.')
   const curso = await leerCurso(usuario, proyectoId)
@@ -164,8 +164,15 @@ export async function lanzarH5p({ usuario, proyectoId, maximo, unidades, reinten
     if (sin.length) return falla(400, 'Estas unidades no tienen una matriz lista: ' + sin.join(', ') + '.')
   }
 
+  // Con una corrida en curso: pedir «regenerar» (encolar) no falla, deja los códigos esperando al aviso h5p_fin.
+  const ocupado = async () => {
+    if (!(codigosReg && encolar)) return falla(409, 'Ya se están generando los recursos H5P de este curso. Espere a que termine.', { ya: true })
+    await sinUsuario(Q.colaAgregar, [usuario.id, proyectoId, codigosReg, pedidoPor || usuario.id])
+    const n = (await sinUsuario(Q.colaListar, [usuario.id, proyectoId])).rows.length
+    return { codigo: 202, cuerpo: { encolado: true, en_cola: n, regenerar: codigosReg } }
+  }
   const trabajoId = await reservar({ usuarioId: usuario.id, proyectoId, carpeta: curso.carpeta, etapa: 'h5p', unidad: pedidas && pedidas.length === 1 ? pedidas[0] : null })
-  if (!trabajoId) return falla(409, 'Ya se están generando los recursos H5P de este curso. Espere a que termine.', { ya: true })
+  if (!trabajoId) return ocupado()
   // Regenerar: las filas pasan a EN_PROCESO sin perder enlace, imagen, consumo ni contenido hasta que llegue el aviso nuevo.
   if (codigosReg) {
     const ids = filasReg.map((f) => f.id)
@@ -176,12 +183,37 @@ export async function lanzarH5p({ usuario, proyectoId, maximo, unidades, reinten
     cuerpo: { trabajo_id: trabajoId, proyecto_id: proyectoId, carpeta_raiz: curso.carpeta, ...(maximo ? { maximo } : {}), ...(pedidas && !codigosReg ? { unidades: pedidas } : {}), ...(codigosReg ? { regenerar: codigosReg } : {}), reintentar_errores: reintentarErrores, ...enlacePublico() } })
   if (r.codigo !== 202) {
     if (codigosReg) await sinUsuario(Q.pipeRegenerarRevertir, [usuario.id, proyectoId, filasReg.map((f) => f.id), filasReg.map((f) => f.estado), filasReg.map((f) => f.actualizadoEn)]).catch(() => {})
+    if (r.codigo === 409 && r.cuerpo.ya && codigosReg && encolar) return ocupado() // n8n tiene su propio bloqueo por carpeta
     return r
   }
   const ejecucion = r.ack && typeof r.ack.ejecucion_id === 'string' ? r.ack.ejecucion_id.slice(0, 100) : undefined
   return { codigo: 202, cuerpo: { trabajo_id: trabajoId, ...(maximo ? { maximo } : {}), ...(pedidas && !codigosReg ? { unidades: pedidas } : {}), ...(codigosReg ? { regenerar: codigosReg } : {}), reintentarErrores, ...(ejecucion ? { ejecucion_id: ejecucion } : {}) } }
 }
 
+export const MAX_COLA_POR_CORRIDA = 30
+// Al terminar una corrida H5P (aviso h5p_fin): lanza una corrida nueva de «regenerar» con lo que esperaba en la cola (hasta 30; el resto queda para la siguiente).
+// Nunca lanza errores: si falla, los códigos siguen en la cola y se registra.
+export async function drenarColaRegenerar({ propietarioId, proyectoId, publicarFn = publicar }) {
+  try {
+    const cola = (await sinUsuario(Q.colaListar, [propietarioId, proyectoId])).rows.map((x) => x.codigo)
+    if (!cola.length) return
+    const usuario = { id: propietarioId, permisos: new Set(['proyectos.ver_propios']), roles: [] }
+    let lote = []
+    for (const c of cola) {
+      if (lote.length >= MAX_COLA_POR_CORRIDA) break
+      if ((await sinUsuario(Q.corrAbiertasDeCodigos, [propietarioId, proyectoId, [c]])).rows.length) { await sinUsuario(Q.colaQuitar, [propietarioId, proyectoId, [c]]); continue } // corrección abierta: no se regenera
+      lote.push(c)
+    }
+    for (let intento = 0; intento < 2 && lote.length; intento++) {
+      const r = await lanzarH5p({ usuario, proyectoId, regenerar: lote, reintentarErrores: false, publicarFn })
+      if (r.codigo === 202) { await sinUsuario(Q.colaQuitar, [propietarioId, proyectoId, lote]); return }
+      const invalidos = r.codigo === 409 && Array.isArray(r.cuerpo.invalidos) ? r.cuerpo.invalidos : null
+      if (!invalidos) { console.error('[cola-regenerar] no se pudo lanzar (' + r.codigo + '): ' + (r.cuerpo.error || '')); return }
+      await sinUsuario(Q.colaQuitar, [propietarioId, proyectoId, invalidos]) // ya no se pueden regenerar (cambiaron de estado)
+      lote = lote.filter((c) => !invalidos.includes(c))
+    }
+  } catch (e) { console.error('[cola-regenerar] error: ' + ((e && e.message) || e)) }
+}
 
 // Cuerpo que entiende el servicio de plantillas (publicar y descargar): plantilla y contenido, imagen principal si es válida y las partes guardadas.
 export function cuerpoServicioH5p(f) {

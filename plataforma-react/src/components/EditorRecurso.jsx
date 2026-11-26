@@ -183,7 +183,7 @@ function ListaRecursos({ recursos, actualId, puedePublicar, sucio, onElegir, onA
   )
 }
 
-export default function EditorRecurso({ proyecto, propietario, soloLectura = false, recurso, recursos = [], puedePublicar, onAprobar, onRegenerar, regenerarBloqueado, onElegir, onCerrar, onActualizar }) {
+export default function EditorRecurso({ proyecto, propietario, soloLectura = false, recurso, recursos = [], puedePublicar, onAprobar, onRegenerar, parteInicial = '', onParte, onElegir, onCerrar, onActualizar }) {
   const [confirmar, dialogo] = useConfirmar()
   const api = useCallback((metodo, ruta, cuerpo) => apiBase(metodo, conPropietario(ruta, propietario), cuerpo), [propietario])
   const [estado, setEstado] = useState('cargando') // cargando | listo | error
@@ -199,6 +199,10 @@ export default function EditorRecurso({ proyecto, propietario, soloLectura = fal
   // partes: por cada una { contenido, esqueleto, titulo }; sucias: las partes con cambios sin guardar
   const ref = useRef({ partes: {}, parte: 'recurso', formacion: null, activo: !soloLectura, sucias: new Set() })
   const marco = useRef(null)
+  const parteDeseada = useRef(parteInicial) // parte a abrir al terminar de cargar (la de la dirección, o la que se tenía al recargar la versión nueva)
+  const versionCargada = useRef('') // «actualizadoEn» del recurso que se cargó (para detectar una regeneración nueva)
+  const [recarga, setRecarga] = useState(0)
+  const [hayNueva, setHayNueva] = useState(false) // hay una versión nueva del recurso y la persona tiene cambios sin guardar
   const imgUrlRef = useRef('') // imagen guardada del recurso (la vista previa la usa en lugar de IMAGEN_EJEMPLO)
   const pintadaImg = useRef('')
   const [imgHayNueva, setImgHayNueva] = useState(false)
@@ -219,7 +223,7 @@ export default function EditorRecurso({ proyecto, propietario, soloLectura = fal
 
   useEffect(() => {
     let vivo = true
-    setEstado('cargando'); setError(''); setSucio(false); setMsg(null); setPagina(''); setParte('recurso'); setPartesDisp(['recurso'])
+    setEstado('cargando'); setError(''); setSucio(false); setMsg(null); setPagina(''); setParte('recurso'); setPartesDisp(['recurso']); setHayNueva(false)
     if (recurso.conContenido === false) { setEstado('sinContenido'); return () => { vivo = false } }
     ;(async () => {
       try {
@@ -241,7 +245,11 @@ export default function EditorRecurso({ proyecto, propietario, soloLectura = fal
           } catch { faltan.push(k === 'actividad' ? 'la actividad' : 'la bibliografía') }
         }
         if (!vivo) return
-        ref.current = { partes, parte: 'recurso', formacion: c.formacion || null, activo: !soloLectura, sucias: new Set() }
+        const deseada = partes[parteDeseada.current] ? parteDeseada.current : 'recurso'
+        parteDeseada.current = ''
+        versionCargada.current = String(c.actualizadoEn || '')
+        ref.current = { partes, parte: deseada, formacion: c.formacion || null, activo: !soloLectura, sucias: new Set() }
+        setParte(deseada); if (onParte) onParte(deseada)
         setPartesDisp(['recurso', 'actividad', 'bibliografia'].filter((k) => partes[k]))
         if (faltan.length) setMsg({ tipo: 'warn', texto: 'No se encontró la plantilla de ' + faltan.join(' ni de ') + ': esa parte no se puede editar aquí.' })
         pintar(true)
@@ -249,7 +257,7 @@ export default function EditorRecurso({ proyecto, propietario, soloLectura = fal
       } catch (e) { if (vivo) { setError(e.message || 'No se pudo abrir el editor'); setEstado('error') } }
     })()
     return () => { vivo = false }
-  }, [ruta, pintar, recurso.conContenido])
+  }, [ruta, pintar, recurso.conContenido, recarga]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Mensajes del módulo del iframe
   useEffect(() => {
@@ -275,7 +283,7 @@ export default function EditorRecurso({ proyecto, propietario, soloLectura = fal
     return () => window.removeEventListener('message', alMensaje)
   }, [pintar, soloLectura])
 
-  const cambiarParte = (k) => { if (k === ref.current.parte || !ref.current.partes[k]) return; ref.current.parte = k; setParte(k); pintar(ref.current.activo) }
+  const cambiarParte = (k) => { if (k === ref.current.parte || !ref.current.partes[k]) return; ref.current.parte = k; setParte(k); if (onParte) onParte(k); pintar(ref.current.activo) }
   const cambiarModo = (v) => {
     ref.current.activo = v; setActivo(v)
     try { marco.current && marco.current.contentWindow.postMessage({ fuente: 'praxia-editor', tipo: 'modo', activo: v }, '*') } catch { /* iframe aún sin cargar */ }
@@ -371,6 +379,14 @@ export default function EditorRecurso({ proyecto, propietario, soloLectura = fal
   const actual = recursos.find((x) => x.id === recurso.id) || recurso
   const puedePedirCorr = !!propietario && !actual.correccion
   const urlGuion = vistaGuion(actual.enlaceGuion)
+  // Si el recurso se regeneró (la lista del curso trae una fecha nueva y ya no está en proceso): sin cambios sin guardar se recarga solo; con cambios se avisa.
+  const nuevaVersion = estado === 'listo' && !!versionCargada.current && !!actual.actualizadoEn && actual.estado !== 'EN_PROCESO' && String(actual.actualizadoEn) !== versionCargada.current
+  const cargarNueva = () => { parteDeseada.current = ref.current.parte; setRecarga((n) => n + 1) }
+  useEffect(() => {
+    if (!nuevaVersion) return
+    if (sucio) setHayNueva(true)
+    else cargarNueva()
+  }, [nuevaVersion, actual.actualizadoEn]) // eslint-disable-line react-hooks/exhaustive-deps
   const publicandoAhora = !!actual.publicando && !actual.publicandoSinRespuesta
   // Imagen del recurso: se cambia con un clic sobre ella en la vista previa (enlace https; cadena vacía = quitarla).
   const [imgGuardada, setImgGuardada] = useState({}) // id → URL guardada en esta sesión (hasta que la lista del curso se refresque)
@@ -415,14 +431,14 @@ export default function EditorRecurso({ proyecto, propietario, soloLectura = fal
               : <small className="er-cons" style={{ color: '#15803d' }} title={src}>Imagen: cargó · {ej ? 'es la imagen de ejemplo' : 'es la imagen del recurso/actividad'}</small>
             if (mal.length) { const u = mal[0].src; return <small className="er-cons" style={{ color: '#b45309' }} title={u}>Imagen: no cargó — haga clic en la imagen para revisar el enlace ({u.length > 60 ? u.slice(0, 57) + '…' : u})</small> }
             return null
-          })()}{actual.consumo && <small className="er-cons" title="Consumo de la generación de este recurso">{miles(tokensDe(actual.consumo))} tokens · {imagenesDe(actual.consumo)} img · {usd(costoDe(actual.consumo))}{actual.consumo.costo_parcial ? ' (parcial)' : ''}</small>}</div>
+          })()}{actual.consumo && /* el servidor solo envía el consumo a administradores */ <small className="er-cons" title="Consumo de la generación de este recurso">{miles(tokensDe(actual.consumo))} tokens · {imagenesDe(actual.consumo)} img · {usd(costoDe(actual.consumo))}{actual.consumo.costo_parcial ? ' (parcial)' : ''}</small>}</div>
           {estado === 'listo' && !soloLectura && <label className={'er-modo' + (activo ? ' on' : '')} title="Con esto activo, un clic en cualquier texto del recurso lo abre para editarlo">
             <input type="checkbox" checked={activo} onChange={(e) => cambiarModo(e.target.checked)} />
             <i className="er-sw" aria-hidden="true" />
             Editar con clic
           </label>}
           {estado === 'listo' && puedePublicar && onAprobar && !actual.correccion && ['POR_REVISAR', 'GENERADO', 'ERROR'].includes(actual.estado) && <button type="button" className="er-b ok" onClick={aprobarYPublicar} disabled={!!ocupado || publicandoAhora} title="Aprobar este contenido: n8n arma el H5P y lo sube a Drive">{ocupado === 'aprobar' ? 'Enviando…' : publicandoAhora ? 'Publicando…' : actual.estado === 'GENERADO' ? 'Aprobar y volver a publicar' : 'Aprobar y publicar'}</button>}
-          {estado === 'listo' && puedePublicar && onRegenerar && (['POR_REVISAR', 'GENERADO', 'ERROR'].includes(actual.estado) || actual.sinRespuesta) && <button type="button" className="er-b" onClick={regenerarEste} disabled={!!ocupado || publicandoAhora || !!regenerarBloqueado || (actual.correccion && actual.correccion.estado === 'abierta')} title="Crear de nuevo con la misma plantilla">{ocupado === 'regenerar' ? 'Regenerando…' : 'Regenerar'}</button>}
+          {estado === 'listo' && puedePublicar && onRegenerar && (['POR_REVISAR', 'GENERADO', 'ERROR'].includes(actual.estado) || actual.sinRespuesta) && <button type="button" className="er-b" onClick={regenerarEste} disabled={!!ocupado || publicandoAhora || !!actual.enColaRegenerar || (actual.correccion && actual.correccion.estado === 'abierta')} title="Crear de nuevo con la misma plantilla">{ocupado === 'regenerar' ? 'Regenerando…' : actual.enColaRegenerar ? 'En cola para regenerar' : 'Regenerar'}</button>}
           {estado === 'listo' && puedePedirCorr && !actual.alertaActividad && <button type="button" className="er-b" onClick={pedirCorr} disabled={!!ocupado} title="El problema depende del guion: se lo envía al docente y este recurso queda bloqueado hasta que lo resuelva">Pedir corrección al docente</button>}
           {estado === 'listo' && !soloLectura && <button type="button" className="er-b" onClick={guardar} disabled={!sucio || !!ocupado}>{ocupado === 'guardar' ? <><i className="er-gira" aria-hidden="true" />Guardando…</> : 'Guardar cambios'}</button>}
           {estado === 'listo' && <button type="button" className="er-b pri" onClick={descargar} disabled={!!ocupado}>{ocupado === 'h5p' ? <><i className="er-gira" aria-hidden="true" />Armando el H5P…</> : <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M4 20h16" /></svg>Descargar .h5p</>}</button>}
@@ -433,6 +449,7 @@ export default function EditorRecurso({ proyecto, propietario, soloLectura = fal
         <div className="er-main">
         {msg && <p className={'er-msg ' + msg.tipo} role="status"><i className="er-msg-ic" aria-hidden="true">{msg.tipo === 'ok' ? '✓' : msg.tipo === 'bad' ? '!' : '!'}</i><span>{msg.texto}</span></p>}
         {publicandoAhora && <p className="er-msg info" role="status"><i className="er-gira" aria-hidden="true" /><span>Publicando en Drive. Este aviso se quita solo cuando n8n termina; puede seguir revisando otros recursos mientras tanto.</span></p>}
+        {hayNueva && sucio && <p className="er-msg warn" role="status"><span>Hay una versión nueva de este recurso. </span><button type="button" className="er-b" onClick={cargarNueva}>Cargar la versión nueva</button><span> (se perderán los cambios sin guardar)</span></p>}
         {ocupado === 'h5p' && <p className="er-msg info" role="status"><i className="er-gira" aria-hidden="true" /><span>Armando el H5P con los cambios. Suele tardar unos 3 segundos; en algunos casos hasta 90. No cierre esta ventana.</span></p>}
 
         {propietario && <PanelCorreccion proyecto={proyecto} propietario={propietario} recurso={actual} onCambio={onActualizar} senal={senalCorr} />}

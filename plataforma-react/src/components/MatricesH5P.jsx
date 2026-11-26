@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api as apiBase, conPropietario } from '../lib/api.js'
 import { textoCorreccion } from './PanelCorreccion.jsx'
 import { resumenConsumo, tokensDe, costoDe, usd, miles, esUrlImagen } from '../lib/consumo.js'
+import { leerHash, ponerHash } from '../lib/hashEstado.js'
 import EditorRecurso from './EditorRecurso.jsx'
 import CargaRecurso from './CargaRecurso.jsx'
 import { useConfirmar, IconoAviso } from './Confirmar.jsx'
@@ -149,7 +150,7 @@ function Fila({ r, editar, aprobar, regenerar, bloqueado, puedePublicar, hija, e
   const porRevisar = r.estado === 'POR_REVISAR' && !r.sinRespuesta
   const publicando = !!r.publicando && !r.publicandoSinRespuesta
   const k = publicando ? 'en' : hecho ? 'ok' : mal ? 'er' : porRevisar ? 'prev' : r.estado === 'EN_PROCESO' ? 'en' : 'pe'
-  const texto = publicando ? 'Publicando…' : r.publicandoSinRespuesta ? 'Sin respuesta al publicar' : r.enCola && r.regenera ? 'Se regenerará' : porRevisar ? 'Por revisar' : r.enCola ? 'En cola' : hecho ? 'Generado' : r.sinRespuesta ? 'Sin avisos' : r.estado === 'ERROR' ? 'Con error' : r.estado === 'EN_PROCESO' ? (r.conContenido ? 'Regenerando…' : 'Generando') : 'Por generar'
+  const texto = publicando ? 'Publicando…' : r.publicandoSinRespuesta ? 'Sin respuesta al publicar' : r.enColaRegenerar ? 'En cola para regenerar' : r.enCola && r.regenera ? 'Se regenerará' : porRevisar ? 'Por revisar' : r.enCola ? 'En cola' : hecho ? 'Generado' : r.sinRespuesta ? 'Sin avisos' : r.estado === 'ERROR' ? 'Con error' : r.estado === 'EN_PROCESO' ? (r.conContenido ? 'Regenerando…' : 'Generando') : 'Por generar'
   const nota = porRevisar ? '' : r.estado === 'ERROR' ? r.observaciones : r.omision ? 'Se omitió: ' + motivoTexto(r.omision) : hecho ? '' : r.observaciones
   return (
     <li className={'mx4-r ' + k + (hija ? ' hija' : '')}>
@@ -162,9 +163,9 @@ function Fila({ r, editar, aprobar, regenerar, bloqueado, puedePublicar, hija, e
       {r.alertaActividad && <span className="mx4-alerta" title={r.alertaActividad}>Alerta de actividad</span>}
       {r.correccion && <span className={'mx4-corr ' + r.correccion.estado}>{textoCorreccion(r.correccion)}</span>}
       <span className="mx4-rl">
-        {r.conContenido && !publicando && !r.enCola && ['POR_REVISAR', 'GENERADO', 'ERROR'].includes(r.estado) && editar && <button type="button" className="mx4-ed" onClick={() => editar(r)} title="Corregir los textos del recurso antes de publicarlo">Editar textos</button>}
-        {r.conContenido && !publicando && !r.enCola && ['POR_REVISAR', 'ERROR'].includes(r.estado) && puedePublicar && aprobar && !r.correccion && <button type="button" className="mx4-ed ok" onClick={() => aprobar(r)} title="Aprobar el contenido: n8n arma el H5P y lo sube a Drive">Aprobar y publicar</button>}
-        {r.plantilla && !publicando && !r.enCola && (['POR_REVISAR', 'GENERADO', 'ERROR'].includes(r.estado) || r.sinRespuesta) && puedePublicar && regenerar && <button type="button" className="mx4-ed" disabled={bloqueado || (r.correccion && r.correccion.estado === 'abierta')} onClick={() => regenerar(r)} title="Crear de nuevo con la misma plantilla">Regenerar</button>}
+        {r.conContenido && !publicando && !r.enCola && !r.enColaRegenerar && ['POR_REVISAR', 'GENERADO', 'ERROR'].includes(r.estado) && editar && <button type="button" className="mx4-ed" onClick={() => editar(r)} title="Corregir los textos del recurso antes de publicarlo">Editar textos</button>}
+        {r.conContenido && !publicando && !r.enCola && !r.enColaRegenerar && ['POR_REVISAR', 'ERROR'].includes(r.estado) && puedePublicar && aprobar && !r.correccion && <button type="button" className="mx4-ed ok" onClick={() => aprobar(r)} title="Aprobar el contenido: n8n arma el H5P y lo sube a Drive">Aprobar y publicar</button>}
+        {r.plantilla && !publicando && !r.enCola && (['POR_REVISAR', 'GENERADO', 'ERROR'].includes(r.estado) || r.sinRespuesta) && puedePublicar && regenerar && <button type="button" className="mx4-ed" disabled={!!r.enColaRegenerar || (r.correccion && r.correccion.estado === 'abierta')} onClick={() => regenerar(r)} title="Crear de nuevo con la misma plantilla">Regenerar</button>}
         {hecho && r.enlaceRecurso && <a href={r.enlaceRecurso} target="_blank" rel="noopener noreferrer">Recurso ↗</a>}
         {r.enlaceGuion && <a href={r.enlaceGuion} target="_blank" rel="noopener noreferrer">Guion ↗</a>}
         {r.consumo && <span className="mx4-cons" title="Tokens de texto y costo estimado de este recurso">{miles(tokensDe(r.consumo))} tokens · {usd(costoDe(r.consumo))}{r.consumo.costo_parcial ? ' (parcial)' : ''}</span>}
@@ -376,9 +377,12 @@ export default function MatricesH5P({ s, propietario, soloLectura = false }) {
   // Regenerar = crear de nuevo con la misma plantilla; queda un borrador «Por revisar» y publicarlo reemplaza el archivo ya publicado.
   const regenerarRecurso = async (r) => {
     if (!(await confirmar({ titulo: '¿Regenerar este recurso?', texto: 'Se creará de nuevo con la misma plantilla y se perderán las ediciones hechas a mano.\nSi ya estaba publicado, el archivo se reemplazará solo cuando vuelva a aprobarlo.', tono: 'peligro', icono: IconoAviso, textoConfirmar: 'Regenerar' }))) return false
-    await api('POST', '/proyectos/' + encodeURIComponent(s.id) + '/pipeline/h5p', { regenerar: [r.codigo] })
-    setLanzadoEn(Date.now()); setYaEnCurso(0); setEnviadas([])
-    setAviso('Regenerando… ' + r.codigo + ' aparecerá como «Por revisar» cuando n8n termine.')
+    const resp = await api('POST', '/proyectos/' + encodeURIComponent(s.id) + '/pipeline/h5p', { regenerar: [r.codigo] })
+    if (resp && resp.encolado) setAviso(r.codigo + ' quedó en cola para regenerar: empieza apenas termine la corrida en curso (' + resp.en_cola + (resp.en_cola === 1 ? ' recurso' : ' recursos') + ' en cola).')
+    else {
+      setLanzadoEn(Date.now()); setYaEnCurso(0); setEnviadas([])
+      setAviso('Regenerando… ' + r.codigo + ' aparecerá como «Por revisar» cuando n8n termine.')
+    }
     cargar()
     return true
   }
@@ -386,12 +390,15 @@ export default function MatricesH5P({ s, propietario, soloLectura = false }) {
   const regenerarDesactualizados = async () => {
     const x = d && d.desactualizados
     if (!x || !x.total) return
-    const costo = Number(x.costoEstimadoUsd) || 0
-    if (!(await confirmar({ titulo: '¿Regenerar todo el curso?', texto: 'Se regenerarán ' + x.total + (x.total === 1 ? ' recurso' : ' recursos') + ' con su actividad y su bibliografía (si la tienen).\nCosto estimado: ≈ US$ ' + costo.toFixed(2) + ' (es una estimación).\nSe perderán las ediciones hechas a mano; cada archivo .h5p publicado se reemplazará solo cuando usted vuelva a aprobarlo.', tono: 'peligro', textoConfirmar: 'Regenerar' }))) return
+    const costo = x.costoEstimadoUsd == null ? null : Number(x.costoEstimadoUsd) || 0 // el servidor solo lo envía a administradores
+    if (!(await confirmar({ titulo: '¿Regenerar todo el curso?', texto: 'Se regenerarán ' + x.total + (x.total === 1 ? ' recurso' : ' recursos') + ' con su actividad y su bibliografía (si la tienen).' + (costo == null ? '' : '\nCosto estimado: ≈ US$ ' + costo.toFixed(2) + ' (es una estimación).') + '\nSe perderán las ediciones hechas a mano; cada archivo .h5p publicado se reemplazará solo cuando usted vuelva a aprobarlo.', tono: 'peligro', textoConfirmar: 'Regenerar' }))) return
     try {
-      await api('POST', '/proyectos/' + encodeURIComponent(s.id) + '/pipeline/h5p', { regenerar: x.codigos })
-      setLanzadoEn(Date.now()); setYaEnCurso(0); setEnviadas([])
-      setAviso('Regenerando ' + x.total + ' recursos… aparecerán como «Por revisar» cuando n8n termine.')
+      const resp = await api('POST', '/proyectos/' + encodeURIComponent(s.id) + '/pipeline/h5p', { regenerar: x.codigos })
+      if (resp && resp.encolado) setAviso(x.total + ' recursos quedaron en cola para regenerar: empiezan apenas termine la corrida en curso.')
+      else {
+        setLanzadoEn(Date.now()); setYaEnCurso(0); setEnviadas([])
+        setAviso('Regenerando ' + x.total + ' recursos… aparecerán como «Por revisar» cuando n8n termine.')
+      }
       cargar()
     } catch (e) { setError(e.message || 'No se pudo regenerar el curso.') }
   }
@@ -404,6 +411,20 @@ export default function MatricesH5P({ s, propietario, soloLectura = false }) {
     }
     try { await aprobarRecurso(r) } catch (e) { setError(e.message || 'No se pudo aprobar el recurso.') } }
   const [editando, setEditando] = useState(null) // recurso abierto en el editor de textos
+  const [parteEd, setParteEd] = useState(() => leerHash('parte')) // parte abierta en el editor (queda en la dirección)
+  const hashLeido = useRef(false)
+  // Recargar la página no saca del editor: la dirección guarda el recurso (?r=código) y la parte (&parte=); al llegar la lista se vuelve a abrir.
+  useEffect(() => {
+    if (hashLeido.current || !d) return
+    hashLeido.current = true
+    const k = leerHash('r')
+    const r = k && d.recursos.find((x) => (x.codigo || x.id) === k && String(x.generador || '').toUpperCase() === 'H5P')
+    if (r) setEditando(r); else if (k) ponerHash({ r: '', parte: '' })
+  }, [d])
+  useEffect(() => {
+    if (!hashLeido.current && !editando) return // todavía no se leyó la dirección: no se borra
+    ponerHash(editando && !editando.esperando ? { r: editando.codigo || editando.id, parte: parteEd !== 'recurso' ? parteEd : '' } : { r: '', parte: '' })
+  }, [editando, parteEd])
   const [lanzadoEn, setLanzadoEn] = useState(0) // hasta que n8n avise del inicio pasan unos segundos: mientras tanto se sigue refrescando
 
   const cargar = useCallback(async () => {
@@ -420,7 +441,7 @@ export default function MatricesH5P({ s, propietario, soloLectura = false }) {
     return !!m && m.estado !== 'generando' && new Date(m.actualizadoEn).getTime() >= lanzadoEn - 15000
   })
   const lanzadoReciente = !pedidasTerminadas && ((lanzadoEn > 0 && Date.now() - lanzadoEn < 120000) || (yaEnCurso > 0 && Date.now() - yaEnCurso < 600000))
-  const enProgreso = lanzadoReciente || !!d && (d.matrices.some((m) => m.estado === 'generando' && !m.sinRespuesta) || d.ejecuciones.some((e) => e.estado === 'en_curso' && !e.sinRespuesta) || d.recursos.some((r) => (r.publicando && !r.publicandoSinRespuesta) || r.estado === 'EN_PROCESO' && !r.sinRespuesta))
+  const enProgreso = lanzadoReciente || !!d && (d.matrices.some((m) => m.estado === 'generando' && !m.sinRespuesta) || d.ejecuciones.some((e) => e.estado === 'en_curso' && !e.sinRespuesta) || d.recursos.some((r) => (r.publicando && !r.publicandoSinRespuesta) || r.estado === 'EN_PROCESO' && !r.sinRespuesta || r.enColaRegenerar))
   // Mientras algo esté en proceso se refresca solo (consulta a Praxia, no a n8n); además, al volver a la pestaña.
   useEffect(() => {
     if (!enProgreso) return undefined
@@ -673,7 +694,7 @@ export default function MatricesH5P({ s, propietario, soloLectura = false }) {
           </div>
         </>
       )}
-      {editando && <EditorRecurso proyecto={s.id} propietario={propietario} soloLectura={soloLectura} recurso={editando} recursos={d ? d.recursos.filter((r) => String(r.generador || '').toUpperCase() === 'H5P') : []} puedePublicar={puedePublicar} onAprobar={aprobarRecurso} onRegenerar={regenerarRecurso} regenerarBloqueado={h5pOcupado} onElegir={setEditando} onActualizar={cargar} onCerrar={() => { setEditando(null); cargar() }} />}
+      {editando && <EditorRecurso proyecto={s.id} propietario={propietario} soloLectura={soloLectura} recurso={editando} recursos={d ? d.recursos.filter((r) => String(r.generador || '').toUpperCase() === 'H5P') : []} puedePublicar={puedePublicar} onAprobar={aprobarRecurso} onRegenerar={regenerarRecurso} parteInicial={parteEd} onParte={setParteEd} onElegir={(r) => { setParteEd('recurso'); setEditando(r) }} onActualizar={cargar} onCerrar={() => { setEditando(null); cargar() }} />}
     </div>
   )
 }

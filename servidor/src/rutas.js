@@ -129,7 +129,16 @@ rutas.get('/proyectos/:id/pipeline', exigirSesion, pipelineCurso('proyectos.ver_
       costoEstimadoUsd: Math.round((conCosto.reduce((a, b) => a + b, 0) + prom * (d.rows.length - conCosto.length)) * 10000) / 10000, sinCosto: d.rows.length - conCosto.length }
     // El plan de una corrida puede ser largo: se entrega el conteo y la lista de lo omitido con su motivo, no todos los recursos a generar.
     const ejecuciones = e.rows.map((x) => ({ ...x, plan: x.plan ? { aGenerar: (x.plan.a_generar || []).length, aGenerarClaves: (x.plan.a_generar || []).slice(0, 500).map((i) => ({ id: i.id, codigo: i.codigo || null })), omitidas: (x.plan.omitidas || []).slice(0, 500) } : null }))
-    res.json({ matrices: m.rows, recursos: await correcciones.conCorrecciones(req.pipe.propietarioId, req.paramsOk.id, r.rows), ejecuciones, desactualizados, generado: new Date().toISOString(), puedeGenerarMatrices: Boolean(await urlMatrices()), puedeGenerarH5p: Boolean(await urlH5p()), puedePublicar: Boolean(await urlPublicar()), puedePreparar: Boolean(await urlPreparacion()) })
+    let cola = []
+    try { cola = (await sinUsuario(Q.colaListar, p)).rows.map((x) => x.codigo) } catch { /* sin la tabla de la cola (migración pendiente) */ }
+    const enCola = new Set(cola)
+    let recursos = (await correcciones.conCorrecciones(req.pipe.propietarioId, req.paramsOk.id, r.rows)).map((x) => (x.codigo && enCola.has(x.codigo) ? { ...x, enColaRegenerar: true } : x))
+    // Tokens y costos solo los ve un administrador.
+    if (!req.usuario.roles.includes('admin')) {
+      recursos = recursos.map(({ consumo, ...x }) => x)
+      delete desactualizados.costoEstimadoUsd; delete desactualizados.sinCosto
+    }
+    res.json({ matrices: m.rows, recursos, colaRegenerar: cola.length, ejecuciones, desactualizados, generado: new Date().toISOString(), puedeGenerarMatrices: Boolean(await urlMatrices()), puedeGenerarH5p: Boolean(await urlH5p()), puedePublicar: Boolean(await urlPublicar()), puedePreparar: Boolean(await urlPreparacion()) })
   } catch (err) { next(err) }
 })
 
@@ -152,6 +161,7 @@ rutas.get('/proyectos/:id/pipeline/recursos/:recurso/contenido', exigirSesion, p
     const f = (await sinUsuario(Q.pipeLeerContenido, [req.pipe.propietarioId, req.paramsOk.id, req.paramsOk.recurso])).rows[0]
     if (!f) return res.status(404).json({ error: 'No hay un recurso con ese identificador en este curso.' })
     if (!f.contenido) return res.status(404).json({ error: 'Este recurso no tiene contenido guardado todavía.' })
+    if (!req.usuario.roles.includes('admin')) { delete f.consumo; delete f.costoEstimadoUsd }
     res.json(f)
   } catch (err) { next(err) }
 })
@@ -236,7 +246,7 @@ rutas.post('/proyectos/:id/pipeline/h5p', exigirSesion, pipelineCurso('proyectos
   try {
     const { maximo, unidades, reintentarErrores, regenerar } = req.bodyOk
     if (regenerar && await correcciones.bloqueaRegenerar(req.pipe.propietarioId, req.paramsOk.id, regenerar)) return res.status(409).json({ error: correcciones.MENSAJE_PENDIENTE + ': espere a que el docente la marque como corregida.', correccionPendiente: true })
-    const r = await lanzarH5p({ usuario: req.pipe.usuario, proyectoId: req.paramsOk.id, maximo, unidades, reintentarErrores, regenerar })
+    const r = await lanzarH5p({ usuario: req.pipe.usuario, proyectoId: req.paramsOk.id, maximo, unidades, reintentarErrores, regenerar, encolar: true, pedidoPor: req.usuario.id })
     if (r.codigo === 202) auditar(req.usuario.id, regenerar ? 'h5p.regenerar' : reintentarErrores ?'h5p.reintentar' : 'h5p.generar', 'proyecto', req.paramsOk.id, req)
     res.status(r.codigo).json(r.cuerpo)
   } catch (err) { next(err) }

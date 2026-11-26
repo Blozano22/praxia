@@ -102,7 +102,7 @@ export default function App() {
     let h = '#/' + vista
     if (vista === 'workspace' && actualId) h = '#/syllabus/' + actualId + '/' + tab + (unidadSel != null ? '/' + unidadSel : '')
     else if (vista === 'editor' && actualId && recId) h = '#/editor/' + actualId + '/' + recId
-    if (location.hash !== h && !(vista === 'auditor-guiones' && location.hash.startsWith(h + '?'))) history.replaceState(null, '', h)
+    if (location.hash !== h && !(['auditor-guiones', 'mis-cursos-diseno', 'workspace'].includes(vista) && location.hash.startsWith(h + '?'))) history.replaceState(null, '', h)
   }, [restaurado, vista, actualId, tab, unidadSel, recId])
 
   useEffect(() => { api('GET', '/auth/yo').then(setYo).catch(() => setYo(null)) }, [])

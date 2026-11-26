@@ -269,7 +269,8 @@ async function procesar(ev) {
   const f = new Date(ev.fecha_evento)
   const fecha = (f.getTime() > ahora.getTime() + 5 * 60 * 1000 ? ahora : f).toISOString() // un reloj adelantado no puede bloquear los avisos siguientes
   const sec = ev.secuencia ?? 0
-  return conTransaccion(async (c) => {
+  let dueno = null
+  const res = await conTransaccion(async (c) => {
     const o = await resolverOrigen(c, ev)
     let resultado = 'aplicado'
     let motivo = null
@@ -284,8 +285,12 @@ async function procesar(ev) {
       await c.query(Q.pipeEventoResultado, [ev.evento_id, 'ignorado_antiguo', 'mas_antiguo_que_lo_guardado'])
       return { tipo: 'ignorado' }
     }
+    if (ev.evento === 'h5p_fin') dueno = { propietarioId: o.propietario_id, proyectoId: o.proyecto_id }
     return { tipo: 'aplicado' }
   })
+  // Fuera de la transacción del aviso: si había recursos esperando en la cola de «regenerar», se lanza otra corrida.
+  if (dueno && res.tipo === 'aplicado') setImmediate(() => import('./lanzar.js').then((m) => m.drenarColaRegenerar(dueno)).catch((e) => console.error('[cola-regenerar] ' + ((e && e.message) || e))))
+  return res
 }
 
 rutasEventosN8n.post('/eventos', limiteAvisos, async (req, res, next) => {
