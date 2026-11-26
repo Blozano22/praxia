@@ -229,6 +229,32 @@
       setTimeout(function () { mo.disconnect(); }, 30000);
     }
   }
+  // Oculta el rótulo «Imagen de ejemplo» de las figuras cuya imagen cargada ya no es la de ejemplo.
+  function ocultarMarcas() {
+    try {
+      var o = est.imagenOriginal, COMUN = 'id=1oqZTfJsT6CfNgBByHyRh05cUuJKtCErR';
+      var figs = document.querySelectorAll('figure');
+      for (var i = 0; i < figs.length; i++) {
+        var im = figs[i].querySelector('img'); if (!im) continue;
+        var s = String(im.currentSrc || im.src || im.getAttribute('src') || '');
+        if (!(im.complete && im.naturalWidth > 0)) continue;
+        var esEj = o ? empiezaPor(s, o) : s.indexOf(COMUN) >= 0;
+        if (esEj) continue;
+        var ms = figs[i].querySelectorAll('.figura-marca');
+        for (var j = 0; j < ms.length; j++) ms[j].style.display = 'none';
+      }
+    } catch (e) { /* sin efecto */ }
+  }
+  function vigilarMarcas() {
+    var correr = function () { ocultarMarcas(); };
+    correr(); [500, 2000, 6000].forEach(function (t) { setTimeout(correr, t); });
+    global.addEventListener('load', correr);
+    if (global.MutationObserver && document.body) {
+      var mo = new MutationObserver(correr);
+      mo.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['src'] });
+      setTimeout(function () { mo.disconnect(); }, 30000);
+    }
+  }
   // Diagnóstico: qué imágenes de la plantilla cargaron (items vacío = la plantilla no muestra imagen).
   function reportarImagenes() {
     try {
@@ -280,6 +306,7 @@
     if (!est.listo) {
       crearUI();
       if (est.imagenNueva && est.imagenOriginal) { vigilarImagenes(); if (document.readyState !== 'complete') global.addEventListener('load', reemplazarImagenes); }
+      vigilarMarcas();
       document.addEventListener('mousemove', alMover, true);
       document.addEventListener('click', alClic, true);
       global.addEventListener('scroll', alDesplazar, true);
