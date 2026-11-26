@@ -23,6 +23,9 @@ export async function api(metodo, ruta, cuerpo) {
   return datos
 }
 
+// Fase 3: el diseñador opera el curso de otra persona; se añade el propietario a la ruta del pipeline.
+export const conPropietario = (ruta, propietario) => (propietario ? ruta + (ruta.includes('?') ? '&' : '?') + 'propietario=' + encodeURIComponent(propietario) : ruta)
+
 // Descarga un archivo (p. ej. un Google Doc convertido a Word por el servidor) y devuelve su contenido binario.
 export async function apiArchivo(ruta, cuerpo) {
   const r = await fetch(RUTA_API + ruta, {

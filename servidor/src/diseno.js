@@ -36,6 +36,39 @@ export const bloqueoDiseno = (tipo = 'curso') => async (req, res, next) => {
   try { if (await exigirEditable(req, res, req.params.id, tipo)) next() } catch (e) { next(e) }
 }
 
+// Fase 3: el diseñador asignado actúa en nombre del dueño del curso. La petición trae `propietario` (query o cabecera x-propietario).
+// Devuelve { error: {codigo, cuerpo} } o { propietarioId, usuario (efectivo, con id del dueño), delegado, estado }.
+const RE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+export async function cursoPipeline(req, proyectoId, escritura) {
+  const pedido = String((req.query && req.query.propietario) || req.get('x-propietario') || '').trim()
+  const u = req.usuario
+  if (!pedido || pedido.toLowerCase() === u.id) return { propietarioId: u.id, usuario: u, delegado: false }
+  if (!RE_UUID.test(pedido)) return { error: { codigo: 400, cuerpo: { error: 'Propietario no válido.' } } }
+  const dueno = pedido.toLowerCase()
+  const efectivo = { id: dueno, permisos: new Set(['proyectos.ver_propios']), roles: [] }
+  if (esAdmin(u)) return { propietarioId: dueno, usuario: efectivo, delegado: true }
+  const f = await estadoDiseno(dueno, proyectoId)
+  if (!f || f.disenador_id !== u.id) return { error: { codigo: 403, cuerpo: { error: 'No tienes permiso para esto' } } }
+  if (escritura && f.estado !== 'asignado') return { error: { codigo: 409, cuerpo: { error: 'El curso está en revisión del docente', bloqueado: true } } }
+  return { propietarioId: dueno, usuario: efectivo, delegado: true, estado: f.estado }
+}
+
+// Middleware: deja en req.pipe el curso efectivo. Sin `propietario`: permiso normal del docente + bloqueo de la fase 1 (en escritura).
+// Con `propietario`: la autorización es la asignación (o ser admin); no se exigen permisos proyectos.*.
+export const pipelineCurso = (permiso, escritura = true) => async (req, res, next) => {
+  try {
+    const id = req.params.id
+    const r = await cursoPipeline(req, id, escritura)
+    if (r.error) return res.status(r.error.codigo).json(r.error.cuerpo)
+    if (!r.delegado) {
+      if (!req.usuario.permisos.has(permiso)) return res.status(403).json({ error: 'No tienes permiso para esto' })
+      if (escritura && !(await exigirEditable(req, res, id, 'pipeline'))) return
+    }
+    req.pipe = r
+    next()
+  } catch (e) { next(e) }
+}
+
 // ¿Está el curso listo para enviarlo? Todas las unidades aprobadas y todos los guiones de todas ellas aprobados (al menos uno por unidad).
 export function revisarEnvio(datos) {
   const a = estadoAprobacion(datos)

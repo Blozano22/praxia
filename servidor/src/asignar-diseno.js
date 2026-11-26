@@ -13,6 +13,14 @@ const leerProyectos = (usuario, consulta, valores = []) => conUsuario(comoLector
 
 export const bandeja = (usuario) => leerProyectos(usuario, Q.disenoBandeja)
 export const misCursos = (usuario) => leerProyectos(usuario, Q.disenoMios, [usuario.id])
+// Fase 3: el curso (con datos) para la pantalla del diseñador; solo lectura. null si no está asignado a esa persona (y no es admin).
+export async function cursoParaDisenador(usuario, propietarioId, proyectoId) {
+  const f = (await sinUsuario(Q.disenoObtener, [propietarioId, String(proyectoId)])).rows[0]
+  const admin = (usuario.roles || []).includes('admin')
+  if (!f || (!admin && f.disenador_id !== usuario.id)) return null
+  const p = (await leerProyectos(usuario, Q.disenoCursoDatos, [propietarioId, String(proyectoId)]))[0]
+  return p ? { ...p, estado: f.estado } : null
+}
 export const disenadores = async () => (await sinUsuario(Q.disenoDisenadores, [])).rows
 
 // Menor carga; empate: la asignación más antigua (o ninguna); luego por nombre.

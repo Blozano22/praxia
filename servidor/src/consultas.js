@@ -175,6 +175,7 @@ export const Q = Object.freeze({
       FROM curso_diseno d JOIN usuarios up ON up.id = d.propietario_id
       LEFT JOIN proyectos p ON p.propietario_id = d.propietario_id AND p.id = d.proyecto_id
      WHERE d.disenador_id = $1 ORDER BY d.asignado_en DESC NULLS LAST`,
+  disenoCursoDatos: `SELECT p.propietario_id, p.id, p.curso, p.programa, p.datos, up.nombre AS docente FROM proyectos p JOIN usuarios up ON up.id = p.propietario_id WHERE p.propietario_id = $1 AND p.id = $2`,
   // ---- pipeline: avisos de n8n guardados ligados al curso (sin sesión: la persona sale de pipeline_origen)
   pipeCarpetaDeProyecto: `SELECT datos->>'carpetaUrl' AS carpeta FROM proyectos WHERE propietario_id = $1 AND id = $2`,
   pipeProyectoDatos: `SELECT datos FROM proyectos WHERE propietario_id = $1 AND id = $2`,

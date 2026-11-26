@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { api } from '../lib/api.js'
+import { api as apiBase, conPropietario } from '../lib/api.js'
 import { resumenConsumo, tokensDe, costoDe, usd, miles, esUrlImagen } from '../lib/consumo.js'
 import EditorRecurso from './EditorRecurso.jsx'
 import CargaRecurso from './CargaRecurso.jsx'
@@ -347,7 +347,8 @@ function marcarEnCola(data) {
   return { ...data, recursos: data.recursos.map((r) => (r.estado !== 'EN_PROCESO' && (codigos.has(r.codigo) || (!r.codigo && ids.has(r.id))) ? { ...r, enCola: true, regenera: r.estado !== 'PENDIENTE' } : r)) }
 }
 
-export default function MatricesH5P({ s }) {
+export default function MatricesH5P({ s, propietario }) {
+  const api = (metodo, ruta, cuerpo) => apiBase(metodo, conPropietario(ruta, propietario), cuerpo) // con propietario: el diseñador actúa en nombre del dueño del curso
   const [d, setD] = useState(null)
   const [error, setError] = useState('')
   const [cargando, setCargando] = useState(false)
@@ -658,7 +659,7 @@ export default function MatricesH5P({ s }) {
           </div>
         </>
       )}
-      {editando && <EditorRecurso proyecto={s.id} recurso={editando} recursos={d ? d.recursos.filter((r) => String(r.generador || '').toUpperCase() === 'H5P') : []} puedePublicar={puedePublicar} onAprobar={aprobarRecurso} onRegenerar={regenerarRecurso} regenerarBloqueado={h5pOcupado} onElegir={setEditando} onCerrar={() => { setEditando(null); cargar() }} />}
+      {editando && <EditorRecurso proyecto={s.id} propietario={propietario} recurso={editando} recursos={d ? d.recursos.filter((r) => String(r.generador || '').toUpperCase() === 'H5P') : []} puedePublicar={puedePublicar} onAprobar={aprobarRecurso} onRegenerar={regenerarRecurso} regenerarBloqueado={h5pOcupado} onElegir={setEditando} onCerrar={() => { setEditando(null); cargar() }} />}
     </div>
   )
 }

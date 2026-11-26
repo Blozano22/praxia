@@ -15,7 +15,7 @@ import { CLAVE_PRUEBAS, pruebasEncendidas, urlPreparacion } from './pipeline/pre
 import { esUrlImagen } from './pipeline/eventos.js'
 import { invalidarAsignaciones, normalizarTipo } from './pipeline/asignaciones.js'
 import * as asignarDiseno from './asignar-diseno.js'
-import { bloqueoDiseno, enviarADiseno, estadoDiseno, revisarEnvio } from './diseno.js'
+import { bloqueoDiseno, enviarADiseno, estadoDiseno, pipelineCurso, revisarEnvio } from './diseno.js'
 import { publicarAviso, tomarAvisos } from './avisos.js'
 import { COOKIE, claveValida, compararClave, emitirSesion, exigirAlguno, exigirPermiso, exigirSesion, hashClave } from './seguridad.js'
 
@@ -117,9 +117,9 @@ rutas.get('/proyectos/:id/enlaces', exigirSesion, exigirPermiso('proyectos.ver_p
 
 // Lo que n8n avisó de la cadena guiones → matrices → H5P para ESTE curso (matrices, recursos y corridas). Solo lectura: la pantalla del curso
 // lee de aquí y no de n8n; los datos llegan por POST /api/n8n/eventos.
-rutas.get('/proyectos/:id/pipeline', exigirSesion, exigirPermiso('proyectos.ver_propios'), validar(z.object({ id: IdProyecto }), 'params'), async (req, res, next) => {
+rutas.get('/proyectos/:id/pipeline', exigirSesion, pipelineCurso('proyectos.ver_propios', false), validar(z.object({ id: IdProyecto }), 'params'), async (req, res, next) => {
   try {
-    const p = [req.usuario.id, req.paramsOk.id]
+    const p = [req.pipe.propietarioId, req.paramsOk.id]
     const [m, r, e, d] = await Promise.all([sinUsuario(Q.pipeLeerMatrices, p), sinUsuario(Q.pipeLeerRecursos, p), sinUsuario(Q.pipeLeerEjecuciones, p), sinUsuario(Q.pipeDesactualizados, p)])
     // Costo estimado de regenerarlos: lo guardado en cada uno; a los que no lo traen se les pone el promedio de los que sí.
     const conCosto = d.rows.filter((x) => x.costo != null).map((x) => Number(x.costo))
@@ -133,22 +133,22 @@ rutas.get('/proyectos/:id/pipeline', exigirSesion, exigirPermiso('proyectos.ver_
 })
 
 // Cambia la imagen (URL https) de un recurso del curso; solo la persona dueña del curso. Una cadena vacía la quita.
-rutas.put('/proyectos/:id/pipeline/recursos/imagen', exigirSesion, exigirPermiso('proyectos.crear'), bloqueoDiseno('pipeline'), validar(z.object({ id: IdProyecto }), 'params'),
+rutas.put('/proyectos/:id/pipeline/recursos/imagen', exigirSesion, pipelineCurso('proyectos.crear'), validar(z.object({ id: IdProyecto }), 'params'),
   validar(z.object({ recursoId: z.string().min(1).max(100), imagenUrl: z.string().max(500).refine((v) => v === '' || esUrlImagen(v), 'La imagen debe ser un enlace https sin espacios ni comillas.'), parte: z.enum(['recurso', 'actividad']).optional() }), 'body'),
   async (req, res, next) => {
     try {
       const { recursoId, imagenUrl, parte } = req.bodyOk
       const actividad = parte === 'actividad'
-      const r = await sinUsuario(actividad ? Q.pipeActividadImagen : Q.pipeRecursoImagen, [req.usuario.id, req.paramsOk.id, recursoId, imagenUrl || null])
+      const r = await sinUsuario(actividad ? Q.pipeActividadImagen : Q.pipeRecursoImagen, [req.pipe.propietarioId, req.paramsOk.id, recursoId, imagenUrl || null])
       if (!r.rows.length) return res.status(404).json({ error: actividad ? 'Ese recurso no tiene actividad en el curso.' : 'No se encontró ese recurso en el curso.' })
       res.json(r.rows[0])
     } catch (err) { next(err) }
   })
 
 // El contenido (JSON) con el que el flujo de H5P generó un recurso, para editarlo en pantalla. Solo el de esa persona y ese curso.
-rutas.get('/proyectos/:id/pipeline/recursos/:recurso/contenido', exigirSesion, exigirPermiso('proyectos.ver_propios'), validar(z.object({ id: IdProyecto, recurso: z.string().min(1).max(100) }), 'params'), async (req, res, next) => {
+rutas.get('/proyectos/:id/pipeline/recursos/:recurso/contenido', exigirSesion, pipelineCurso('proyectos.ver_propios', false), validar(z.object({ id: IdProyecto, recurso: z.string().min(1).max(100) }), 'params'), async (req, res, next) => {
   try {
-    const f = (await sinUsuario(Q.pipeLeerContenido, [req.usuario.id, req.paramsOk.id, req.paramsOk.recurso])).rows[0]
+    const f = (await sinUsuario(Q.pipeLeerContenido, [req.pipe.propietarioId, req.paramsOk.id, req.paramsOk.recurso])).rows[0]
     if (!f) return res.status(404).json({ error: 'No hay un recurso con ese identificador en este curso.' })
     if (!f.contenido) return res.status(404).json({ error: 'Este recurso no tiene contenido guardado todavía.' })
     res.json(f)
@@ -161,20 +161,20 @@ const limiteEditarRecurso = rateLimit({ windowMs: 60 * 1000, limit: Number(proce
 // Edición del contenido de un recurso desde la pantalla del curso. Solo se cambian TEXTOS: la estructura (campos y tipos) debe ser la misma que ya tenía.
 const MAX_CONTENIDO_EDITADO = 400 * 1024
 const EsquemaContenidoEditado = z.object({ contenido: z.record(z.string(), z.any()), parte: z.enum(['recurso', 'actividad', 'bibliografia']).default('recurso') })
-rutas.put('/proyectos/:id/pipeline/recursos/:recurso/contenido', exigirSesion, exigirPermiso('proyectos.crear'), bloqueoDiseno('pipeline'), limiteEditarRecurso,
+rutas.put('/proyectos/:id/pipeline/recursos/:recurso/contenido', exigirSesion, pipelineCurso('proyectos.crear'), limiteEditarRecurso,
   validar(z.object({ id: IdProyecto, recurso: z.string().min(1).max(100) }), 'params'), validar(EsquemaContenidoEditado, 'body'), async (req, res, next) => {
     try {
       const nuevo = req.bodyOk.contenido
       if (JSON.stringify(nuevo).length > MAX_CONTENIDO_EDITADO) return res.status(413).json({ error: 'El contenido pesa más de ' + MAX_CONTENIDO_EDITADO / 1024 + ' KB.' })
-      const f = (await sinUsuario(Q.pipeLeerContenido, [req.usuario.id, req.paramsOk.id, req.paramsOk.recurso])).rows[0]
+      const f = (await sinUsuario(Q.pipeLeerContenido, [req.pipe.propietarioId, req.paramsOk.id, req.paramsOk.recurso])).rows[0]
       const parte = req.bodyOk.parte
       const actual = parte === 'recurso' ? f?.contenido : f?.[parte]?.contenido
       if (!f || !actual) return res.status(404).json({ error: parte === 'recurso' ? 'Este recurso no tiene contenido guardado para editar.' : 'Este recurso no tiene esa parte guardada para editar.' })
       const cmp = compararEsquemas(esquemaDe(actual), esquemaDe(nuevo))
       if (!cmp.coincide) return res.status(400).json({ error: 'Solo se pueden editar textos: el contenido cambió de estructura (' + [...cmp.faltan.map((x) => 'falta ' + x.split(':')[0]), ...cmp.sobran.map((x) => 'sobra ' + x.split(':')[0])].slice(0, 5).join(', ') + ').' })
       const r = parte === 'recurso'
-        ? await sinUsuario(Q.pipeContenidoGuardar, [req.usuario.id, req.paramsOk.id, req.paramsOk.recurso, JSON.stringify(nuevo)])
-        : await sinUsuario(parte === 'actividad' ? Q.pipeActividadGuardar : Q.pipeBibliografiaGuardar, [req.usuario.id, req.paramsOk.id, req.paramsOk.recurso, JSON.stringify({ ...f[parte], contenido: nuevo })])
+        ? await sinUsuario(Q.pipeContenidoGuardar, [req.pipe.propietarioId, req.paramsOk.id, req.paramsOk.recurso, JSON.stringify(nuevo)])
+        : await sinUsuario(parte === 'actividad' ? Q.pipeActividadGuardar : Q.pipeBibliografiaGuardar, [req.pipe.propietarioId, req.paramsOk.id, req.paramsOk.recurso, JSON.stringify({ ...f[parte], contenido: nuevo })])
       if (!r.rowCount) return res.status(404).json({ error: 'Este recurso no tiene contenido guardado para editar.' })
       auditar(req.usuario.id, 'recurso.contenido_editar', 'proyecto', req.paramsOk.id, req)
       res.json({ ok: true })
@@ -182,21 +182,21 @@ rutas.put('/proyectos/:id/pipeline/recursos/:recurso/contenido', exigirSesion, e
   })
 
 // Aprobar el contenido de un recurso y pedir su publicación: n8n arma el .h5p y lo sube a Drive (si ya había archivo, reemplaza su contenido). El resultado llega por aviso.
-rutas.post('/proyectos/:id/pipeline/recursos/:recurso/aprobar', exigirSesion, exigirPermiso('proyectos.crear'), bloqueoDiseno('pipeline'), limiteEditarRecurso,
+rutas.post('/proyectos/:id/pipeline/recursos/:recurso/aprobar', exigirSesion, pipelineCurso('proyectos.crear'), limiteEditarRecurso,
   validar(z.object({ id: IdProyecto, recurso: z.string().min(1).max(100) }), 'params'), async (req, res, next) => {
     try {
-      const r = await lanzarPublicar({ usuario: req.usuario, proyectoId: req.paramsOk.id, recursoId: req.paramsOk.recurso })
+      const r = await lanzarPublicar({ usuario: req.pipe.usuario, proyectoId: req.paramsOk.id, recursoId: req.paramsOk.recurso })
       if (r.codigo === 202) auditar(req.usuario.id, 'recurso.aprobar_publicar', 'proyecto', req.paramsOk.id, req)
       res.status(r.codigo).json(r.cuerpo)
     } catch (err) { next(err) }
   })
 
 // Arma el .h5p con el contenido guardado (editado o no): el servidor llama al servicio de plantillas con su clave y entrega el archivo; la clave nunca llega al navegador.
-rutas.post('/proyectos/:id/pipeline/recursos/:recurso/h5p', exigirSesion, exigirPermiso('proyectos.ver_propios'), bloqueoDiseno('pipeline'), limiteEditarRecurso,
+rutas.post('/proyectos/:id/pipeline/recursos/:recurso/h5p', exigirSesion, pipelineCurso('proyectos.ver_propios'), limiteEditarRecurso,
   validar(z.object({ id: IdProyecto, recurso: z.string().min(1).max(100) }), 'params'), async (req, res, next) => {
     try {
       if (!config.servicioPlantillasClave) return res.status(503).json({ error: 'El servicio de plantillas H5P no está configurado en el servidor (falta SERVICIO_PLANTILLAS_CLAVE).' })
-      const f = (await sinUsuario(Q.pipeLeerContenido, [req.usuario.id, req.paramsOk.id, req.paramsOk.recurso])).rows[0]
+      const f = (await sinUsuario(Q.pipeLeerContenido, [req.pipe.propietarioId, req.paramsOk.id, req.paramsOk.recurso])).rows[0]
       if (!f || !f.contenido) return res.status(404).json({ error: 'Este recurso no tiene contenido guardado.' })
       if (!f.plantilla) return res.status(409).json({ error: 'Este recurso no tiene plantilla registrada.' })
       let r
@@ -220,20 +220,20 @@ rutas.post('/proyectos/:id/pipeline/recursos/:recurso/h5p', exigirSesion, exigir
   })
 
 // Lanza la generación de matrices (las que faltan, o volver a generar con forzar). Responde 202 en cuanto n8n confirma la orden.
-rutas.post('/proyectos/:id/pipeline/matrices', exigirSesion, exigirPermiso('proyectos.crear'), bloqueoDiseno('pipeline'), limiteLanzar, validar(z.object({ id: IdProyecto }), 'params'), validar(EsquemaLanzarMatrices, 'body'), async (req, res, next) => {
+rutas.post('/proyectos/:id/pipeline/matrices', exigirSesion, pipelineCurso('proyectos.crear'), limiteLanzar, validar(z.object({ id: IdProyecto }), 'params'), validar(EsquemaLanzarMatrices, 'body'), async (req, res, next) => {
   try {
     const { unidades, forzar, conservar } = req.bodyOk
-    const r = await lanzarMatrices({ usuario: req.usuario, proyectoId: req.paramsOk.id, unidades, forzar, conservar })
+    const r = await lanzarMatrices({ usuario: req.pipe.usuario, proyectoId: req.paramsOk.id, unidades, forzar, conservar })
     if (r.codigo === 202) auditar(req.usuario.id, conservar ? 'matrices.actualizar' : forzar ? 'matrices.regenerar' : 'matrices.generar', 'proyecto', req.paramsOk.id, req)
     res.status(r.codigo).json(r.cuerpo)
   } catch (err) { next(err) }
 })
 
 // Lanza la generación de recursos H5P de las matrices ya listas. Responde 202 cuando n8n ya planificó y aceptó la corrida.
-rutas.post('/proyectos/:id/pipeline/h5p', exigirSesion, exigirPermiso('proyectos.crear'), bloqueoDiseno('pipeline'), limiteLanzar, validar(z.object({ id: IdProyecto }), 'params'), validar(EsquemaLanzarH5p, 'body'), async (req, res, next) => {
+rutas.post('/proyectos/:id/pipeline/h5p', exigirSesion, pipelineCurso('proyectos.crear'), limiteLanzar, validar(z.object({ id: IdProyecto }), 'params'), validar(EsquemaLanzarH5p, 'body'), async (req, res, next) => {
   try {
     const { maximo, unidades, reintentarErrores, regenerar } = req.bodyOk
-    const r = await lanzarH5p({ usuario: req.usuario, proyectoId: req.paramsOk.id, maximo, unidades, reintentarErrores, regenerar })
+    const r = await lanzarH5p({ usuario: req.pipe.usuario, proyectoId: req.paramsOk.id, maximo, unidades, reintentarErrores, regenerar })
     if (r.codigo === 202) auditar(req.usuario.id, regenerar ? 'h5p.regenerar' : reintentarErrores ?'h5p.reintentar' : 'h5p.generar', 'proyecto', req.paramsOk.id, req)
     res.status(r.codigo).json(r.cuerpo)
   } catch (err) { next(err) }
@@ -273,6 +273,13 @@ rutas.get('/diseno/mios', exigirSesion, async (req, res, next) => {
   try {
     if (!req.usuario.roles.includes('disenador')) return res.status(403).json({ error: 'No tienes permiso para esto' })
     res.json(await asignarDiseno.misCursos(req.usuario))
+  } catch (e) { next(e) }
+})
+rutas.get('/diseno/cursos/:propietario/:id', exigirSesion, validar(z.object({ propietario: IdUuid, id: IdProyecto }), 'params'), async (req, res, next) => {
+  try {
+    const p = await asignarDiseno.cursoParaDisenador(req.usuario, req.paramsOk.propietario, req.paramsOk.id)
+    if (!p) return res.status(403).json({ error: 'No tienes permiso para esto' })
+    res.json(p)
   } catch (e) { next(e) }
 })
 rutas.post('/diseno/asignar', exigirSesion, exigirPermiso('diseno.asignar'), validar(PedidoAsignar.extend({ disenadorId: IdUuid }).strict(), 'body'), async (req, res, next) => {

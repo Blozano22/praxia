@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react'
 import { api } from '../lib/api.js'
 import Titulo from './Titulo.jsx'
+import DisenoCurso from './DisenoCurso.jsx'
 
-// Inicio del diseñador: los cursos que la coordinación le asignó. Solo lectura por ahora (operar el curso llega en la siguiente fase).
+// Inicio del diseñador: los cursos que la coordinación le asignó; cada uno abre su vista de diseño (matrices y H5P).
 const ESTADOS = { asignado: 'Asignado', en_revision_docente: 'En revisión del docente', en_diseno: 'Sin asignar' }
 
 export default function MisCursosDiseno() {
   const [filas, setFilas] = useState(null)
   const [error, setError] = useState('')
+  const [abierto, setAbierto] = useState(null)
   useEffect(() => { api('GET', '/diseno/mios').then(setFilas).catch((e) => setError(e.message || 'No se pudo cargar.')) }, [])
+  if (abierto) return <DisenoCurso propietario={abierto.propietario_id} proyecto={abierto.proyecto_id} onVolver={() => setAbierto(null)} />
   return (
     <div className="wrapx fade">
       <Titulo icono="inicio">
@@ -25,7 +28,7 @@ export default function MisCursosDiseno() {
               <div className="db2-nom"><b>{f.curso || f.proyecto_id}</b><small>{f.programa}</small></div>
               <span>{f.docente}</span>
               <span><span className="pill">{ESTADOS[f.estado] || f.estado}</span></span>
-              <span>{f.carpeta ? <a href={f.carpeta} target="_blank" rel="noreferrer">Carpeta de Drive</a> : ''} <small>Disponible en la siguiente fase</small></span>
+              <span>{f.carpeta ? <a href={f.carpeta} target="_blank" rel="noreferrer">Carpeta de Drive</a> : ''} <button className="btn" onClick={() => setAbierto(f)}>Abrir</button></span>
             </div>
           ))}
         </div></div></div>

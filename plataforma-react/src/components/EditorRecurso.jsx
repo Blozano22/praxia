@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import CargaRecurso from './CargaRecurso.jsx'
-import { api, RUTA_API } from '../lib/api.js'
+import { api as apiBase, conPropietario, RUTA_API } from '../lib/api.js'
 import { tokensDe, costoDe, imagenesDe, usd, miles, esUrlImagen } from '../lib/consumo.js'
 import codigoEditor from '../lib/editor-campos.js?raw'
 import './editor-recurso.css'
@@ -173,7 +173,8 @@ function ListaRecursos({ recursos, actualId, puedePublicar, sucio, onElegir, onA
   )
 }
 
-export default function EditorRecurso({ proyecto, recurso, recursos = [], puedePublicar, onAprobar, onRegenerar, regenerarBloqueado, onElegir, onCerrar }) {
+export default function EditorRecurso({ proyecto, propietario, recurso, recursos = [], puedePublicar, onAprobar, onRegenerar, regenerarBloqueado, onElegir, onCerrar }) {
+  const api = useCallback((metodo, ruta, cuerpo) => apiBase(metodo, conPropietario(ruta, propietario), cuerpo), [propietario])
   const [estado, setEstado] = useState('cargando') // cargando | listo | error
   const [error, setError] = useState('')
   const [pagina, setPagina] = useState('')
@@ -282,7 +283,7 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
     if (sucio && !(await guardar())) return
     setOcupado('h5p'); setMsg(null)
     try {
-      const r = await fetch(RUTA_API + '/proyectos/' + encodeURIComponent(proyecto) + '/pipeline/recursos/' + encodeURIComponent(recurso.id) + '/h5p', { method: 'POST', credentials: 'same-origin', headers: { 'x-ova': '1' } })
+      const r = await fetch(RUTA_API + conPropietario('/proyectos/' + encodeURIComponent(proyecto) + '/pipeline/recursos/' + encodeURIComponent(recurso.id) + '/h5p', propietario), { method: 'POST', credentials: 'same-origin', headers: { 'x-ova': '1' } })
       if (!r.ok) { let d = null; try { d = await r.json() } catch { /* sin cuerpo */ } throw new Error((d && d.error) || 'No se pudo armar el H5P (' + r.status + ').') }
       const sin = r.headers.get('x-iconos-sin-resolver')
       const url = URL.createObjectURL(await r.blob())
