@@ -6,6 +6,7 @@ import EnlaceDoc from './EnlaceDoc.jsx'
 import CargarGuion from './CargarGuion.jsx'
 import Revision from './Revision.jsx'
 import MatricesH5P from './MatricesH5P.jsx'
+import { useConfirmar, IconoEnviar, IconoCandado, IconoOjo, IconoEditar } from './Confirmar.jsx'
 import { FormacionCurso, formacionDe } from './Guiones.jsx'
 import { Recursos, Unidades, UnidadVista } from './Unidades.jsx'
 import { recursosDeGuion } from '../lib/guionJson.js'
@@ -26,15 +27,28 @@ export default function Workspace({ s, tab, setTab, unidadSel, setUnidadSel, rec
   const [cls, txt] = ESTADOS[s.syllabus.estado] || ESTADOS.sin
   // Estado de diseño del curso (null = lo tiene el docente). En diseño o asignado es solo lectura; en revisión solo se corrigen los guiones.
   const [dis, setDis] = useState(null)
-  const [enviando, setEnviando] = useState(false)
+  const [confirmar, dialogo] = useConfirmar()
+  const enviando = false
   useEffect(() => { api('GET', '/proyectos/' + encodeURIComponent(s.id) + '/diseno').then(setDis).catch(() => {}) }, [s.id])
   const estadoDis = dis && dis.estado
   const lectura = estadoDis === 'en_diseno' || estadoDis === 'asignado'
   const revision = estadoDis === 'en_revision_docente'
   const enviarADiseno = async () => {
-    if (!window.confirm('Al enviarlo a diseño ya no podrá editar el curso; un diseñador generará matrices y H5P. Podrá ver todo y, si el diseñador le pide una corrección, podrá corregir los guiones. ¿Enviar a diseño?')) return
-    setEnviando(true)
-    try { await api('POST', '/proyectos/' + encodeURIComponent(s.id) + '/enviar-diseno', {}); setDis(await api('GET', '/proyectos/' + encodeURIComponent(s.id) + '/diseno')); aviso('Curso enviado a diseño') } catch (e) { aviso(e.message) } finally { setEnviando(false) }
+    const ok = await confirmar({
+      titulo: '¿Enviar el curso a diseño?',
+      texto: 'Un diseñador generará las matrices y los recursos H5P a partir de sus guiones aprobados.',
+      icono: IconoEnviar,
+      items: [
+        { icono: IconoCandado, texto: 'Ya no podrá editar el curso mientras esté en diseño' },
+        { icono: IconoOjo, texto: 'Podrá ver todo su avance' },
+        { icono: IconoEditar, texto: 'Si el diseñador le pide una corrección, podrá corregir los guiones' }
+      ],
+      textoConfirmar: 'Enviar a diseño',
+      accion: async () => { await api('POST', '/proyectos/' + encodeURIComponent(s.id) + '/enviar-diseno', {}) }
+    })
+    if (!ok) return
+    try { setDis(await api('GET', '/proyectos/' + encodeURIComponent(s.id) + '/diseno')) } catch (e) { aviso(e.message) }
+    aviso('Curso enviado a diseño')
   }
 
   const docs = s.syllabus.documentos
@@ -115,6 +129,7 @@ export default function Workspace({ s, tab, setTab, unidadSel, setUnidadSel, rec
 
   return (
     <div className="wrapx fade">
+      {dialogo}
       <div className="crumbs">
         <button className="lnk" onClick={onVolver}>Dashboard</button> › <span>{s.programa}</span> › <b>{s.curso}</b>
       </div>

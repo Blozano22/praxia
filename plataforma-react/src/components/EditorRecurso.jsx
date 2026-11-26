@@ -5,6 +5,7 @@ import { api as apiBase, conPropietario, RUTA_API } from '../lib/api.js'
 import { tokensDe, costoDe, imagenesDe, usd, miles, esUrlImagen } from '../lib/consumo.js'
 import codigoEditor from '../lib/editor-campos.js?raw'
 import PanelCorreccion from './PanelCorreccion.jsx'
+import { useConfirmar } from './Confirmar.jsx'
 import './editor-recurso.css'
 
 // Editor de un recurso H5P ya generado: se pinta la plantilla con el contenido (JSON) que guardó el flujo, dentro de un iframe aislado (sandbox sin
@@ -52,6 +53,7 @@ const TEXTO_ESTADO = { POR_REVISAR: 'Por revisar', ERROR: 'Con error', EN_PROCES
 
 function ListaRecursos({ recursos, actualId, puedePublicar, sucio, onElegir, onAprobar }) {
   const [filtro, setFiltro] = useState(() => (recursos.some((r) => r.estado !== 'PENDIENTE' || r.enCola) ? 'con' : 'todos')) // con = los que ya tienen algo que ver; revisar; todos
+  const [confirmar, dialogo] = useConfirmar()
   const [cerradas, setCerradas] = useState({})
   const [ocupados, setOcupados] = useState({}) // id → true mientras se aprueba
   const [unidadBusy, setUnidadBusy] = useState(null)
@@ -87,7 +89,7 @@ function ListaRecursos({ recursos, actualId, puedePublicar, sucio, onElegir, onA
     const por = lista.filter((r) => aprobable(r) && r.estado === 'POR_REVISAR')
     if (!por.length) return
     if (sucio && por.some((r) => r.id === actualId)) { setAviso({ tipo: 'warn', texto: 'Guarde o descarte los cambios del recurso abierto antes de aprobar la unidad.' }); return }
-    if (!window.confirm('Se aprobarán y publicarán ' + por.length + (por.length === 1 ? ' recurso' : ' recursos') + ' de la Unidad ' + u + '. ¿Continuar?')) return
+    if (!(await confirmar({ titulo: '¿Aprobar y publicar la unidad?', texto: 'Se aprobarán y publicarán ' + por.length + (por.length === 1 ? ' recurso' : ' recursos') + ' de la Unidad ' + u + '.', textoConfirmar: 'Aprobar y publicar' }))) return
     setUnidadBusy(u); setAviso(null)
     let hechos = 0
     const fallos = []
@@ -101,6 +103,7 @@ function ListaRecursos({ recursos, actualId, puedePublicar, sucio, onElegir, onA
   const filtros = [['con', 'Disponibles', conteo.total - conteo.pendientes], ['revisar', 'Por revisar', conteo.revisar], ['todos', 'Todos', conteo.total]]
   return (
     <nav className="er-nav" aria-label="Recursos del curso">
+      {dialogo}
       <div className="er-nav-cab">
         <b>Recursos del curso</b>
         <span>{conteo.revisar > 0 ? conteo.revisar + (conteo.revisar === 1 ? ' por revisar' : ' por revisar') : 'Nada por revisar'} · {conteo.generando} generándose{conteo.enCola > 0 ? ' · ' + conteo.enCola + ' en cola' : ''} · {conteo.generados} publicados</span>
@@ -175,6 +178,7 @@ function ListaRecursos({ recursos, actualId, puedePublicar, sucio, onElegir, onA
 }
 
 export default function EditorRecurso({ proyecto, propietario, soloLectura = false, recurso, recursos = [], puedePublicar, onAprobar, onRegenerar, regenerarBloqueado, onElegir, onCerrar, onActualizar }) {
+  const [confirmar, dialogo] = useConfirmar()
   const api = useCallback((metodo, ruta, cuerpo) => apiBase(metodo, conPropietario(ruta, propietario), cuerpo), [propietario])
   const [estado, setEstado] = useState('cargando') // cargando | listo | error
   const [error, setError] = useState('')
@@ -313,7 +317,7 @@ export default function EditorRecurso({ proyecto, propietario, soloLectura = fal
     finally { setOcupado('') }
   }
 
-  const cerrar = () => { if (sucio && !window.confirm('Hay cambios sin guardar. ¿Cerrar sin guardarlos?')) return; onCerrar() }
+  const cerrar = async () => { if (sucio && !(await confirmar({ titulo: '¿Cerrar sin guardar?', texto: 'Hay cambios sin guardar. Si cierra ahora se perderán.', tono: 'aviso', textoConfirmar: 'Cerrar sin guardar' }))) return; onCerrar() }
   useEffect(() => {
     const tecla = (e) => { if (e.key === 'Escape' && !sucio) onCerrar() }
     window.addEventListener('keydown', tecla)
@@ -371,9 +375,9 @@ export default function EditorRecurso({ proyecto, propietario, soloLectura = fal
   // Al guardar otro enlace, la vista previa se vuelve a armar con la imagen nueva (el texto editado sin guardar se conserva en memoria).
   useEffect(() => { if (estado === 'listo' && pintadaImg.current !== imgUrlRef.current) pintar(ref.current.activo) }, [imgActual, estado, pintar])
   useEffect(() => { setDlgImg(null) }, [recurso.id])
-  const elegirRecurso = (r) => {
+  const elegirRecurso = async (r) => {
     if (r.id === recurso.id || !onElegir) return
-    if (sucio && !window.confirm('Hay cambios sin guardar en este recurso. ¿Pasar a otro sin guardarlos?')) return
+    if (sucio && !(await confirmar({ titulo: '¿Pasar a otro recurso?', texto: 'Hay cambios sin guardar en este recurso. Si pasa a otro se perderán.', tono: 'aviso', textoConfirmar: 'Pasar sin guardar' }))) return
     onElegir(r)
     if (typeof window !== 'undefined' && window.innerWidth <= 860) setNavAbierta(false)
   }
@@ -383,6 +387,7 @@ export default function EditorRecurso({ proyecto, propietario, soloLectura = fal
   // Se pinta en <body>: así ocupa toda la ventana aunque la pantalla de abajo tenga transformaciones o se haya desplazado
   return createPortal(
     <div className="er-fondo" role="dialog" aria-modal="true" aria-label={'Editar ' + (recurso.codigo || recurso.id)}>
+      {dialogo}
       <div className="er-caja">
         <header className="er-cab">
           <button type="button" className="er-volver" onClick={cerrar} aria-label="Volver a Matrices y H5P"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" /></svg>Volver</button>

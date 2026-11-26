@@ -4,6 +4,7 @@ import { textoCorreccion } from './PanelCorreccion.jsx'
 import { resumenConsumo, tokensDe, costoDe, usd, miles, esUrlImagen } from '../lib/consumo.js'
 import EditorRecurso from './EditorRecurso.jsx'
 import CargaRecurso from './CargaRecurso.jsx'
+import { useConfirmar, IconoAviso } from './Confirmar.jsx'
 import './matrices.css'
 
 // Paso «Matrices y H5P» del curso: muestra lo que n8n AVISÓ a Praxia (la matriz de cada unidad, sus recursos y las corridas de H5P).
@@ -350,6 +351,7 @@ function marcarEnCola(data) {
 }
 
 export default function MatricesH5P({ s, propietario, soloLectura = false }) {
+  const [confirmar, dialogo] = useConfirmar()
   const api = (metodo, ruta, cuerpo) => apiBase(metodo, conPropietario(ruta, propietario), cuerpo) // con propietario: el diseñador actúa en nombre del dueño del curso
   const [d, setD] = useState(null)
   const [error, setError] = useState('')
@@ -362,7 +364,7 @@ export default function MatricesH5P({ s, propietario, soloLectura = false }) {
   const [enviadas, setEnviadas] = useState([]) // unidades cuya matriz se pidió hace poco
   // Aprobar = pedir a n8n que arme el .h5p y lo suba a Drive; si ya estaba publicado, reemplaza el contenido del mismo archivo. Lanza el error para que quien llama lo muestre.
   const aprobarRecurso = async (r) => {
-    if (r.estado === 'GENERADO' && !window.confirm('Este recurso ya está publicado en Drive. Se reemplazará el contenido del mismo archivo (no se crea un duplicado). ¿Continuar?')) return false
+    if (r.estado === 'GENERADO' && !(await confirmar({ titulo: '¿Volver a publicar el recurso?', texto: 'Este recurso ya está publicado en Drive. Se reemplazará el contenido del mismo archivo (no se crea un duplicado).', tono: 'aviso', textoConfirmar: 'Aprobar y publicar' }))) return false
     await api('POST', '/proyectos/' + encodeURIComponent(s.id) + '/pipeline/recursos/' + encodeURIComponent(r.id) + '/aprobar')
     setAviso('Se aprobó ' + (r.codigo || r.id) + '. n8n está armando el H5P y subiéndolo a Drive; aparecerá como Generado en unos instantes.')
     cargar()
@@ -370,7 +372,7 @@ export default function MatricesH5P({ s, propietario, soloLectura = false }) {
   }
   // Regenerar = crear de nuevo con la misma plantilla; queda un borrador «Por revisar» y publicarlo reemplaza el archivo ya publicado.
   const regenerarRecurso = async (r) => {
-    if (!window.confirm('Se creará de nuevo con la misma plantilla y se perderán las ediciones hechas a mano. Si ya estaba publicado, el archivo se reemplazará solo cuando vuelva a aprobarlo.')) return false
+    if (!(await confirmar({ titulo: '¿Regenerar este recurso?', texto: 'Se creará de nuevo con la misma plantilla y se perderán las ediciones hechas a mano.\nSi ya estaba publicado, el archivo se reemplazará solo cuando vuelva a aprobarlo.', tono: 'peligro', icono: IconoAviso, textoConfirmar: 'Regenerar' }))) return false
     await api('POST', '/proyectos/' + encodeURIComponent(s.id) + '/pipeline/h5p', { regenerar: [r.codigo] })
     setLanzadoEn(Date.now()); setYaEnCurso(0); setEnviadas([])
     setAviso('Regenerando… ' + r.codigo + ' aparecerá como «Por revisar» cuando n8n termine.')
@@ -382,7 +384,7 @@ export default function MatricesH5P({ s, propietario, soloLectura = false }) {
     const x = d && d.desactualizados
     if (!x || !x.total) return
     const costo = Number(x.costoEstimadoUsd) || 0
-    if (!window.confirm('Se regenerarán ' + x.total + (x.total === 1 ? ' recurso' : ' recursos') + ' con su actividad y su bibliografía (si la tienen).\nCosto estimado: ≈ US$ ' + costo.toFixed(2) + ' (es una estimación).\nSe perderán las ediciones hechas a mano; cada archivo .h5p publicado se reemplazará solo cuando usted vuelva a aprobarlo. ¿Continuar?')) return
+    if (!(await confirmar({ titulo: '¿Regenerar todo el curso?', texto: 'Se regenerarán ' + x.total + (x.total === 1 ? ' recurso' : ' recursos') + ' con su actividad y su bibliografía (si la tienen).\nCosto estimado: ≈ US$ ' + costo.toFixed(2) + ' (es una estimación).\nSe perderán las ediciones hechas a mano; cada archivo .h5p publicado se reemplazará solo cuando usted vuelva a aprobarlo.', tono: 'peligro', textoConfirmar: 'Regenerar' }))) return
     try {
       await api('POST', '/proyectos/' + encodeURIComponent(s.id) + '/pipeline/h5p', { regenerar: x.codigos })
       setLanzadoEn(Date.now()); setYaEnCurso(0); setEnviadas([])
@@ -494,6 +496,7 @@ export default function MatricesH5P({ s, propietario, soloLectura = false }) {
 
   return (
     <div className="mx">
+      {dialogo}
       <div className="mx3-cab">
         <div>
           <h2>Matrices y H5P</h2>
