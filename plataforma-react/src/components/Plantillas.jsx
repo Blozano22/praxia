@@ -7,6 +7,7 @@ import RevisionPlantilla, { ESTADO } from './RevisionPlantilla.jsx'
 import BancoIconos from './BancoIconos.jsx'
 import CategoriasPlantillas from './CategoriasPlantillas.jsx'
 import SubirVariante from './SubirVariante.jsx'
+import ReemplazoMasivo from './ReemplazoMasivo.jsx'
 import PlantillaPropia from './PlantillaPropia.jsx'
 import RevisionResumen from './RevisionResumen.jsx'
 import { FORMACIONES, NOMBRE_FORMACION, conFormacion } from '../lib/formaciones.js'
@@ -337,6 +338,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
   const opcionesCat = grupos.map(([g, l, id], i) => ({ i, id: id || '', nombre: corto(g), n: l.length, c: resumenDe(l), pc: id ? prioridadEn(id) : '' }))
   const irACategoria = (i) => { const [, l] = grupos[(i + grupos.length) % grupos.length]; setQ(''); setTipo(l[0][0]) }
   const [subiendo, setSubiendo] = useState(false)
+  const [masivo, setMasivo] = useState(false)
   const recargarCats = () => api('GET', '/plantillas/categorias').then(setCats).catch(() => {})
   // Plantilla SUBIDA que se está viendo (la propia, o cualquiera si se revisa): se puede mover, reemplazar o eliminar. Las del sistema no.
   const nSub = publica || nombrePublico(tipo) || ''
@@ -513,6 +515,11 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
                 Subir variante a esta categoría
               </button>
             )}
+            {puedeSubir && !res && codigoActual && (
+              <button type="button" className="pg-subir-aqui" onClick={() => setMasivo(true)} title="Reemplazar varias variantes de esta categoría a la vez (todas o ninguna)">
+                Reemplazar en masa
+              </button>
+            )}
           </div>
           {puedeGestionarSub && <PlantillaPropia puedeRevisar={puedeRevisar} nombre={nSub} info={infoSub} cats={cats} categoriaActual={codigoActual ? codigoActual.id : ''} formacion={formacion} onCambio={alCambiarSub} />}
           <div className="card pl2-uso">
@@ -528,6 +535,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
         </aside>
       </div>
       )}
+      {masivo && cats && codigoActual && <ReemplazoMasivo categoria={codigoActual.id} formacion={formacion} cats={cats} onCerrar={() => setMasivo(false)} onHecho={async (n) => { await recargarCats(); if (aviso) aviso(n + ' variantes reemplazadas') }} />}
       {subiendo && cats && <SubirVariante cats={cats} clase={clase} formacion={formacion} puedeRevisar={puedeRevisar} categoriaInicial={codigoActual ? codigoActual.id : ''} onCerrar={() => setSubiendo(false)} onSubida={async (r) => { await recargarCats(); if (aviso && r) aviso(r.subidos === 1 && !r.errores ? 'Plantilla subida' : r.subidos + (r.subidos === 1 ? ' plantilla subida' : ' plantillas subidas') + (r.errores ? ', ' + r.errores + ' con error' : '')) }} />}
     </div>
   )

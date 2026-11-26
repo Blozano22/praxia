@@ -351,3 +351,7 @@ SVG reemplazables que el flujo de H5P coloca en los campos `icono` de las planti
 
 ### Regenerar ignorado por n8n (migración `018_estado_previo.sql`)
 Al marcar una fila EN_PROCESO por «regenerar» se guarda `estado_previo`. Si `h5p_inicio` la lista en `omitidas` (y no en `a_generar`), o `h5p_fin` llega sin que se haya procesado, la fila vuelve a su estado previo con la observación «No se regeneró: …». Un `h5p_recurso` normal limpia `estado_previo`. Las filas EN_PROCESO vencidas (más de 30 min) se pueden volver a regenerar.
+
+## Reemplazo en masa de variantes
+
+`POST /api/plantillas/subidas/reemplazo-masivo` con `{ archivos: [{ nombre, html }], soloVerificar? }` (1 a 40 variantes subidas existentes). Se reemplazan todas en una transacción o ninguna (409 con `resultados` por archivo). Los campos se comparan entre las nuevas de cada grupo (categoría + formación + tipo) y contra las del grupo que no se reemplazan. Permisos como el reemplazo individual (quien solo sube, únicamente lo suyo). Audita cada archivo y `plantilla_reemplazo_masivo`. Prueba: `test/plantillas-reemplazo-masivo.test.js` (puerto 54500).

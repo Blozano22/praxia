@@ -422,6 +422,9 @@ export const Q = Object.freeze({
   subidaReemplazar: `UPDATE plantilla_subidas SET html_crudo = $2, html = $3, subida_por = $4, subida_nombre = $5, esquema = $6::jsonb, formacion = coalesce($7, formacion), calificable = coalesce($8, calificable), actualizado = now() WHERE nombre = $1 RETURNING nombre`,
   esquemaReferencia: `SELECT s.nombre, s.esquema FROM plantilla_subidas s JOIN plantilla_categoria pc ON pc.plantilla = s.nombre
      WHERE pc.categoria = $1 AND (to_jsonb(s) ->> 'archivada_en') IS NULL AND s.esquema IS NOT NULL AND s.nombre <> $2 AND ($3::text IS NULL OR s.formacion = $3::text) AND ($4::boolean IS NULL OR s.calificable = $4::boolean) ORDER BY s.creado, s.nombre LIMIT 1`,
+  // Referencia para el reemplazo en masa: variantes del grupo que NO se reemplazan (nombres en $2, un arreglo)
+  esquemaReferenciaFuera: `SELECT s.nombre, s.esquema FROM plantilla_subidas s JOIN plantilla_categoria pc ON pc.plantilla = s.nombre
+     WHERE pc.categoria = $1 AND (to_jsonb(s) ->> 'archivada_en') IS NULL AND s.esquema IS NOT NULL AND s.nombre <> ALL($2::text[]) AND ($3::text IS NULL OR s.formacion = $3::text) AND ($4::boolean IS NULL OR s.calificable = $4::boolean) ORDER BY s.creado, s.nombre LIMIT 1`,
   estadosListar: `SELECT DISTINCT ON (plantilla) plantilla, estado, creado FROM plantilla_historial ORDER BY plantilla, creado DESC, id DESC`,
   subidaEsquema: `SELECT esquema, formacion, calificable FROM plantilla_subidas WHERE nombre = $1`,
   subidaFormacionPoner: `UPDATE plantilla_subidas SET formacion = $2 WHERE nombre = $1`,

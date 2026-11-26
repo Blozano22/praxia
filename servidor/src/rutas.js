@@ -789,24 +789,89 @@ const soloLoPropio = async (req, res, next) => {
     next()
   } catch (e) { next(e) }
 }
+// Prepara el reemplazo de una variante (compartido por el reemplazo individual y el masivo): arma el HTML, resuelve formación y tipo.
+// Devuelve { status, body } si no se puede, o { armada, fo, act, categoria } si sí.
+const prepararReemplazo = async (nombre, html, pedido = {}) => {
+  const armada = armarSubida(html)
+  if (!armada.ok) return { status: 400, body: { error: armada.error } }
+  const enCat = (await sinUsuario(Q.categoriasAsignaciones)).rows.find((x) => x.plantilla === nombre)
+  const actual = (await sinUsuario(Q.subidaEsquema, [nombre])).rows[0]
+  // formación: la elegida, la de la ficha o la que ya tenía la variante
+  const fo = await formacionDeSubida(enCat && enCat.categoria, pedido.formacion || armada.ficha.formacion || (actual && actual.formacion) || null)
+  if (fo.falta || fo.invalida) return { status: 400, body: errorFormacion(enCat.categoria, fo) }
+  const act = await contextoActividad(enCat && enCat.categoria, pedido.calificable, armada.ficha.calificable, actual && actual.calificable)
+  if (act.falta) return { status: 400, body: errorTipo(enCat.categoria) }
+  return { armada, fo, act, categoria: enCat ? enCat.categoria : null }
+}
+const paramsReemplazo = (nombre, html, usuario, p) => [nombre, html, p.armada.html, usuario.id, usuario.nombre, p.armada.esquema ? JSON.stringify(p.armada.esquema) : null, p.fo.formacion, p.act.calificable]
 rutas.put('/plantillas/subidas/:nombre', exigirSesion, exigirAlguno('plantillas.revisar', 'plantillas.subir'), limiteSubir, validar(z.object({ nombre: NombreSubida }), 'params'), soloLoPropio, validar(z.object({ html: HtmlSubido, formacion: FormacionSubida.nullish(), calificable: z.boolean().nullish() }).strict(), 'body'), async (req, res, next) => {
   try {
-    const armada = armarSubida(req.bodyOk.html)
-    if (!armada.ok) return res.status(400).json({ error: armada.error })
-    const enCat = (await sinUsuario(Q.categoriasAsignaciones)).rows.find((x) => x.plantilla === req.paramsOk.nombre)
-    const actual = (await sinUsuario(Q.subidaEsquema, [req.paramsOk.nombre])).rows[0]
-    // formación: la elegida, la de la ficha o la que ya tenía la variante
-    const fo = await formacionDeSubida(enCat && enCat.categoria, req.bodyOk.formacion || armada.ficha.formacion || (actual && actual.formacion) || null)
-    if (fo.falta || fo.invalida) return res.status(400).json(errorFormacion(enCat.categoria, fo))
-    const act = await contextoActividad(enCat && enCat.categoria, req.bodyOk.calificable, armada.ficha.calificable, actual && actual.calificable)
-    if (act.falta) return res.status(400).json(errorTipo(enCat.categoria))
-    const cmp = await compararConCategoria(enCat && enCat.categoria, req.paramsOk.nombre, armada.esquema, fo.comparar, act.calificable)
-    if (cmp && !cmp.coincide) return res.status(409).json(errorEsquema(enCat.categoria, cmp))
-    const r = await sinUsuario(Q.subidaReemplazar, [req.paramsOk.nombre, req.bodyOk.html, armada.html, req.usuario.id, req.usuario.nombre, armada.esquema ? JSON.stringify(armada.esquema) : null, fo.formacion, act.calificable])
+    const p = await prepararReemplazo(req.paramsOk.nombre, req.bodyOk.html, req.bodyOk)
+    if (p.status) return res.status(p.status).json(p.body)
+    const cmp = await compararConCategoria(p.categoria, req.paramsOk.nombre, p.armada.esquema, p.fo.comparar, p.act.calificable)
+    if (cmp && !cmp.coincide) return res.status(409).json(errorEsquema(p.categoria, cmp))
+    const r = await sinUsuario(Q.subidaReemplazar, paramsReemplazo(req.paramsOk.nombre, req.bodyOk.html, req.usuario, p))
     if (!r.rowCount) return res.status(404).json({ error: 'No hay una plantilla subida con ese nombre (las del sistema no se reemplazan desde aquí).' })
     await auditar(req.usuario.id, 'plantilla_reemplazar', 'plantilla', req.paramsOk.nombre, req)
     res.json({ ok: true })
   } catch (e) { next(e) }
+})
+// Reemplazo en masa: varias variantes (de una o más categorías) se reemplazan todas a la vez o ninguna. Los campos se comparan solo entre las nuevas
+// de cada grupo (categoría + formación + tipo) y contra las del grupo que NO se reemplazan. «soloVerificar» no guarda nada.
+rutas.post('/plantillas/subidas/reemplazo-masivo', exigirSesion, exigirAlguno('plantillas.revisar', 'plantillas.subir'), limiteSubir, validar(z.object({
+  archivos: z.array(z.object({ nombre: NombreSubida, html: HtmlSubido }).strict()).min(1).max(40),
+  soloVerificar: z.boolean().optional()
+}).strict(), 'body'), async (req, res, next) => {
+  try {
+    const { archivos, soloVerificar } = req.bodyOk
+    const nombres = archivos.map((a) => a.nombre)
+    const dup = nombres.filter((n, i) => nombres.indexOf(n) !== i)
+    if (dup.length) return res.status(400).json({ error: 'Hay variantes repetidas: ' + [...new Set(dup)].join(', ') + '.' })
+    const detalle = {} // nombre → { ok, error?, faltan, sobran, referencia }
+    const listos = []
+    for (const a of archivos) {
+      const f = (await sinUsuario(Q.subidaDueno, [a.nombre])).rows[0]
+      if (!f) { detalle[a.nombre] = { ok: false, error: 'No hay una plantilla subida con ese nombre (las del sistema no se reemplazan desde aquí).' }; continue }
+      if (!req.usuario.permisos.has('plantillas.revisar') && f.subida_por !== req.usuario.id) return res.status(403).json({ error: 'Solo puedes cambiar las plantillas que subiste tú.' })
+      const p = await prepararReemplazo(a.nombre, a.html, {})
+      if (p.status) { detalle[a.nombre] = { ok: false, error: p.body.error }; continue }
+      listos.push({ nombre: a.nombre, html: a.html, ...p })
+      detalle[a.nombre] = { ok: true, faltan: [], sobran: [], referencia: null }
+    }
+    // grupos: categoría + formación (si la categoría es compartida) + tipo
+    const grupos = new Map()
+    for (const l of listos) {
+      if (!l.categoria || !l.armada.esquema) continue
+      const k = JSON.stringify([l.categoria, l.fo.comparar || null, l.act.calificable])
+      if (!grupos.has(k)) grupos.set(k, [])
+      grupos.get(k).push(l)
+    }
+    const marca = (l, cmp, otro) => {
+      detalle[l.nombre] = { ok: false, faltan: cmp.faltan, sobran: cmp.sobran, referencia: otro, error: 'Los campos no coinciden con ' + otro + ': ' + [cmp.faltan.length ? 'faltan ' + resumenCampos(cmp.faltan) : '', cmp.sobran.length ? 'sobran ' + resumenCampos(cmp.sobran) : ''].filter(Boolean).join('; ') + '.' }
+    }
+    for (const g of grupos.values()) {
+      const ref = g[0]
+      for (const l of g.slice(1)) { const c = compararEsquemas(ref.armada.esquema, l.armada.esquema); if (!c.coincide) marca(l, c, ref.nombre) }
+      const fuera = (await sinUsuario(Q.esquemaReferenciaFuera, [ref.categoria, g.map((x) => x.nombre), ref.fo.comparar || null, typeof ref.act.calificable === 'boolean' ? ref.act.calificable : null])).rows[0]
+      if (fuera && fuera.esquema) for (const l of g) { if (!detalle[l.nombre].ok) continue; const c = compararEsquemas(fuera.esquema, l.armada.esquema); if (!c.coincide) marca(l, c, fuera.nombre) }
+    }
+    const resultados = archivos.map((a) => ({ nombre: a.nombre, ...detalle[a.nombre] }))
+    if (resultados.some((r) => !r.ok)) return res.status(409).json({ error: 'No se reemplazó ninguna variante: ' + resultados.filter((r) => !r.ok).length + ' de ' + resultados.length + ' no cumplen. Se reemplazan todas a la vez o ninguna.', resultados })
+    const esquemas = Object.fromEntries(listos.map((l) => [l.nombre, l.armada.esquema || null]))
+    if (soloVerificar) return res.json({ ok: true, verificado: true, resultados: resultados.map((r) => ({ ...r, esquema: esquemas[r.nombre] })) })
+    await conTransaccion(async (c) => {
+      for (const l of listos) {
+        const r = await c.query(Q.subidaReemplazar, paramsReemplazo(l.nombre, l.html, req.usuario, l))
+        if (!r.rowCount) throw Object.assign(new Error('desapareció ' + l.nombre), { desaparecio: l.nombre })
+      }
+    })
+    for (const l of listos) await auditar(req.usuario.id, 'plantilla_reemplazar', 'plantilla', l.nombre, req)
+    await auditar(req.usuario.id, 'plantilla_reemplazo_masivo', 'plantilla', nombres.join(', ').slice(0, 500), req)
+    res.json({ ok: true, resultados: resultados.map((r) => ({ ...r, esquema: esquemas[r.nombre] })) })
+  } catch (e) {
+    if (e.desaparecio) return res.status(409).json({ error: 'No se reemplazó ninguna: ' + e.desaparecio + ' ya no existe.' })
+    next(e)
+  }
 })
 // Mover una plantilla subida a otra categoría: como el nombre sale del ID de la categoría, se le da el siguiente nombre de la categoría nueva (g-09-v03 → g-10-v01)
 // y se traslada con ella su categoría y su historial de revisión.
