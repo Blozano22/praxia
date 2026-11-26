@@ -349,7 +349,7 @@ function marcarEnCola(data) {
   return { ...data, recursos: data.recursos.map((r) => (r.estado !== 'EN_PROCESO' && (codigos.has(r.codigo) || (!r.codigo && ids.has(r.id))) ? { ...r, enCola: true, regenera: r.estado !== 'PENDIENTE' } : r)) }
 }
 
-export default function MatricesH5P({ s, propietario }) {
+export default function MatricesH5P({ s, propietario, soloLectura = false }) {
   const api = (metodo, ruta, cuerpo) => apiBase(metodo, conPropietario(ruta, propietario), cuerpo) // con propietario: el diseñador actúa en nombre del dueño del curso
   const [d, setD] = useState(null)
   const [error, setError] = useState('')
@@ -463,10 +463,10 @@ export default function MatricesH5P({ s, propietario }) {
   }, [d, unidades.length])
   const ultimaH5P = d && d.ejecuciones.find((e) => e.etapa === 'h5p')
   const corridaNueva = !!ultimaH5P && ultimaH5P.estado !== 'en_curso' && lanzadoEn > 0 && enviadas.length === 0 && new Date(ultimaH5P.ultimoEventoEn).getTime() >= lanzadoEn - 15000 // la corrida pedida ya terminó
-  const puede = !!(d && d.puedeGenerarMatrices)
+  const puede = !soloLectura && !!(d && d.puedeGenerarMatrices) // el docente solo lee: las matrices y los H5P los genera el diseñador
   const ocupado = lanzando || lanzadoReciente || !!(d && (d.matrices.some((m) => m.estado === 'generando' && !m.sinRespuesta) || d.ejecuciones.some((e) => e.etapa === 'matrices' && e.estado === 'en_curso' && !e.sinRespuesta)))
-  const puedeH5p = !!(d && d.puedeGenerarH5p)
-  const puedePublicar = !!(d && d.puedePublicar)
+  const puedeH5p = !soloLectura && !!(d && d.puedeGenerarH5p)
+  const puedePublicar = !soloLectura && !!(d && d.puedePublicar)
   const listas = d ? d.matrices.filter((m) => ['creada', 'omitida', 'reemplazada', 'actualizada'].includes(m.estado) && !m.sinRespuesta).length : 0
   const h5pOcupado = lanzando || (lanzadoReciente && !corridaNueva) || !!(d && d.ejecuciones.some((e) => e.etapa === 'h5p' && e.estado === 'en_curso' && !e.sinRespuesta))
   const conError = d ? d.recursos.filter((r) => r.estado === 'ERROR').length : 0
@@ -561,7 +561,7 @@ export default function MatricesH5P({ s, propietario }) {
               <h3>{listas === 1 ? 'La matriz está lista' : 'Las ' + listas + ' matrices están listas'}</h3>
               <p>Si necesita rehacer una, use «Volver a generar la matriz» en su unidad (la anterior va a la papelera de Drive).</p>
             </div>
-            {puedeH5p && <button type="button" className="mx3-gran" onClick={() => setFaseSel(2)}>Ir a los recursos H5P</button>}
+            {(puedeH5p || soloLectura) && <button type="button" className="mx3-gran" onClick={() => setFaseSel(2)}>Ir a los recursos H5P</button>}
           </div>
         </section>
       )}
@@ -610,7 +610,7 @@ export default function MatricesH5P({ s, propietario }) {
           {ultimaH5P && <CorridaFranja e={ultimaH5P} />}
         </section>
       )}
-      {d && !puedeH5p && listas > 0 && <p className="help" style={{ marginTop: 10 }}>La generación de H5P desde Praxia todavía no está activada en este servidor.</p>}
+      {d && !puedeH5p && !soloLectura && listas > 0 && <p className="help" style={{ marginTop: 10 }}>La generación de H5P desde Praxia todavía no está activada en este servidor.</p>}
 
       {d && fase === 2 && todoAlDia && !(enCursoMat.length > 0 || corridaH5p || soloEnviado) && (
         <section className="mx3-ahora listo">
@@ -661,7 +661,7 @@ export default function MatricesH5P({ s, propietario }) {
           </div>
         </>
       )}
-      {editando && <EditorRecurso proyecto={s.id} propietario={propietario} recurso={editando} recursos={d ? d.recursos.filter((r) => String(r.generador || '').toUpperCase() === 'H5P') : []} puedePublicar={puedePublicar} onAprobar={aprobarRecurso} onRegenerar={regenerarRecurso} regenerarBloqueado={h5pOcupado} onElegir={setEditando} onActualizar={cargar} onCerrar={() => { setEditando(null); cargar() }} />}
+      {editando && <EditorRecurso proyecto={s.id} propietario={propietario} soloLectura={soloLectura} recurso={editando} recursos={d ? d.recursos.filter((r) => String(r.generador || '').toUpperCase() === 'H5P') : []} puedePublicar={puedePublicar} onAprobar={aprobarRecurso} onRegenerar={regenerarRecurso} regenerarBloqueado={h5pOcupado} onElegir={setEditando} onActualizar={cargar} onCerrar={() => { setEditando(null); cargar() }} />}
     </div>
   )
 }

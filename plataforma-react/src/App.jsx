@@ -354,7 +354,7 @@ export default function App() {
         </div>
       )}
       {vista === 'workspace' && actual && (
-        <Workspace key={actual.id + (pendInicial ? '-p' : '')} pendInicial={pendInicial} s={actual} tab={tab} setTab={setTab} unidadSel={unidadSel} setUnidadSel={setUnidadSel} recSel={recSel} setRecSel={setRecSel} aviso={aviso}
+        <Workspace key={actual.id + (pendInicial ? '-p' : '')} pendInicial={pendInicial} s={actual} tab={tab} setTab={setTab} unidadSel={unidadSel} setUnidadSel={setUnidadSel} recSel={recSel} setRecSel={setRecSel} aviso={aviso} esAdmin={yo.roles.includes('admin')}
           onCambio={actualizar} onVolver={() => ir('dashboard')}
           onEditar={(id) => { setRecId(id); ir('editor') }} />
       )}

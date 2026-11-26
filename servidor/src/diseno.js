@@ -7,7 +7,7 @@ import { Q } from './consultas.js'
 import { estadoAprobacion } from './pipeline/preparacion.js'
 
 export const MENSAJE_BLOQUEO = 'El curso está en diseño: solo lectura.'
-export const MENSAJE_PIPELINE = 'El curso está en diseño o en revisión: matrices y H5P los genera el diseñador.'
+export const MENSAJE_PIPELINE = 'Las matrices y los H5P los genera el diseñador asignado: envíe el curso a diseño.'
 
 export async function estadoDiseno(propietarioId, proyectoId) {
   return (await sinUsuario(Q.disenoObtener, [propietarioId, String(proyectoId)])).rows[0] || null
@@ -62,7 +62,8 @@ export const pipelineCurso = (permiso, escritura = true) => async (req, res, nex
     if (r.error) return res.status(r.error.codigo).json(r.error.cuerpo)
     if (!r.delegado) {
       if (!req.usuario.permisos.has(permiso)) return res.status(403).json({ error: 'No tienes permiso para esto' })
-      if (escritura && !(await exigirEditable(req, res, id, 'pipeline'))) return
+      // Las matrices y los H5P los genera el diseñador: el dueño no-admin no escribe en el pipeline en ningún estado.
+      if (escritura && !esAdmin(req.usuario)) return res.status(409).json({ error: MENSAJE_PIPELINE, bloqueado: true })
     }
     req.pipe = r
     next()

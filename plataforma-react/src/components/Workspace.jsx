@@ -18,7 +18,7 @@ const ESTADOS = { listo: ['ok', 'Documentos generados'], error: ['warn', 'Con er
 const Cierre = ({ activo, children }) => (activo ? <fieldset disabled style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>{children}</fieldset> : children)
 
 // Espacio de trabajo de UN syllabus: 1) documentos por unidad (se revisan y aprueban), 2) unidades con sus temas y recursos.
-export default function Workspace({ s, tab, setTab, unidadSel, setUnidadSel, recSel, setRecSel, onCambio, onVolver, onEditar, aviso, pendInicial }) {
+export default function Workspace({ s, tab, setTab, unidadSel, setUnidadSel, recSel, setRecSel, onCambio, onVolver, onEditar, aviso, pendInicial, esAdmin = false }) {
   const [regenerar, setRegenerar] = useState(false)
   const [modo, setModo] = useState(pendInicial ? 'revision' : 'lista') // lista | cargar | revision
   const [pend, setPend] = useState(pendInicial ? pendInicial[0].pend : null)
@@ -41,10 +41,14 @@ export default function Workspace({ s, tab, setTab, unidadSel, setUnidadSel, rec
   const aprobados = docs.filter((d) => d.aprobado).length
   const faltan = docs.length > 0 && aprobados < docs.length // las unidades se habilitan al aprobar todos los documentos
   const sinFormacion = !formacionDe(s) // sin formación no se pueden elegir las plantillas del curso: el paso Syllabus queda con «!»
+  // Guiones reales del curso (los mismos datos que la pantalla de guiones y el botón de envío): datos.guionesUnidad[n].archivos de cada unidad.
+  const archivosGuion = docs.flatMap((d) => ((s.guionesUnidad || {})[d.unidad] || {}).archivos || [])
+  const nGuiones = archivosGuion.length
+  const textoGuiones = nGuiones + (nGuiones === 1 ? ' guion cargado' : ' guiones cargados') + (nGuiones ? ' · ' + archivosGuion.filter((x) => x && x.aprobado).length + ' de ' + nGuiones + ' aprobados' : '')
   const pasos = [
     ['syllabus', '1', 'Syllabus', !s.syllabusUrl ? 'Sin enlace' : !sinFormacion ? 'Documento base del curso' : 'Falta la formación'],
     ['docs', '2', 'Unidades', docs.length ? aprobados + ' de ' + docs.length + ' documentos aprobados' : 'Sin documentos'],
-    ['unidades', '3', 'Guiones', faltan ? 'Apruebe las unidades' : s.guiones.length + ' guiones cargados'],
+    ['unidades', '3', 'Guiones', faltan ? 'Apruebe las unidades' : textoGuiones],
     ['matrices', '4', 'Matrices y H5P', faltan ? 'Apruebe las unidades' : 'Recursos H5P por unidad']
     // El paso «Recursos» queda fuera por ahora.
   ]
@@ -217,7 +221,16 @@ export default function Workspace({ s, tab, setTab, unidadSel, setUnidadSel, rec
         </div>
       )}
 
-      {tab === 'matrices' && <Cierre activo={lectura || revision}><MatricesH5P s={s} /></Cierre>}
+      {tab === 'matrices' && (
+        <>
+          {esAdmin
+            ? <p className="help" style={{ margin: '0 0 8px' }}>Como administrador puede generar aquí (normalmente lo hace el diseñador).</p>
+            : <div className="msg info" style={{ marginBottom: 10 }}>{estadoDis
+              ? <><b>Las matrices y los recursos H5P los genera el diseñador asignado.</b> Estado de diseño: {estadoDis === 'asignado' ? 'asignado a ' + ((dis && dis.disenador) || 'un diseñador') : estadoDis === 'en_diseno' ? 'en diseño, pendiente de asignar' : 'revisión solicitada'}.</>
+              : <><b>Las matrices y los recursos H5P los genera el diseñador asignado.</b> Envíe el curso a diseño cuando sus guiones estén aprobados.</>}</div>}
+          <Cierre activo={lectura || revision}><MatricesH5P s={s} soloLectura={!esAdmin} /></Cierre>
+        </>
+      )}
 
       {tab === 'recursos' && <Cierre activo={lectura || revision}><Recursos s={s} sel={recSel} setSel={setRecSel} onCambio={onCambio} onEditar={onEditar} aviso={aviso} /></Cierre>}
       </div>

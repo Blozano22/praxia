@@ -174,12 +174,12 @@ function ListaRecursos({ recursos, actualId, puedePublicar, sucio, onElegir, onA
   )
 }
 
-export default function EditorRecurso({ proyecto, propietario, recurso, recursos = [], puedePublicar, onAprobar, onRegenerar, regenerarBloqueado, onElegir, onCerrar, onActualizar }) {
+export default function EditorRecurso({ proyecto, propietario, soloLectura = false, recurso, recursos = [], puedePublicar, onAprobar, onRegenerar, regenerarBloqueado, onElegir, onCerrar, onActualizar }) {
   const api = useCallback((metodo, ruta, cuerpo) => apiBase(metodo, conPropietario(ruta, propietario), cuerpo), [propietario])
   const [estado, setEstado] = useState('cargando') // cargando | listo | error
   const [error, setError] = useState('')
   const [pagina, setPagina] = useState('')
-  const [activo, setActivo] = useState(true)
+  const [activo, setActivo] = useState(!soloLectura)
   const [sucio, setSucio] = useState(false)
   const [msg, setMsg] = useState(null) // { tipo: 'ok' | 'bad' | 'warn', texto }
   const [ocupado, setOcupado] = useState('')
@@ -187,7 +187,7 @@ export default function EditorRecurso({ proyecto, propietario, recurso, recursos
   const [parte, setParte] = useState('recurso') // parte abierta: recurso | actividad | bibliografia
   const [partesDisp, setPartesDisp] = useState(['recurso'])
   // partes: por cada una { contenido, esqueleto, titulo }; sucias: las partes con cambios sin guardar
-  const ref = useRef({ partes: {}, parte: 'recurso', formacion: null, activo: true, sucias: new Set() })
+  const ref = useRef({ partes: {}, parte: 'recurso', formacion: null, activo: !soloLectura, sucias: new Set() })
   const marco = useRef(null)
   const imgUrlRef = useRef('') // imagen guardada del recurso (la vista previa la usa en lugar de IMAGEN_EJEMPLO)
   const pintadaImg = useRef('')
@@ -231,7 +231,7 @@ export default function EditorRecurso({ proyecto, propietario, recurso, recursos
           } catch { faltan.push(k === 'actividad' ? 'la actividad' : 'la bibliografía') }
         }
         if (!vivo) return
-        ref.current = { partes, parte: 'recurso', formacion: c.formacion || null, activo: true, sucias: new Set() }
+        ref.current = { partes, parte: 'recurso', formacion: c.formacion || null, activo: !soloLectura, sucias: new Set() }
         setPartesDisp(['recurso', 'actividad', 'bibliografia'].filter((k) => partes[k]))
         if (faltan.length) setMsg({ tipo: 'warn', texto: 'No se encontró la plantilla de ' + faltan.join(' ni de ') + ': esa parte no se puede editar aquí.' })
         pintar(true)
@@ -247,6 +247,7 @@ export default function EditorRecurso({ proyecto, propietario, recurso, recursos
       if (!marco.current || e.source !== marco.current.contentWindow) return
       const d = e.data
       if (!d || d.fuente !== 'praxia-editor') return
+      if (soloLectura && (d.tipo === 'campo' || d.tipo === 'imagen_clic')) return
       if (d.tipo === 'campo' && typeof d.ruta === 'string' && typeof d.valor === 'string') {
         if (!ponerRuta(ref.current.partes[ref.current.parte].contenido, d.ruta, d.valor)) return
         ref.current.sucias.add(ref.current.parte)
@@ -262,7 +263,7 @@ export default function EditorRecurso({ proyecto, propietario, recurso, recursos
     }
     window.addEventListener('message', alMensaje)
     return () => window.removeEventListener('message', alMensaje)
-  }, [pintar])
+  }, [pintar, soloLectura])
 
   const cambiarParte = (k) => { if (k === ref.current.parte || !ref.current.partes[k]) return; ref.current.parte = k; setParte(k); pintar(ref.current.activo) }
   const cambiarModo = (v) => {
@@ -396,14 +397,14 @@ export default function EditorRecurso({ proyecto, propietario, recurso, recursos
             if (mal.length) { const u = mal[0].src; return <small className="er-cons" style={{ color: '#b45309' }} title={u}>Imagen: no cargó — haga clic en la imagen para revisar el enlace ({u.length > 60 ? u.slice(0, 57) + '…' : u})</small> }
             return null
           })()}{actual.consumo && <small className="er-cons" title="Consumo de la generación de este recurso">{miles(tokensDe(actual.consumo))} tokens · {imagenesDe(actual.consumo)} img · {usd(costoDe(actual.consumo))}{actual.consumo.costo_parcial ? ' (parcial)' : ''}</small>}</div>
-          {estado === 'listo' && <label className={'er-modo' + (activo ? ' on' : '')} title="Con esto activo, un clic en cualquier texto del recurso lo abre para editarlo">
+          {estado === 'listo' && !soloLectura && <label className={'er-modo' + (activo ? ' on' : '')} title="Con esto activo, un clic en cualquier texto del recurso lo abre para editarlo">
             <input type="checkbox" checked={activo} onChange={(e) => cambiarModo(e.target.checked)} />
             <i className="er-sw" aria-hidden="true" />
             Editar con clic
           </label>}
           {estado === 'listo' && puedePublicar && onAprobar && !actual.correccion && ['POR_REVISAR', 'GENERADO', 'ERROR'].includes(actual.estado) && <button type="button" className="er-b ok" onClick={aprobarYPublicar} disabled={!!ocupado || publicandoAhora} title="Aprobar este contenido: n8n arma el H5P y lo sube a Drive">{ocupado === 'aprobar' ? 'Enviando…' : publicandoAhora ? 'Publicando…' : actual.estado === 'GENERADO' ? 'Aprobar y volver a publicar' : 'Aprobar y publicar'}</button>}
           {estado === 'listo' && puedePublicar && onRegenerar && (['POR_REVISAR', 'GENERADO', 'ERROR'].includes(actual.estado) || actual.sinRespuesta) && <button type="button" className="er-b" onClick={regenerarEste} disabled={!!ocupado || publicandoAhora || !!regenerarBloqueado || (actual.correccion && actual.correccion.estado === 'abierta')} title="Crear de nuevo con la misma plantilla">{ocupado === 'regenerar' ? 'Regenerando…' : 'Regenerar'}</button>}
-          {estado === 'listo' && <button type="button" className="er-b" onClick={guardar} disabled={!sucio || !!ocupado}>{ocupado === 'guardar' ? <><i className="er-gira" aria-hidden="true" />Guardando…</> : 'Guardar cambios'}</button>}
+          {estado === 'listo' && !soloLectura && <button type="button" className="er-b" onClick={guardar} disabled={!sucio || !!ocupado}>{ocupado === 'guardar' ? <><i className="er-gira" aria-hidden="true" />Guardando…</> : 'Guardar cambios'}</button>}
           {estado === 'listo' && <button type="button" className="er-b pri" onClick={descargar} disabled={!!ocupado}>{ocupado === 'h5p' ? <><i className="er-gira" aria-hidden="true" />Armando el H5P…</> : <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M4 20h16" /></svg>Descargar .h5p</>}</button>}
         </header>
 

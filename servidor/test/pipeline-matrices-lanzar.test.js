@@ -55,7 +55,7 @@ before(async () => {
   const { hashClave } = await import('../src/seguridad.js')
   const { Q } = await import('../src/consultas.js')
   pool = db.pool
-  for (const [nombre, correo, rol] of [['Ana', 'ana@u.co', 'docente'], ['Beto', 'beto@u.co', 'docente'], ['Admin', 'admin@u.co', 'admin']]) ids[nombre.toLowerCase()] = (await pool.query(Q.usuarioCrear, [nombre, correo, await hashClave(CLAVE), [rol]])).rows[0].id
+  for (const [nombre, correo, rol] of [['Ana', 'ana@u.co', 'docente,admin'], ['Beto', 'beto@u.co', 'docente'], ['Admin', 'admin@u.co', 'admin']]) ids[nombre.toLowerCase()] = (await pool.query(Q.usuarioCrear, [nombre, correo, await hashClave(CLAVE), rol.split(',')])).rows[0].id
   servidor = crearApp().listen(0)
   base = 'http://127.0.0.1:' + servidor.address().port
 })
@@ -157,7 +157,7 @@ test('si n8n no acepta la orden (409, error o caído) se avisa con claridad y no
 test('nadie lanza sobre un curso ajeno y dos clics a la vez lanzan una sola vez', async () => {
   const ana = await entrar('ana@u.co')
   const beto = await entrar('beto@u.co')
-  assert.equal((await beto('POST', '/proyectos/curso-m/pipeline/matrices', { unidades: [1] })).status, 404)
+  assert.equal((await beto('POST', '/proyectos/curso-m/pipeline/matrices', { unidades: [1] })).status, 409) // el docente ajeno (y no admin) no genera matrices: 409 antes de mirar el curso
   assert.equal((await ana('PUT', '/proyectos/curso-p', curso('curso-p'))).status, 200)
   const antes = recibidas.length
   const rs = await Promise.all([1, 2, 3, 4].map(() => ana('POST', '/proyectos/curso-p/pipeline/matrices', { unidades: [1] })))
@@ -218,7 +218,7 @@ test('H5P: una sola corrida a la vez, el 409 de n8n y los fallos se explican y n
   respuestaN8n = { estado: 200, cuerpo: { ok: true } }
   assert.equal((await ana('POST', '/proyectos/curso-h/pipeline/h5p', { maximo: 3 })).status, 202) // los fallos no dejaron bloqueado el curso
   const beto = await entrar('beto@u.co')
-  assert.equal((await beto('POST', '/proyectos/curso-h/pipeline/h5p', { maximo: 3 })).status, 404) // curso ajeno
+  assert.equal((await beto('POST', '/proyectos/curso-h/pipeline/h5p', { maximo: 3 })).status, 409) // curso ajeno
 })
 
 test('matrices: la orden lleva formación y guiones por unidad; sin guiones no sale, y el 400 de n8n se explica; el ack trae ejecucion_id', async () => {
@@ -268,7 +268,7 @@ test('las direcciones se leen de «Conexión n8n» (tabla configuracion) y, si n
   const c = await (await admin('GET', '/config/n8n')).json()
   assert.deepEqual([c.matrices, c.h5p], ['https://n8n.ejemplo.edu.co/webhook/m', 'https://n8n.ejemplo.edu.co/webhook/h'])
   assert.equal((await admin('PUT', '/config/n8n', { matrices: 'http://inseguro.test/x' })).status, 400)
-  assert.equal((await ana('PUT', '/config/n8n', { matrices: 'https://n8n.ejemplo.edu.co/webhook/x' })).status, 403)
+  assert.equal((await (await entrar('beto@u.co'))('PUT', '/config/n8n', { matrices: 'https://n8n.ejemplo.edu.co/webhook/x' })).status, 403)
   assert.equal((await admin('PUT', '/config/n8n', { matrices: '', h5p: '', preparacion: '' })).status, 200)
   assert.deepEqual(await (await admin('GET', '/config/n8n')).json(), { syllabus: '', guiones: '', matrices: '', h5p: '', publicar: '', preparacion: '', rubricas: '', auditor: '', compartir_carpeta: '', pruebas_plantillas: false })
 })

@@ -74,7 +74,7 @@ before(async () => {
   const { Q } = await import('../src/consultas.js')
   const { registrarOrigen } = await import('../src/pipeline/eventos.js')
   pool = db.pool
-  for (const [nombre, correo] of [['Ana', 'ana@u.co'], ['Beto', 'beto@u.co']]) ids[nombre.toLowerCase()] = (await pool.query(Q.usuarioCrear, [nombre, correo, await hashClave(CLAVE), ['docente']])).rows[0].id
+  for (const [nombre, correo, rol] of [['Ana', 'ana@u.co', 'docente,admin'], ['Beto', 'beto@u.co', 'docente']]) ids[nombre.toLowerCase()] = (await pool.query(Q.usuarioCrear, [nombre, correo, await hashClave(CLAVE), rol.split(',')])).rows[0].id
   // Dos personas con un curso del MISMO identificador (los identificadores de curso solo son únicos por persona)
   await registrarOrigen({ trabajoId: T.ana, propietarioId: ids.ana, proyectoId: 'curso-a', carpeta: 'https://drive.google.com/drive/folders/carpetaAna', etapa: 'guiones', unidad: 1 })
   await registrarOrigen({ trabajoId: T.beto, propietarioId: ids.beto, proyectoId: 'curso-a', carpeta: 'https://drive.google.com/drive/folders/carpetaBeto', etapa: 'guiones', unidad: 1 })
@@ -351,7 +351,7 @@ test('editar el contenido de un recurso: solo textos, solo el propio curso; y el
   assert.equal((await put(ana, { contenido: { titulo: 'Editado', bloques: [{ texto: 'nuevo campo' }] } })).status, 400) // cambia la estructura
   assert.equal((await put(ana, { contenido: { titulo: 5, bloques: [] } })).status, 400) // cambia un tipo
   assert.equal((await put(ana, { contenido: { titulo: 'x'.repeat(450 * 1024), bloques: [] } })).status, 413)
-  assert.equal((await put(beto, { contenido: { titulo: 'de Beto', bloques: [] } })).status, 404) // el curso-a de Beto no tiene ese recurso
+  assert.equal((await put(beto, { contenido: { titulo: 'de Beto', bloques: [] } })).status, 409) // el curso-a de Beto no tiene ese recurso
   assert.equal((await put(ana, { contenido: { titulo: 'Título corregido', bloques: [] } })).status, 200)
   const j = await (await fetch(base + url, { headers: ana })).json()
   assert.equal(j.contenido.titulo, 'Título corregido'); assert.ok(j.editadoEn); assert.equal(typeof j.formacion === 'string' || j.formacion === null, true)
@@ -368,7 +368,7 @@ test('editar el contenido de un recurso: solo textos, solo el propio curso; y el
   assert.equal(ok.headers.get('x-iconos-sin-resolver'), 'np_99'); assert.equal(Buffer.from(await ok.arrayBuffer()).toString(), 'PK-h5p-simulado')
   assert.equal(ultimaPeticionServicio.clave, 'clave-del-servicio'); assert.equal(ultimaPeticionServicio.cuerpo.plantilla, 'g-11-doc-v01'); assert.equal(ultimaPeticionServicio.cuerpo.contenido.titulo, 'Regenerado')
   assert.equal((await h5p(ana, 'trabajando')).status, 404) // sin contenido
-  assert.equal((await h5p(beto)).status, 404) // otro curso
+  assert.equal((await h5p(beto)).status, 409) // otro curso
   await pool.query("UPDATE pipeline_recursos SET plantilla = 'mala' WHERE propietario_id = $1 AND id = 'f1'", [ids.ana])
   const mala = await h5p(ana); assert.equal(mala.status, 422); assert.match((await mala.json()).error, /contenido inválido/)
   await pool.query("UPDATE pipeline_recursos SET plantilla = NULL WHERE propietario_id = $1 AND id = 'f1'", [ids.ana])
@@ -393,7 +393,7 @@ test('etapa 2: un recurso «por revisar» se aprueba y n8n recibe la orden de pu
   // quién puede aprobar y qué se rechaza
   assert.equal((await fetch(base + '/api/proyectos/curso-a/pipeline/recursos/pub1/aprobar', { method: 'POST', headers: { 'x-ova': '1' } })).status, 401)
   assert.equal((await aprobar(ana, 'no-existe')).status, 404)
-  assert.equal((await aprobar(beto)).status, 404) // el curso-a de Beto no tiene ese recurso
+  assert.equal((await aprobar(beto)).status, 409) // el curso-a de Beto no tiene ese recurso
   assert.equal((await aprobar(ana, 'trabajando')).status, 409) // sin contenido
   // aprobar: n8n recibe la orden completa (no hay archivo todavía: reemplazar=false)
   ordenesPublicar.length = 0
@@ -577,7 +577,7 @@ test('imagen y consumo del recurso: se guardan, un aviso posterior sin ellos no 
   assert.equal((await una('ana', 'pipeline_recursos', "id = 'img1'"))[0].imagen_url, NUEVA)
   assert.equal((await una('beto', 'pipeline_recursos', "id = 'img1'")).length, 0) // el curso de Beto (mismo identificador) no se toca
   const beto = await entrar('beto@u.co')
-  assert.equal((await beto(ruta, 'PUT', { recursoId: 'img1', imagenUrl: NUEVA })).status, 404) // su curso no tiene ese recurso
+  assert.equal((await beto(ruta, 'PUT', { recursoId: 'img1', imagenUrl: NUEVA })).status, 409) // su curso no tiene ese recurso
 })
 
 test('partes del recurso (actividad y bibliografía): guardado con COALESCE, parte inválida ignorada, edición por parte, orden de publicar y regenerar', async () => {
@@ -607,7 +607,7 @@ test('partes del recurso (actividad y bibliografía): guardado con COALESCE, par
   assert.equal((await una('ana', 'pipeline_recursos', "id = 'pt1'"))[0].actividad.imagen_url, NUEVA)
   assert.equal((await una('ana', 'pipeline_recursos', "id = 'pt1'"))[0].actividad.plantilla, 'act-quiz-v01')
   assert.equal((await ana(rutaImg, 'PUT', { recursoId: 'pt1', imagenUrl: NUEVA, parte: 'otra' })).status, 400)
-  assert.equal((await beto(rutaImg, 'PUT', { recursoId: 'pt1', imagenUrl: NUEVA, parte: 'actividad' })).status, 404)
+  assert.equal((await beto(rutaImg, 'PUT', { recursoId: 'pt1', imagenUrl: NUEVA, parte: 'actividad' })).status, 409)
   assert.equal((await ana(rutaImg, 'PUT', { recursoId: 'pt1', imagenUrl: '', parte: 'actividad' })).status, 200)
   assert.equal('imagen_url' in (await una('ana', 'pipeline_recursos', "id = 'pt1'"))[0].actividad, false)
   await ana(rutaImg, 'PUT', { recursoId: 'pt1', imagenUrl: 'https://x.co/a.png', parte: 'actividad' })
@@ -629,7 +629,7 @@ test('partes del recurso (actividad y bibliografía): guardado con COALESCE, par
   assert.equal((await ana(ruta, 'PUT', { parte: 'actividad', contenido: { titulo: 'x' } })).status, 400)
   assert.equal((await ana(ruta, 'PUT', { parte: 'otra', contenido: okA })).status, 400)
   assert.equal((await ana(ruta, 'PUT', { parte: 'bibliografia', contenido: { titulo: 'B2', items: [{ ref: 'r2' }] } })).status, 200)
-  assert.equal((await beto(ruta, 'PUT', { parte: 'actividad', contenido: okA })).status, 404)
+  assert.equal((await beto(ruta, 'PUT', { parte: 'actividad', contenido: okA })).status, 409)
   assert.equal((await ana(ruta, 'PUT', { contenido: { titulo: 'R2', bloques: [] } })).status, 200) // por defecto: el recurso
   f = (await una('ana', 'pipeline_recursos', "id = 'pt1'"))[0]
   assert.deepEqual(f.actividad.contenido, okA); assert.equal(f.actividad.plantilla, ACT.plantilla); assert.equal(f.actividad.imagen_url, ACT.imagen_url)
@@ -724,4 +724,17 @@ test('matrices_fin «actualizada»: se acepta, cuenta como matriz lista y no deg
   await enviar(aviso('matrices_fin', 'matrices', { ...comunes, resultados: [{ unidad: 11, resultado: 'reemplazada', matriz: { id: 'M11b', url: HOJA }, filas: [fila('x11', 'PENDIENTE'), fila('y11', 'PENDIENTE')] }] }, 804))
   assert.equal((await una('ana', 'pipeline_matrices', 'unidad = 11'))[0].estado, 'reemplazada')
   assert.equal((await una('ana', 'pipeline_recursos', "id = 'x11'"))[0].estado, 'PENDIENTE')
+})
+
+test('las acciones de escritura del pipeline son del diseñador: el dueño docente (no admin) recibe 409 sin enviar a diseño y puede leer; el admin dueño puede', async () => {
+  const entrar = async (correo) => { const r = await fetch(base + '/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json', 'x-ova': '1' }, body: JSON.stringify({ correo, clave: CLAVE }) }); return { cookie: (r.headers.get('set-cookie') || '').split(';')[0], 'x-ova': '1', 'content-type': 'application/json' } }
+  const ana = await entrar('ana@u.co'), beto = await entrar('beto@u.co')
+  const MSG = 'Las matrices y los H5P los genera el diseñador asignado: envíe el curso a diseño.'
+  const pedir = async (h, metodo, ruta, cuerpo) => { const r = await fetch(base + '/api/proyectos/curso-a/pipeline' + ruta, { method: metodo, headers: h, body: cuerpo ? JSON.stringify(cuerpo) : undefined }); return { status: r.status, json: await r.json().catch(() => ({})) } }
+  for (const [m, ruta, cuerpo] of [['POST', '/matrices', { unidades: [1] }], ['POST', '/h5p', { maximo: 3 }], ['POST', '/matrices', { regenerar: ['x'] }], ['POST', '/recursos/f1/aprobar'], ['POST', '/recursos/f1/h5p'], ['PUT', '/recursos/f1/contenido', { contenido: { titulo: 't', bloques: [] } }], ['PUT', '/recursos/imagen', { recursoId: 'f1', imagenUrl: 'https://x.test/a.png' }]]) {
+    const r = await pedir(beto, m, ruta, cuerpo)
+    assert.equal(r.status, 409, m + ' ' + ruta); assert.equal(r.json.error, MSG)
+  }
+  assert.equal((await pedir(beto, 'GET', '')).status, 200)
+  assert.notEqual((await pedir(ana, 'POST', '/recursos/f1/aprobar')).status, 409) // admin dueño: permitido (el resultado depende del recurso)
 })
