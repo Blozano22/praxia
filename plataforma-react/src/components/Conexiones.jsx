@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import Titulo from './Titulo.jsx'
+import { api } from '../lib/api.js'
 import { cargarConfigN8n, guardarWebhook, guardarWebhookGuiones, guardarWebhookH5p, guardarWebhookMatrices, guardarWebhookPublicar, guardarPruebasPlantillas, guardarWebhookPreparacion, leerPruebasPlantillas, leerWebhook, leerWebhookGuiones, leerWebhookH5p, leerWebhookPublicar, leerWebhookMatrices, leerWebhookPreparacion } from '../lib/syllabus.js'
 
 // Direcciones (webhooks) de n8n que usa la plataforma. Se guardan en el servidor: el cambio vale para todas las personas.
@@ -95,6 +96,8 @@ function ModoPruebas({ aviso }) {
 
 export default function Conexiones({ aviso }) {
   const [listo, setListo] = useState(false)
+  const [enCurso, setEnCurso] = useState(0)
+  useEffect(() => { api('GET', '/admin/trabajos-en-curso').then((r) => setEnCurso((r && r.total) || 0)).catch(() => {}) }, []) // aviso opcional: si falla, no se muestra
   useEffect(() => { cargarConfigN8n(true).finally(() => setListo(true)) }, []) // siempre lo último guardado en el servidor
   return (
     <div className="wrapx fade">
@@ -103,6 +106,7 @@ export default function Conexiones({ aviso }) {
         <p className="lead">Las direcciones de n8n a las que la plataforma envía el trabajo.</p>
         <span className="cx-equipo"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2" /><path d="M3 19c0-3 2.7-5 6-5s6 2 6 5M16 5.5a3 3 0 0 1 0 5.5M18 14.5c1.8.6 3 2.2 3 4.5" /></svg>Los cambios los usa todo el equipo</span>
       </Titulo>
+      {enCurso > 0 && <p className="cx-pie" role="status">Hay {enCurso} {enCurso === 1 ? 'generación' : 'generaciones'} en curso: no reinicie el servidor.</p>}
       {listo && (
         <>
           <div className="cx-lista2">

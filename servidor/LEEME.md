@@ -116,6 +116,14 @@ Así, aunque se cierre la página o venza la sesión, la generación sigue; al v
 
 **Para el flujo de n8n:** el cuerpo que recibe trae ahora además `trabajo_id` (el identificador del trabajo). No hace falta usarlo; sirve para registrarlo o relacionar la ejecución. La dirección del flujo es la que guarda el administrador en «Conexión n8n» (o `N8N_GUIONES_URL`, por defecto la de siempre).
 
+**Reiniciar sin perder trabajo.** Un reinicio del servidor SÍ corta las generaciones en curso: Praxia mantiene abierta la petición a n8n esperando el resultado, y al arrancar lo que seguía «en curso» se marca como fallido. Antes de reiniciar, comprueba que no haya ninguna (despliegue seguro; si hay, el comando falla y no reinicia):
+
+```
+cd /var/www/html/praxia/servidor && npm run puede-reiniciar && sudo -u proy3ctos pm2 restart praxia
+```
+
+`npm run puede-reiniciar` imprime «Se puede reiniciar» (código 0) o la lista de proyecto, unidad y hora con «NO reinicie todavía» (código 1). La administración ve lo mismo en `GET /api/admin/trabajos-en-curso` y como aviso en «Conexión n8n». Solo cuenta generaciones de guiones (no las lecturas de bibliografía).
+
 **Aplicar el cambio de esquema** (idempotente; crea `guiones_trabajos`): `sudo -u postgres psql -d ova -f servidor/sql/001_esquema.sql`.
 
 ### Crear las unidades también corre en el servidor

@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import { trabajosEnCurso } from './trabajos-en-curso.js'
 import path from 'node:path'
 import { Router } from 'express'
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit'
@@ -400,6 +401,10 @@ rutas.get('/config/n8n', exigirSesion, async (req, res, next) => {
     const v = (c) => (f.find((x) => x.clave === c) || {}).valor || ''
     res.json({ syllabus: v(CLAVES_N8N.syllabus), guiones: v(CLAVES_N8N.guiones), matrices: v(CLAVES_N8N.matrices), h5p: v(CLAVES_N8N.h5p), publicar: v(CLAVES_N8N.publicar), preparacion: v(CLAVES_N8N.preparacion), pruebas_plantillas: pruebasEncendidas((f.find((x) => x.clave === CLAVE_PRUEBAS) || {}).valor) }) // '' = la dirección original
   } catch (e) { next(e) }
+})
+// Solo lectura: lo que se perdería si se reinicia el servidor ahora.
+rutas.get('/admin/trabajos-en-curso', ...admin, async (req, res, next) => {
+  try { res.json(await trabajosEnCurso(sinUsuario)) } catch (e) { next(e) }
 })
 const UrlN8n = z.union([z.literal(''), z.string().trim().max(500).regex(/^https:\/\/\S+$/)])
 rutas.put('/config/n8n', ...admin, validar(z.object({ syllabus: UrlN8n.optional(), guiones: UrlN8n.optional(), matrices: UrlN8n.optional(), h5p: UrlN8n.optional(), publicar: UrlN8n.optional(), preparacion: UrlN8n.optional(), pruebas_plantillas: z.boolean().optional() }).strict(), 'body'),

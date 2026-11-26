@@ -100,6 +100,9 @@ export const Q = Object.freeze({
   guionTrabajoEnCurso: `SELECT id, creado FROM guiones_trabajos WHERE propietario_id = $1 AND proyecto_id = $2 AND unidad = $3 AND estado = 'en_curso'`,
   guionTrabajoListo: `UPDATE guiones_trabajos SET estado = 'listo', respuesta = $2, terminado = now() WHERE id = $1 AND estado = 'en_curso'`,
   guionTrabajoFallo: `UPDATE guiones_trabajos SET estado = 'error', error = $2, terminado = now() WHERE id = $1 AND estado = 'en_curso'`,
+  // Lo que un reinicio cortaría ahora (sin filtrar por persona: lo usan el script de despliegue y la administración).
+  guionTrabajosEnCursoTodos: `
+    SELECT id, proyecto_id AS proyecto, unidad, creado FROM guiones_trabajos WHERE estado = 'en_curso' ORDER BY creado`,
   guionTrabajosListar: `
     SELECT id, proyecto_id AS proyecto, unidad, estado, creado, terminado, error
       FROM guiones_trabajos WHERE propietario_id = $1 ORDER BY creado DESC LIMIT 200`,
