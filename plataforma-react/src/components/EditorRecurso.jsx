@@ -25,11 +25,17 @@ function ponerRuta(obj, ruta, valor) {
 }
 
 // La página de la plantilla con el contenido puesto (igual que la vista de ejemplo) y el editor inyectado.
-function armarPagina(esqueleto, contenido, titulo, formacion, activo) {
+// IMAGEN_EJEMPLO: la plantilla declara la imagen principal en una constante; en el .h5p final la librería la reemplaza por imagen_url. Aquí se hace igual.
+const RE_IMG = /(IMAGEN_EJEMPLO\s*=\s*)(?:'([^']*)'|"([^"]*)")/
+function armarPagina(esqueleto, contenido, titulo, formacion, activo, imagenUrl) {
   const marca = NIVEL[formacion] ? '<script>window.__NIVEL=' + JSON.stringify(NIVEL[formacion]) + '</script>' : ''
   let h = esqueleto.replace('{{TITULO}}', () => esc(titulo || 'Recurso')).replace('/*CONTENIDO*/', () => json(contenido))
+  const original = (RE_IMG.exec(h) || [])[2] ?? (RE_IMG.exec(h) || [])[3]
+  const usar = esUrlImagen(imagenUrl) ? imagenUrl : ''
+  if (usar && original !== undefined) h = h.replace(RE_IMG, (_m, pre) => pre + JSON.stringify(usar))
+  const imagenes = [usar, original].filter((u) => u)
   if (marca) h = /<head[^>]*>/i.test(h) ? h.replace(/<head[^>]*>/i, (m) => m + marca) : marca + h
-  const editor = '<script>' + codigoEditor + '</script><script>PraxiaEditor.iniciar({ contenido: ' + json(contenido) + ', activo: ' + (activo ? 'true' : 'false') + ' })</script>'
+  const editor = '<script>' + codigoEditor + '</script><script>PraxiaEditor.iniciar({ contenido: ' + json(contenido) + ', activo: ' + (activo ? 'true' : 'false') + ', imagenes: ' + json(imagenes) + ' })</script>'
   return /<\/body>/i.test(h) ? h.replace(/<\/body>/i, () => editor + '</body>') : h + editor
 }
 
@@ -180,12 +186,17 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
   // partes: por cada una { contenido, esqueleto, titulo }; sucias: las partes con cambios sin guardar
   const ref = useRef({ partes: {}, parte: 'recurso', formacion: null, activo: true, sucias: new Set() })
   const marco = useRef(null)
+  const imgUrlRef = useRef('') // imagen guardada del recurso (la vista previa la usa en lugar de IMAGEN_EJEMPLO)
+  const pintadaImg = useRef('')
+  const [dlgImg, setDlgImg] = useState(null) // null = cerrado; texto = enlace que se está escribiendo
   const ruta = '/proyectos/' + encodeURIComponent(proyecto) + '/pipeline/recursos/' + encodeURIComponent(recurso.id) + '/contenido'
 
   const pintar = useCallback((activoAhora) => {
     const r = ref.current
     const p = r.partes[r.parte]
-    setPagina(armarPagina(p.esqueleto, p.contenido, p.titulo, r.formacion, activoAhora))
+    const url = r.parte === 'recurso' ? imgUrlRef.current : p.imagenUrl
+    pintadaImg.current = imgUrlRef.current
+    setPagina(armarPagina(p.esqueleto, p.contenido, p.titulo, r.formacion, activoAhora, url))
   }, [])
 
   useEffect(() => {
@@ -208,7 +219,7 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
           try {
             const rp = await fetch(RUTA_API.replace(/\/api$/, '') + '/plantillas-html/' + encodeURIComponent(x.plantilla) + '.html')
             if (!rp.ok) throw new Error('sin plantilla')
-            partes[k] = { contenido: x.contenido, esqueleto: await rp.text(), titulo: (x.contenido && x.contenido.titulo) || c.titulo }
+            partes[k] = { contenido: x.contenido, imagenUrl: typeof x.imagen_url === 'string' ? x.imagen_url : (x.contenido && x.contenido.imagen_url) || '', esqueleto: await rp.text(), titulo: (x.contenido && x.contenido.titulo) || c.titulo }
           } catch { faltan.push(k === 'actividad' ? 'la actividad' : 'la bibliografía') }
         }
         if (!vivo) return
@@ -233,6 +244,9 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
         ref.current.sucias.add(ref.current.parte)
         setSucio(true); setMsg(null)
         if (!d.parchado) pintar(ref.current.activo) // el texto no se pudo cambiar en pantalla: se vuelve a pintar con el JSON nuevo
+      } else if (d.tipo === 'imagen_clic') {
+        if (ref.current.parte !== 'recurso') setMsg({ tipo: 'warn', texto: 'El enlace de la imagen se cambia desde la parte «Recurso».' })
+        else setDlgImg(imgUrlRef.current || '')
       } else if (d.tipo === 'sin_campo') setMsg({ tipo: 'warn', texto: 'Ese texto no viene de un campo que se pueda editar por clic.' })
     }
     window.addEventListener('message', alMensaje)
@@ -328,21 +342,23 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
   const actual = recursos.find((x) => x.id === recurso.id) || recurso
   const urlGuion = vistaGuion(actual.enlaceGuion)
   const publicandoAhora = !!actual.publicando && !actual.publicandoSinRespuesta
-  // Imagen del recurso: miniatura con enlace y campo para cambiar la URL (https). Cadena vacía = quitarla.
-  const [imgNueva, setImgNueva] = useState(null) // null = sin tocar; texto = lo que se está escribiendo
+  // Imagen del recurso: se cambia con un clic sobre ella en la vista previa (enlace https; cadena vacía = quitarla).
   const [imgGuardada, setImgGuardada] = useState({}) // id → URL guardada en esta sesión (hasta que la lista del curso se refresque)
   const imgActual = actual.id in imgGuardada ? imgGuardada[actual.id] : actual.imagenUrl || ''
-  const imgCampo = imgNueva === null ? imgActual : imgNueva
-  const imgValida = imgCampo === '' || esUrlImagen(imgCampo)
-  const guardarImagen = async () => {
+  const imgDlgValida = dlgImg !== null && (dlgImg.trim() === '' || esUrlImagen(dlgImg.trim()))
+  imgUrlRef.current = esUrlImagen(imgActual) ? imgActual : ''
+  const guardarImagen = async (valor) => {
+    const v = (valor || '').trim()
     setOcupado('imagen'); setMsg(null)
     try {
-      await api('PUT', '/proyectos/' + encodeURIComponent(proyecto) + '/pipeline/recursos/imagen', { recursoId: actual.id, imagenUrl: imgCampo.trim() })
-      setImgGuardada((g) => ({ ...g, [actual.id]: imgCampo.trim() })); setImgNueva(null); setMsg({ tipo: 'ok', texto: imgCampo.trim() ? 'Imagen guardada. Se usará al publicar.' : 'Imagen quitada.' })
+      await api('PUT', '/proyectos/' + encodeURIComponent(proyecto) + '/pipeline/recursos/imagen', { recursoId: actual.id, imagenUrl: v })
+      setImgGuardada((g) => ({ ...g, [actual.id]: v })); setDlgImg(null); setMsg({ tipo: 'ok', texto: v ? 'Imagen guardada. Se usará al publicar.' : 'Imagen quitada.' })
     } catch (e) { setMsg({ tipo: 'bad', texto: e.message || 'No se pudo guardar la imagen.' }) }
     finally { setOcupado('') }
   }
-  useEffect(() => { setImgNueva(null) }, [recurso.id])
+  // Al guardar otro enlace, la vista previa se vuelve a armar con la imagen nueva (el texto editado sin guardar se conserva en memoria).
+  useEffect(() => { if (estado === 'listo' && pintadaImg.current !== imgUrlRef.current) pintar(ref.current.activo) }, [imgActual, estado, pintar])
+  useEffect(() => { setDlgImg(null) }, [recurso.id])
   const elegirRecurso = (r) => {
     if (r.id === recurso.id || !onElegir) return
     if (sucio && !window.confirm('Hay cambios sin guardar en este recurso. ¿Pasar a otro sin guardarlos?')) return
@@ -359,7 +375,7 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
         <header className="er-cab">
           <button type="button" className="er-volver" onClick={cerrar} aria-label="Volver a Matrices y H5P"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" /></svg>Volver</button>
           {recursos.length > 0 && <button type="button" className={'er-navbtn' + (navAbierta ? ' on' : '')} aria-expanded={navAbierta} onClick={() => setNavAbierta(!navAbierta)}><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10" /></svg>Recursos</button>}
-          <div className="er-tt"><b>{recurso.codigo || recurso.id}</b><span>{recurso.titulo || 'Sin título'}</span></div>
+          <div className="er-tt"><b>{recurso.codigo || recurso.id}</b><span>{recurso.titulo || 'Sin título'}</span>{actual.consumo && <small className="er-cons" title="Consumo de la generación de este recurso">{miles(tokensDe(actual.consumo))} tokens · {imagenesDe(actual.consumo)} img · {usd(costoDe(actual.consumo))}{actual.consumo.costo_parcial ? ' (parcial)' : ''}</small>}</div>
           {estado === 'listo' && <label className={'er-modo' + (activo ? ' on' : '')} title="Con esto activo, un clic en cualquier texto del recurso lo abre para editarlo">
             <input type="checkbox" checked={activo} onChange={(e) => cambiarModo(e.target.checked)} />
             <i className="er-sw" aria-hidden="true" />
@@ -424,14 +440,6 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
                   {actual.enlaceGuion && <a className="er-link" href={actual.enlaceGuion} target="_blank" rel="noopener noreferrer">Abrir en otra pestaña ↗</a>}
                   {modo === 'flotante' && <button type="button" className="er-mini" aria-label={flota.min ? 'Expandir el panel' : 'Minimizar el panel'} onClick={() => setFlota((f) => ({ ...f, min: !f.min }))}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true"><path d={flota.min ? 'M5 12h14M12 5v14' : 'M5 12h14'} /></svg></button>}
                 </div>
-                <div className="er-img">
-                  {esUrlImagen(imgActual) && <a href={imgActual} target="_blank" rel="noopener noreferrer" title="Abrir la imagen"><img src={imgActual} alt="Imagen del recurso" referrerPolicy="no-referrer" /></a>}
-                  <label>Imagen del recurso (enlace https)
-                    <input type="url" value={imgCampo} maxLength={500} placeholder="https://…" onChange={(e) => setImgNueva(e.target.value)} aria-invalid={!imgValida} />
-                  </label>
-                  <button type="button" className="er-b" onClick={guardarImagen} disabled={!!ocupado || !imgValida || imgCampo.trim() === imgActual}>{ocupado === 'imagen' ? 'Guardando…' : 'Guardar imagen'}</button>
-                  {actual.consumo && <small className="er-cons">{miles(tokensDe(actual.consumo))} tokens · {imagenesDe(actual.consumo)} img · {usd(costoDe(actual.consumo))}{actual.consumo.costo_parcial ? ' (parcial)' : ''}</small>}
-                </div>
                 <div className="er-lado-cuerpo guion">
                   {urlGuion
                     ? <iframe className="er-guion-marco" title="Guion del recurso" src={urlGuion} sandbox="allow-scripts allow-same-origin allow-popups allow-forms" />
@@ -453,6 +461,21 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
         </div>
         </div>
       </div>
+      {dlgImg !== null && (
+        <div className="er-dlg-fondo" onMouseDown={(e) => { if (e.target === e.currentTarget && !ocupado) setDlgImg(null) }}>
+          <form className="er-dlg" role="dialog" aria-modal="true" aria-label="Enlace de la imagen" onSubmit={(e) => { e.preventDefault(); if (imgDlgValida && !ocupado) guardarImagen(dlgImg) }} onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setDlgImg(null) } }}>
+            <b>Enlace de la imagen (https)</b>
+            <input type="url" autoFocus value={dlgImg} maxLength={500} placeholder="https://…" onChange={(e) => setDlgImg(e.target.value)} aria-invalid={!imgDlgValida} />
+            {!imgDlgValida && <small className="mal">Debe empezar con https:// y no llevar espacios ni comillas.</small>}
+            <div className="er-dlg-acc">
+              <button type="button" className="er-b" onClick={() => guardarImagen('')} disabled={!!ocupado || !imgActual}>Quitar imagen</button>
+              <span className="er-sp" />
+              <button type="button" className="er-b" onClick={() => setDlgImg(null)} disabled={!!ocupado}>Cancelar</button>
+              <button type="submit" className="er-b pri" disabled={!!ocupado || !imgDlgValida}>{ocupado === 'imagen' ? 'Guardando…' : 'Guardar'}</button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>,
     document.body
   )

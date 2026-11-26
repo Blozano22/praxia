@@ -22,7 +22,7 @@
   var FUENTE = 'praxia-editor';
   // Campos que no son texto editable (valores cerrados, nombres de ícono, datos internos).
   var NO_EDITABLES = /(^|\.)(icono|encabezado|tipo|id|codigo|variante|plantilla|nombre_plantilla|altura|nivel)$/;
-  var est = { contenido: {}, hojas: [], activo: false, elemento: null, hoja: null, resalte: null, caja: null, listo: false };
+  var est = { imagenes: [], contenido: {}, hojas: [], activo: false, elemento: null, hoja: null, resalte: null, caja: null, listo: false };
 
   function norm(s) { return String(s == null ? '' : s).replace(/\s+/g, ' ').trim(); }
   function plano(s) { return norm(s).normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^a-z0-9]+/g, ''); }
@@ -175,9 +175,36 @@
   }
 
   // ---------- eventos ----------
-  function alMover(e) { if (!est.activo || est.elemento) return; var r = resolver(e.target); resaltar(r ? r.elemento : null); }
+  // Imagen principal: un <img> o un elemento con fondo cuya URL sea una de las dadas en iniciar({ imagenes: [...] }) (la guardada o la IMAGEN_EJEMPLO de la plantilla).
+  function sinEsc(u) { return String(u).replace(/&amp;/g, '&'); }
+  function esImagen(el) {
+    if (!est.imagenes.length || !el || el.nodeType !== 1) return null;
+    var u = '';
+    if (el.tagName === 'IMG') u = el.currentSrc || el.src || '';
+    else { try { u = getComputedStyle(el).backgroundImage || ''; } catch (e) { u = ''; } }
+    if (!u || u === 'none') return null;
+    for (var i = 0; i < est.imagenes.length; i++) if (u.indexOf(est.imagenes[i]) >= 0 || u.indexOf(sinEsc(est.imagenes[i])) >= 0) return est.imagenes[i];
+    return null;
+  }
+  function imagenEn(e) {
+    var pila = document.elementsFromPoint ? document.elementsFromPoint(e.clientX, e.clientY) : [e.target];
+    for (var i = 0; i < pila.length; i++) {
+      if (pila[i].closest && pila[i].closest('#praxia-editor-caja')) return null;
+      var u = esImagen(pila[i]); if (u) return { el: pila[i], url: u };
+    }
+    return null;
+  }
+  function alMover(e) {
+    if (!est.activo || est.elemento) return;
+    var im = imagenEn(e);
+    if (im) { resaltar(im.el); im.el.title = 'Clic para cambiar el enlace de la imagen'; document.documentElement.style.cursor = 'pointer'; return; }
+    document.documentElement.style.cursor = 'text';
+    var r = resolver(e.target); resaltar(r ? r.elemento : null);
+  }
   function alClic(e) {
     if (!est.activo || (est.caja && est.caja.contains(e.target))) return;
+    var im = imagenEn(e);
+    if (im) { e.preventDefault(); e.stopPropagation(); emitir({ tipo: 'imagen_clic', url: im.url }); return; }
     var r = resolver(e.target);
     if (!r) { var t = norm(e.target && e.target.textContent).slice(0, 120); if (t) emitir({ tipo: 'sin_campo', texto: t }); return; }
     e.preventDefault(); e.stopPropagation(); abrir(r);
@@ -196,6 +223,7 @@
     var c = op.contenido;
     if (!c) { try { var t = document.getElementById('contenido').textContent; c = JSON.parse(t.slice(t.indexOf('{'), t.lastIndexOf('}') + 1)); } catch (e) { c = {}; } }
     est.contenido = JSON.parse(JSON.stringify(c)); indexar();
+    est.imagenes = (op.imagenes || []).filter(function (u) { return typeof u === 'string' && u; });
     if (!est.listo) {
       crearUI();
       document.addEventListener('mousemove', alMover, true);
