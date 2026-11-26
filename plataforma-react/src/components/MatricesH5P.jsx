@@ -159,7 +159,7 @@ function Fila({ r, editar, aprobar, regenerar, bloqueado, puedePublicar, hija, e
       <span className="mx4-rl">
         {r.conContenido && !publicando && !r.enCola && ['POR_REVISAR', 'GENERADO', 'ERROR'].includes(r.estado) && editar && <button type="button" className="mx4-ed" onClick={() => editar(r)} title="Corregir los textos del recurso antes de publicarlo">Editar textos</button>}
         {r.conContenido && !publicando && !r.enCola && ['POR_REVISAR', 'ERROR'].includes(r.estado) && puedePublicar && aprobar && <button type="button" className="mx4-ed ok" onClick={() => aprobar(r)} title="Aprobar el contenido: n8n arma el H5P y lo sube a Drive">Aprobar y publicar</button>}
-        {r.plantilla && !publicando && !r.enCola && ['POR_REVISAR', 'GENERADO', 'ERROR'].includes(r.estado) && puedePublicar && regenerar && <button type="button" className="mx4-ed" disabled={bloqueado} onClick={() => regenerar(r)} title="Crear de nuevo con la misma plantilla">Regenerar</button>}
+        {r.plantilla && !publicando && !r.enCola && (['POR_REVISAR', 'GENERADO', 'ERROR'].includes(r.estado) || r.sinRespuesta) && puedePublicar && regenerar && <button type="button" className="mx4-ed" disabled={bloqueado} onClick={() => regenerar(r)} title="Crear de nuevo con la misma plantilla">Regenerar</button>}
         {hecho && r.enlaceRecurso && <a href={r.enlaceRecurso} target="_blank" rel="noopener noreferrer">Recurso ↗</a>}
         {r.enlaceGuion && <a href={r.enlaceGuion} target="_blank" rel="noopener noreferrer">Guion ↗</a>}
         {r.consumo && <span className="mx4-cons" title="Tokens de texto y costo estimado de este recurso">{miles(tokensDe(r.consumo))} tokens · {usd(costoDe(r.consumo))}{r.consumo.costo_parcial ? ' (parcial)' : ''}</span>}

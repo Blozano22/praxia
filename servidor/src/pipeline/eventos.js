@@ -219,7 +219,16 @@ async function aplicar(c, ev, o, fecha, sec) {
     case 'h5p_inicio':
       await c.query(Q.pipeEjecucionInicio, [...base, ev.maximo ?? null, JSON.stringify(ev.plan), fecha])
       n++
-      for (const om of ev.plan.omitidas) n += (await c.query(Q.pipeRecursoOmitir, [P, Y, await claveFila(c, P, Y, om.id, om.codigo), om.motivo, fecha, sec])).rowCount
+      {
+        const aGenerar = new Set()
+        for (const g of ev.plan.a_generar) aGenerar.add(await claveFila(c, P, Y, g.id, g.codigo))
+        for (const om of ev.plan.omitidas) {
+          const clave = await claveFila(c, P, Y, om.id, om.codigo)
+          n += (await c.query(Q.pipeRecursoOmitir, [P, Y, clave, om.motivo, fecha, sec])).rowCount
+          // «regenerar» que n8n omitió: la fila no se va a procesar, vuelve a lo que era
+          if (!aGenerar.has(clave)) n += (await c.query(Q.pipeRegenerarRestaurar, [P, Y, [clave], 'No se regeneró: n8n lo omitió (' + om.motivo + ')', fecha])).rowCount
+        }
+      }
       return n
     case 'h5p_recurso': {
       const r = await c.query(Q.pipeRecursoGuardar, [P, Y, await claveFila(c, P, Y, ev.id, ev.codigo), ev.unidad ?? null, null, null, null, null, ev.codigo || null, null, null, null, null, ev.estado,
@@ -230,9 +239,17 @@ async function aplicar(c, ev, o, fecha, sec) {
       else await c.query(Q.pipeEjecucionTocar, [...base, fecha])
       return r.rowCount
     }
-    case 'h5p_fin':
+    case 'h5p_fin': {
+      const plan = (await c.query(Q.pipeEjecucionPlan, [P, Y, ev.etapa, eje])).rows[0]?.plan
       await c.query(Q.pipeEjecucionFin, [...base, JSON.stringify(ev.resumen), fecha])
+      if (plan && Array.isArray(plan.a_generar)) {
+        const aGenerar = new Set()
+        for (const g of plan.a_generar) aGenerar.add(await claveFila(c, P, Y, g.id, g.codigo))
+        const sobrantes = (await c.query(Q.pipeRegenerarPendientes, [P, Y])).rows.map((f) => f.id).filter((id) => !aGenerar.has(id))
+        if (sobrantes.length) await c.query(Q.pipeRegenerarRestaurar, [P, Y, sobrantes, 'No se regeneró: la corrida terminó sin procesarlo', fecha])
+      }
       return 1
+    }
     default:
       return null
   }

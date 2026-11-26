@@ -186,6 +186,7 @@ export const Q = Object.freeze({
   pipeEjecucionTocarExistente: `
     UPDATE pipeline_ejecuciones SET ultimo_evento_en = greatest(ultimo_evento_en, $5)
      WHERE propietario_id = $1 AND proyecto_id = $2 AND etapa = $3 AND ejecucion_id = $4`,
+  pipeEjecucionPlan: `SELECT plan FROM pipeline_ejecuciones WHERE propietario_id = $1 AND proyecto_id = $2 AND etapa = $3 AND ejecucion_id = $4`,
   pipeEjecucionFin: `
     INSERT INTO pipeline_ejecuciones (propietario_id, proyecto_id, etapa, ejecucion_id, trabajo_id, origen_trabajo_id, carpeta_raiz, estado, resumen, ultimo_evento_en, terminado_en)
     VALUES ($1, $2, $3, $4, $5, $6, $7, 'terminada', $8::jsonb, $9, $9)
@@ -225,6 +226,7 @@ export const Q = Object.freeze({
       con_actividad = coalesce(EXCLUDED.con_actividad, pipeline_recursos.con_actividad),
       generador = coalesce(EXCLUDED.generador, pipeline_recursos.generador),
       estado = EXCLUDED.estado,
+      estado_previo = CASE WHEN EXCLUDED.estado = 'EN_PROCESO' THEN pipeline_recursos.estado_previo ELSE NULL END,
       observaciones = EXCLUDED.observaciones,
       enlace_guion = coalesce(EXCLUDED.enlace_guion, pipeline_recursos.enlace_guion),
       enlace_recurso = coalesce(EXCLUDED.enlace_recurso, pipeline_recursos.enlace_recurso),
@@ -302,17 +304,29 @@ export const Q = Object.freeze({
     RETURNING id, codigo, unidad, plantilla, contenido, enlace_recurso AS "enlaceRecurso", estado, imagen_url AS "imagenUrl", actividad, bibliografia`,
   // Regenerar: filas del curso (por código de posición) con su estado y plantilla, para validar la petición.
   pipeRegenerarLeer: `
-    SELECT id, codigo, unidad, estado, plantilla, actualizado_en AS "actualizadoEn"
+    SELECT id, codigo, unidad, estado, plantilla, actualizado_en AS "actualizadoEn",
+           (estado = 'EN_PROCESO' AND actualizado_en < now() - interval '30 minutes') AS vencida
       FROM pipeline_recursos WHERE propietario_id = $1 AND proyecto_id = $2 AND codigo = ANY($3::text[])`,
   // Marca EN_PROCESO sin tocar enlace_recurso, imagen_url, consumo ni contenido; actualizado_en = ahora para que el vencimiento (30 min) cuente desde aquí.
   pipeRegenerarMarcar: `
-    UPDATE pipeline_recursos SET estado = 'EN_PROCESO', actualizado_en = now()
-     WHERE propietario_id = $1 AND proyecto_id = $2 AND id = ANY($3::text[]) AND estado IN ('POR_REVISAR','GENERADO','ERROR')
+    UPDATE pipeline_recursos SET estado_previo = CASE WHEN estado <> 'EN_PROCESO' THEN estado WHEN contenido IS NOT NULL THEN 'POR_REVISAR'
+                                                      WHEN enlace_recurso IS NOT NULL AND enlace_recurso <> '' THEN 'GENERADO' ELSE 'ERROR' END,
+           estado = 'EN_PROCESO', actualizado_en = now()
+     WHERE propietario_id = $1 AND proyecto_id = $2 AND id = ANY($3::text[])
+       AND (estado IN ('POR_REVISAR','GENERADO','ERROR') OR (estado = 'EN_PROCESO' AND actualizado_en < now() - interval '30 minutes'))
     RETURNING id`,
   pipeRegenerarRevertir: `
-    UPDATE pipeline_recursos r SET estado = x.estado, actualizado_en = x.act
+    UPDATE pipeline_recursos r SET estado = x.estado, actualizado_en = x.act, estado_previo = NULL
       FROM (SELECT unnest($3::text[]) AS id, unnest($4::text[]) AS estado, unnest($5::timestamptz[]) AS act) x
      WHERE r.propietario_id = $1 AND r.proyecto_id = $2 AND r.id = x.id AND r.estado = 'EN_PROCESO'`,
+  // n8n omitió o terminó sin procesar filas marcadas por «regenerar»: vuelven a su estado anterior con una observación.
+  pipeRegenerarRestaurar: `
+    UPDATE pipeline_recursos SET estado = estado_previo, estado_previo = NULL, observaciones = $4
+     WHERE propietario_id = $1 AND proyecto_id = $2 AND id = ANY($3::text[]) AND estado = 'EN_PROCESO' AND estado_previo IS NOT NULL
+       AND ($5::timestamptz IS NULL OR actualizado_en <= $5)
+    RETURNING id`,
+  pipeRegenerarPendientes: `
+    SELECT id, codigo FROM pipeline_recursos WHERE propietario_id = $1 AND proyecto_id = $2 AND estado = 'EN_PROCESO' AND estado_previo IS NOT NULL`,
   pipeAprobarRevertir: `UPDATE pipeline_recursos SET aprobado_en = NULL WHERE propietario_id = $1 AND proyecto_id = $2 AND id = $3`,
   pipeLeerEjecuciones: `
     SELECT etapa, ejecucion_id AS "ejecucionId", estado, maximo, plan, resumen, iniciado_en AS "iniciadoEn",

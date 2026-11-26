@@ -36,7 +36,7 @@ before(async () => {
   const dueno = new pg.Client({ connectionString: `postgres://postgres:duenio@localhost:${PUERTO_PG}/ova` })
   await dueno.connect()
   await dueno.query("CREATE ROLE ova_app LOGIN PASSWORD 'appclave' NOSUPERUSER NOBYPASSRLS")
-  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql', '014_tipo_bibliografia.sql', '015_imagen_consumo_recurso.sql', '017_partes_recurso.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
+  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql', '014_tipo_bibliografia.sql', '015_imagen_consumo_recurso.sql', '017_partes_recurso.sql', '018_estado_previo.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
   await dueno.end()
   process.env.DATABASE_URL = `postgres://ova_app:appclave@localhost:${PUERTO_PG}/ova`
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex')
@@ -637,4 +637,39 @@ test('partes del recurso (actividad y bibliografía): guardado con COALESCE, par
   ordenesPublicar.length = 0
   assert.equal((await ana('/proyectos/curso-a/pipeline/recursos/' + lista.id + '/aprobar', 'POST')).status, 202)
   assert.equal('actividad' in ordenesPublicar[0], false); assert.equal('bibliografia' in ordenesPublicar[0], false)
+})
+
+test('regenerar ignorado por n8n: la fila vuelve a su estado previo con observación (inicio con omitidas, fin sin procesar, vencidas) y un aviso normal limpia estado_previo', async () => {
+  const { Q } = await import('../src/consultas.js')
+  const f = (seg) => new Date(Date.now() + 120000 + seg * 1000).toISOString()
+  const av = (evento, extra, seg) => aviso(evento, 'h5p', { ...extra, fecha_evento: f(seg), secuencia: 5000 + seg }, 0)
+  const rec = (id, estado, seg, extra = {}) => enviar(av('h5p_recurso', { ejecucion_id: 'rg0', unidad: 7, id, codigo: 'U7-' + id, estado, plantilla: 'g-11-doc-v01', ...extra }, seg))
+  const ids7 = ['ra', 'rb', 'rc', 'rd', 're']
+  await rec('ra', 'POR_REVISAR', 0); await rec('rb', 'GENERADO', 0, { enlace_recurso: 'https://drive.google.com/file/d/xx/view' }); await rec('rc', 'POR_REVISAR', 0); await rec('rd', 'ERROR', 0); await rec('re', 'POR_REVISAR', 0)
+  const est = async (id) => (await una('ana', 'pipeline_recursos', 'id = $2', [id]))[0]
+  await pool.query(Q.pipeRegenerarMarcar, [ids.ana, 'curso-a', ids7])
+  assert.deepEqual(await Promise.all(ids7.map(async (i) => { const r = await est(i); return r.estado + '/' + r.estado_previo })),
+    ['EN_PROCESO/POR_REVISAR', 'EN_PROCESO/GENERADO', 'EN_PROCESO/POR_REVISAR', 'EN_PROCESO/ERROR', 'EN_PROCESO/POR_REVISAR'])
+  // inicio: ra omitida (vuelve), rb en a_generar (no se toca), rc/rd/re sin mencionar (siguen)
+  await enviar(av('h5p_inicio', { ejecucion_id: 'rg1', plan: { a_generar: [{ id: 'rb', codigo: 'U7-rb' }, { id: 'rd', codigo: 'U7-rd' }], omitidas: [{ id: 'ra', codigo: 'U7-ra', motivo: 'estado_no_pendiente' }] } }, 10))
+  let r = await est('ra'); assert.equal(r.estado, 'POR_REVISAR'); assert.equal(r.estado_previo, null); assert.equal(r.observaciones, 'No se regeneró: n8n lo omitió (estado_no_pendiente)')
+  r = await est('rb'); assert.equal(r.estado, 'EN_PROCESO'); assert.equal(r.estado_previo, 'GENERADO')
+  // un aviso viejo (anterior al marcado) no revierte
+  // fin: rc y re no estaban en a_generar -> vuelven; rb/rd (en el plan) no se tocan
+  await enviar(av('h5p_fin', { ejecucion_id: 'rg1', resumen: { generados: 0 } }, 20))
+  r = await est('rc'); assert.equal(r.estado, 'POR_REVISAR'); assert.equal(r.observaciones, 'No se regeneró: la corrida terminó sin procesarlo')
+  assert.equal((await est('re')).estado_previo, null)
+  assert.equal((await est('rb')).estado, 'EN_PROCESO'); assert.equal((await est('rd')).estado_previo, 'ERROR')
+  // un h5p_recurso normal limpia estado_previo
+  await rec('rb', 'GENERADO', 30, { enlace_recurso: 'https://drive.google.com/file/d/yy/view' }); await rec('rd', 'POR_REVISAR', 30)
+  assert.equal((await est('rb')).estado_previo, null); assert.equal((await est('rd')).estado, 'POR_REVISAR')
+  // filas EN_PROCESO vencidas (>30 min, sin estado_previo): se pueden volver a marcar; las recientes no
+  await pool.query("UPDATE pipeline_recursos SET estado = 'EN_PROCESO', estado_previo = NULL, actualizado_en = now() - interval '40 minutes' WHERE propietario_id = $1 AND id IN ('ra','rb','rc')", [ids.ana])
+  await pool.query("UPDATE pipeline_recursos SET contenido = '{\"titulo\":\"x\"}'::jsonb WHERE propietario_id = $1 AND id = 'ra'", [ids.ana])
+  await pool.query("UPDATE pipeline_recursos SET contenido = NULL, enlace_recurso = NULL WHERE propietario_id = $1 AND id = 'rc'", [ids.ana])
+  await pool.query("UPDATE pipeline_recursos SET estado = 'EN_PROCESO', actualizado_en = now() WHERE propietario_id = $1 AND id = 're'", [ids.ana])
+  const lect = (await pool.query(Q.pipeRegenerarLeer, [ids.ana, 'curso-a', ['U7-ra', 'U7-re']])).rows
+  assert.equal(lect.find((x) => x.codigo === 'U7-ra').vencida, true); assert.equal(lect.find((x) => x.codigo === 'U7-re').vencida, false)
+  await pool.query(Q.pipeRegenerarMarcar, [ids.ana, 'curso-a', ['ra', 'rb', 'rc', 're']])
+  assert.deepEqual(await Promise.all(['ra', 'rb', 'rc', 're'].map(async (i) => (await est(i)).estado_previo)), ['POR_REVISAR', 'GENERADO', 'ERROR', null])
 })

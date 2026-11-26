@@ -145,7 +145,7 @@ export async function lanzarH5p({ usuario, proyectoId, maximo, unidades, reinten
     codigosReg = [...new Set(regenerar)]
     filasReg = (await sinUsuario(Q.pipeRegenerarLeer, [usuario.id, proyectoId, codigosReg])).rows
     const porCodigo = new Map(filasReg.map((f) => [f.codigo, f]))
-    const invalidos = codigosReg.filter((c) => { const f = porCodigo.get(c); return !f || !['POR_REVISAR', 'GENERADO', 'ERROR'].includes(f.estado) || !f.plantilla })
+    const invalidos = codigosReg.filter((c) => { const f = porCodigo.get(c); return !f || !(['POR_REVISAR', 'GENERADO', 'ERROR'].includes(f.estado) || f.vencida) || !f.plantilla })
     if (invalidos.length) return falla(409, 'No se pueden regenerar estos recursos (no existen en el curso, siguen pendientes o en proceso, o no tienen plantilla): ' + invalidos.join(', ') + '.', { invalidos })
     unidades = [...new Set(filasReg.map((f) => f.unidad).filter((u) => Number.isInteger(u)))].sort((a, b) => a - b)
     if (!unidades.length) unidades = undefined
