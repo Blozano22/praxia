@@ -1,0 +1,10 @@
+Matriz de IDs de recursos (sintética para pruebas)
+ID base,ID C (contenido),ID A (contenido con actividad),Alcance,TEC,PRO,ESP,DOC,Nombre del recurso,Nombre en TEC,Nombre en PRO,Nombre en ESP,Nombre en DOC,Alias,Tipo de producción propuesto
+G-01,G-01-C,G-01-A,General,x,x,x,x,Infografía,Infografía,Infografía,Infografía,Infografía,"",HTML
+G-05,G-05-C,G-05-A,General,x,x,x,x,Video,Video,Video,Video,Video,"Videos",Video
+G-09,G-09-C,G-09-A,General,x,x,x,x,Acordeón,Acordeón,Acordeón,Acordeón,Acordeón,"Acordeones; Acordeón desplegable",HTML
+G-11,G-11-C,G-11-A,General,x,x,x,x,Lectura diagramada,Lectura diagramada,Lectura diagramada,Lectura diagramada,Lectura diagramada,"",HTML
+G-13,G-13-C,G-13-A,General,x,x,x,x,Presentación en diapositivas,Presentación en diapositivas,Presentación en diapositivas,Presentación en diapositivas,Presentación en diapositivas,"",HTML
+G-14,G-14-C,G-14-A,General,x,x,x,x,Infografía de presentación,Infografía de presentación,Infografía de presentación,Infografía de presentación,Infografía de presentación,"",HTML
+G-15,G-15-C,G-15-A,General,x,x,x,x,Pantalla interactiva,Pantalla interactiva,Pantalla interactiva,Pantalla interactiva,Pantalla interactiva,"",HTML
+PRE-05,PRE-05-C,PRE-05-A,General,x,x,x,x,Cuadro comparativo,Cuadro comparativo,Cuadro comparativo,Cuadro comparativo,Cuadro comparativo,"",HTML

@@ -1,0 +1,187 @@
+{
+  "tipoDe": {
+    "G-01": "recurso",
+    "G-05": "recurso",
+    "G-09": "recurso",
+    "G-11": "recurso",
+    "G-13": "recurso",
+    "G-14": "recurso",
+    "G-15": "recurso",
+    "PRE-05": "recurso",
+    "ACT-E-05-TEC": "actividad",
+    "ACT-G-02": "actividad",
+    "ACT-E-11-TEC": "actividad",
+    "ACT-G-04": "actividad",
+    "ACT-G-05": "actividad"
+  },
+  "formDe": {
+    "G-01": [
+      "tecnologico"
+    ],
+    "G-05": [
+      "tecnologico"
+    ],
+    "G-09": [
+      "tecnologico"
+    ],
+    "G-11": [
+      "tecnologico"
+    ],
+    "G-13": [
+      "tecnologico"
+    ],
+    "G-14": [
+      "tecnologico"
+    ],
+    "G-15": [
+      "tecnologico"
+    ],
+    "PRE-05": [
+      "tecnologico"
+    ],
+    "ACT-E-05-TEC": [
+      "tecnologico"
+    ],
+    "ACT-G-02": [
+      "tecnologico",
+      "profesional"
+    ],
+    "ACT-E-11-TEC": [
+      "tecnologico"
+    ],
+    "ACT-G-04": [
+      "tecnologico"
+    ],
+    "ACT-G-05": [
+      "tecnologico"
+    ]
+  },
+  "variantesDe": {
+    "G-01": [
+      {
+        "nombre": "infografia-tec-01",
+        "formacion": "tecnologico",
+        "calificable": null,
+        "ultimo": "aprobada",
+        "creado": "2026-10-01T10:00:00Z"
+      }
+    ],
+    "G-05": [],
+    "G-09": [
+      {
+        "nombre": "acordeon-prof-01",
+        "formacion": "profesional",
+        "calificable": null,
+        "ultimo": "aprobada",
+        "creado": "2026-09-01T10:00:00Z"
+      },
+      {
+        "nombre": "acordeon-tec-01",
+        "formacion": "tecnologico",
+        "calificable": null,
+        "ultimo": "aprobada",
+        "creado": "2026-10-01T10:00:00Z"
+      },
+      {
+        "nombre": "acordeon-tec-02",
+        "formacion": "tecnologico",
+        "calificable": null,
+        "ultimo": "aprobada",
+        "creado": "2026-10-05T10:00:00Z"
+      },
+      {
+        "nombre": "acordeon-tec-03",
+        "formacion": "tecnologico",
+        "calificable": null,
+        "ultimo": "revision",
+        "creado": "2026-10-09T10:00:00Z"
+      }
+    ],
+    "G-11": [
+      {
+        "nombre": "lectura-tec-01",
+        "formacion": "tecnologico",
+        "calificable": null,
+        "ultimo": "aprobada",
+        "creado": "2026-10-01T10:00:00Z"
+      }
+    ],
+    "G-13": [
+      {
+        "nombre": "presentacion-tec-01",
+        "formacion": "tecnologico",
+        "calificable": null,
+        "ultimo": "aprobada",
+        "creado": "2026-10-01T10:00:00Z"
+      }
+    ],
+    "PRE-05": [
+      {
+        "nombre": "cuadro-tec-01",
+        "formacion": "tecnologico",
+        "calificable": null,
+        "ultimo": "revision",
+        "creado": "2026-10-01T10:00:00Z"
+      }
+    ],
+    "ACT-E-05-TEC": [
+      {
+        "nombre": "escenarios-tec-cal",
+        "formacion": "tecnologico",
+        "calificable": true,
+        "ultimo": "aprobada",
+        "creado": "2026-10-01T10:00:00Z"
+      }
+    ],
+    "ACT-G-02": [
+      {
+        "nombre": "decision-p1",
+        "formacion": "tecnologico",
+        "calificable": false,
+        "ultimo": "aprobada",
+        "creado": "2026-10-01T10:00:00Z"
+      },
+      {
+        "nombre": "decision-p2",
+        "formacion": "tecnologico",
+        "calificable": false,
+        "ultimo": "aprobada",
+        "creado": "2026-10-02T10:00:00Z"
+      },
+      {
+        "nombre": "decision-p3",
+        "formacion": "tecnologico",
+        "calificable": false,
+        "ultimo": "aprobada",
+        "creado": "2026-10-03T10:00:00Z"
+      }
+    ],
+    "ACT-E-11-TEC": [
+      {
+        "nombre": "vof-tec-p1",
+        "formacion": "tecnologico",
+        "calificable": false,
+        "ultimo": "aprobada",
+        "creado": "2026-10-01T10:00:00Z"
+      }
+    ],
+    "ACT-G-04": [
+      {
+        "nombre": "simul-p1",
+        "formacion": "tecnologico",
+        "calificable": false,
+        "ultimo": "aprobada",
+        "creado": "2026-10-01T10:00:00Z"
+      }
+    ],
+    "ACT-G-05": [
+      {
+        "nombre": "simul2-p1",
+        "formacion": "tecnologico",
+        "calificable": false,
+        "ultimo": "aprobada",
+        "creado": "2026-10-01T10:00:00Z"
+      }
+    ]
+  }
+}

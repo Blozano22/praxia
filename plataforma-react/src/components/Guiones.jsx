@@ -351,7 +351,8 @@ export default function Guiones({ s, unidad, doc, onCambio, onCrear }) {
       {cargando && (
         <div className="msg info gv-generando" role="status" aria-live="polite" style={{ marginTop: 10 }}>
           <span className="gv-spin" aria-hidden="true" />
-          <div><b>Generando los guiones de la Unidad {unidad}… ({segundos}) </b>n8n está leyendo la unidad y escribiendo un guion por tema. Puede tardar varios minutos. Puede salir de esta unidad: seguirá trabajando y no hace falta pulsar de nuevo.</div>
+          <div><b>Trabajando en los guiones de la Unidad {unidad}… ({segundos}) </b>
+            Primero se prepara el curso (se eligen las plantillas de cada recurso; unos 15 segundos) y después n8n lee la unidad y escribe un guion por tema, lo que puede tardar varios minutos. Puede salir de esta unidad: seguirá trabajando y no hace falta pulsar de nuevo. Si algo falla, el aviso aparece aquí.</div>
         </div>
       )}
       {error && <ErrorGuiones texto={error} onReintentar={() => generar()} />}

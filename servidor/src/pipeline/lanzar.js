@@ -34,6 +34,8 @@ export const EsquemaLanzarH5p = z.object({
   regenerar: z.array(z.string().regex(RE_CODIGO)).min(1).max(200).optional() // códigos de posición de recursos ya creados que se vuelven a generar
 }).strict()
 
+// En pruebas locales (túnel): la dirección pública de esta Praxia, para que n8n le responda a ella y no a producción. Sin ella, no se envía nada.
+const enlacePublico = () => (config.praxiaUrlPublica ? { praxia_url: config.praxiaUrlPublica } : {})
 const falla = (codigo, error, extra = {}) => ({ codigo, cuerpo: { error, ...extra } })
 
 const texto = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '')
@@ -127,7 +129,7 @@ export async function lanzarMatrices({ usuario, proyectoId, unidades, forzar, co
   if (!trabajoId) return falla(409, 'Ya se están generando las matrices de este curso. Espere a que termine.', { ya: true })
   // Dos minutos son de sobra para que n8n confirme que recibió la orden.
   const r = await entregar({ url, minutos: 2, trabajoId, publicarFn, nombre: 'matrices',
-    cuerpo: { trabajo_id: trabajoId, proyecto_id: proyectoId, carpeta_raiz: curso.carpeta, unidades: pedidas, unidades_detalle: detalle, forzar, ...(conservar ? { conservar: true } : {}) } })
+    cuerpo: { trabajo_id: trabajoId, proyecto_id: proyectoId, carpeta_raiz: curso.carpeta, unidades: pedidas, unidades_detalle: detalle, forzar, ...(conservar ? { conservar: true } : {}), ...enlacePublico() } })
   if (r.codigo !== 202) return r
   const ejecucion = r.ack && typeof r.ack.ejecucion_id === 'string' ? r.ack.ejecucion_id.slice(0, 100) : undefined
   return { codigo: 202, cuerpo: { trabajo_id: trabajoId, unidades: pedidas, forzar, conservar, ...(ejecucion ? { ejecucion_id: ejecucion } : {}) } }
@@ -171,7 +173,7 @@ export async function lanzarH5p({ usuario, proyectoId, maximo, unidades, reinten
   }
   // El orquestador responde después de planificar (lee las matrices): se le da más margen que a una simple confirmación.
   const r = await entregar({ url, minutos: 5, trabajoId, publicarFn, nombre: 'recursos H5P',
-    cuerpo: { trabajo_id: trabajoId, proyecto_id: proyectoId, carpeta_raiz: curso.carpeta, ...(maximo ? { maximo } : {}), ...(pedidas && !codigosReg ? { unidades: pedidas } : {}), ...(codigosReg ? { regenerar: codigosReg } : {}), reintentar_errores: reintentarErrores } })
+    cuerpo: { trabajo_id: trabajoId, proyecto_id: proyectoId, carpeta_raiz: curso.carpeta, ...(maximo ? { maximo } : {}), ...(pedidas && !codigosReg ? { unidades: pedidas } : {}), ...(codigosReg ? { regenerar: codigosReg } : {}), reintentar_errores: reintentarErrores, ...enlacePublico() } })
   if (r.codigo !== 202) {
     if (codigosReg) await sinUsuario(Q.pipeRegenerarRevertir, [usuario.id, proyectoId, filasReg.map((f) => f.id), filasReg.map((f) => f.estado), filasReg.map((f) => f.actualizadoEn)]).catch(() => {})
     return r

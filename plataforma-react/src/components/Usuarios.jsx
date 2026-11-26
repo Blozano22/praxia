@@ -7,7 +7,9 @@ const DETALLE_ROL = {
   coordinador: 'Crea syllabus y ve el avance de todos',
   docente: 'Crea y edita sus propios syllabus',
   disenador: 'Solo ve las plantillas HTML',
-  editor_html: 'Ve la galería de plantillas HTML y sube variantes; no aprueba ni revisa'
+  editor_html: 'Ve la galería de plantillas HTML y sube variantes; no aprueba ni revisa',
+  editor_imagenes: 'Solo ve, valida y edita las imágenes de las plantillas HTML',
+  generador_rubricas: 'Solo genera la rúbrica de evaluación de una asignatura'
 }
 
 const alternar = (lista, r) => (lista.includes(r) ? lista.filter((x) => x !== r) : [...lista, r])
@@ -23,6 +25,8 @@ const ICONO = {
   coordinador: <><circle cx="9" cy="8" r="3.2" /><path d="M3 20v-1a4.5 4.5 0 014.5-4.5h3A4.5 4.5 0 0115 19v1M16 5.5a3 3 0 010 5.5M21 20v-1a4 4 0 00-3-3.8" /></>,
   docente: <><path d="M2 9l10-5 10 5-10 5L2 9z" /><path d="M6 11.5V16c0 1.2 2.7 3 6 3s6-1.8 6-3v-4.5M22 9v5" /></>,
   editor_html: <><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16" /></>,
+  generador_rubricas: <><path d="M6 3h9l4 4v14H6zM14 3v5h5" /><path d="M9 13l2 2 4-4M9 18h6" /></>,
+  editor_imagenes: <><rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="8.5" cy="10" r="1.5" /><path d="M3 17l5-5 4 4 3-3 6 6" /></>,
   disenador: <><path d="M12 3a9 9 0 100 18c1.2 0 2-.8 2-1.8 0-.5-.2-.9-.5-1.3-.3-.4-.5-.8-.5-1.3 0-1 .8-1.8 1.8-1.8H17a4 4 0 004-4c0-4.4-4-8-9-8z" /><circle cx="7.5" cy="11" r="1" /><circle cx="10" cy="7" r="1" /><circle cx="15" cy="7.5" r="1" /></>
 }
 const IconoRol = ({ r, size = 20 }) => <Svg size={size}>{ICONO[r]}</Svg>
@@ -53,14 +57,22 @@ function MenuRoles({ u, ancla, onCambio, onCerrar }) {
   useEffect(() => {
     const r = ancla.getBoundingClientRect()
     const ancho = 260
-    setPos({ top: Math.min(r.bottom + 6, window.innerHeight - 270), left: Math.max(12, Math.min(r.right - ancho, window.innerWidth - ancho - 12)) })
+    // Abre hacia abajo si cabe; si no, hacia arriba; y limita el alto al espacio disponible (con desplazamiento interno).
+    const abajo = window.innerHeight - r.bottom - 14
+    const arriba = r.top - 14
+    const alto = caja.current ? caja.current.scrollHeight : 420
+    const haciaArriba = abajo < Math.min(alto, 320) && arriba > abajo
+    const libre = Math.max(160, haciaArriba ? arriba : abajo)
+    const top = haciaArriba ? Math.max(8, r.top - 6 - Math.min(alto, libre)) : r.bottom + 6
+    setPos({ top, maxHeight: libre, left: Math.max(12, Math.min(r.right - ancho, window.innerWidth - ancho - 12)) })
     const fuera = (e) => { if (caja.current && !caja.current.contains(e.target) && !ancla.contains(e.target)) onCerrar() }
     const tecla = (e) => { if (e.key === 'Escape') { onCerrar(); ancla.focus() } }
     document.addEventListener('mousedown', fuera)
     document.addEventListener('keydown', tecla)
     window.addEventListener('resize', onCerrar)
-    window.addEventListener('scroll', onCerrar, true)
-    return () => { document.removeEventListener('mousedown', fuera); document.removeEventListener('keydown', tecla); window.removeEventListener('resize', onCerrar); window.removeEventListener('scroll', onCerrar, true) }
+    const alDesplazar = (e) => { if (!(caja.current && caja.current.contains(e.target))) onCerrar() }
+    window.addEventListener('scroll', alDesplazar, true)
+    return () => { document.removeEventListener('mousedown', fuera); document.removeEventListener('keydown', tecla); window.removeEventListener('resize', onCerrar); window.removeEventListener('scroll', alDesplazar, true) }
   }, [ancla, onCerrar])
   if (!pos) return null
   return (

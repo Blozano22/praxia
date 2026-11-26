@@ -32,6 +32,9 @@ export const config = {
   // (para poder generar guiones de prueba en producción). PRUEBAS_PLANTILLAS=0 en el .env lo deja apagado por defecto.
   pruebasPlantillasPorDefecto: process.env.PRUEBAS_PLANTILLAS !== '0',
   n8nPublicarUrl: process.env.N8N_PUBLICAR_URL || '', // vacío = «Aprobar y publicar» (arma el .h5p y lo sube a Drive) desactivado
+  // Dirección pública de ESTA Praxia que n8n usa para responder (pedir variantes). Vacía = n8n usa la de producción. En pruebas locales:
+  // la dirección https del túnel (ngrok), sin barra final ni «/api»; debe ser de ngrok o la de producción (n8n rechaza otras).
+  praxiaUrlPublica: ((v) => (/^https:\/\/[a-z0-9.-]+(?::\d+)?(?:\/[A-Za-z0-9._~-]+)*$/i.test(v) ? v : ''))((process.env.PRAXIA_URL_PUBLICA || '').trim().replace(/\/+$/, '')),
   n8nPreparacionUrl: process.env.N8N_PREPARACION_URL || '', // vacío = «Preparar el curso» (asignar variantes antes de los guiones) desactivado
   // Secreto con el que n8n FIRMA los avisos a Praxia (HMAC-SHA256). Sin él el receptor de avisos queda desactivado.
   // El «anterior» permite rotarlo sin cortar los avisos: durante el cambio se aceptan los dos.

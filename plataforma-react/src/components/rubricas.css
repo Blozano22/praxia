@@ -1,0 +1,36 @@
+/* «Generar rúbrica»: prefijo rb-. Usa la línea gráfica de Praxia (card, btn, msg, pl2-n). */
+.rb-cuerpo{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start}
+.rb-form{flex:999 1 520px;min-width:0;padding:24px;display:flex;flex-direction:column;gap:20px}
+.rb-lado{flex:1 1 280px;max-width:360px;min-width:0}
+.rb-campo{display:flex;flex-direction:column;gap:6px}
+.rb-campo label{font-weight:700;color:var(--nav);display:flex;align-items:center;gap:10px}
+.rb-cuenta{font-size:.76rem;font-weight:700;color:var(--brand);background:color-mix(in srgb,var(--brand) 10%,#fff);padding:2px 10px;border-radius:99px}
+.rb-campo textarea,.rb-campo input{width:100%;box-sizing:border-box;border:1.5px solid var(--line2);border-radius:10px;padding:11px 13px;font:inherit;font-size:.92rem;color:var(--nav);background:#fff;resize:vertical}
+.rb-campo textarea:focus,.rb-campo input:focus{outline:none;border-color:var(--brand)}
+.rb-campo [aria-invalid="true"]{border-color:#a63a32}
+.rb-campo [disabled]{background:var(--tint);color:var(--muted)}
+.rb-ayuda{color:var(--muted);font-size:.8rem}
+.rb-err{color:#a63a32;font-size:.82rem;font-weight:600}
+.rb-acciones{display:flex;flex-wrap:wrap;align-items:center;gap:14px}
+.rb-estado{display:inline-flex;align-items:center;gap:10px;color:var(--muted);font-size:.86rem}
+.rb-spin{width:16px;height:16px;border-radius:50%;border:2.5px solid var(--line2);border-top-color:var(--brand);animation:rb-gira .8s linear infinite}
+@keyframes rb-gira{to{transform:rotate(360deg)}}
+.rb-pasos{padding:18px}
+.rb-pasos h4{margin:0 0 10px;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.rb-pasos ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+.rb-pasos li{display:flex;gap:12px;align-items:flex-start}
+.rb-pasos li>span:last-child{display:flex;flex-direction:column;gap:2px}
+.rb-pasos b{color:var(--nav)}
+.rb-pasos small{color:var(--muted);font-size:.82rem}
+.rb-res{margin-top:20px;padding:22px 24px;border-left:5px solid var(--brand)}
+.rb-res.ok{border-left-color:#1f7a4d;background:color-mix(in srgb,#1f7a4d 6%,#fff)}
+.rb-res.bad{border-left-color:#a63a32;background:color-mix(in srgb,#a63a32 6%,#fff)}
+.rb-res h2{margin:0 0 6px;font-size:1.2rem}
+.rb-res.ok h2{color:#1b6a43}
+.rb-res.bad h2{color:#8c2a22}
+.rb-res p{margin:0 0 12px}
+.rb-res .btn{display:inline-block;text-decoration:none}
+.rb-res details{margin-top:12px}
+.rb-res summary{cursor:pointer;font-weight:600;color:var(--nav)}
+.rb-res ul{margin:10px 0 0;padding-left:20px;font-size:.88rem}
+@media(prefers-reduced-motion:reduce){.rb-spin{animation:none}}

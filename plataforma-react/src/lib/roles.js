@@ -1,6 +1,6 @@
 // Roles de la plataforma, de mayor a menor rango. Cuando una persona tiene varios, en pantalla se muestra el de mayor rango.
-export const ORDEN_ROLES = ['admin', 'coordinador', 'docente', 'disenador', 'editor_html']
-export const NOMBRE_ROL = { admin: 'Administrador', coordinador: 'Coordinador', docente: 'Docente', disenador: 'Diseñador', editor_html: 'Editor HTML' }
+export const ORDEN_ROLES = ['admin', 'coordinador', 'docente', 'disenador', 'editor_html', 'editor_imagenes', 'generador_rubricas']
+export const NOMBRE_ROL = { admin: 'Administrador', coordinador: 'Coordinador', docente: 'Docente', disenador: 'Diseñador', editor_html: 'Editor HTML', editor_imagenes: 'Editor de imágenes', generador_rubricas: 'Generador de rúbricas' }
 
 // Roles de la persona ordenados por rango (los desconocidos van al final).
 export const ordenarRoles = (roles = []) => [...roles].sort((a, b) => {

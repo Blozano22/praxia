@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>{{TITULO}}</title>
+<style>
+  .hero { background-image: url("https://cdn.ejemplo.co/fondo-css.jpg"); }
+  .peq { background: #fff url(https://cdn.ejemplo.co/textura.png?v=1&amp;w=2) no-repeat; }
+  .incrustada { background-image: url(data:image/png;base64,iVBORw0KGgo=); }
+  @font-face { font-family: X; src: url(https://cdn.ejemplo.co/fuente.woff2); }
+</style>
+</head>
+<body>
+<!-- <img src="https://comentado.co/no-cuenta.png"> -->
+<h1>Portada</h1>
+<img src="https://cdn.ejemplo.co/logo.png" alt="Logo de la universidad" width="120" height="60">
+<p>Texto de la unidad con una figura:</p>
+<img class="fig" src='https://cdn.ejemplo.co/figura.jpg?a=1&amp;b=2' alt="Figura 1">
+<img src="https://cdn.ejemplo.co/logo.png" alt="Logo repetido">
+<picture>
+  <source srcset="https://cdn.ejemplo.co/g-480.webp 480w, https://cdn.ejemplo.co/g-960.webp 960w" type="image/webp">
+  <img src="https://cdn.ejemplo.co/g.jpg" srcset="https://cdn.ejemplo.co/g.jpg 1x, https://cdn.ejemplo.co/g@2x.jpg 2x" alt="Gráfico">
+</picture>
+<div style="background-image:url('https://cdn.ejemplo.co/fondo-inline.jpg');color:red">Con fondo</div>
+<img src="imagenes/relativa.png" alt="Relativa">
+<img src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" alt="Incrustada">
+<div id="app">/*CONTENIDO*/</div>
+<script>
+  var falsa = '<img src="https://script.co/no-cuenta.png">';
+</script>
+</body>
+</html>

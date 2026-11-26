@@ -15,6 +15,9 @@ import { rutasUnidades } from './unidades/rutas.js'
 import { analizarCuerpoEventos, rutasEventosN8n } from './pipeline/eventos.js'
 import { rutasAsignaciones } from './pipeline/asignaciones.js'
 import { rutasBancoIconos, rutasIconos } from './iconos/rutas.js'
+import { rutasPiloto } from './piloto/rutas.js'
+import { rutasImagenes } from './plantillas/imagenes.js'
+import { rutasRubricas } from './rubricas/rutas.js'
 
 export function crearApp() {
   const app = express()
@@ -47,6 +50,9 @@ export function crearApp() {
   app.use('/api/bibliografia', exigirCabecera, rutasBibliografia)
   app.use('/api/guiones', exigirCabecera, rutasGuiones)
   app.use('/api/unidades', exigirCabecera, rutasUnidades)
+  app.use('/api/piloto', exigirCabecera, rutasPiloto)
+  app.use('/api/rubricas', exigirCabecera, rutasRubricas) // pantalla «Generar rúbrica» (permiso rubricas.generar)
+  app.use('/api/plantillas-imagenes', exigirCabecera, rutasImagenes) // pantalla «Plantillas con imágenes» (permiso plantillas.imagenes)
   app.use('/api', exigirCabecera, rutas)
   app.use('/api', (req, res) => res.status(404).json({ error: 'No encontrado' }))
 

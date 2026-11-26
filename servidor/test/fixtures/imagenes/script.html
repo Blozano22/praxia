@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><title>{{TITULO}}</title></head>
+<body>
+<div id="marco"><img id="foto" alt="Ejemplo"></div>
+<script>
+  // var COMENTADA = 'https://comentada.co/no.png';
+  var IMAGEN_EJEMPLO = 'https://drive.google.com/thumbnail?id=1oqZTfJsT6CfNgBByHyRh05cUuJKtCErR&sz=w1000';
+  var OTRA = "https://cdn.ejemplo.co/otra.webp";
+  var REPETIDA = 'https://cdn.ejemplo.co/igual.png'; var REPETIDA2 = 'https://cdn.ejemplo.co/igual.png';
+  var SIN_EXT = 'https://cdn.ejemplo.co/sin-extension/123';
+  var ENLACE = 'https://cdn.ejemplo.co/pagina.html';
+  function imagenEjemplo() {
+    var img = document.getElementById('foto');
+    img.addEventListener('error', function () { img.style.display = 'none'; });
+    img.src = IMAGEN_EJEMPLO;
+    var o = new Image(); o.src = SIN_EXT; o.src = 'https://cdn.ejemplo.co/directa';
+  }
+</script>
+<script>
+  var titulo = 'Sin imágenes aquí'; var API = 'https://api.ejemplo.co/datos';
+</script>
+<script type="application/json" id="contenido">/*CONTENIDO*/{"titulo":"x","imagen":"https://json.co/no.png"}/*FIN-CONTENIDO*/</script>
+</body></html>

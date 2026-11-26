@@ -65,7 +65,7 @@ const unidadDe = (codigo) => Number(/^U(\d+)-/.exec(codigo)[1])
 // Variantes que pueden asignarse a un recurso: de esa categoría, aprobadas (salvo que se pida lo contrario) y de la formación del curso.
 // Las que no dicen su formación (subidas antiguas) valen SOLO si la categoría sirve a una única formación (entonces es la de la categoría); en una categoría compartida
 // entre formaciones no se sabe de cuál es y no se reparten (habría que decirle su formación a la variante), y van después de las que sí la dicen.
-function elegibles(variantes, formacion, formacionesCategoria, soloAprobadas, pruebas = false) {
+export function elegibles(variantes, formacion, formacionesCategoria, soloAprobadas, pruebas = false) {
   if (!variantes.length) return { lista: [], motivo: 'categoria_sin_variantes' }
   // Modo de pruebas: todas las subidas, estén aprobadas o no y sean de la formación que sean; primero las de la formación del curso, luego las que no dicen formación.
   if (pruebas) { const rango = (v) => (v.formacion === formacion ? 0 : !v.formacion ? 1 : 2); return { lista: [...variantes].sort((a, b) => rango(a) - rango(b)), motivo: null } }

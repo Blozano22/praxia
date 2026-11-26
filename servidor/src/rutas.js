@@ -295,8 +295,8 @@ rutas.post('/guion-url', exigirSesion, exigirPermiso('proyectos.crear'), limiteG
   })
 
 // ------------------------------------------------------------------ usuarios (solo con usuarios.gestionar)
-const Rol = z.enum(['admin', 'coordinador', 'docente', 'disenador', 'editor_html'])
-const Roles = z.array(Rol).min(1).max(5).refine((a) => new Set(a).size === a.length)
+const Rol = z.enum(['admin', 'coordinador', 'docente', 'disenador', 'editor_html', 'editor_imagenes', 'generador_rubricas'])
+const Roles = z.array(Rol).min(1).max(7).refine((a) => new Set(a).size === a.length)
 const admin = [exigirSesion, exigirPermiso('usuarios.gestionar')]
 
 rutas.get('/usuarios', ...admin, async (req, res, next) => {
@@ -404,12 +404,12 @@ rutas.patch('/usuarios/:id/clave', ...admin, validar(z.object({ id: IdUsuario })
   })
 
 // ------------------------------------------------------------------ direcciones de n8n (compartidas por todas las personas)
-const CLAVES_N8N = { syllabus: 'n8n.syllabus', guiones: 'n8n.guiones', matrices: 'n8n.matrices', h5p: 'n8n.h5p', publicar: 'n8n.publicar', preparacion: 'n8n.preparacion' }
+const CLAVES_N8N = { syllabus: 'n8n.syllabus', guiones: 'n8n.guiones', matrices: 'n8n.matrices', h5p: 'n8n.h5p', publicar: 'n8n.publicar', preparacion: 'n8n.preparacion', rubricas: 'n8n.rubricas' }
 rutas.get('/config/n8n', exigirSesion, async (req, res, next) => {
   try {
     const f = (await sinUsuario(Q.configLeer, [[...Object.values(CLAVES_N8N), CLAVE_PRUEBAS]])).rows
     const v = (c) => (f.find((x) => x.clave === c) || {}).valor || ''
-    res.json({ syllabus: v(CLAVES_N8N.syllabus), guiones: v(CLAVES_N8N.guiones), matrices: v(CLAVES_N8N.matrices), h5p: v(CLAVES_N8N.h5p), publicar: v(CLAVES_N8N.publicar), preparacion: v(CLAVES_N8N.preparacion), pruebas_plantillas: pruebasEncendidas((f.find((x) => x.clave === CLAVE_PRUEBAS) || {}).valor) }) // '' = la dirección original
+    res.json({ syllabus: v(CLAVES_N8N.syllabus), guiones: v(CLAVES_N8N.guiones), matrices: v(CLAVES_N8N.matrices), h5p: v(CLAVES_N8N.h5p), publicar: v(CLAVES_N8N.publicar), preparacion: v(CLAVES_N8N.preparacion), rubricas: v(CLAVES_N8N.rubricas), pruebas_plantillas: pruebasEncendidas((f.find((x) => x.clave === CLAVE_PRUEBAS) || {}).valor) }) // '' = la dirección original
   } catch (e) { next(e) }
 })
 // ------------------------------------------------------------------ tipos de actividad (texto del guion → categoría ACT; coincidencia exacta normalizada)
@@ -443,7 +443,7 @@ rutas.get('/admin/trabajos-en-curso', ...admin, async (req, res, next) => {
   try { res.json(await trabajosEnCurso(sinUsuario)) } catch (e) { next(e) }
 })
 const UrlN8n = z.union([z.literal(''), z.string().trim().max(500).regex(/^https:\/\/\S+$/)])
-rutas.put('/config/n8n', ...admin, validar(z.object({ syllabus: UrlN8n.optional(), guiones: UrlN8n.optional(), matrices: UrlN8n.optional(), h5p: UrlN8n.optional(), publicar: UrlN8n.optional(), preparacion: UrlN8n.optional(), pruebas_plantillas: z.boolean().optional() }).strict(), 'body'),
+rutas.put('/config/n8n', ...admin, validar(z.object({ syllabus: UrlN8n.optional(), guiones: UrlN8n.optional(), matrices: UrlN8n.optional(), h5p: UrlN8n.optional(), publicar: UrlN8n.optional(), preparacion: UrlN8n.optional(), rubricas: UrlN8n.optional(), pruebas_plantillas: z.boolean().optional() }).strict(), 'body'),
   async (req, res, next) => {
     try {
       // Modo de pruebas de plantillas: encendido, la preparación del curso asigna cualquier plantilla subida (aprobada o no). Se registra quién lo cambia.

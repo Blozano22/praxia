@@ -45,6 +45,23 @@ export function formacionDeCurso(datos) {
   return null
 }
 
+// Formación a partir de un texto («Doctorado», «Profesional universitario»…). Misma regla que formacionDeCurso.
+const formacionDeTexto = (t) => formacionDeCurso({ info: { nivel: t } })
+
+// Los cursos creados desde el syllabus no guardan su nivel en la ficha: se lee de la tabla «Nivel de formación» del propio syllabus
+// (Google Docs, solo por el ID del documento). null si no se puede leer o no lo trae.
+export async function formacionDeSyllabus(url) {
+  const id = (/\/document\/d\/([A-Za-z0-9_-]+)/.exec(String(url || '')) || [])[1]
+  if (!id) return null
+  try {
+    const r = await fetch('https://docs.google.com/document/d/' + id + '/export?format=txt', { redirect: 'follow', signal: AbortSignal.timeout(15000) })
+    if (!r.ok || !/text\/plain/i.test(r.headers.get('content-type') || '')) return null
+    const t = (await r.text()).slice(0, 400000)
+    const m = /nivel\s+de\s+formaci[oó]n[\s|:*]*([^\r\n|]{3,60})/i.exec(t)
+    return m ? formacionDeTexto(m[1]) : null
+  } catch { return null }
+}
+
 // El curso se lee con la sesión de la persona (la política de filas garantiza que sea suyo). null si no existe o no se pudo leer.
 async function leerDatos(usuario, proyectoId) {
   try { return (((await conUsuario(usuario, (cx) => cx.query(Q.pipeProyectoDatos, [usuario.id, proyectoId]))).rows[0]) || {}).datos || null } catch { return null }
@@ -81,7 +98,7 @@ async function llamarPreparacion({ usuario, proyectoId, url, datos, formacion, f
   const trabajoId = randomUUID()
   await sinUsuario(Q.pipeOrigenGuardar, [trabajoId, usuario.id, proyectoId, carpeta, 'preparacion', null]) // así n8n identifica persona y curso al pedir las variantes
   const syllabus = texto(datos.syllabusUrl, 600)
-  const cuerpo = { trabajo_id: trabajoId, proyecto_id: proyectoId, carpeta_raiz: carpeta, curso: texto(datos.curso, 200), formacion, ...(RE_DOC.test(syllabus) ? { syllabus_url: syllabus } : {}), unidades_detalle: unidades, forzar, ...(pruebas ? { modo_pruebas: true } : {}) }
+  const cuerpo = { trabajo_id: trabajoId, proyecto_id: proyectoId, carpeta_raiz: carpeta, curso: texto(datos.curso, 200), formacion, ...(RE_DOC.test(syllabus) ? { syllabus_url: syllabus } : {}), ...(config.praxiaUrlPublica ? { praxia_url: config.praxiaUrlPublica } : {}), unidades_detalle: unidades, forzar, ...(pruebas ? { modo_pruebas: true } : {}) }
   let r
   try { r = await publicarFn(url, cuerpo, Math.min(20, config.n8nMinutosMaximo)) } catch (e) {
     throw new ErrorPropio(('No se pudo completar la preparación del curso con n8n: ' + ((e && (e.code || e.message)) || 'error')).slice(0, 580))
@@ -103,7 +120,7 @@ export async function asegurarAsignacion({ usuario, proyectoId, unidad, reasigna
   if (aprobacion.hay && aprobacion.pendientes.length) throw new ErrorPropio(MENSAJE_APROBACION(aprobacion.pendientes))
   const pruebas = await modoPruebasPlantillas()
   // En el modo de pruebas, un curso sin formación se prepara igual (Tecnológico solo como referencia para ordenar: se usan todas las plantillas subidas).
-  const formacion = formacionDeCurso(datos) || (pruebas ? 'tecnologico' : null)
+  const formacion = formacionDeCurso(datos) || (await formacionDeSyllabus(datos.syllabusUrl)) || (pruebas ? 'tecnologico' : null)
   if (!formacion) throw new ErrorPropio('El curso no dice su formación (Tecnológico, Profesional, Especialización o Doctorado): elíjala en «Formación del curso», arriba del botón «Crear los guiones»; se necesita para elegir las variantes de las plantillas.')
   const filas = async () => (await sinUsuario(Q.asignConsultar, [usuario.id, proyectoId, unidad, null])).rows
   let rows = await filas()

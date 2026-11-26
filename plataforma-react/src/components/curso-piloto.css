@@ -1,0 +1,74 @@
+/* «Curso piloto»: solo clases con prefijo cp-. Reutiliza las variables y clases globales (wrapx, card, btn, msg, help, row, st) sin redefinirlas. */
+.cp-form{margin-top:18px;display:flex;flex-direction:column;gap:8px}
+.cp-fila{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.cp-fila input{flex:1 1 360px;min-width:0}
+.cp-malo{color:#a32f24}
+.cp-avance{margin-top:16px;display:flex;flex-direction:column;gap:8px}
+.cp-barra{height:8px;border-radius:99px;background:color-mix(in srgb,var(--nav) 8%,#fff);overflow:hidden}
+.cp-barra i{display:block;height:100%;background:var(--brand);border-radius:99px;transition:width .4s ease}
+.cp-res{margin-top:18px;display:flex;flex-direction:column;gap:12px}
+.cp-aviso{display:flex;flex-direction:column;gap:8px}
+.cp-dif summary{cursor:pointer;font-weight:700;color:var(--nav)}
+.cp-dif ul{margin:8px 0 0;padding-left:20px;color:var(--muted);font-size:.9rem;line-height:1.5}
+.cp-cifras{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.cp-cifras .st{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:#fff}
+.cp-cifras .st b{font-size:1.7rem}
+.cp-prob{margin:0}
+.cp-cands{margin:6px 0 0;padding-left:20px}
+.cp-unidad{padding:0;overflow:hidden}
+.cp-unidad>summary{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 18px;cursor:pointer;list-style:none}
+.cp-unidad>summary::-webkit-details-marker{display:none}
+.cp-unidad[open]>summary{border-bottom:1px solid var(--line)}
+.cp-unidad>:not(summary){margin-left:18px;margin-right:18px}
+.cp-unidad>:last-child{margin-bottom:16px}
+.cp-unidad>summary+*{margin-top:12px}
+.cp-n{flex:none;display:grid;place-items:center;width:38px;height:38px;border-radius:11px;background:color-mix(in srgb,var(--nav) 8%,#fff);color:var(--nav);font-weight:800}
+.cp-tit{flex:1 1 200px;min-width:0}
+.cp-tit small{color:var(--muted)}
+.cp-cuenta{color:var(--muted)}
+.cp-estado{display:inline-block;padding:2px 10px;border-radius:99px;font-size:.78rem;font-weight:700;background:color-mix(in srgb,var(--nav) 7%,#fff);color:var(--nav);white-space:nowrap}
+.cp-estado.ok{background:#e4f5ec;color:#1b6a43}
+.cp-estado.warn{background:#fbf1d3;color:#7a5b00}
+.cp-estado.bad{background:#fbe4e1;color:#a32f24}
+.cp-enlaces{display:flex;flex-wrap:wrap;gap:6px 22px;font-size:.9rem}
+.cp-guiones{margin:0;padding-left:34px;font-size:.9rem;line-height:1.6}
+.cp-tabla{overflow-x:auto}
+.cp-tabla table{width:100%;border-collapse:collapse;font-size:.88rem}
+.cp-tabla th{text-align:left;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+.cp-tabla td{padding:8px 10px;border-bottom:1px solid color-mix(in srgb,var(--nav) 6%,#fff);vertical-align:top}
+.cp-cod{font-family:ui-monospace,Consolas,monospace;font-size:.8rem;white-space:nowrap;color:var(--nav)}
+.cp-act td{background:color-mix(in srgb,var(--nav) 2%,#fff)}
+.cp-sang{display:inline-block;padding-left:18px}
+.cp-etq{display:inline-block;margin-left:8px;padding:1px 8px;border-radius:99px;font-size:.7rem;font-weight:700;background:#eaf0fb;color:#264a8a}
+.cp-id{color:var(--muted)}
+.cp-nada{color:var(--muted)}
+.cp-mot{display:block;margin-top:3px;color:var(--muted);line-height:1.35}
+.cp-pie{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+@media (max-width:640px){.cp-unidad>summary{padding:12px 14px}.cp-unidad>:not(summary){margin-left:12px;margin-right:12px}}
+
+/* Dentro de los pasos (mismo formato que «Nuevo curso») */
+.cp-avance{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+.cp-aviso{margin-top:12px}
+.cp-unidad{border:1px solid var(--line);border-radius:12px;background:#fff}
+.cp-unidades{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+.cp-cifras{margin-top:14px}
+.cp-dif{margin-top:14px}
+
+/* Formato de los pasos del curso (stepper2 + tarjetas de unidad ud) */
+.cp-curso{padding:14px 20px;margin-bottom:10px}.cp-curso small{font-size:.7rem;letter-spacing:.1em;color:var(--muted);font-weight:700}.cp-curso p{margin:4px 0 0}
+.cp-formacion{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:14px 20px;margin-bottom:10px}.cp-formacion b{display:block}.cp-formacion span:not(.cp-chip){font-size:.84rem;color:var(--muted)}
+.cp-chip{padding:8px 16px;border-radius:10px;background:color-mix(in srgb,var(--nav) 7%,#fff);color:var(--nav);font-weight:800}
+.cp-enl{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin:10px 0}
+.cp-avisos{display:flex;flex-direction:column;gap:8px;margin:10px 0}
+.cp-lista{display:flex;flex-direction:column;gap:12px}
+.cp-uni{padding:16px 20px;border:2px solid var(--line)}.cp-uni.ok{border-color:#bfe0d6}.cp-uni.bad{border-color:#efc4be}.cp-uni.warn{border-color:#ecd89a}
+.cp-uni-cab{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.cp-uni-cab b{flex:1 1 200px;font-size:1.05rem}
+.cp-bola{flex:none;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-weight:800;background:#e3e8ef;color:var(--muted)}.cp-bola.ok{background:var(--brand);color:#fff}.cp-bola.warn{background:#fbf1d3;color:#7a5b00}.cp-bola.bad{background:#fbe4e1;color:#a32f24}
+.cp-uni .cp-enl{margin:12px 0 0}.cp-uni .cp-prob{margin-top:10px}
+.ud .cp-guiones{margin-top:12px;padding-left:20px}
+.cp-montar{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin-top:18px}
+
+/* Pantalla en pasos (igual que «Nuevo curso») */
+.cp-fila-u{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}.cp-fila-u:first-child{border-top:0}.cp-fu-tx{flex:1 1 0;min-width:0}.cp-fu-tx b{display:block}.cp-fu-tx small{color:var(--muted)}
+.cp-sim{margin-top:14px}.cp-sim .cp-unidades{margin-top:12px}.cp-sim>ul{margin:12px 0 0}
+.cp-lista{margin-top:12px;display:flex;flex-direction:column}

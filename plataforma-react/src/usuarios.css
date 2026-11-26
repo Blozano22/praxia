@@ -1,5 +1,5 @@
 /* Pantalla de Usuarios: encabezado, formulario con selector de roles en tarjetas y tabla de personas. */
-.us{--c-admin:#5b3fd1;--c-admin-bg:#ece8ff;--c-coord:#1f6fd1;--c-coord-bg:#dfeeff;--c-doc:#0a6b5c;--c-doc-bg:#d9f3e8;--c-dis:#b86a00;--c-dis-bg:#fff0d2;--c-edi:#0e7490;--c-edi-bg:#d8f2f8}
+.us{--c-admin:#5b3fd1;--c-admin-bg:#ece8ff;--c-coord:#1f6fd1;--c-coord-bg:#dfeeff;--c-doc:#0a6b5c;--c-doc-bg:#d9f3e8;--c-dis:#b86a00;--c-dis-bg:#fff0d2;--c-edi:#0e7490;--c-edi-bg:#d8f2f8;--c-img:#9d2b6b;--c-img-bg:#fde4f1;--c-rub:#5a4a00;--c-rub-bg:#fff1b8}
 .us-cab{display:flex;gap:16px;align-items:flex-start}
 .us-cab h1{margin:0;line-height:1.1}
 .us-cab .lead{margin:6px 0 0;max-width:780px}
@@ -53,6 +53,8 @@
 .r-docente{background:var(--c-doc-bg);color:var(--c-doc)}
 .r-disenador{background:var(--c-dis-bg);color:var(--c-dis)}
 .r-editor_html{background:var(--c-edi-bg);color:var(--c-edi)}
+.r-editor_imagenes{background:var(--c-img-bg);color:var(--c-img)}
+.r-generador_rubricas{background:var(--c-rub-bg);color:var(--c-rub)}
 
 /* Listado */
 .us-lista-cab{padding:20px 26px 16px}
@@ -99,7 +101,7 @@
 .us-bi.off:active{transform:none}
 
 /* Menú de roles de una persona (flotante, no lo recorta la tabla) */
-.us-pop{position:fixed;z-index:60;width:260px;background:#fff;border:1px solid var(--line2);border-radius:14px;padding:8px;box-shadow:0 18px 40px rgba(var(--sombra),.22);animation:us-pop .14s ease-out}
+.us-pop{position:fixed;z-index:60;width:260px;overflow-y:auto;overscroll-behavior:contain;background:#fff;border:1px solid var(--line2);border-radius:14px;padding:8px;box-shadow:0 18px 40px rgba(var(--sombra),.22);animation:us-pop .14s ease-out}
 @keyframes us-pop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 .us-pop h5{margin:0;padding:6px 10px 4px;font-size:.68rem;letter-spacing:.12em;color:var(--muted);font-weight:700}
 .us-pop label{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;cursor:pointer;font-weight:600;font-size:.88rem;margin:0}
