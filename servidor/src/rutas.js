@@ -10,7 +10,7 @@ import { config } from './config.js'
 import { extraerEnlaces } from './enlaces.js'
 import { armarSubida, compararEsquemas, esquemaDe, MAX_HTML, NOMBRES_RESERVADOS } from './plantillas/subidas.js'
 import { crearZip, sanear } from './plantillas/zip.js'
-import { EsquemaLanzarH5p, EsquemaLanzarMatrices, lanzarH5p, lanzarMatrices, lanzarPublicar, urlH5p, urlMatrices, urlPublicar } from './pipeline/lanzar.js'
+import { cuerpoServicioH5p, EsquemaLanzarH5p, EsquemaLanzarMatrices, lanzarH5p, lanzarMatrices, lanzarPublicar, urlH5p, urlMatrices, urlPublicar } from './pipeline/lanzar.js'
 import { CLAVE_PRUEBAS, pruebasEncendidas, urlPreparacion } from './pipeline/preparacion.js'
 import { esUrlImagen } from './pipeline/eventos.js'
 import { invalidarAsignaciones, normalizarTipo } from './pipeline/asignaciones.js'
@@ -203,7 +203,7 @@ rutas.post('/proyectos/:id/pipeline/recursos/:recurso/h5p', exigirSesion, pipeli
       if (!f.plantilla) return res.status(409).json({ error: 'Este recurso no tiene plantilla registrada.' })
       let r
       try {
-        r = await fetch(config.servicioPlantillasUrl + '/h5p', { method: 'POST', headers: { 'content-type': 'application/json', 'x-api-key': config.servicioPlantillasClave }, body: JSON.stringify({ plantilla: f.plantilla, contenido: f.contenido }), signal: AbortSignal.timeout(90 * 1000) })
+        r = await fetch(config.servicioPlantillasUrl + '/h5p', { method: 'POST', headers: { 'content-type': 'application/json', 'x-api-key': config.servicioPlantillasClave }, body: JSON.stringify(cuerpoServicioH5p(f)), signal: AbortSignal.timeout(90 * 1000) })
       } catch { return res.status(502).json({ error: 'El servicio de plantillas H5P no respondió. Inténtalo de nuevo en un momento.' }) }
       if (!r.ok) {
         let msg = ''

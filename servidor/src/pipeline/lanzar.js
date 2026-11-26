@@ -183,6 +183,15 @@ export async function lanzarH5p({ usuario, proyectoId, maximo, unidades, reinten
 }
 
 
+// Cuerpo que entiende el servicio de plantillas (publicar y descargar): plantilla y contenido, imagen principal si es válida y las partes guardadas.
+export function cuerpoServicioH5p(f) {
+  return {
+    plantilla: f.plantilla, contenido: f.contenido,
+    ...(esUrlImagen(f.imagenUrl) ? { imagen_url: f.imagenUrl } : {}),
+    ...(f.actividad ? { actividad: { plantilla: f.actividad.plantilla, contenido: f.actividad.contenido, ...(esUrlImagen(f.actividad.imagen_url) ? { imagen_url: f.actividad.imagen_url } : {}) } } : {}),
+    ...(f.bibliografia ? { bibliografia: { plantilla: f.bibliografia.plantilla, contenido: f.bibliografia.contenido } } : {}) }
+}
+
 // Etapa 2 del H5P: la persona aprobó el contenido de un recurso y n8n debe armar el .h5p y publicarlo en Drive (si ya había un archivo, reemplaza el contenido del mismo archivo).
 // Devuelve { codigo, cuerpo }. El resultado llega después por un aviso h5p_recurso (GENERADO con el enlace, o ERROR); mientras tanto «aprobado_en» marca que se está publicando.
 export async function lanzarPublicar({ usuario, proyectoId, recursoId, publicarFn = publicar }) {
@@ -202,10 +211,7 @@ export async function lanzarPublicar({ usuario, proyectoId, recursoId, publicarF
   const reemplazar = /^https:\/\/(?:drive|docs)\.google\.com\//.test(marcado.enlaceRecurso || '')
   const r = await entregar({ url, minutos: 2, trabajoId, publicarFn, nombre: 'la publicación del H5P',
     cuerpo: { trabajo_id: trabajoId, proyecto_id: proyectoId, carpeta_raiz: curso.carpeta, id: marcado.id, codigo: marcado.codigo || null, unidad: marcado.unidad ?? null,
-      plantilla: marcado.plantilla, contenido: marcado.contenido, enlace_recurso: reemplazar ? marcado.enlaceRecurso : null, reemplazar,
-      ...(esUrlImagen(marcado.imagenUrl) ? { imagen_url: marcado.imagenUrl } : {}),
-      ...(marcado.actividad ? { actividad: { plantilla: marcado.actividad.plantilla, contenido: marcado.actividad.contenido, imagen_url: marcado.actividad.imagen_url || null } } : {}),
-      ...(marcado.bibliografia ? { bibliografia: { plantilla: marcado.bibliografia.plantilla, contenido: marcado.bibliografia.contenido } } : {}) } })
+      ...cuerpoServicioH5p(marcado), enlace_recurso: reemplazar ? marcado.enlaceRecurso : null, reemplazar } })
   if (r.codigo !== 202) { await sinUsuario(Q.pipeAprobarRevertir, [usuario.id, proyectoId, recursoId]).catch(() => {}); return r }
   return { codigo: 202, cuerpo: { trabajo_id: trabajoId, id: marcado.id, reemplazar } }
 }

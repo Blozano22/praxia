@@ -384,7 +384,7 @@ export const Q = Object.freeze({
      ORDER BY r.unidad, r.tema, r.codigo`,
   // El contenido (JSON) de UN recurso, para editarlo: solo de esa persona y ese curso.
   pipeLeerContenido: `
-    SELECT id, codigo, titulo, plantilla, estado, enlace_recurso AS "enlaceRecurso", to_jsonb(r) -> 'contenido' AS contenido, actualizado_en AS "actualizadoEn",
+    SELECT id, codigo, titulo, plantilla, estado, enlace_recurso AS "enlaceRecurso", imagen_url AS "imagenUrl", to_jsonb(r) -> 'contenido' AS contenido, actualizado_en AS "actualizadoEn",
            to_jsonb(r) ->> 'contenido_editado_en' AS "editadoEn",
            tipo_actividad AS "tipoActividad", actividad_guion AS "actividadGuion", actividad, bibliografia,
            alerta_actividad AS "alertaActividad", actividad_editado_en AS "actividadEditadoEn", bibliografia_editado_en AS "bibliografiaEditadoEn", (SELECT s.formacion FROM plantilla_subidas s WHERE s.nombre = r.plantilla) AS formacion

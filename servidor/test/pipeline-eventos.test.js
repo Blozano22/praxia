@@ -738,3 +738,23 @@ test('las acciones de escritura del pipeline son del diseñador: el dueño docen
   assert.equal((await pedir(beto, 'GET', '')).status, 200)
   assert.notEqual((await pedir(ana, 'POST', '/recursos/f1/aprobar')).status, 409) // admin dueño: permitido (el resultado depende del recurso)
 })
+
+test('.h5p descargado: el servicio recibe imagen_url, actividad y bibliografía guardadas; una imagen inválida no se manda; sin partes va solo plantilla+contenido', async () => {
+  const r = await fetch(base + '/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json', 'x-ova': '1' }, body: JSON.stringify({ correo: 'ana@u.co', clave: CLAVE }) })
+  const ana = { cookie: (r.headers.get('set-cookie') || '').split(';')[0], 'x-ova': '1', 'content-type': 'application/json' }
+  const h5p = () => fetch(base + '/api/proyectos/curso-a/pipeline/recursos/f1/h5p', { method: 'POST', headers: ana })
+  const poner = (img, act, bib) => pool.query('UPDATE pipeline_recursos SET imagen_url = $2, actividad = $3::jsonb, bibliografia = $4::jsonb WHERE propietario_id = $1 AND id = \'f1\'', [ids.ana, img, act && JSON.stringify(act), bib && JSON.stringify(bib)])
+  const ACT = { plantilla: 'act-quiz-v01', contenido: { titulo: 'Quiz' }, imagen_url: 'https://x.co/a.png' }
+  const BIB = { plantilla: 'bib-v01', contenido: { titulo: 'Bib' } }
+  await poner('https://x.co/p.png', ACT, BIB)
+  assert.equal((await h5p()).status, 200)
+  let c = ultimaPeticionServicio.cuerpo
+  assert.equal(c.imagen_url, 'https://x.co/p.png'); assert.deepEqual(c.actividad, ACT); assert.deepEqual(c.bibliografia, BIB)
+  await poner('/plantillas-html/ejemplo.png', { ...ACT, imagen_url: '/plantillas-html/e.png' }, null)
+  assert.equal((await h5p()).status, 200)
+  c = ultimaPeticionServicio.cuerpo
+  assert.equal('imagen_url' in c, false); assert.equal('imagen_url' in c.actividad, false); assert.equal('bibliografia' in c, false)
+  await poner(null, null, null)
+  assert.equal((await h5p()).status, 200)
+  assert.deepEqual(Object.keys(ultimaPeticionServicio.cuerpo).sort(), ['contenido', 'plantilla'])
+})
