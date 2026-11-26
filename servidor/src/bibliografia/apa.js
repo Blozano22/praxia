@@ -8,7 +8,8 @@ const txt = (s) => String(s || '').replace(/\s+/g, ' ').trim()
 
 export function iniciales(nombres) {
   return txt(nombres).split(/[\s]+/).filter(Boolean)
-    .map((p) => p.split('-').map((x) => x[0].toUpperCase() + '.').join('-')).join(' ')
+    // Un nombre con guion suelto o doble («Ana-», «-María», «J--P») deja partes vacías: se descartan para no romper la referencia.
+    .map((p) => p.split('-').filter(Boolean).map((x) => x[0].toUpperCase() + '.').join('-')).filter(Boolean).join(' ')
 }
 const autorRef = (a) => (a.institucional || !a.nombres ? txt(a.apellido) : txt(a.apellido) + ', ' + iniciales(a.nombres))
 
