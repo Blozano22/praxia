@@ -48,10 +48,12 @@
 .au-res.bad{border-left-color:#a63a32;background:color-mix(in srgb,#a63a32 6%,#fff)}
 .au-res h4{margin:0;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
 .au-res h2{margin:0;font-size:1.3rem}
+.au-rotulo{font-weight:600;color:var(--muted)}
+.au-resumen a{font-weight:600}
 .au-res.ok h2{color:#1b6a43}.au-res.bad h2{color:#8c2a22}.au-res.warn h2{color:#8a5a12}
 .au-res p{margin:0}
 .au-res .btn{display:inline-block;text-decoration:none}
-.au-resumen{margin:4px 0;font-size:.92rem;color:var(--nav);max-width:78ch}
+.au-resumen{white-space:pre-wrap;margin:4px 0;font-size:.92rem;color:var(--nav);max-width:78ch}
 .au-resumen p{margin:0 0 8px}
 ul.au-resumen{padding-left:20px}
 dl.au-resumen div{margin-bottom:8px}

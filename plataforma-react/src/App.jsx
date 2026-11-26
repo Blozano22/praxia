@@ -72,7 +72,7 @@ export default function App() {
   //   #/syllabus/<id>/<paso>[/<unidad>] · #/editor/<id>/<recurso>
   useEffect(() => {
     if (!yo || !cargado || restaurado) return
-    const p = location.hash.replace(/^#\/?/, '').split('/').map((x) => { try { return decodeURIComponent(x) } catch { return x } })
+    const p = location.hash.replace(/^#\/?/, '').split('?')[0].split('/').map((x) => { try { return decodeURIComponent(x) } catch { return x } })
     const perm = (c) => yo.permisos.includes(c)
     const proy = ref.current.find((x) => x.id === p[1])
     if (p[0] === 'syllabus' && proy) {
@@ -98,7 +98,7 @@ export default function App() {
     let h = '#/' + vista
     if (vista === 'workspace' && actualId) h = '#/syllabus/' + actualId + '/' + tab + (unidadSel != null ? '/' + unidadSel : '')
     else if (vista === 'editor' && actualId && recId) h = '#/editor/' + actualId + '/' + recId
-    if (location.hash !== h) history.replaceState(null, '', h)
+    if (location.hash !== h && !(vista === 'auditor-guiones' && location.hash.startsWith(h + '?'))) history.replaceState(null, '', h)
   }, [restaurado, vista, actualId, tab, unidadSel, recId])
 
   useEffect(() => { api('GET', '/auth/yo').then(setYo).catch(() => setYo(null)) }, [])

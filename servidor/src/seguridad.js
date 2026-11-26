@@ -62,8 +62,6 @@ export function exigirCabecera(req, res, next) {
   const conCuerpo = Number(req.get('content-length') || 0) > 0
   // Única excepción: la subida de un documento a una fuente de la bibliografía (archivo en bruto); sigue exigiendo x-ova.
   const subida = req.is('application/octet-stream') && /\/bibliografia\/fuentes\/[0-9a-f-]{36}\/archivo$/i.test(req.originalUrl.split('?')[0])
-  // Segunda excepción: el envío de «Auditor de guiones» (formulario con archivos, multipart); también exige x-ova y la ruta valida tipos y tamaños.
-  const formulario = req.method === 'POST' && req.is('multipart/form-data') && /^\/api\/auditor\/?$/i.test(req.originalUrl.split('?')[0])
-  if (req.get('x-ova') !== '1' || (conCuerpo && !req.is('application/json') && !subida && !formulario)) return res.status(400).json({ error: 'Petición no válida' })
+  if (req.get('x-ova') !== '1' || (conCuerpo && !req.is('application/json') && !subida)) return res.status(400).json({ error: 'Petición no válida' })
   next()
 }
