@@ -186,3 +186,85 @@ test('masivo: validar devuelve el estado de cada URL (red simulada) y bloquea la
     assert.equal(b.est.validaciones.get('d-01-v01\n' + U), 'valida') // se guarda para las plantillas que ya la usan
   })
 })
+
+// ---- cambios por USO (una posición concreta de una plantilla), no solo por URL ---------------------------------------------------
+test('masivo por uso: /masivo devuelve cada uso con su posición, aunque la URL sea la misma', async () => {
+  const b = baseFalsa()
+  await conServidor(opc(b), async (pedir) => {
+    const logo = (await pedir('GET', '/masivo')).d.urls.find((u) => u.url === U)
+    const d = logo.plantillas.find((p) => p.nombre === 'd-01-v01')
+    assert.equal(d.usos.length, 4); assert.deepEqual(d.usos.map((x) => x.lugar).sort(), ['fondo (CSS)', 'img src', 'img srcset', 'script'])
+    assert.deepEqual(d.usos.map((x) => x.indice), [...d.usos.map((x) => x.indice)].sort((p, q) => p - q)) // orden de aparición
+    assert.ok(d.usos.every((x) => Number.isInteger(x.indice) && x.contexto !== undefined))
+  })
+})
+
+test('masivo por uso: la misma URL 3 veces en una plantilla se cambia por 3 URL distintas y lo demás queda idéntico', async () => {
+  const b = baseFalsa()
+  await conServidor(opc(b), async (pedir) => {
+    const orig = b.est.plantillas.get('d-01-v01').crudo
+    const usosD = (await pedir('GET', '/masivo')).d.urls.find((u) => u.url === U).plantillas.find((p) => p.nombre === 'd-01-v01').usos
+    const act = iso(b, 'd-01-v01')
+    const [a1, a2, a3] = usosD // el cuarto uso no se toca
+    const r = await pedir('POST', '/masivo/aplicar', { usos: [
+      { plantilla: 'd-01-v01', actualizado: act, indice: a1.indice, url: 'https://nuevo.co/uno.png' },
+      { plantilla: 'd-01-v01', actualizado: act, indice: a2.indice, url: 'https://nuevo.co/dos.png' },
+      { plantilla: 'd-01-v01', actualizado: act, indice: a3.indice, url: 'https://nuevo.co/tres.png' }
+    ] })
+    assert.equal(r.estado, 200, JSON.stringify(r.d)); assert.deepEqual(r.d.cambiadas, [{ nombre: 'd-01-v01', imagenes: 3 }])
+    const urls = urlsDe(b, 'd-01-v01')
+    for (const n of ['uno', 'dos', 'tres']) assert.equal(urls.filter((u) => u === 'https://nuevo.co/' + n + '.png').length, 1)
+    assert.equal(urls.filter((u) => u === U).length, 1) // el cuarto sigue con la URL de antes
+    assert.equal(urls[a1.indice], 'https://nuevo.co/uno.png'); assert.equal(urls[a2.indice], 'https://nuevo.co/dos.png'); assert.equal(urls[a3.indice], 'https://nuevo.co/tres.png') // cada una en su sitio
+    // solo cambiaron esas 3 URL: devolviéndolas, el archivo queda idéntico
+    let vuelta = b.est.plantillas.get('d-01-v01').crudo
+    for (const n of ['uno', 'dos', 'tres']) vuelta = vuelta.replace('https://nuevo.co/' + n + '.png', U)
+    assert.equal(vuelta, orig)
+    assert.equal(b.est.plantillas.get('d-01-v01').html, armarSubida(b.est.plantillas.get('d-01-v01').crudo).html)
+    assert.equal(b.est.historial.length, 1); assert.deepEqual(b.est.historial[0].cambios.map((x) => x.despues).sort(), ['https://nuevo.co/dos.png', 'https://nuevo.co/tres.png', 'https://nuevo.co/uno.png'])
+    assert.equal(b.est.auditoria.filter((a) => a[1] === 'plantilla_imagenes_masivo').length, 1)
+    assert.equal((await pedir('POST', '/masivo/aplicar', { usos: [{ plantilla: 'd-01-v01', actualizado: iso(b, 'd-01-v01'), indice: 77, url: 'https://nuevo.co/x.png' }] })).estado, 409) // una posición que no existe
+  })
+})
+
+test('masivo por uso: caso mixto, una regla por URL y un uso suelto que manda sobre ella; los demás se quedan como estaban', async () => {
+  const b = baseFalsa()
+  await conServidor(opc(b), async (pedir) => {
+    const m = (await pedir('GET', '/masivo')).d
+    const usosE = m.urls.find((u) => u.url === U).plantillas.find((p) => p.nombre === 'e-01-v01').usos
+    const suelto = usosE.find((x) => x.lugar === 'script')
+    const f0 = b.est.plantillas.get('f-01-v01').crudo
+    const r = await pedir('POST', '/masivo/aplicar', {
+      reemplazos: [{ anterior: U, nueva: 'https://nuevo.co/regla.png', plantillas: [{ nombre: 'e-01-v01', actualizado: iso(b, 'e-01-v01') }] }],
+      usos: [{ plantilla: 'e-01-v01', actualizado: iso(b, 'e-01-v01'), indice: suelto.indice, url: 'https://nuevo.co/suelta.png' }]
+    })
+    assert.equal(r.estado, 200, JSON.stringify(r.d)); assert.deepEqual(r.d.cambiadas, [{ nombre: 'e-01-v01', imagenes: 4 }])
+    const u = urlsDe(b, 'e-01-v01')
+    assert.equal(u[suelto.indice], 'https://nuevo.co/suelta.png') // el suelto manda
+    assert.equal(u.filter((x) => x === 'https://nuevo.co/regla.png').length, 3) // los otros tres usos siguen la regla
+    assert.ok(u.includes('https://cdn.ejemplo.co/logo@2x.png')) // lo que no era U no se toca
+    assert.equal(b.est.plantillas.get('f-01-v01').crudo, f0); assert.equal(urlsDe(b, 'd-01-v01').filter((x) => x === U).length, 4) // otras plantillas, intactas
+    // un uso suelto en una plantilla modificada entre tanto se salta
+    const e = b.est.plantillas.get('e-01-v01'); const vieja = iso(b, 'e-01-v01'); e.actualizado = new Date('2027-01-01T00:00:00.000Z')
+    const s = await pedir('POST', '/masivo/aplicar', { usos: [{ plantilla: 'e-01-v01', actualizado: vieja, indice: 0, url: 'https://nuevo.co/z.png' }] })
+    assert.deepEqual(s.d.saltadas, [{ nombre: 'e-01-v01', motivo: 'modificada' }]); assert.deepEqual(s.d.cambiadas, [])
+  })
+})
+
+test('masivo por uso: un uso suelto con URL interna o repetido se rechaza sin tocar nada; sin nada que cambiar da 400; todo o nada', async () => {
+  const b = baseFalsa()
+  await conServidor(opc(b), async (pedir) => {
+    const orig = b.est.plantillas.get('d-01-v01').crudo; const act = iso(b, 'd-01-v01')
+    for (const mala of ['http://127.0.0.1/a.png', 'http://localhost:3002/a.png', 'javascript:alert(1)', 'https://x.co/a b.png']) assert.equal((await pedir('POST', '/masivo/aplicar', { confirmarInvalida: true, usos: [{ plantilla: 'd-01-v01', actualizado: act, indice: 1, url: mala }] })).estado, 400, mala)
+    assert.equal((await pedir('POST', '/masivo/aplicar', { usos: [{ plantilla: 'd-01-v01', actualizado: act, indice: 1, url: 'https://nuevo.co/a.png' }, { plantilla: 'd-01-v01', actualizado: act, indice: 1, url: 'https://nuevo.co/b.png' }] })).estado, 400)
+    assert.equal((await pedir('POST', '/masivo/aplicar', {})).estado, 400)
+    assert.equal((await pedir('POST', '/masivo/aplicar', { usos: [] })).estado, 400)
+    assert.equal(b.est.plantillas.get('d-01-v01').crudo, orig); assert.equal(b.est.historial.length, 0)
+    const b2 = baseFalsa({ fallaEn: 'e-01-v01' })
+    await conServidor(opc(b2), async (p2) => {
+      const o = b2.est.plantillas.get('d-01-v01').crudo
+      const r = await p2('POST', '/masivo/aplicar', { usos: ['d-01-v01', 'e-01-v01'].map((n) => ({ plantilla: n, actualizado: iso(b2, n), indice: 1, url: 'https://nuevo.co/n.png' })) })
+      assert.equal(r.estado, 500); assert.equal(b2.est.plantillas.get('d-01-v01').crudo, o); assert.equal(b2.est.historial.length, 0)
+    })
+  })
+})

@@ -21,3 +21,6 @@ Se importa como un flujo nuevo (Workflows → Import from file) y se activa. Su 
 - Las credenciales (Google Drive/Docs y OpenAI) y el subflujo «SUB: Ajuste de longitud de guiones (DIEPO)» se conservan por referencia: compruebe que
   los nodos las encuentren en su n8n.
 - En la plataforma, «Conexión n8n» muestra la dirección de guiones que se usa y permite cambiarla.
+
+## Versión con tu flujo actual (49 nodos)
+La base `unidad-a-guiones-original.json` es el flujo que pegaste (solo lectura). El parche ahora también: (1) hace que Generar guion, Corregir elemento individual y Adaptar a plantilla usen solo los extractos leídos; (2) termina cada actividad con una línea "Fuentes:" (referencia APA + sustento); (3) conserva esa línea al adaptar a la plantilla. Importar `n8n/unidad-a-guiones-con-bibliografia.json` (webhook `unidad-a-guiones-bibliografia`); el flujo original no se toca.

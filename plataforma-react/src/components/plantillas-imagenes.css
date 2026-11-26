@@ -160,3 +160,22 @@
 .pi-mas-prev.full .pl2-tit small{color:#b9c3ea}
 .pi-mas-prev.full .pl2-tit b,.pi-mas-prev.full .pl2-pos{color:#fff}
 .pi-mas-prev .pl2-pie{margin:8px 0 0;padding:0}
+
+/* Cambio masivo: cada uso por su cuenta */
+.pi-ver-usos{align-self:flex-start}
+.pi-usos{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.pi-usos li{display:flex;gap:10px;align-items:flex-start;padding:8px;border:1px solid var(--line);border-radius:10px;background:#fff}
+.pi-usos li.cambiada{border-color:#c9a227;background:color-mix(in srgb,#c9a227 7%,#fff)}
+.pi-usos .pi-mini{flex:none;width:56px;height:44px}
+.pi-usos li>div{flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:4px}
+.pi-usos .pi-url{height:32px;font-size:.78rem}
+.pi-uso-t{font-size:.82rem}
+.pi-uso-t span{color:var(--muted);margin-left:6px}
+.pi-conf-fila.excl{opacity:.5}
+.pi-conf-pt{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.pi-conf-pt small{color:var(--muted)}
+.pi-conf-pl li{display:flex;gap:8px;align-items:flex-start}
+.pi-conf-pl .pl2-n{flex:none;width:24px;height:24px;font-size:.72rem}
+.pi-conf-c{display:flex;flex-direction:column;min-width:0;font-size:.76rem}
+.pi-conf-c i{font-style:normal;color:var(--muted)}
+.pi-conf-c code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

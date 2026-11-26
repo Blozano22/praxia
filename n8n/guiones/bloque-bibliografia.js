@@ -10,16 +10,20 @@ const fuentesUnidad = recibidaGuion.fuentes.filter(f => !f.unidad || Number(f.un
 const sinTilde = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 const PALABRAS_VACIAS = new Set(['para', 'como', 'entre', 'sobre', 'desde', 'hasta', 'esta', 'este', 'estos', 'estas', 'cada', 'tema', 'temas', 'unidad', 'proceso', 'procesos', 'desarrollo', 'general', 'generales', 'basico', 'basica', 'aplicado', 'aplicada', 'donde', 'pero', 'tambien']);
 const clavesDeTema = txt => [...new Set(sinTilde(txt).split(/[^a-z0-9ñ]+/).filter(p => p.length > 3 && !PALABRAS_VACIAS.has(p)))];
-const MAX_PAGINAS_POR_FUENTE = 3;
-const MAX_CARACTERES_PAGINA = 900;
-const MAX_CARACTERES_TEMA = 14000;
+// La plataforma envía hasta 150 páginas de 2.500 caracteres por fuente: aquí se pasa al modelo la mayor parte posible de lo que
+// habla del tema (no solo 3 páginas). El presupuesto total se reparte entre las fuentes para que ninguna quede sin texto.
+const MAX_PAGINAS_POR_FUENTE = 12;
+const MAX_CARACTERES_PAGINA = 1800;
+const MAX_CARACTERES_TEMA = 40000;
 const sinAsteriscos = s => String(s || '').replace(/\*/g, '');
 
 const bibliografiaDelTema = (t) => {
   const ks = clavesDeTema(t.nombre + ' ' + JSON.stringify(t.subtemas || []));
-  let total = 0;
+  const presupuestoFuente = Math.floor(MAX_CARACTERES_TEMA / Math.max(1, fuentesUnidad.length));
   const entradas = fuentesUnidad.map(f => {
     const extractos = [];
+    let total = 0;
+    const todas = (f.paginas || []).map(p => ({ pagina: p.numero, texto: String(p.texto || ''), puntos: 0 }));
     const puntuadas = (f.paginas || []).map(p => {
       const txt = sinTilde(p.texto);
       let puntos = 0;
@@ -28,13 +32,20 @@ const bibliografiaDelTema = (t) => {
         while (i !== -1) { puntos++; i = txt.indexOf(k, i + k.length); }
       }
       return { pagina: p.numero, texto: String(p.texto || ''), puntos };
-    }).filter(p => p.puntos > 0).sort((a, b) => b.puntos - a.puntos || a.pagina - b.pagina).slice(0, MAX_PAGINAS_POR_FUENTE);
-    for (const p of puntuadas) {
+    }).filter(p => p.puntos > 0).sort((a, b) => b.puntos - a.puntos || a.pagina - b.pagina);
+    // Sin ninguna página que nombre el tema, se envían las primeras de la fuente: nunca se manda una fuente vacía.
+    // Primero las páginas que nombran el tema; si sobra presupuesto se completan con el resto de la fuente, para que el modelo
+    // siempre tenga material con qué llenar cada campo (nada debe quedar vacío por falta de texto).
+    const nombradas = new Set(puntuadas.map(p => p.pagina));
+    const resto = todas.filter(p => p.texto.trim() && !nombradas.has(p.pagina));
+    const elegidas = [...puntuadas, ...resto].slice(0, MAX_PAGINAS_POR_FUENTE);
+    for (const p of elegidas) {
       const recorte = p.texto.slice(0, MAX_CARACTERES_PAGINA);
-      if (total + recorte.length > MAX_CARACTERES_TEMA) break;
+      if (total + recorte.length > presupuestoFuente) break;
       total += recorte.length;
       extractos.push({ pagina: p.pagina, texto: recorte });
     }
+    extractos.sort((a, b) => a.pagina - b.pagina);
     return {
       id: f.id,
       tipo: f.categoria === 'complementaria' ? 'complementaria' : 'basica',

@@ -26,12 +26,14 @@ const CuerpoVista = z.object({ cambios: z.record(z.string().regex(/^\d{1,4}$/), 
 const CuerpoValidar = z.object({ urls: z.array(Url).min(1).max(60) }).strict()
 const MAX_PLANTILLAS_MASIVO = 300
 const CuerpoMasivo = z.object({
+  // por URL actual → nueva (todas las apariciones en las plantillas indicadas) y/o por USO suelto (plantilla + posición de la imagen dentro de ella)
+  usos: z.array(z.object({ plantilla: z.string().regex(/^[a-z0-9-]{1,80}$/), actualizado: z.string().max(40), indice: z.number().int().min(0).max(9999), url: Url }).strict()).max(600).optional(),
   reemplazos: z.array(z.object({
     anterior: Url, nueva: Url,
     plantillas: z.array(z.object({ nombre: z.string().regex(/^[a-z0-9-]{1,80}$/), actualizado: z.string().max(40) }).strict()).min(1).max(MAX_PLANTILLAS_MASIVO)
-  }).strict()).min(1).max(50),
+  }).strict()).max(50).default([]),
   confirmarInvalida: z.boolean().optional()
-}).strict()
+}).strict().refine((b) => b.reemplazos.length > 0 || (b.usos && b.usos.length > 0), { message: 'Nada que cambiar' })
 const CuerpoGuardar = z.object({
   base: z.string().regex(/^[0-9a-f]{20}$/),
   cambios: z.array(z.object({ indice: z.number().int().min(0).max(9999), url: Url }).strict()).min(1).max(MAX_CAMBIOS)
@@ -146,7 +148,7 @@ export function crearRutasImagenes({ antes = [exigirSesion, exigirPermiso(PERMIS
     const claves = new Map(filas.map((f) => [f.nombre, String(f.actualizado)]))
     for (const x of crudos.rows) {
       const im = escanearImagenes(x.html_crudo)
-      cacheEscaneo.set(x.nombre, { clave: claves.get(x.nombre), n: im.length, unicas: [...new Set(im.map((i) => i.url))], refs: im.map((i) => ({ url: i.url, lugar: i.lugar })) })
+      cacheEscaneo.set(x.nombre, { clave: claves.get(x.nombre), n: im.length, unicas: [...new Set(im.map((i) => i.url))], refs: im.map((i) => ({ url: i.url, lugar: i.lugar, indice: i.indice, contexto: (i.contexto || '').slice(0, 140) })) })
     }
   }
   const ordenLista = (a, b) => {
@@ -194,8 +196,8 @@ export function crearRutasImagenes({ antes = [exigirSesion, exigirPermiso(PERMIS
     for (const p of plantillas) {
       for (const ref of p.c.refs) {
         const u = porUrl.get(ref.url) || { url: ref.url, usos: new Map() }
-        const uso = u.usos.get(p.nombre) || { nombre: p.nombre, categoria: p.categoria ? { id: p.categoria.id, nombre: p.categoria.nombre } : null, lugares: new Set(), veces: 0 }
-        uso.lugares.add(ref.lugar); uso.veces++
+        const uso = u.usos.get(p.nombre) || { nombre: p.nombre, categoria: p.categoria ? { id: p.categoria.id, nombre: p.categoria.nombre } : null, lugares: new Set(), veces: 0, usos: [] }
+        uso.lugares.add(ref.lugar); uso.veces++; uso.usos.push({ indice: ref.indice, lugar: ref.lugar, contexto: ref.contexto })
         u.usos.set(p.nombre, uso); porUrl.set(ref.url, u)
       }
     }
@@ -229,22 +231,24 @@ export function crearRutasImagenes({ antes = [exigirSesion, exigirPermiso(PERMIS
   // (cambió «actualizado») se salta y se avisa, sin pisar su cambio.
   r.post('/masivo/aplicar', limite(10), validar(CuerpoMasivo, 'body'), envolver(async (req, res) => {
     const { reemplazos, confirmarInvalida } = req.bodyOk
+    const usos = req.bodyOk.usos || []
     const anteriores = new Set()
-    const porPlantilla = new Map() // nombre → { actualizado, mapa: Map(anterior → nueva) }
+    const porPlantilla = new Map() // nombre → { actualizado, mapa: Map(anterior → nueva), sueltos: Map(indice → nueva) }
+    const de = (nombre, actualizado) => { const x = porPlantilla.get(nombre) || { actualizado, mapa: new Map(), sueltos: new Map() }; porPlantilla.set(nombre, x); return x }
     for (const rp of reemplazos) {
       if (rp.anterior === rp.nueva) throw new ErrorHttp(400, 'La URL nueva es igual a la actual.')
       if (anteriores.has(rp.anterior)) throw new ErrorHttp(400, 'Una misma URL no puede reemplazarse dos veces en la misma petición.')
       anteriores.add(rp.anterior)
-      const motivo = revisarUrlImagen(rp.nueva)
-      if (motivo) throw new ErrorHttp(400, motivo)
-      for (const pl of rp.plantillas) {
-        const x = porPlantilla.get(pl.nombre) || { actualizado: pl.actualizado, mapa: new Map() }
-        x.mapa.set(rp.anterior, rp.nueva)
-        porPlantilla.set(pl.nombre, x)
-      }
+      for (const pl of rp.plantillas) de(pl.nombre, pl.actualizado).mapa.set(rp.anterior, rp.nueva)
     }
+    for (const u of usos) {
+      const x = de(u.plantilla, u.actualizado)
+      if (x.sueltos.has(u.indice)) throw new ErrorHttp(400, 'Una misma imagen no puede cambiarse dos veces en la misma petición.')
+      x.sueltos.set(u.indice, u.url)
+    }
+    const nuevas = [...new Set([...reemplazos.map((x) => x.nueva), ...usos.map((x) => x.url)])]
+    for (const u of nuevas) { const motivo = revisarUrlImagen(u); if (motivo) throw new ErrorHttp(400, motivo) }
     if (porPlantilla.size > MAX_PLANTILLAS_MASIVO) throw new ErrorHttp(400, 'Demasiadas plantillas en una sola petición (máximo ' + MAX_PLANTILLAS_MASIVO + ').')
-    const nuevas = [...new Set(reemplazos.map((x) => x.nueva))]
     for (const u of nuevas) {
       try { await destino(u) } catch (e) { if (!(e && /^(ENOTFOUND|EAI_AGAIN|ENODATA)$/.test(e.code || ''))) throw new ErrorHttp(400, String((e && e.message) || 'Dirección no permitida').slice(0, 160)) }
     }
@@ -262,25 +266,31 @@ export function crearRutasImagenes({ antes = [exigirSesion, exigirPermiso(PERMIS
       const saltadas = []
       for (const nombre of nombres) {
         const f = filas.get(nombre)
-        const { actualizado, mapa } = porPlantilla.get(nombre)
+        const { actualizado, mapa, sueltos } = porPlantilla.get(nombre)
         if (!f) { saltadas.push({ nombre, motivo: 'no_existe' }); continue }
         if (new Date(actualizado).getTime() !== new Date(f.actualizado).getTime()) { saltadas.push({ nombre, motivo: 'modificada' }); continue }
+        const imagenes = escanearImagenes(f.html_crudo)
         const pedido = {}
-        for (const i of escanearImagenes(f.html_crudo)) if (mapa.has(i.url)) pedido[i.indice] = mapa.get(i.url)
+        for (const i of imagenes) if (mapa.has(i.url)) pedido[i.indice] = mapa.get(i.url) // la regla por URL...
+        for (const [indice, url] of sueltos) { // ...y el uso suelto manda sobre ella
+          if (!imagenes.some((i) => i.indice === indice)) throw new ErrorHttp(409, nombre + ': la imagen ' + (indice + 1) + ' ya no está en la plantilla. Recargue la pantalla.')
+          pedido[indice] = url
+        }
         if (!Object.keys(pedido).length) { saltadas.push({ nombre, motivo: 'sin_cambios' }); continue }
-        const a = aplicarCambios(f.html_crudo, pedido)
+        const a = aplicarCambios(f.html_crudo, pedido) // solo cambia esas URL y comprueba que el resto quedó idéntico
         if (!a.ok) throw new ErrorHttp(400, nombre + ': ' + a.error)
+        if (!a.cambios.length) { saltadas.push({ nombre, motivo: 'sin_cambios' }); continue }
         const armada = armarSubida(a.html)
         if (!armada.ok) throw new ErrorHttp(422, nombre + ': ' + armada.error)
         await c.query(SQL.guardar, [nombre, a.html, armada.html])
         await c.query(SQL.historialCrear, [nombre, req.usuario.id, req.usuario.nombre, JSON.stringify(a.cambios.map((x) => ({ ...x, masivo: true })))])
         await c.query(SQL.validacionPodar, [nombre, escanearImagenes(a.html).map((i) => i.url)])
-        for (const u of new Set(Object.values(pedido))) { const x = val.get(u); await c.query(SQL.validacionPoner, [nombre, u, x.estado, x.detalle.slice(0, 300), req.usuario.nombre]) }
+        for (const u of new Set(a.cambios.map((x) => x.despues))) { const x = val.get(u); await c.query(SQL.validacionPoner, [nombre, u, x.estado, x.detalle.slice(0, 300), req.usuario.nombre]) }
         cambiadas.push({ nombre, imagenes: a.cambios.length })
       }
       return { cambiadas, saltadas }
     })
-    if (resultado.cambiadas.length) await auditar(req, 'plantilla_imagenes_masivo', resultado.cambiadas.length + ' plantillas, ' + reemplazos.length + ' URL')
+    if (resultado.cambiadas.length) await auditar(req, 'plantilla_imagenes_masivo', resultado.cambiadas.length + ' plantillas, ' + resultado.cambiadas.reduce((n, x) => n + x.imagenes, 0) + ' imágenes')
     res.json({ ok: true, ...resultado })
   }))
 
