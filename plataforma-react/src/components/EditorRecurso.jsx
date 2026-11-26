@@ -89,7 +89,13 @@ function ListaRecursos({ recursos, actualId, puedePublicar, sucio, onElegir, onA
     const por = lista.filter((r) => aprobable(r) && r.estado === 'POR_REVISAR')
     if (!por.length) return
     if (sucio && por.some((r) => r.id === actualId)) { setAviso({ tipo: 'warn', texto: 'Guarde o descarte los cambios del recurso abierto antes de aprobar la unidad.' }); return }
-    if (!(await confirmar({ titulo: '¿Aprobar y publicar la unidad?', texto: 'Se aprobarán y publicarán ' + por.length + (por.length === 1 ? ' recurso' : ' recursos') + ' de la Unidad ' + u + '.', textoConfirmar: 'Aprobar y publicar' }))) return
+    const conAlerta = por.filter((r) => r.alertaActividad)
+    if (conAlerta.length) {
+      const sinAlerta = por.length - conAlerta.length
+      const dec = await confirmar({ titulo: 'Hay recursos con alerta de actividad', texto: conAlerta.length + (conAlerta.length === 1 ? ' recurso tiene alerta de actividad: se publicará sin actividad.' : ' recursos tienen alerta de actividad: se publicarán sin actividad.') + '\nLos que tienen alerta: ' + conAlerta.map((r) => r.codigo || r.id).join(', ') + '.', tono: 'aviso', textoConfirmar: sinAlerta ? 'Aprobar solo los que no tienen alerta (' + sinAlerta + ')' : 'Aprobar todos', textoSecundario: sinAlerta ? 'Aprobar todos (' + por.length + ')' : undefined })
+      if (!dec) return
+      if (dec === true && sinAlerta) por.splice(0, por.length, ...por.filter((r) => !r.alertaActividad))
+    } else if (!(await confirmar({ titulo: '¿Aprobar y publicar la unidad?', texto: 'Se aprobarán y publicarán ' + por.length + (por.length === 1 ? ' recurso' : ' recursos') + ' de la Unidad ' + u + '.', textoConfirmar: 'Aprobar y publicar' }))) return
     setUnidadBusy(u); setAviso(null)
     let hechos = 0
     const fallos = []
@@ -302,7 +308,15 @@ export default function EditorRecurso({ proyecto, propietario, soloLectura = fal
   }
 
   // Aprobar y publicar: guarda lo editado, pide la publicación (el componente de arriba confirma si hay que reemplazar un archivo ya publicado) y cierra.
+  const puedePedirCorr = !!propietario && !actual.correccion
+  const [senalCorr, setSenalCorr] = useState(0)
+  const pedirCorr = () => setSenalCorr((n) => n + 1)
   const aprobarYPublicar = async () => {
+    if (actual.alertaActividad) {
+      const dec = await confirmar({ titulo: 'Este recurso tiene una alerta', texto: actual.alertaActividad + '\nSi lo aprueba ahora, se publicará sin actividad. Lo recomendable es pedir la corrección al docente.', tono: 'aviso', textoConfirmar: puedePedirCorr ? 'Pedir corrección al docente' : 'Aprobar de todas formas', textoSecundario: puedePedirCorr ? 'Aprobar de todas formas' : undefined })
+      if (!dec) return
+      if (dec === true && puedePedirCorr) { pedirCorr(); return }
+    }
     if (sucio && !(await guardar())) return
     setOcupado('aprobar'); setMsg(null)
     try { const hecho = await onAprobar(actual); if (hecho) setMsg({ tipo: 'ok', texto: 'Enviado a publicar. Puede seguir revisando otros recursos mientras se publica.' }) }
@@ -409,6 +423,7 @@ export default function EditorRecurso({ proyecto, propietario, soloLectura = fal
           </label>}
           {estado === 'listo' && puedePublicar && onAprobar && !actual.correccion && ['POR_REVISAR', 'GENERADO', 'ERROR'].includes(actual.estado) && <button type="button" className="er-b ok" onClick={aprobarYPublicar} disabled={!!ocupado || publicandoAhora} title="Aprobar este contenido: n8n arma el H5P y lo sube a Drive">{ocupado === 'aprobar' ? 'Enviando…' : publicandoAhora ? 'Publicando…' : actual.estado === 'GENERADO' ? 'Aprobar y volver a publicar' : 'Aprobar y publicar'}</button>}
           {estado === 'listo' && puedePublicar && onRegenerar && (['POR_REVISAR', 'GENERADO', 'ERROR'].includes(actual.estado) || actual.sinRespuesta) && <button type="button" className="er-b" onClick={regenerarEste} disabled={!!ocupado || publicandoAhora || !!regenerarBloqueado || (actual.correccion && actual.correccion.estado === 'abierta')} title="Crear de nuevo con la misma plantilla">{ocupado === 'regenerar' ? 'Regenerando…' : 'Regenerar'}</button>}
+          {estado === 'listo' && puedePedirCorr && !actual.alertaActividad && <button type="button" className="er-b" onClick={pedirCorr} disabled={!!ocupado} title="El problema depende del guion: se lo envía al docente y este recurso queda bloqueado hasta que lo resuelva">Pedir corrección al docente</button>}
           {estado === 'listo' && !soloLectura && <button type="button" className="er-b" onClick={guardar} disabled={!sucio || !!ocupado}>{ocupado === 'guardar' ? <><i className="er-gira" aria-hidden="true" />Guardando…</> : 'Guardar cambios'}</button>}
           {estado === 'listo' && <button type="button" className="er-b pri" onClick={descargar} disabled={!!ocupado}>{ocupado === 'h5p' ? <><i className="er-gira" aria-hidden="true" />Armando el H5P…</> : <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M4 20h16" /></svg>Descargar .h5p</>}</button>}
         </header>
@@ -420,8 +435,8 @@ export default function EditorRecurso({ proyecto, propietario, soloLectura = fal
         {publicandoAhora && <p className="er-msg info" role="status"><i className="er-gira" aria-hidden="true" /><span>Publicando en Drive. Este aviso se quita solo cuando n8n termina; puede seguir revisando otros recursos mientras tanto.</span></p>}
         {ocupado === 'h5p' && <p className="er-msg info" role="status"><i className="er-gira" aria-hidden="true" /><span>Armando el H5P con los cambios. Suele tardar unos 3 segundos; en algunos casos hasta 90. No cierre esta ventana.</span></p>}
 
-        {propietario && <PanelCorreccion proyecto={proyecto} propietario={propietario} recurso={actual} onCambio={onActualizar} />}
-        {actual.alertaActividad && <div className="er-alerta-act" role="alert"><b>Alerta de actividad</b><p>{actual.alertaActividad}</p><small>Corrija el guion o la tabla de tipos de actividad y use «Regenerar» en este recurso</small></div>}
+        {propietario && <PanelCorreccion proyecto={proyecto} propietario={propietario} recurso={actual} onCambio={onActualizar} senal={senalCorr} />}
+        {actual.alertaActividad && <div className="er-alerta-act" role="alert"><div className="er-alerta-tx"><b>Alerta de actividad</b><p>{actual.alertaActividad}</p><small>Corrija el guion o la tabla de tipos de actividad y use «Regenerar» en este recurso</small></div>{puedePedirCorr && <button type="button" className="er-alerta-btn" onClick={pedirCorr} title="El problema depende del guion: se lo envía al docente y este recurso queda bloqueado hasta que lo resuelva"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>Pedir corrección al docente</button>}</div>}
 
         {estado === 'listo' && partesDisp.length > 1 && (
           <div className="er-partes" role="tablist" aria-label="Partes del recurso">

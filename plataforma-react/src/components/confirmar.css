@@ -17,6 +17,8 @@
 .cf-sec:hover:not(:disabled){background:var(--tint,#f3f5f9)}
 .cf-pri{background:var(--cf-c);color:#fff}
 .cf-pri:hover:not(:disabled){filter:brightness(1.1)}
+.cf-peli{background:#fff;color:#b91c1c;border-color:#e3a3a3}
+.cf-peli:hover:not(:disabled){background:#fdecec}
 .cf-btn:focus-visible{outline:3px solid color-mix(in srgb,var(--cf-c) 45%,#fff);outline-offset:2px}
 @media (max-width:560px){.cf-caja{padding:22px 18px 18px}.cf-pie{flex-direction:column-reverse}.cf-btn{width:100%}}
 @keyframes cf-in{from{opacity:0}to{opacity:1}}

@@ -14,7 +14,7 @@ const FOCO = 'button:not([disabled]),[href],input:not([disabled]),select:not([di
 
 // Diálogo de confirmación. tono: 'normal' | 'aviso' (ámbar) | 'peligro' (rojo).
 // accion (opcional): función async que se ejecuta al confirmar; el diálogo queda abierto con «Enviando…» y muestra el error si falla.
-export default function Confirmar({ titulo, texto, items = [], icono, tono = 'normal', textoConfirmar = 'Aceptar', textoOcupado = 'Enviando…', textoCancelar = 'Cancelar', accion, onConfirmar, onCancelar }) {
+export default function Confirmar({ titulo, texto, items = [], icono, tono = 'normal', textoConfirmar = 'Aceptar', textoOcupado = 'Enviando…', textoCancelar = 'Cancelar', textoSecundario, accion, onConfirmar, onCancelar }) {
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState('')
   const caja = useRef(null)
@@ -62,6 +62,7 @@ export default function Confirmar({ titulo, texto, items = [], icono, tono = 'no
         {error && <div className="cf-error" role="alert">{error}</div>}
         <div className="cf-pie">
           <button type="button" className="cf-btn cf-sec" onClick={onCancelar} disabled={ocupado}>{textoCancelar}</button>
+          {textoSecundario && <button type="button" className="cf-btn cf-peli" onClick={() => onConfirmar('otro')} disabled={ocupado}>{textoSecundario}</button>}
           <button type="button" className="cf-btn cf-pri" ref={principal} onClick={aceptar} disabled={ocupado}>{ocupado ? textoOcupado : textoConfirmar}</button>
         </div>
       </div>
@@ -76,6 +77,6 @@ export function useConfirmar() {
   const res = useRef(null)
   const confirmar = useCallback((opts) => new Promise((resolver) => { res.current = resolver; setCfg(opts) }), [])
   const cerrar = (v) => { const r = res.current; res.current = null; setCfg(null); if (r) r(v) }
-  const dialogo = cfg ? <Confirmar {...cfg} onConfirmar={() => cerrar(true)} onCancelar={() => cerrar(false)} /> : null
+  const dialogo = cfg ? <Confirmar {...cfg} onConfirmar={(v) => cerrar(v === 'otro' ? 'otro' : true)} onCancelar={() => cerrar(false)} /> : null
   return [confirmar, dialogo]
 }

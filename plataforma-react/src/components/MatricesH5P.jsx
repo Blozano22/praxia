@@ -396,7 +396,13 @@ export default function MatricesH5P({ s, propietario, soloLectura = false }) {
     } catch (e) { setError(e.message || 'No se pudo regenerar el curso.') }
   }
   const regenerarDesdeFila = async (r) => { try { await regenerarRecurso(r) } catch (e) { setError(e.message || 'No se pudo regenerar el recurso.') } }
-  const aprobarDesdeFila = async (r) => { try { await aprobarRecurso(r) } catch (e) { setError(e.message || 'No se pudo aprobar el recurso.') } }
+  const aprobarDesdeFila = async (r) => {
+    if (r.alertaActividad) {
+      const dec = await confirmar({ titulo: 'Este recurso tiene una alerta', texto: r.alertaActividad + '\nSi lo aprueba ahora, se publicará sin actividad. Lo recomendable es pedir la corrección al docente.', tono: 'aviso', textoConfirmar: 'Abrir el recurso para pedir corrección', textoSecundario: 'Aprobar de todas formas' })
+      if (!dec) return
+      if (dec === true) { setEditando(r); return }
+    }
+    try { await aprobarRecurso(r) } catch (e) { setError(e.message || 'No se pudo aprobar el recurso.') } }
   const [editando, setEditando] = useState(null) // recurso abierto en el editor de textos
   const [lanzadoEn, setLanzadoEn] = useState(0) // hasta que n8n avise del inicio pasan unos segundos: mientras tanto se sigue refrescando
 

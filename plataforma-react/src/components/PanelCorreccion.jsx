@@ -4,13 +4,16 @@ import { api } from '../lib/api.js'
 // Fase 4: correcciones del guion que el diseñador le pide al docente, por recurso. Aquí el diseñador pide, conversa, cierra o reabre.
 export const textoCorreccion = (c) => (c ? (c.estado === 'abierta' ? 'Corrección pedida' : 'Corregido por el docente: regenere el recurso') : '')
 
-export default function PanelCorreccion({ proyecto, propietario, recurso, onCambio }) {
+export default function PanelCorreccion({ proyecto, propietario, recurso, onCambio, senal = 0 }) {
   const corr = recurso.correccion || null
   const [hilo, setHilo] = useState(null)
   const [texto, setTexto] = useState('')
   const [pidiendo, setPidiendo] = useState(false)
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState('')
+
+  // `senal`: el padre la incrementa para abrir el formulario (los botones de pedir viven en la cabecera y en el aviso de alerta).
+  useEffect(() => { if (senal > 0) { setTexto(recurso.alertaActividad || ''); setPidiendo(true) } }, [senal])
 
   const cargar = useCallback(async () => {
     if (!corr) { setHilo(null); return }
@@ -33,9 +36,9 @@ export default function PanelCorreccion({ proyecto, propietario, recurso, onCamb
   const reabrir = () => hacer(() => api('POST', '/diseno/correcciones/' + corr.id + '/reabrir', { mensaje: texto.trim() }))
 
   if (!corr) {
+    if (!pidiendo && !error) return null
     return (
       <div className="er-corr">
-        {!pidiendo && <button type="button" className="er-b" onClick={() => { setTexto(recurso.alertaActividad || ''); setPidiendo(true) }} title="El problema depende del guion: se lo envía al docente y este recurso queda bloqueado hasta que lo resuelva">Pedir corrección al docente</button>}
         {pidiendo && (
           <div className="er-corr-form" role="dialog" aria-label="Pedir corrección al docente">
             <b>Pedir corrección al docente</b>
