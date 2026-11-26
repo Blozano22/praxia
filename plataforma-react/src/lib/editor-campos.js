@@ -186,13 +186,34 @@
     for (var i = 0; i < est.imagenes.length; i++) if (u.indexOf(est.imagenes[i]) >= 0 || u.indexOf(sinEsc(est.imagenes[i])) >= 0) return est.imagenes[i];
     return null;
   }
+  // Contenedor de imagen de la plantilla (aunque su <img> esté oculto por un error de carga): el clic sigue valiendo.
+  function esFigura(el) {
+    if (!est.imagenes.length || !el || el.nodeType !== 1 || !el.closest) return null;
+    return el.closest('figure[data-imagen-ejemplo], figure.sin-imagen, figure.figura, .figura-vacia, .figura-marca') ? (el.closest('figure') || el.closest('.figura-vacia, .figura-marca')) : null;
+  }
   function imagenEn(e) {
     var pila = document.elementsFromPoint ? document.elementsFromPoint(e.clientX, e.clientY) : [e.target];
     for (var i = 0; i < pila.length; i++) {
       if (pila[i].closest && pila[i].closest('#praxia-editor-caja')) return null;
       var u = esImagen(pila[i]); if (u) return { el: pila[i], url: u };
+      var f = esFigura(pila[i]); if (f) return { el: f, url: est.imagenes[0] };
     }
     return null;
+  }
+  // Diagnóstico: qué imágenes de la plantilla cargaron (items vacío = la plantilla no muestra imagen).
+  function reportarImagenes() {
+    try {
+      var items = [], vistos = [];
+      var lista = document.querySelectorAll('figure img, [data-imagen-ejemplo] img');
+      for (var i = 0; i < lista.length; i++) {
+        var im = lista[i]; if (vistos.indexOf(im) >= 0) continue; vistos.push(im);
+        var fig = im.closest && im.closest('figure');
+        var ok = !!(im.complete && im.naturalWidth > 0);
+        var error = !!((fig && fig.classList.contains('sin-imagen')) || (im.complete && im.naturalWidth === 0));
+        items.push({ src: String(im.currentSrc || im.src || im.getAttribute('src') || '').slice(0, 500), ok: ok, error: error && !ok });
+      }
+      emitir({ tipo: 'imagenes_estado', items: items });
+    } catch (e) { emitir({ tipo: 'imagenes_estado', items: [] }); }
   }
   function alMover(e) {
     if (!est.activo || est.elemento) return;
@@ -232,6 +253,8 @@
       global.addEventListener('resize', alDesplazar);
       global.addEventListener('message', alMensaje);
       est.listo = true;
+      var rep = function () { reportarImagenes(); setTimeout(reportarImagenes, 2000); setTimeout(reportarImagenes, 6000); };
+      if (document.readyState === 'complete') rep(); else global.addEventListener('load', rep);
     }
     modo(op.activo === true);
     emitir({ tipo: 'listo', campos: listaCampos() });

@@ -132,12 +132,13 @@ rutas.get('/proyectos/:id/pipeline', exigirSesion, exigirPermiso('proyectos.ver_
 
 // Cambia la imagen (URL https) de un recurso del curso; solo la persona dueña del curso. Una cadena vacía la quita.
 rutas.put('/proyectos/:id/pipeline/recursos/imagen', exigirSesion, exigirPermiso('proyectos.crear'), validar(z.object({ id: IdProyecto }), 'params'),
-  validar(z.object({ recursoId: z.string().min(1).max(100), imagenUrl: z.string().max(500).refine((v) => v === '' || esUrlImagen(v), 'La imagen debe ser un enlace https sin espacios ni comillas.') }), 'body'),
+  validar(z.object({ recursoId: z.string().min(1).max(100), imagenUrl: z.string().max(500).refine((v) => v === '' || esUrlImagen(v), 'La imagen debe ser un enlace https sin espacios ni comillas.'), parte: z.enum(['recurso', 'actividad']).optional() }), 'body'),
   async (req, res, next) => {
     try {
-      const { recursoId, imagenUrl } = req.bodyOk
-      const r = await sinUsuario(Q.pipeRecursoImagen, [req.usuario.id, req.paramsOk.id, recursoId, imagenUrl || null])
-      if (!r.rows.length) return res.status(404).json({ error: 'No se encontró ese recurso en el curso.' })
+      const { recursoId, imagenUrl, parte } = req.bodyOk
+      const actividad = parte === 'actividad'
+      const r = await sinUsuario(actividad ? Q.pipeActividadImagen : Q.pipeRecursoImagen, [req.usuario.id, req.paramsOk.id, recursoId, imagenUrl || null])
+      if (!r.rows.length) return res.status(404).json({ error: actividad ? 'Ese recurso no tiene actividad en el curso.' : 'No se encontró ese recurso en el curso.' })
       res.json(r.rows[0])
     } catch (err) { next(err) }
   })

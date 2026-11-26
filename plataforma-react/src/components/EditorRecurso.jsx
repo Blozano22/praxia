@@ -34,6 +34,7 @@ function armarPagina(esqueleto, contenido, titulo, formacion, activo, imagenUrl)
   const usar = esUrlImagen(imagenUrl) ? imagenUrl : ''
   if (usar && original !== undefined) h = h.replace(RE_IMG, (_m, pre) => pre + JSON.stringify(usar))
   const imagenes = [usar, original].filter((u) => u)
+  if (usar && original !== undefined) { const est = '<style>.figura-marca{display:none !important}</style>'; h = /<\/head>/i.test(h) ? h.replace(/<\/head>/i,() => est + '</head>') : est + h } // con imagen reemplazada no se muestra el rótulo «Imagen de ejemplo»
   if (marca) h = /<head[^>]*>/i.test(h) ? h.replace(/<head[^>]*>/i, (m) => m + marca) : marca + h
   const editor = '<script>' + codigoEditor + '</script><script>PraxiaEditor.iniciar({ contenido: ' + json(contenido) + ', activo: ' + (activo ? 'true' : 'false') + ', imagenes: ' + json(imagenes) + ' })</script>'
   return /<\/body>/i.test(h) ? h.replace(/<\/body>/i, () => editor + '</body>') : h + editor
@@ -188,6 +189,7 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
   const marco = useRef(null)
   const imgUrlRef = useRef('') // imagen guardada del recurso (la vista previa la usa en lugar de IMAGEN_EJEMPLO)
   const pintadaImg = useRef('')
+  const [imgEstado, setImgEstado] = useState(null) // items que reporta la vista previa sobre la carga de sus imágenes (null = aún sin reporte)
   const [dlgImg, setDlgImg] = useState(null) // null = cerrado; texto = enlace que se está escribiendo
   const ruta = '/proyectos/' + encodeURIComponent(proyecto) + '/pipeline/recursos/' + encodeURIComponent(recurso.id) + '/contenido'
 
@@ -196,6 +198,7 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
     const p = r.partes[r.parte]
     const url = r.parte === 'recurso' ? imgUrlRef.current : p.imagenUrl
     pintadaImg.current = imgUrlRef.current
+    setImgEstado(null)
     setPagina(armarPagina(p.esqueleto, p.contenido, p.titulo, r.formacion, activoAhora, url))
   }, [])
 
@@ -244,9 +247,12 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
         ref.current.sucias.add(ref.current.parte)
         setSucio(true); setMsg(null)
         if (!d.parchado) pintar(ref.current.activo) // el texto no se pudo cambiar en pantalla: se vuelve a pintar con el JSON nuevo
+      } else if (d.tipo === 'imagenes_estado') {
+        setImgEstado(Array.isArray(d.items) ? d.items.slice(0, 20).map((x) => ({ src: String((x && x.src) || ''), ok: !!(x && x.ok), error: !!(x && x.error) })) : [])
       } else if (d.tipo === 'imagen_clic') {
-        if (ref.current.parte !== 'recurso') setMsg({ tipo: 'warn', texto: 'El enlace de la imagen se cambia desde la parte «Recurso».' })
-        else setDlgImg(imgUrlRef.current || '')
+        const p = ref.current.parte
+        if (p === 'bibliografia') setMsg({ tipo: 'warn', texto: 'La bibliografía no tiene imagen que cambiar.' })
+        else setDlgImg(p === 'actividad' ? (ref.current.partes.actividad.imagenUrl || '') : imgUrlRef.current || '')
       } else if (d.tipo === 'sin_campo') setMsg({ tipo: 'warn', texto: 'Ese texto no viene de un campo que se pueda editar por clic.' })
     }
     window.addEventListener('message', alMensaje)
@@ -351,8 +357,8 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
     const v = (valor || '').trim()
     setOcupado('imagen'); setMsg(null)
     try {
-      await api('PUT', '/proyectos/' + encodeURIComponent(proyecto) + '/pipeline/recursos/imagen', { recursoId: actual.id, imagenUrl: v })
-      setImgGuardada((g) => ({ ...g, [actual.id]: v })); setDlgImg(null); setMsg({ tipo: 'ok', texto: v ? 'Imagen guardada. Se usará al publicar.' : 'Imagen quitada.' })
+      await api('PUT', '/proyectos/' + encodeURIComponent(proyecto) + '/pipeline/recursos/imagen', { recursoId: actual.id, imagenUrl: v, parte: ref.current.parte === 'actividad' ? 'actividad' : 'recurso' })
+      if (ref.current.parte === 'actividad') { ref.current.partes.actividad.imagenUrl = v; pintar(ref.current.activo) } else setImgGuardada((g) => ({ ...g, [actual.id]: v })); setDlgImg(null); setMsg({ tipo: 'ok', texto: v ? 'Imagen guardada. Se usará al publicar.' : 'Imagen quitada.' })
     } catch (e) { setMsg({ tipo: 'bad', texto: e.message || 'No se pudo guardar la imagen.' }) }
     finally { setOcupado('') }
   }
@@ -375,7 +381,13 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
         <header className="er-cab">
           <button type="button" className="er-volver" onClick={cerrar} aria-label="Volver a Matrices y H5P"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" /></svg>Volver</button>
           {recursos.length > 0 && <button type="button" className={'er-navbtn' + (navAbierta ? ' on' : '')} aria-expanded={navAbierta} onClick={() => setNavAbierta(!navAbierta)}><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10" /></svg>Recursos</button>}
-          <div className="er-tt"><b>{recurso.codigo || recurso.id}</b><span>{recurso.titulo || 'Sin título'}</span>{actual.consumo && <small className="er-cons" title="Consumo de la generación de este recurso">{miles(tokensDe(actual.consumo))} tokens · {imagenesDe(actual.consumo)} img · {usd(costoDe(actual.consumo))}{actual.consumo.costo_parcial ? ' (parcial)' : ''}</small>}</div>
+          <div className="er-tt"><b>{recurso.codigo || recurso.id}</b><span>{recurso.titulo || 'Sin título'}</span>{estado === 'listo' && imgEstado && (() => {
+            const ok = imgEstado.some((x) => x.ok), mal = imgEstado.filter((x) => x.error)
+            if (!imgEstado.length) return <small className="er-cons" style={{ color: '#6b7280' }}>Esta plantilla no muestra imagen</small>
+            if (ok) return <small className="er-cons" style={{ color: '#15803d' }}>Imagen: cargó</small>
+            if (mal.length) { const u = mal[0].src; return <small className="er-cons" style={{ color: '#b45309' }} title={u}>Imagen: no cargó — haga clic en la imagen para revisar el enlace ({u.length > 60 ? u.slice(0, 57) + '…' : u})</small> }
+            return null
+          })()}{actual.consumo && <small className="er-cons" title="Consumo de la generación de este recurso">{miles(tokensDe(actual.consumo))} tokens · {imagenesDe(actual.consumo)} img · {usd(costoDe(actual.consumo))}{actual.consumo.costo_parcial ? ' (parcial)' : ''}</small>}</div>
           {estado === 'listo' && <label className={'er-modo' + (activo ? ' on' : '')} title="Con esto activo, un clic en cualquier texto del recurso lo abre para editarlo">
             <input type="checkbox" checked={activo} onChange={(e) => cambiarModo(e.target.checked)} />
             <i className="er-sw" aria-hidden="true" />

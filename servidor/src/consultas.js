@@ -257,6 +257,12 @@ export const Q = Object.freeze({
     UPDATE pipeline_recursos SET imagen_url = $4
      WHERE propietario_id = $1 AND proyecto_id = $2 AND id = $3
     RETURNING id, imagen_url AS "imagenUrl"`,
+  // Imagen de la actividad (dentro del JSON de la fila); NULL quita la clave. Solo si la fila tiene actividad.
+  pipeActividadImagen: `
+    UPDATE pipeline_recursos
+       SET actividad = CASE WHEN $4::text IS NULL THEN actividad - 'imagen_url' ELSE jsonb_set(actividad, '{imagen_url}', to_jsonb($4::text)) END
+     WHERE propietario_id = $1 AND proyecto_id = $2 AND id = $3 AND actividad IS NOT NULL
+    RETURNING id, actividad->>'imagen_url' AS "imagenUrl"`,
   actividadTiposListar: `SELECT tipo_normalizado, categoria, nombre FROM actividad_tipos ORDER BY categoria, tipo_normalizado`,
   actividadTiposBorrarTodo: `DELETE FROM actividad_tipos`,
   actividadTipoBorrar: `DELETE FROM actividad_tipos WHERE tipo_normalizado = $1`,

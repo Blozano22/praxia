@@ -594,9 +594,20 @@ test('partes del recurso (actividad y bibliografía): guardado con COALESCE, par
   assert.equal(mal.estado, 200); assert.equal(mal.datos.aplicados, 1)
   let f = (await una('ana', 'pipeline_recursos', "id = 'pt1'"))[0]
   assert.equal(f.tipo_actividad, 'Quiz'); assert.equal(f.actividad, null); assert.equal(f.bibliografia, null)
+  const rutaImg = '/proyectos/curso-a/pipeline/recursos/imagen'
+  assert.equal((await ana(rutaImg, 'PUT', { recursoId: 'pt1', imagenUrl: 'https://x.co/n.png', parte: 'actividad' })).status, 404) // sin actividad
   // las 4 columnas se guardan
   assert.equal((await enviar(h(2, { actividad_guion: GUION, actividad: ACT, bibliografia: { ...BIB, contenido: JSON.stringify(BIB.contenido) } }))).datos.aplicados, 1)
   f = (await una('ana', 'pipeline_recursos', "id = 'pt1'"))[0]
+  const NUEVA = 'https://x.co/nueva.png'
+  assert.equal((await ana(rutaImg, 'PUT', { recursoId: 'pt1', imagenUrl: NUEVA, parte: 'actividad' })).status, 200)
+  assert.equal((await una('ana', 'pipeline_recursos', "id = 'pt1'"))[0].actividad.imagen_url, NUEVA)
+  assert.equal((await una('ana', 'pipeline_recursos', "id = 'pt1'"))[0].actividad.plantilla, 'act-quiz-v01')
+  assert.equal((await ana(rutaImg, 'PUT', { recursoId: 'pt1', imagenUrl: NUEVA, parte: 'otra' })).status, 400)
+  assert.equal((await beto(rutaImg, 'PUT', { recursoId: 'pt1', imagenUrl: NUEVA, parte: 'actividad' })).status, 404)
+  assert.equal((await ana(rutaImg, 'PUT', { recursoId: 'pt1', imagenUrl: '', parte: 'actividad' })).status, 200)
+  assert.equal('imagen_url' in (await una('ana', 'pipeline_recursos', "id = 'pt1'"))[0].actividad, false)
+  await ana(rutaImg, 'PUT', { recursoId: 'pt1', imagenUrl: 'https://x.co/a.png', parte: 'actividad' })
   assert.deepEqual(f.actividad_guion, GUION); assert.deepEqual(f.actividad, ACT); assert.deepEqual(f.bibliografia, BIB)
   // un aviso posterior sin esos campos no los borra
   assert.equal((await enviar(h(3, { estado: 'GENERADO' }))).datos.aplicados, 1)
