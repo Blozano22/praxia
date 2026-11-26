@@ -36,7 +36,7 @@ before(async () => {
   const dueno = new pg.Client({ connectionString: `postgres://postgres:duenio@localhost:${PUERTO_PG}/ova` })
   await dueno.connect()
   await dueno.query("CREATE ROLE ova_app LOGIN PASSWORD 'appclave' NOSUPERUSER NOBYPASSRLS")
-  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql', '014_tipo_bibliografia.sql', '015_imagen_consumo_recurso.sql', '017_partes_recurso.sql', '018_estado_previo.sql', '019_actividad_tipos.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
+  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql', '014_tipo_bibliografia.sql', '015_imagen_consumo_recurso.sql', '017_partes_recurso.sql', '018_estado_previo.sql', '019_actividad_tipos.sql', '020_alerta_actividad.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
   await dueno.end()
   process.env.DATABASE_URL = `postgres://ova_app:appclave@localhost:${PUERTO_PG}/ova`
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex')
@@ -672,4 +672,25 @@ test('regenerar ignorado por n8n: la fila vuelve a su estado previo con observac
   assert.equal(lect.find((x) => x.codigo === 'U7-ra').vencida, true); assert.equal(lect.find((x) => x.codigo === 'U7-re').vencida, false)
   await pool.query(Q.pipeRegenerarMarcar, [ids.ana, 'curso-a', ['ra', 'rb', 'rc', 're']])
   assert.deepEqual(await Promise.all(['ra', 'rb', 'rc', 're'].map(async (i) => (await est(i)).estado_previo)), ['POR_REVISAR', 'GENERADO', 'ERROR', null])
+})
+
+test('alerta_actividad: el aviso con el campo manda (vacío limpia), sin el campo se conserva, una actividad nueva por revisar la limpia, y un valor no válido se ignora', async () => {
+  const { Q } = await import('../src/consultas.js')
+  const h = (estado, seg, extra = {}) => aviso('h5p_recurso', 'h5p', { ejecucion_id: 'al', unidad: 1, id: 'al1', estado, ...extra }, seg)
+  const alerta = async () => (await una('ana', 'pipeline_recursos', 'id = $2', ['al1']))[0].alerta_actividad
+  const TXT = 'ALERTA actividad sin asignar: el tipo «X» del guion no coincide; corríjalo y regenere el recurso'
+  assert.equal((await enviar(h('POR_REVISAR', 600, { alerta_actividad: TXT }))).estado, 200)
+  assert.equal(await alerta(), TXT)
+  await enviar(h('EN_PROCESO', 601)) // sin el campo: se conserva
+  assert.equal(await alerta(), TXT)
+  const lect = (await pool.query(Q.pipeLeerRecursos, [ids.ana, 'curso-a'])).rows.find((x) => x.id === 'al1')
+  assert.equal(lect.alertaActividad, TXT)
+  await enviar(h('POR_REVISAR', 602, { alerta_actividad: '' })) // vacío: sin alerta
+  assert.equal(await alerta(), null)
+  await enviar(h('POR_REVISAR', 603, { alerta_actividad: TXT }))
+  await enviar(h('POR_REVISAR', 604, { actividad: { plantilla: 'act-v01', contenido: { titulo: 'Act' } } })) // actividad nueva sin el campo: la limpia
+  assert.equal(await alerta(), null)
+  await enviar(h('GENERADO', 605, { alerta_actividad: TXT }))
+  assert.equal((await enviar(h('GENERADO', 606, { alerta_actividad: 42 }))).estado, 200) // no es texto: se ignora, el aviso se acepta
+  assert.equal(await alerta(), TXT) // y como si no viniera: se conserva
 })

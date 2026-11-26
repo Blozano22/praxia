@@ -147,7 +147,7 @@ function ListaRecursos({ recursos, actualId, puedePublicar, sucio, onElegir, onA
                       <li key={r.id} className={'er-rec ' + k + (r.id === actualId ? ' on' : '')}>
                         <button type="button" className="er-rec-btn" disabled={!r.conContenido && r.id !== actualId} aria-current={r.id === actualId ? 'true' : undefined} onClick={() => onElegir(r)}>
                           <span className={'er-rec-ic ' + k} aria-hidden="true">{k === 'en' ? <i className="er-gira" /> : k === 'ok' ? '✓' : k === 'er' ? '!' : ''}</span>
-                          <span className="er-rec-tx"><b>{r.codigo || r.id}</b><small>{r.titulo || 'Sin título'}</small>{(r.tieneActividad || r.tieneBibliografia) && <small className="er-rec-partes">{[r.tieneActividad && 'Con actividad', r.tieneBibliografia && 'Con bibliografía'].filter(Boolean).join(' · ')}</small>}</span>
+                          <span className="er-rec-tx"><b>{r.codigo || r.id}</b><small>{r.titulo || 'Sin título'}</small>{(r.tieneActividad || r.tieneBibliografia) && <small className="er-rec-partes">{[r.tieneActividad && 'Con actividad', r.tieneBibliografia && 'Con bibliografía'].filter(Boolean).join(' · ')}</small>}{r.alertaActividad && <small className="er-rec-alerta" title={r.alertaActividad}>Alerta de actividad</small>}</span>
                           <span className={'er-rec-et ' + k}>{pub ? 'Publicando…' : sin ? 'Sin avisos' : r.enCola ? (r.regenera ? 'Se regenerará' : 'En cola') : TEXTO_ESTADO[r.estado] || r.estado}</span>
                         </button>
                         {aprobable(r) && (
@@ -393,6 +393,8 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
         {msg && <p className={'er-msg ' + msg.tipo} role="status"><i className="er-msg-ic" aria-hidden="true">{msg.tipo === 'ok' ? '✓' : msg.tipo === 'bad' ? '!' : '!'}</i><span>{msg.texto}</span></p>}
         {publicandoAhora && <p className="er-msg info" role="status"><i className="er-gira" aria-hidden="true" /><span>Publicando en Drive. Este aviso se quita solo cuando n8n termina; puede seguir revisando otros recursos mientras tanto.</span></p>}
         {ocupado === 'h5p' && <p className="er-msg info" role="status"><i className="er-gira" aria-hidden="true" /><span>Armando el H5P con los cambios. Suele tardar unos 3 segundos; en algunos casos hasta 90. No cierre esta ventana.</span></p>}
+
+        {actual.alertaActividad && <div className="er-alerta-act" role="alert"><b>Alerta de actividad</b><p>{actual.alertaActividad}</p><small>Corrija el guion o la tabla de tipos de actividad y use «Regenerar» en este recurso</small></div>}
 
         {estado === 'listo' && partesDisp.length > 1 && (
           <div className="er-partes" role="tablist" aria-label="Partes del recurso">

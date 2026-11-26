@@ -367,3 +367,5 @@ button.mx3-fase.bloq{cursor:not-allowed;opacity:.75}
 .mx4-lista .mx4-r.hija:not(:last-child):after{content:"";position:absolute;left:26px;top:50%;bottom:0;border-left:2px solid #c9d3e3;pointer-events:none}
 .mx4-lista .mx4-r.hija .mx4-nota{margin-left:34px}
 @media(max-width:700px){.mx4-lista .mx4-r.hija{padding-left:30px}.mx4-lista .mx4-r.hija:before,.mx4-lista .mx4-r.hija:not(:last-child):after{left:14px}.mx4-lista .mx4-r.hija:before{width:10px}}
+
+.mx4-alerta{padding:1px 8px;border-radius:99px;background:#fff1cf;color:#8a5a00;font-weight:700;font-size:.72rem;white-space:nowrap}

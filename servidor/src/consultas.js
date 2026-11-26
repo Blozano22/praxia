@@ -212,8 +212,8 @@ export const Q = Object.freeze({
     WHERE (pipeline_matrices.actualizado_en, pipeline_matrices.secuencia) <= (EXCLUDED.actualizado_en, EXCLUDED.secuencia)
     RETURNING unidad`,
   pipeRecursoGuardar: `
-    INSERT INTO pipeline_recursos (propietario_id, proyecto_id, id, unidad, id_base, variante, alcance, tema, codigo, formato, titulo, con_actividad, generador, estado, observaciones, enlace_guion, enlace_recurso, omision, actualizado_en, secuencia, plantilla, contenido, revision_pendiente, imagen_url, consumo, tipo_actividad, actividad_guion, actividad, bibliografia)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22::jsonb, $23, $24, $25::jsonb, $26, $27::jsonb, $28::jsonb, $29::jsonb)
+    INSERT INTO pipeline_recursos (propietario_id, proyecto_id, id, unidad, id_base, variante, alcance, tema, codigo, formato, titulo, con_actividad, generador, estado, observaciones, enlace_guion, enlace_recurso, omision, actualizado_en, secuencia, plantilla, contenido, revision_pendiente, imagen_url, consumo, tipo_actividad, actividad_guion, actividad, bibliografia, alerta_actividad)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22::jsonb, $23, $24, $25::jsonb, $26, $27::jsonb, $28::jsonb, $29::jsonb, nullif($30::text, ''))
     ON CONFLICT (propietario_id, proyecto_id, id) DO UPDATE SET
       unidad = coalesce(EXCLUDED.unidad, pipeline_recursos.unidad),
       id_base = coalesce(EXCLUDED.id_base, pipeline_recursos.id_base),
@@ -244,6 +244,10 @@ export const Q = Object.freeze({
       actividad_editado_en = CASE WHEN EXCLUDED.actividad IS NOT NULL THEN NULL ELSE pipeline_recursos.actividad_editado_en END,
       bibliografia = coalesce(EXCLUDED.bibliografia, pipeline_recursos.bibliografia),
       bibliografia_editado_en = CASE WHEN EXCLUDED.bibliografia IS NOT NULL THEN NULL ELSE pipeline_recursos.bibliografia_editado_en END,
+      -- «el aviso manda»: h5p_recurso final con el campo lo fija (vacío = sin alerta); sin el campo se conserva, salvo que llegue una actividad nueva por revisar
+      alerta_actividad = CASE WHEN EXCLUDED.estado IN ('POR_REVISAR', 'GENERADO', 'ERROR') AND $30::text IS NOT NULL THEN nullif($30::text, '')
+                              WHEN EXCLUDED.estado = 'POR_REVISAR' AND EXCLUDED.actividad IS NOT NULL THEN NULL
+                              ELSE pipeline_recursos.alerta_actividad END,
       actualizado_en = EXCLUDED.actualizado_en,
       secuencia = EXCLUDED.secuencia
     WHERE (pipeline_recursos.actualizado_en, pipeline_recursos.secuencia) <= (EXCLUDED.actualizado_en, EXCLUDED.secuencia)
@@ -277,7 +281,7 @@ export const Q = Object.freeze({
   pipeLeerRecursos: `
     SELECT id, unidad, tema, codigo, formato, titulo, generador, estado, observaciones, enlace_guion AS "enlaceGuion",
            enlace_recurso AS "enlaceRecurso", omision, plantilla, imagen_url AS "imagenUrl", consumo, (to_jsonb(r) -> 'contenido') IS NOT NULL AND (to_jsonb(r) -> 'contenido') <> 'null'::jsonb AS "conContenido",
-           tipo_actividad AS "tipoActividad", actividad_guion AS "actividadGuion", actividad IS NOT NULL AS "tieneActividad", bibliografia IS NOT NULL AS "tieneBibliografia",
+           tipo_actividad AS "tipoActividad", actividad_guion AS "actividadGuion", actividad IS NOT NULL AS "tieneActividad", alerta_actividad AS "alertaActividad", bibliografia IS NOT NULL AS "tieneBibliografia",
            (to_jsonb(r) ->> 'aprobado_en')::timestamptz AS "aprobadoEn",
            COALESCE((to_jsonb(r) ->> 'aprobado_en')::timestamptz > actualizado_en, false) AS publicando,
            COALESCE((to_jsonb(r) ->> 'aprobado_en')::timestamptz > actualizado_en AND (to_jsonb(r) ->> 'aprobado_en')::timestamptz < now() - interval '15 minutes', false) AS "publicandoSinRespuesta", (to_jsonb(r) ->> 'revision_pendiente')::int AS "revisionPendiente", actualizado_en AS "actualizadoEn",
@@ -289,7 +293,7 @@ export const Q = Object.freeze({
     SELECT id, codigo, titulo, plantilla, estado, enlace_recurso AS "enlaceRecurso", to_jsonb(r) -> 'contenido' AS contenido, actualizado_en AS "actualizadoEn",
            to_jsonb(r) ->> 'contenido_editado_en' AS "editadoEn",
            tipo_actividad AS "tipoActividad", actividad_guion AS "actividadGuion", actividad, bibliografia,
-           actividad_editado_en AS "actividadEditadoEn", bibliografia_editado_en AS "bibliografiaEditadoEn", (SELECT s.formacion FROM plantilla_subidas s WHERE s.nombre = r.plantilla) AS formacion
+           alerta_actividad AS "alertaActividad", actividad_editado_en AS "actividadEditadoEn", bibliografia_editado_en AS "bibliografiaEditadoEn", (SELECT s.formacion FROM plantilla_subidas s WHERE s.nombre = r.plantilla) AS formacion
       FROM pipeline_recursos r WHERE propietario_id = $1 AND proyecto_id = $2 AND id = $3`,
   // Guarda el contenido editado a mano (solo si el recurso ya tenía contenido). No toca actualizado_en/secuencia: eso es del orden de los avisos de n8n.
   pipeContenidoGuardar: `

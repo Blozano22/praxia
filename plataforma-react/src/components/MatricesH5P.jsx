@@ -156,6 +156,7 @@ function Fila({ r, editar, aprobar, regenerar, bloqueado, puedePublicar, hija, e
       {etiqueta && <span className="mx4-act">Actividad</span>}
       <span className="mx4-rt" title={r.titulo || ''}>{r.titulo || 'Sin título'}</span>
       <span className="mx4-re">{texto}</span>
+      {r.alertaActividad && <span className="mx4-alerta" title={r.alertaActividad}>Alerta de actividad</span>}
       <span className="mx4-rl">
         {r.conContenido && !publicando && !r.enCola && ['POR_REVISAR', 'GENERADO', 'ERROR'].includes(r.estado) && editar && <button type="button" className="mx4-ed" onClick={() => editar(r)} title="Corregir los textos del recurso antes de publicarlo">Editar textos</button>}
         {r.conContenido && !publicando && !r.enCola && ['POR_REVISAR', 'ERROR'].includes(r.estado) && puedePublicar && aprobar && <button type="button" className="mx4-ed ok" onClick={() => aprobar(r)} title="Aprobar el contenido: n8n arma el H5P y lo sube a Drive">Aprobar y publicar</button>}

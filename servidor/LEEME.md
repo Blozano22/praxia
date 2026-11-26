@@ -355,3 +355,6 @@ Al marcar una fila EN_PROCESO por «regenerar» se guarda `estado_previo`. Si `h
 ## Reemplazo en masa de variantes
 
 `POST /api/plantillas/subidas/reemplazo-masivo` con `{ archivos: [{ nombre, html }], soloVerificar? }` (1 a 40 variantes subidas existentes). Se reemplazan todas en una transacción o ninguna (409 con `resultados` por archivo). Los campos se comparan entre las nuevas de cada grupo (categoría + formación + tipo) y contra las del grupo que no se reemplazan. Permisos como el reemplazo individual (quien solo sube, únicamente lo suyo). Audita cada archivo y `plantilla_reemplazo_masivo`. Prueba: `test/plantillas-reemplazo-masivo.test.js` (puerto 54500).
+
+### alerta_actividad (h5p_recurso)
+Campo opcional de primer nivel (texto, máx. 600): n8n avisa que el guion trae actividad y no se pudo asignar/generar. Se guarda en `pipeline_recursos.alerta_actividad` (migración 020). El aviso con el campo manda (cadena vacía = sin alerta); sin el campo se conserva, salvo que llegue un `POR_REVISAR` con `actividad`, que la limpia. Regenerar no la borra hasta el aviso nuevo. Se ve como chip «Alerta de actividad» en la lista y como banner en el editor; no bloquea «Aprobar y publicar».

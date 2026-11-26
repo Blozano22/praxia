@@ -210,3 +210,6 @@
 .er-dlg{background:#fff;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.3);padding:18px;width:min(520px,100%);display:flex;flex-direction:column;gap:10px;color:var(--nav)}
 .er-dlg input{font:inherit;font-size:.9rem;padding:8px 10px;border:1px solid #c9d0db;border-radius:8px}.er-dlg input[aria-invalid=true]{border-color:#c0392b}
 .er-dlg .mal{color:#c0392b}.er-dlg-acc{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.er-dlg-acc .er-sp{flex:1}
+
+.er-rec-alerta{display:inline-block;margin-top:2px;padding:1px 7px;border-radius:99px;background:#fff1cf;color:#8a5a00;font-weight:700;font-size:.66rem}
+.er-alerta-act{margin:0 0 10px;padding:10px 14px;border:1px solid #e8b44a;border-left-width:4px;border-radius:10px;background:#fff6dd;color:#5c3d00;font-size:.88rem}.er-alerta-act p{margin:4px 0}.er-alerta-act small{display:block;font-weight:700}
