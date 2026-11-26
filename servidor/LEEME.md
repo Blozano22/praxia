@@ -358,3 +358,7 @@ Al marcar una fila EN_PROCESO por «regenerar» se guarda `estado_previo`. Si `h
 
 ### alerta_actividad (h5p_recurso)
 Campo opcional de primer nivel (texto, máx. 600): n8n avisa que el guion trae actividad y no se pudo asignar/generar. Se guarda en `pipeline_recursos.alerta_actividad` (migración 020). El aviso con el campo manda (cadena vacía = sin alerta); sin el campo se conserva, salvo que llegue un `POR_REVISAR` con `actividad`, que la limpia. Regenerar no la borra hasta el aviso nuevo. Se ve como chip «Alerta de actividad» en la lista y como banner en el editor; no bloquea «Aprobar y publicar».
+
+## Recursos desactualizados (GET /api/proyectos/:id/pipeline → `desactualizados`)
+
+`{total, codigos, motivos, costoEstimadoUsd, sinCosto}`. Cuenta los recursos GENERADO/POR_REVISAR con contenido y sin parte `actividad` cuando (a) su unidad tiene la actividad asignada (U1-T2-A3 en `asignacion_variantes` ↔ recurso U1-T2-R3) o (b) la matriz de su unidad quedó `reemplazada` después del último aviso del recurso y no tiene actividad ni bibliografía (el U#-PRES no cuenta). La pantalla de H5P muestra un aviso con «Regenerar todo el curso», que usa `POST .../pipeline/h5p` con `regenerar`. Consulta: `pipeDesactualizados`. Prueba: `test/desactualizados.test.js`.

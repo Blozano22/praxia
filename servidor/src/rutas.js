@@ -118,10 +118,15 @@ rutas.get('/proyectos/:id/enlaces', exigirSesion, exigirPermiso('proyectos.ver_p
 rutas.get('/proyectos/:id/pipeline', exigirSesion, exigirPermiso('proyectos.ver_propios'), validar(z.object({ id: IdProyecto }), 'params'), async (req, res, next) => {
   try {
     const p = [req.usuario.id, req.paramsOk.id]
-    const [m, r, e] = await Promise.all([sinUsuario(Q.pipeLeerMatrices, p), sinUsuario(Q.pipeLeerRecursos, p), sinUsuario(Q.pipeLeerEjecuciones, p)])
+    const [m, r, e, d] = await Promise.all([sinUsuario(Q.pipeLeerMatrices, p), sinUsuario(Q.pipeLeerRecursos, p), sinUsuario(Q.pipeLeerEjecuciones, p), sinUsuario(Q.pipeDesactualizados, p)])
+    // Costo estimado de regenerarlos: lo guardado en cada uno; a los que no lo traen se les pone el promedio de los que sí.
+    const conCosto = d.rows.filter((x) => x.costo != null).map((x) => Number(x.costo))
+    const prom = conCosto.length ? conCosto.reduce((a, b) => a + b, 0) / conCosto.length : 0
+    const desactualizados = { total: d.rows.length, codigos: d.rows.map((x) => x.codigo), motivos: Object.fromEntries(d.rows.map((x) => [x.codigo, x.motivo])),
+      costoEstimadoUsd: Math.round((conCosto.reduce((a, b) => a + b, 0) + prom * (d.rows.length - conCosto.length)) * 10000) / 10000, sinCosto: d.rows.length - conCosto.length }
     // El plan de una corrida puede ser largo: se entrega el conteo y la lista de lo omitido con su motivo, no todos los recursos a generar.
     const ejecuciones = e.rows.map((x) => ({ ...x, plan: x.plan ? { aGenerar: (x.plan.a_generar || []).length, aGenerarClaves: (x.plan.a_generar || []).slice(0, 500).map((i) => ({ id: i.id, codigo: i.codigo || null })), omitidas: (x.plan.omitidas || []).slice(0, 500) } : null }))
-    res.json({ matrices: m.rows, recursos: r.rows, ejecuciones, generado: new Date().toISOString(), puedeGenerarMatrices: Boolean(await urlMatrices()), puedeGenerarH5p: Boolean(await urlH5p()), puedePublicar: Boolean(await urlPublicar()), puedePreparar: Boolean(await urlPreparacion()) })
+    res.json({ matrices: m.rows, recursos: r.rows, ejecuciones, desactualizados, generado: new Date().toISOString(), puedeGenerarMatrices: Boolean(await urlMatrices()), puedeGenerarH5p: Boolean(await urlH5p()), puedePublicar: Boolean(await urlPublicar()), puedePreparar: Boolean(await urlPreparacion()) })
   } catch (err) { next(err) }
 })
 

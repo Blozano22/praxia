@@ -367,6 +367,19 @@ export default function MatricesH5P({ s }) {
     cargar()
     return true
   }
+  // Regenerar todo el curso: manda los códigos desactualizados; n8n omite lo que pase de su máximo por corrida y Praxia restaura esos (AvisoTope avisa cuántos quedan).
+  const regenerarDesactualizados = async () => {
+    const x = d && d.desactualizados
+    if (!x || !x.total) return
+    const costo = Number(x.costoEstimadoUsd) || 0
+    if (!window.confirm('Se regenerarán ' + x.total + (x.total === 1 ? ' recurso' : ' recursos') + ' con su actividad y su bibliografía (si la tienen).\nCosto estimado: ≈ US$ ' + costo.toFixed(2) + ' (es una estimación).\nSe perderán las ediciones hechas a mano; cada archivo .h5p publicado se reemplazará solo cuando usted vuelva a aprobarlo. ¿Continuar?')) return
+    try {
+      await api('POST', '/proyectos/' + encodeURIComponent(s.id) + '/pipeline/h5p', { regenerar: x.codigos })
+      setLanzadoEn(Date.now()); setYaEnCurso(0); setEnviadas([])
+      setAviso('Regenerando ' + x.total + ' recursos… aparecerán como «Por revisar» cuando n8n termine.')
+      cargar()
+    } catch (e) { setError(e.message || 'No se pudo regenerar el curso.') }
+  }
   const regenerarDesdeFila = async (r) => { try { await regenerarRecurso(r) } catch (e) { setError(e.message || 'No se pudo regenerar el recurso.') } }
   const aprobarDesdeFila = async (r) => { try { await aprobarRecurso(r) } catch (e) { setError(e.message || 'No se pudo aprobar el recurso.') } }
   const [editando, setEditando] = useState(null) // recurso abierto en el editor de textos
@@ -595,6 +608,17 @@ export default function MatricesH5P({ s }) {
             <span className="mx3-ico ok" aria-hidden="true">{I_CHECK}</span>
             <div className="mx3-ahora-tx"><span className="mx3-etq">TODO AL DÍA</span><h3>Las matrices y los recursos H5P están listos</h3></div>
           </div>
+        </section>
+      )}
+
+      {d && fase === 2 && puedeH5p && puedePublicar && d.desactualizados && d.desactualizados.total > 0 && !(enCursoMat.length > 0 || corridaH5p || soloEnviado) && (
+        <section className="mx-nada" role="status" style={{ background: '#fff7e0', border: '1px solid #e0a800', padding: '10px 14px', borderRadius: 8, margin: '10px 0' }}>
+          <p style={{ margin: 0 }}><b>La matriz se actualizó con actividades.</b> {d.desactualizados.total} {d.desactualizados.total === 1 ? 'recurso ya generado no incluye' : 'recursos ya generados no incluyen'} su actividad ni su bibliografía.</p>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 8, flexWrap: 'wrap' }}>
+            <button type="button" className="btn sm" disabled={h5pOcupado} onClick={regenerarDesactualizados}>Regenerar todo el curso</button>
+            <details><summary>Ver cuáles</summary><p style={{ margin: '6px 0 0' }}>{d.desactualizados.codigos.join(', ')}</p></details>
+          </div>
+          {todoAlDia && <AvisoTope e={ultimaH5P} />}
         </section>
       )}
 

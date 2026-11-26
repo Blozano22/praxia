@@ -288,6 +288,25 @@ export const Q = Object.freeze({
            (estado = 'EN_PROCESO' AND actualizado_en < now() - interval '30 minutes') AS "sinRespuesta"
       FROM pipeline_recursos r WHERE propietario_id = $1 AND proyecto_id = $2
      ORDER BY unidad NULLS LAST, tema NULLS LAST, codigo NULLS LAST, id LIMIT 3000`,
+  // Recursos «desactualizados» (GENERADO/POR_REVISAR con contenido y plantilla, sin parte `actividad`):
+  //  (a) su unidad tiene una actividad asignada (asignacion_variantes: U1-T2-A3 ↔ recurso U1-T2-R3, estado 'asignada'), o
+  //  (b) la matriz de su unidad fue reemplazada (pipeline_matrices.estado = 'reemplazada') DESPUÉS del último aviso del recurso
+  //      (actualizado_en) y el recurso no tiene ni actividad ni bibliografía (el U#-PRES queda fuera de este caso).
+  // PENDIENTE, EN_PROCESO y ERROR nunca cuentan.
+  pipeDesactualizados: `
+    SELECT r.codigo, CASE WHEN EXISTS (SELECT 1 FROM asignacion_variantes a WHERE a.propietario_id = r.propietario_id AND a.proyecto_id = r.proyecto_id
+                                         AND a.estado = 'asignada' AND a.plantilla IS NOT NULL AND a.codigo = regexp_replace(r.codigo, '-R([0-9]+)$', '-A\\1'))
+                          THEN 'actividad_asignada' ELSE 'matriz_actualizada' END AS motivo,
+           CASE WHEN jsonb_typeof(r.consumo -> 'costo_estimado_usd') = 'number' THEN (r.consumo ->> 'costo_estimado_usd')::numeric END AS costo
+      FROM pipeline_recursos r
+     WHERE r.propietario_id = $1 AND r.proyecto_id = $2 AND r.codigo IS NOT NULL AND r.plantilla IS NOT NULL
+       AND r.estado IN ('GENERADO','POR_REVISAR') AND r.contenido IS NOT NULL AND r.contenido <> 'null'::jsonb AND r.actividad IS NULL
+       AND ( EXISTS (SELECT 1 FROM asignacion_variantes a WHERE a.propietario_id = r.propietario_id AND a.proyecto_id = r.proyecto_id
+                        AND a.estado = 'asignada' AND a.plantilla IS NOT NULL AND a.codigo = regexp_replace(r.codigo, '-R([0-9]+)$', '-A\\1'))
+          OR ( r.bibliografia IS NULL AND r.codigo !~ '-PRES$'
+               AND EXISTS (SELECT 1 FROM pipeline_matrices m WHERE m.propietario_id = r.propietario_id AND m.proyecto_id = r.proyecto_id
+                             AND m.unidad = r.unidad AND m.estado = 'reemplazada' AND m.actualizado_en > r.actualizado_en) ) )
+     ORDER BY r.unidad, r.tema, r.codigo`,
   // El contenido (JSON) de UN recurso, para editarlo: solo de esa persona y ese curso.
   pipeLeerContenido: `
     SELECT id, codigo, titulo, plantilla, estado, enlace_recurso AS "enlaceRecurso", to_jsonb(r) -> 'contenido' AS contenido, actualizado_en AS "actualizadoEn",
