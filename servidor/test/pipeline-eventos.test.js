@@ -36,7 +36,7 @@ before(async () => {
   const dueno = new pg.Client({ connectionString: `postgres://postgres:duenio@localhost:${PUERTO_PG}/ova` })
   await dueno.connect()
   await dueno.query("CREATE ROLE ova_app LOGIN PASSWORD 'appclave' NOSUPERUSER NOBYPASSRLS")
-  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql', '014_tipo_bibliografia.sql', '015_imagen_consumo_recurso.sql', '017_partes_recurso.sql', '018_estado_previo.sql', '019_actividad_tipos.sql', '020_alerta_actividad.sql', '021_matriz_actualizada.sql', '024_curso_diseno.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
+  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql', '014_tipo_bibliografia.sql', '015_imagen_consumo_recurso.sql', '017_partes_recurso.sql', '018_estado_previo.sql', '019_actividad_tipos.sql', '020_alerta_actividad.sql', '021_matriz_actualizada.sql', '024_curso_diseno.sql', '025_asignar_diseno.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
   await dueno.end()
   process.env.DATABASE_URL = `postgres://ova_app:appclave@localhost:${PUERTO_PG}/ova`
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex')
@@ -553,6 +553,9 @@ test('imagen y consumo del recurso: se guardan, un aviso posterior sin ellos no 
   const mal = await enviar(h('GENERADO', 3, { imagen_url: 'http://inseguro.example/a.png', consumo: 'texto' }))
   assert.equal(mal.estado, 200); assert.equal(mal.datos.aplicados, 1)
   assert.equal((await enviar(h('GENERADO', 4, { imagen_url: 'https://x.co/a b.png' }))).datos.aplicados, 1)
+  // páginas de Praxia o no-imagen: se acepta el aviso pero no se guarda la URL
+  assert.equal((await enviar(h('GENERADO', 5, { imagen_url: 'https://proyectos.americana.edu.co/praxia/plantillas-html/ver/g-02-tec-v01' }))).datos.aplicados, 1)
+  assert.equal((await enviar(h('GENERADO', 6, { imagen_url: 'https://x.co/pagina.html?a=1' }))).datos.aplicados, 1)
   f = (await una('ana', 'pipeline_recursos', "id = 'img1'"))[0]
   assert.equal(f.estado, 'GENERADO'); assert.equal(f.imagen_url, IMG); assert.equal(f.consumo.costo_estimado_usd, 0.0421)
   // lectura y cambio manual (solo la persona dueña del curso)

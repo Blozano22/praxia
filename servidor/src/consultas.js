@@ -138,6 +138,43 @@ export const Q = Object.freeze({
   disenoCrear: `INSERT INTO curso_diseno (propietario_id, proyecto_id, estado, enviado_por) VALUES ($1, $2, 'en_diseno', $3)
     ON CONFLICT DO NOTHING RETURNING estado, enviado_en`,
   disenoLista: `SELECT d.proyecto_id, d.estado, u.nombre AS disenador FROM curso_diseno d LEFT JOIN usuarios u ON u.id = d.disenador_id WHERE d.propietario_id = $1`,
+  // ---- asignación a diseño (coordinación). Los que leen «proyectos» corren dentro de conUsuario con ver_todos (política de filas).
+  disenoBandeja: `
+    SELECT d.propietario_id, d.proyecto_id, d.estado, d.enviado_en, d.asignado_en, d.drive_compartido, d.disenador_id, ud.nombre AS disenador,
+           p.curso, p.programa, up.nombre AS docente, up.correo AS docente_correo, p.datos->>'carpetaUrl' AS carpeta
+      FROM curso_diseno d
+      JOIN usuarios up ON up.id = d.propietario_id
+      LEFT JOIN usuarios ud ON ud.id = d.disenador_id
+      LEFT JOIN proyectos p ON p.propietario_id = d.propietario_id AND p.id = d.proyecto_id
+     ORDER BY d.enviado_en`,
+  disenoDisenadores: `
+    SELECT u.id, u.nombre, u.correo,
+           count(d.proyecto_id) FILTER (WHERE d.estado IN ('asignado', 'en_revision_docente'))::int AS carga,
+           max(d.asignado_en) AS ultima_asignacion
+      FROM usuarios u
+      JOIN usuario_roles ur ON ur.usuario_id = u.id JOIN roles r ON r.id = ur.rol_id AND r.nombre = 'disenador'
+      LEFT JOIN curso_diseno d ON d.disenador_id = u.id
+     WHERE u.activo
+     GROUP BY u.id ORDER BY u.nombre`,
+  disenoEsDisenador: `
+    SELECT u.id, u.nombre, u.correo FROM usuarios u
+      JOIN usuario_roles ur ON ur.usuario_id = u.id JOIN roles r ON r.id = ur.rol_id
+     WHERE u.id = $1 AND u.activo AND r.nombre = 'disenador'`,
+  disenoFilaBloquear: `
+    SELECT d.estado, d.disenador_id, ud.correo AS disenador_correo
+      FROM curso_diseno d LEFT JOIN usuarios ud ON ud.id = d.disenador_id
+     WHERE d.propietario_id = $1 AND d.proyecto_id = $2 FOR UPDATE OF d`,
+  disenoAsignar: `
+    UPDATE curso_diseno SET disenador_id = $3, estado = CASE WHEN estado = 'en_diseno' THEN 'asignado' ELSE estado END,
+           asignado_en = now(), actualizado_en = now(), drive_compartido = NULL
+     WHERE propietario_id = $1 AND proyecto_id = $2 RETURNING estado, disenador_id, asignado_en`,
+  disenoDriveGuardar: `UPDATE curso_diseno SET drive_compartido = $3 WHERE propietario_id = $1 AND proyecto_id = $2`,
+  disenoPendientes: `SELECT propietario_id, proyecto_id FROM curso_diseno WHERE estado = 'en_diseno' AND disenador_id IS NULL ORDER BY enviado_en`,
+  disenoMios: `
+    SELECT d.propietario_id, d.proyecto_id, d.estado, d.asignado_en, p.curso, p.programa, up.nombre AS docente, p.datos->>'carpetaUrl' AS carpeta
+      FROM curso_diseno d JOIN usuarios up ON up.id = d.propietario_id
+      LEFT JOIN proyectos p ON p.propietario_id = d.propietario_id AND p.id = d.proyecto_id
+     WHERE d.disenador_id = $1 ORDER BY d.asignado_en DESC NULLS LAST`,
   // ---- pipeline: avisos de n8n guardados ligados al curso (sin sesión: la persona sale de pipeline_origen)
   pipeCarpetaDeProyecto: `SELECT datos->>'carpetaUrl' AS carpeta FROM proyectos WHERE propietario_id = $1 AND id = $2`,
   pipeProyectoDatos: `SELECT datos FROM proyectos WHERE propietario_id = $1 AND id = $2`,

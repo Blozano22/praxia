@@ -14,6 +14,7 @@ import { EsquemaLanzarH5p, EsquemaLanzarMatrices, lanzarH5p, lanzarMatrices, lan
 import { CLAVE_PRUEBAS, pruebasEncendidas, urlPreparacion } from './pipeline/preparacion.js'
 import { esUrlImagen } from './pipeline/eventos.js'
 import { invalidarAsignaciones, normalizarTipo } from './pipeline/asignaciones.js'
+import * as asignarDiseno from './asignar-diseno.js'
 import { bloqueoDiseno, enviarADiseno, estadoDiseno, revisarEnvio } from './diseno.js'
 import { publicarAviso, tomarAvisos } from './avisos.js'
 import { COOKIE, claveValida, compararClave, emitirSesion, exigirAlguno, exigirPermiso, exigirSesion, hashClave } from './seguridad.js'
@@ -258,6 +259,32 @@ rutas.post('/proyectos/:id/enviar-diseno', exigirSesion, exigirPermiso('proyecto
   } catch (e) { next(e) }
 })
 
+// Asignación a diseño (coordinación): bandeja de cursos enviados, diseñadores con su carga y asignación manual o rápida.
+const IdUuid = z.string().uuid()
+const PedidoAsignar = z.object({ propietarioId: IdUuid, proyectoId: IdProyecto }).strict()
+const auditarDiseno = (req) => (accion, entidad, id) => auditar(req.usuario.id, accion, entidad, id, req)
+rutas.get('/diseno/bandeja', exigirSesion, exigirPermiso('diseno.asignar'), async (req, res, next) => {
+  try { res.json(await asignarDiseno.bandeja(req.usuario)) } catch (e) { next(e) }
+})
+rutas.get('/diseno/disenadores', exigirSesion, exigirPermiso('diseno.asignar'), async (req, res, next) => {
+  try { res.json(await asignarDiseno.disenadores()) } catch (e) { next(e) }
+})
+rutas.get('/diseno/mios', exigirSesion, async (req, res, next) => {
+  try {
+    if (!req.usuario.roles.includes('disenador')) return res.status(403).json({ error: 'No tienes permiso para esto' })
+    res.json(await asignarDiseno.misCursos(req.usuario))
+  } catch (e) { next(e) }
+})
+rutas.post('/diseno/asignar', exigirSesion, exigirPermiso('diseno.asignar'), validar(PedidoAsignar.extend({ disenadorId: IdUuid }).strict(), 'body'), async (req, res, next) => {
+  try { const r = await asignarDiseno.asignar(req.usuario, req.bodyOk, auditarDiseno(req)); res.status(r.codigo).json(r.cuerpo) } catch (e) { next(e) }
+})
+rutas.post('/diseno/asignar-rapido', exigirSesion, exigirPermiso('diseno.asignar'), validar(PedidoAsignar, 'body'), async (req, res, next) => {
+  try { const r = await asignarDiseno.asignar(req.usuario, { ...req.bodyOk, rapido: true }, auditarDiseno(req)); res.status(r.codigo).json(r.cuerpo) } catch (e) { next(e) }
+})
+rutas.post('/diseno/asignar-rapido-todos', exigirSesion, exigirPermiso('diseno.asignar'), async (req, res, next) => {
+  try { res.json(await asignarDiseno.asignarTodos(req.usuario, auditarDiseno(req))) } catch (e) { next(e) }
+})
+
 rutas.put('/proyectos/:id', exigirSesion,
   validar(z.object({ id: IdProyecto }), 'params'), bloqueoDiseno('curso'),
   async (req, res, next) => {
@@ -426,12 +453,12 @@ rutas.patch('/usuarios/:id/clave', ...admin, validar(z.object({ id: IdUsuario })
   })
 
 // ------------------------------------------------------------------ direcciones de n8n (compartidas por todas las personas)
-const CLAVES_N8N = { syllabus: 'n8n.syllabus', guiones: 'n8n.guiones', matrices: 'n8n.matrices', h5p: 'n8n.h5p', publicar: 'n8n.publicar', preparacion: 'n8n.preparacion', rubricas: 'n8n.rubricas', auditor: 'n8n.auditor' }
+const CLAVES_N8N = { syllabus: 'n8n.syllabus', guiones: 'n8n.guiones', matrices: 'n8n.matrices', h5p: 'n8n.h5p', publicar: 'n8n.publicar', preparacion: 'n8n.preparacion', rubricas: 'n8n.rubricas', auditor: 'n8n.auditor', compartir_carpeta: 'n8n.compartir_carpeta' }
 rutas.get('/config/n8n', exigirSesion, async (req, res, next) => {
   try {
     const f = (await sinUsuario(Q.configLeer, [[...Object.values(CLAVES_N8N), CLAVE_PRUEBAS]])).rows
     const v = (c) => (f.find((x) => x.clave === c) || {}).valor || ''
-    res.json({ syllabus: v(CLAVES_N8N.syllabus), guiones: v(CLAVES_N8N.guiones), matrices: v(CLAVES_N8N.matrices), h5p: v(CLAVES_N8N.h5p), publicar: v(CLAVES_N8N.publicar), preparacion: v(CLAVES_N8N.preparacion), rubricas: v(CLAVES_N8N.rubricas), auditor: v(CLAVES_N8N.auditor), pruebas_plantillas: pruebasEncendidas((f.find((x) => x.clave === CLAVE_PRUEBAS) || {}).valor) }) // '' = la dirección original
+    res.json({ syllabus: v(CLAVES_N8N.syllabus), guiones: v(CLAVES_N8N.guiones), matrices: v(CLAVES_N8N.matrices), h5p: v(CLAVES_N8N.h5p), publicar: v(CLAVES_N8N.publicar), preparacion: v(CLAVES_N8N.preparacion), rubricas: v(CLAVES_N8N.rubricas), auditor: v(CLAVES_N8N.auditor), compartir_carpeta: v(CLAVES_N8N.compartir_carpeta), pruebas_plantillas: pruebasEncendidas((f.find((x) => x.clave === CLAVE_PRUEBAS) || {}).valor) }) // '' = la dirección original
   } catch (e) { next(e) }
 })
 // ------------------------------------------------------------------ tipos de actividad (texto del guion → categoría ACT; coincidencia exacta normalizada)
@@ -465,7 +492,7 @@ rutas.get('/admin/trabajos-en-curso', ...admin, async (req, res, next) => {
   try { res.json(await trabajosEnCurso(sinUsuario)) } catch (e) { next(e) }
 })
 const UrlN8n = z.union([z.literal(''), z.string().trim().max(500).regex(/^https:\/\/\S+$/)])
-rutas.put('/config/n8n', ...admin, validar(z.object({ syllabus: UrlN8n.optional(), guiones: UrlN8n.optional(), matrices: UrlN8n.optional(), h5p: UrlN8n.optional(), publicar: UrlN8n.optional(), preparacion: UrlN8n.optional(), rubricas: UrlN8n.optional(), auditor: UrlN8n.optional(), pruebas_plantillas: z.boolean().optional() }).strict(), 'body'),
+rutas.put('/config/n8n', ...admin, validar(z.object({ syllabus: UrlN8n.optional(), guiones: UrlN8n.optional(), matrices: UrlN8n.optional(), h5p: UrlN8n.optional(), publicar: UrlN8n.optional(), preparacion: UrlN8n.optional(), rubricas: UrlN8n.optional(), auditor: UrlN8n.optional(), compartir_carpeta: UrlN8n.optional(), pruebas_plantillas: z.boolean().optional() }).strict(), 'body'),
   async (req, res, next) => {
     try {
       // Modo de pruebas de plantillas: encendido, la preparación del curso asigna cualquier plantilla subida (aprobada o no). Se registra quién lo cambia.

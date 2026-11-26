@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import Titulo from './Titulo.jsx'
 import { api } from '../lib/api.js'
-import { cargarConfigN8n, guardarWebhook, guardarWebhookGuiones, guardarWebhookH5p, guardarWebhookMatrices, guardarWebhookPublicar, guardarPruebasPlantillas, guardarWebhookPreparacion, guardarWebhookRubricas, leerWebhookRubricas, guardarWebhookAuditor, leerWebhookAuditor, leerPruebasPlantillas, leerWebhook, leerWebhookGuiones, leerWebhookH5p, leerWebhookPublicar, leerWebhookMatrices, leerWebhookPreparacion } from '../lib/syllabus.js'
+import { cargarConfigN8n, guardarWebhook, guardarWebhookGuiones, guardarWebhookH5p, guardarWebhookMatrices, guardarWebhookPublicar, guardarPruebasPlantillas, guardarWebhookPreparacion, guardarWebhookRubricas, leerWebhookRubricas, guardarWebhookAuditor, leerWebhookAuditor, guardarWebhookCompartir, leerWebhookCompartir, leerPruebasPlantillas, leerWebhook, leerWebhookGuiones, leerWebhookH5p, leerWebhookPublicar, leerWebhookMatrices, leerWebhookPreparacion } from '../lib/syllabus.js'
 
 // Direcciones (webhooks) de n8n que usa la plataforma. Se guardan en el servidor: el cambio vale para todas las personas.
 const RE_URL = /^https:\/\/\S+$/
@@ -180,6 +180,8 @@ export default function Conexiones({ aviso }) {
               leer={leerWebhookRubricas} guardar={guardarWebhookRubricas} aviso={aviso} opcional sinDireccion="Falta la dirección: sin ella la pantalla «Generar rúbrica» no puede generar." />
             <Conexion titulo="Auditar guion (Auditor de guiones)" icono="doc" ayuda="Recibe por POST (multipart) los campos guion_file o guion_url, syllabus_file o syllabus_url, estructura_file o estructura_url, nombre y correo, y responde { ok, job_id }. Praxia consulta el avance en esta misma dirección terminada en «-estado» (…-estado?job=…) cada 6 segundos, hasta 20 minutos."
               leer={leerWebhookAuditor} guardar={guardarWebhookAuditor} aviso={aviso} opcional sinDireccion="Falta la dirección: sin ella la pantalla «Auditor de guiones» no puede enviar revisiones." />
+            <Conexion titulo="Compartir la carpeta de Drive con el diseñador" icono="doc" ayuda="Al asignar un curso a un diseñador, Praxia envía por POST { proyecto_id, carpeta_raiz, correo_disenador, rol: 'writer', anterior_correo? } (anterior_correo solo al reasignar) y n8n comparte la carpeta con esa persona. Si falla o no está configurada, la asignación se guarda igual y se avisa para compartirla a mano."
+              leer={leerWebhookCompartir} guardar={guardarWebhookCompartir} aviso={aviso} opcional sinDireccion="Falta la dirección: la carpeta de Drive habrá que compartirla manualmente con cada diseñador." />
           </div>
           <p className="cx-pie">Cada dirección debe empezar por https://. El cambio se aplica a todas las personas desde su siguiente envío.</p>
         </>
