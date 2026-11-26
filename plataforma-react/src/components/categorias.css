@@ -580,3 +580,15 @@
 .cat-arch-g li:first-child{border-top:0}
 
 .cat-arch-barra .btn{margin-left:0}.cat-arch-barra .btn:first-of-type{margin-left:auto}.cat-arch-elim{margin:0 0 10px}
+
+/* Galería: acciones de la cabecera y filtros alineados */
+.pg-cab>.pg-acc{flex:0 0 auto;display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:10px}
+.btn.pg-zip{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:0 18px;border:1.5px solid var(--brand);background:#fff;color:var(--brand);box-shadow:none;text-decoration:none;white-space:nowrap;line-height:1}
+.btn.pg-zip:hover:not(:disabled){background:#e4f5ec;border-color:var(--brand);color:var(--brand);box-shadow:none}
+.btn.pg-zip svg{flex:none}
+.pg-filtro{align-items:start;gap:16px 28px}
+.pg-chips{gap:8px}
+.pg-chipf{min-height:44px;padding:0 14px;gap:7px;font-size:.83rem}
+.pg-seg{padding:4px}.pg-seg button{height:36px}
+@media(max-width:1100px){.pg-cab>.pg-acc{flex:1 1 100%;justify-content:flex-start}}
+@media(max-width:1480px){.pg-filtro{grid-template-columns:minmax(0,1fr)}.pg-filtro .pg-seg{max-width:100%;overflow-x:auto}}

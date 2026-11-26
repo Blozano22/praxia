@@ -391,14 +391,16 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
           <p className="lead">Así se ven los recursos que genera la plataforma. Elija la categoría y el diseño; puede abrirlo en una pestaña o descargarlo.</p>
         </Titulo>
         {itemsClase.length > 0 && (slotRev ? createPortal(<RevisionResumen key={clase} clase={clase} enHeader items={itemsClase} puedeRevisar={puedeRevisar} onIr={irADiseno} />, slotRev) : <RevisionResumen key={clase} clase={clase} items={itemsClase} puedeRevisar={puedeRevisar} onIr={irADiseno} />)}
+        <div className="pg-acc">
         {puedeSubir && (
           <button type="button" className="btn pg-subir" onClick={() => setSubiendo(true)}>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 20h16" /></svg>
             Subir variante
           </button>
         )}
-        <a className="btn" href={RUTA_API + '/plantillas/subidas/descarga-masiva.zip?tipo=' + clase} download title={'ZIP con las plantillas subidas de ' + CLASES[clase].toLowerCase() + ', tal cual se subieron, en carpetas, más un índice'}>Descargar todas (ZIP)</a>
-        <a className="btn" href={RUTA_API + '/plantillas/subidas/descarga-masiva.zip'} download title="ZIP con todas las plantillas subidas (recursos, actividades y bibliografía)">Descargar todo</a>
+        <a className="btn pg-zip" href={RUTA_API + '/plantillas/subidas/descarga-masiva.zip?tipo=' + clase} download title={'Descarga un ZIP solo con las plantillas que se han subido de ' + CLASES[clase].toLowerCase() + ', agrupadas por categoría'}><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 4v12M7 11l5 5 5-5M4 20h16" /></svg>ZIP de {CLASES[clase].toLowerCase()}</a>
+        <a className="btn pg-zip" href={RUTA_API + '/plantillas/subidas/descarga-masiva.zip'} download title="Descarga un ZIP con todas las plantillas subidas: recursos, actividades y bibliografía"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 4v12M7 11l5 5 5-5M4 20h16" /></svg>ZIP de todas las clases</a>
+        </div>
       </div>
 
       <div className="pg-fila-tabs">
