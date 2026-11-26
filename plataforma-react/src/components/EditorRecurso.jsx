@@ -36,7 +36,7 @@ function armarPagina(esqueleto, contenido, titulo, formacion, activo, imagenUrl)
   const imagenes = [usar, original].filter((u) => u)
   if (usar && original !== undefined) { const est = '<style>.figura-marca{display:none !important}</style>'; h = /<\/head>/i.test(h) ? h.replace(/<\/head>/i,() => est + '</head>') : est + h } // con imagen reemplazada no se muestra el rótulo «Imagen de ejemplo»
   if (marca) h = /<head[^>]*>/i.test(h) ? h.replace(/<head[^>]*>/i, (m) => m + marca) : marca + h
-  const editor = '<script>' + codigoEditor + '</script><script>PraxiaEditor.iniciar({ contenido: ' + json(contenido) + ', activo: ' + (activo ? 'true' : 'false') + ', imagenes: ' + json(imagenes) + ' })</script>'
+  const editor = '<script>' + codigoEditor + '</script><script>PraxiaEditor.iniciar({ contenido: ' + json(contenido) + ', activo: ' + (activo ? 'true' : 'false') + ', imagenes: ' + json(imagenes) + ', imagenNueva: ' + json(usar) + ', imagenOriginal: ' + json(original || '') + ' })</script>'
   return /<\/body>/i.test(h) ? h.replace(/<\/body>/i, () => editor + '</body>') : h + editor
 }
 
@@ -189,7 +189,10 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
   const marco = useRef(null)
   const imgUrlRef = useRef('') // imagen guardada del recurso (la vista previa la usa en lugar de IMAGEN_EJEMPLO)
   const pintadaImg = useRef('')
-  const [imgEstado, setImgEstado] = useState(null) // items que reporta la vista previa sobre la carga de sus imágenes (null = aún sin reporte)
+  const [imgHayNueva, setImgHayNueva] = useState(false)
+  const [imgEstado, setImgEstado0] = useState(null)
+  const setImgEstado = (items, hay) => { setImgEstado0(items); if (hay !== undefined) setImgHayNueva(hay) }
+  // // items que reporta la vista previa sobre la carga de sus imágenes (null = aún sin reporte)
   const [dlgImg, setDlgImg] = useState(null) // null = cerrado; texto = enlace que se está escribiendo
   const ruta = '/proyectos/' + encodeURIComponent(proyecto) + '/pipeline/recursos/' + encodeURIComponent(recurso.id) + '/contenido'
 
@@ -248,7 +251,7 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
         setSucio(true); setMsg(null)
         if (!d.parchado) pintar(ref.current.activo) // el texto no se pudo cambiar en pantalla: se vuelve a pintar con el JSON nuevo
       } else if (d.tipo === 'imagenes_estado') {
-        setImgEstado(Array.isArray(d.items) ? d.items.slice(0, 20).map((x) => ({ src: String((x && x.src) || ''), ok: !!(x && x.ok), error: !!(x && x.error) })) : [])
+        setImgEstado(Array.isArray(d.items) ? d.items.slice(0, 20).map((x) => ({ src: String((x && x.src) || ''), ok: !!(x && x.ok), error: !!(x && x.error), esEjemplo: !!(x && x.esEjemplo) })) : [], !!d.hayNueva)
       } else if (d.tipo === 'imagen_clic') {
         const p = ref.current.parte
         if (p === 'bibliografia') setMsg({ tipo: 'warn', texto: 'La bibliografía no tiene imagen que cambiar.' })
@@ -384,7 +387,10 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
           <div className="er-tt"><b>{recurso.codigo || recurso.id}</b><span>{recurso.titulo || 'Sin título'}</span>{estado === 'listo' && imgEstado && (() => {
             const ok = imgEstado.some((x) => x.ok), mal = imgEstado.filter((x) => x.error)
             if (!imgEstado.length) return <small className="er-cons" style={{ color: '#6b7280' }}>Esta plantilla no muestra imagen</small>
-            if (ok) return <small className="er-cons" style={{ color: '#15803d' }}>Imagen: cargó</small>
+            const ej = imgEstado.find((x) => x.esEjemplo), src = (ej || imgEstado[0]).src
+            if (ok) return ej && imgHayNueva
+              ? <small className="er-cons" style={{ color: '#b45309' }} title={src}>Imagen: cargó · es la IMAGEN DE EJEMPLO (no se reemplazó)</small>
+              : <small className="er-cons" style={{ color: '#15803d' }} title={src}>Imagen: cargó · {ej ? 'es la imagen de ejemplo' : 'es la imagen del recurso/actividad'}</small>
             if (mal.length) { const u = mal[0].src; return <small className="er-cons" style={{ color: '#b45309' }} title={u}>Imagen: no cargó — haga clic en la imagen para revisar el enlace ({u.length > 60 ? u.slice(0, 57) + '…' : u})</small> }
             return null
           })()}{actual.consumo && <small className="er-cons" title="Consumo de la generación de este recurso">{miles(tokensDe(actual.consumo))} tokens · {imagenesDe(actual.consumo)} img · {usd(costoDe(actual.consumo))}{actual.consumo.costo_parcial ? ' (parcial)' : ''}</small>}</div>

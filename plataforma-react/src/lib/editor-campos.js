@@ -200,6 +200,35 @@
     }
     return null;
   }
+  // Reemplazo a nivel DOM de la imagen de ejemplo por la de la parte (independiente de cómo la plantilla arme su <img>).
+  function empiezaPor(s, o) { return !!(o && s && (s.indexOf(o) === 0 || s.indexOf(sinEsc(o)) === 0)); }
+  function reemplazarImagenes() {
+    var n = est.imagenNueva, o = est.imagenOriginal; if (!n || !o) return;
+    try {
+      var ims = document.querySelectorAll('img');
+      for (var i = 0; i < ims.length; i++) {
+        var im = ims[i], s = im.currentSrc || im.src || im.getAttribute('src') || '';
+        if (im.src === n || !(empiezaPor(s, o) || empiezaPor(im.getAttribute('src') || '', o))) continue;
+        im.removeAttribute('srcset'); im.src = n; im.style.display = '';
+        var f = im.closest && im.closest('figure'); if (f) { f.classList.remove('sin-imagen'); f.style.display = ''; }
+      }
+      var todos = document.body ? document.body.querySelectorAll('[style*="background"]') : [];
+      for (var j = 0; j < todos.length; j++) {
+        var b = todos[j].style.backgroundImage || '';
+        if (b && (b.indexOf(o) >= 0 || b.indexOf(sinEsc(o)) >= 0)) todos[j].style.backgroundImage = 'url("' + n.replace(/"/g, '%22') + '")';
+      }
+      if (!document.getElementById('praxia-ocultar-marca')) { var st = document.createElement('style'); st.id = 'praxia-ocultar-marca'; st.textContent = '.figura-marca{display:none !important}'; (document.head || document.documentElement).appendChild(st); }
+    } catch (e) { /* sin efecto */ }
+  }
+  function vigilarImagenes() {
+    var correr = function () { reemplazarImagenes(); };
+    correr(); [500, 2000, 6000].forEach(function (t) { setTimeout(correr, t); });
+    if (global.MutationObserver && document.body) {
+      var mo = new MutationObserver(correr);
+      mo.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['src'] });
+      setTimeout(function () { mo.disconnect(); }, 30000);
+    }
+  }
   // Diagnóstico: qué imágenes de la plantilla cargaron (items vacío = la plantilla no muestra imagen).
   function reportarImagenes() {
     try {
@@ -210,9 +239,10 @@
         var fig = im.closest && im.closest('figure');
         var ok = !!(im.complete && im.naturalWidth > 0);
         var error = !!((fig && fig.classList.contains('sin-imagen')) || (im.complete && im.naturalWidth === 0));
-        items.push({ src: String(im.currentSrc || im.src || im.getAttribute('src') || '').slice(0, 500), ok: ok, error: error && !ok });
+        var s = String(im.currentSrc || im.src || im.getAttribute('src') || '');
+        items.push({ src: s.slice(0, 1000), ok: ok, error: error && !ok, esEjemplo: empiezaPor(s, est.imagenOriginal), figuras: document.querySelectorAll('figure').length });
       }
-      emitir({ tipo: 'imagenes_estado', items: items });
+      emitir({ tipo: 'imagenes_estado', items: items, hayNueva: !!est.imagenNueva });
     } catch (e) { emitir({ tipo: 'imagenes_estado', items: [] }); }
   }
   function alMover(e) {
@@ -245,8 +275,11 @@
     if (!c) { try { var t = document.getElementById('contenido').textContent; c = JSON.parse(t.slice(t.indexOf('{'), t.lastIndexOf('}') + 1)); } catch (e) { c = {}; } }
     est.contenido = JSON.parse(JSON.stringify(c)); indexar();
     est.imagenes = (op.imagenes || []).filter(function (u) { return typeof u === 'string' && u; });
+    est.imagenNueva = typeof op.imagenNueva === 'string' && /^https:\/\//i.test(op.imagenNueva) ? op.imagenNueva : '';
+    est.imagenOriginal = typeof op.imagenOriginal === 'string' ? op.imagenOriginal : '';
     if (!est.listo) {
       crearUI();
+      if (est.imagenNueva && est.imagenOriginal) { vigilarImagenes(); if (document.readyState !== 'complete') global.addEventListener('load', reemplazarImagenes); }
       document.addEventListener('mousemove', alMover, true);
       document.addEventListener('click', alClic, true);
       global.addEventListener('scroll', alDesplazar, true);
