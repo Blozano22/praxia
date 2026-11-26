@@ -347,7 +347,10 @@ function marcarEnCola(data) {
   if (!e || e.estado !== 'en_curso' || e.sinRespuesta || !e.plan || !Array.isArray(e.plan.aGenerarClaves) || !e.plan.aGenerarClaves.length) return data
   const codigos = new Set(), ids = new Set()
   e.plan.aGenerarClaves.forEach((k) => { if (k.codigo) codigos.add(k.codigo); else ids.add(k.id) })
-  return { ...data, recursos: data.recursos.map((r) => (r.estado !== 'EN_PROCESO' && (codigos.has(r.codigo) || (!r.codigo && ids.has(r.id))) ? { ...r, enCola: true, regenera: r.estado !== 'PENDIENTE' } : r)) }
+  // Un recurso del plan que ya cambió de estado DESPUÉS de empezar la corrida ya se procesó en ella (no está en cola ni «se regenerará»).
+  const inicio = Date.parse(e.iniciadoEn) || 0
+  const yaHecho = (r) => r.estado !== 'PENDIENTE' && inicio && (Date.parse(r.actualizadoEn) || 0) >= inicio
+  return { ...data, recursos: data.recursos.map((r) => (r.estado !== 'EN_PROCESO' && !yaHecho(r) && (codigos.has(r.codigo) || (!r.codigo && ids.has(r.id))) ? { ...r, enCola: true, regenera: r.estado !== 'PENDIENTE' } : r)) }
 }
 
 export default function MatricesH5P({ s, propietario, soloLectura = false }) {
