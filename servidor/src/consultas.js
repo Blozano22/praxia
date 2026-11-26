@@ -290,7 +290,7 @@ export const Q = Object.freeze({
      ORDER BY unidad NULLS LAST, tema NULLS LAST, codigo NULLS LAST, id LIMIT 3000`,
   // Recursos «desactualizados» (GENERADO/POR_REVISAR con contenido y plantilla, sin parte `actividad`):
   //  (a) su unidad tiene una actividad asignada (asignacion_variantes: U1-T2-A3 ↔ recurso U1-T2-R3, estado 'asignada'), o
-  //  (b) la matriz de su unidad fue reemplazada (pipeline_matrices.estado = 'reemplazada') DESPUÉS del último aviso del recurso
+  //  (b) la matriz de su unidad fue reemplazada (pipeline_matrices.estado = 'reemplazada' o 'actualizada') DESPUÉS del último aviso del recurso
   //      (actualizado_en) y el recurso no tiene ni actividad ni bibliografía (el U#-PRES queda fuera de este caso).
   // PENDIENTE, EN_PROCESO y ERROR nunca cuentan.
   pipeDesactualizados: `
@@ -305,7 +305,7 @@ export const Q = Object.freeze({
                         AND a.estado = 'asignada' AND a.plantilla IS NOT NULL AND a.codigo = regexp_replace(r.codigo, '-R([0-9]+)$', '-A\\1'))
           OR ( r.bibliografia IS NULL AND r.codigo !~ '-PRES$'
                AND EXISTS (SELECT 1 FROM pipeline_matrices m WHERE m.propietario_id = r.propietario_id AND m.proyecto_id = r.proyecto_id
-                             AND m.unidad = r.unidad AND m.estado = 'reemplazada' AND m.actualizado_en > r.actualizado_en) ) )
+                             AND m.unidad = r.unidad AND m.estado IN ('reemplazada','actualizada') AND m.actualizado_en > r.actualizado_en) ) )
      ORDER BY r.unidad, r.tema, r.codigo`,
   // El contenido (JSON) de UN recurso, para editarlo: solo de esa persona y ese curso.
   pipeLeerContenido: `
@@ -371,7 +371,7 @@ export const Q = Object.freeze({
       UNION SELECT propietario_id, proyecto_id FROM pipeline_ejecuciones
     )
     SELECT c.proyecto_id AS id, c.propietario_id, u.nombre AS responsable, u.correo, p.curso, p.programa,
-      (SELECT count(*) FROM pipeline_matrices m WHERE m.propietario_id = c.propietario_id AND m.proyecto_id = c.proyecto_id AND m.estado IN ('creada','omitida','reemplazada'))::int AS "matricesListas",
+      (SELECT count(*) FROM pipeline_matrices m WHERE m.propietario_id = c.propietario_id AND m.proyecto_id = c.proyecto_id AND m.estado IN ('creada','omitida','reemplazada','actualizada'))::int AS "matricesListas",
       (SELECT count(*) FROM pipeline_matrices m WHERE m.propietario_id = c.propietario_id AND m.proyecto_id = c.proyecto_id AND m.estado = 'error')::int AS "matricesError",
       (SELECT count(*) FROM pipeline_recursos r WHERE r.propietario_id = c.propietario_id AND r.proyecto_id = c.proyecto_id)::int AS recursos,
       (SELECT count(*) FROM pipeline_recursos r WHERE r.propietario_id = c.propietario_id AND r.proyecto_id = c.proyecto_id AND r.estado = 'GENERADO')::int AS generados,
@@ -659,3 +659,8 @@ export const Q = Object.freeze({
     SELECT a.id, a.accion, a.entidad, a.entidad_id, a.ip, a.creado, u.correo
       FROM auditoria a LEFT JOIN usuarios u ON u.id = a.usuario_id ORDER BY a.id DESC LIMIT 200`
 })
+
+// Igual que pipeRecursoGuardar, pero no pisa un recurso que Praxia ya avanzó con una fila de la hoja que lo muestra pendiente o en proceso
+// (aviso matrices_fin «actualizada»: n8n conservó la matriz y solo agregó una columna).
+const _donde = 'WHERE (pipeline_recursos.actualizado_en, pipeline_recursos.secuencia) <= (EXCLUDED.actualizado_en, EXCLUDED.secuencia)'
+export const QConservar = Q.pipeRecursoGuardar.replace(_donde, _donde + " AND NOT (EXCLUDED.estado IN ('PENDIENTE','EN_PROCESO') AND pipeline_recursos.estado <> 'PENDIENTE')")

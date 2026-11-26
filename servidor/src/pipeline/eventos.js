@@ -10,7 +10,7 @@ import rateLimit, { ipKeyGenerator } from 'express-rate-limit'
 import { z } from 'zod'
 import { config } from '../config.js'
 import { conTransaccion, sinUsuario } from '../db.js'
-import { Q } from '../consultas.js'
+import { Q, QConservar } from '../consultas.js'
 
 const VENTANA_S = 300 // un aviso con más de 5 minutos de diferencia respecto a la hora del servidor se rechaza (evita repeticiones)
 const MAX_AVISOS = 50
@@ -113,13 +113,13 @@ const Evento = z.discriminatedUnion('evento', [
   }),
   Comun.extend({
     evento: z.literal('matrices_inicio'), ejecucion_id: ejecucion,
-    unidades: z.array(z.number().int().min(1).max(99)).min(1).max(100), forzar: z.boolean().default(false)
+    unidades: z.array(z.number().int().min(1).max(99)).min(1).max(100), forzar: z.boolean().default(false), conservar: z.boolean().optional()
   }),
   Comun.extend({
     evento: z.literal('matrices_fin'), ejecucion_id: ejecucion,
     resultados: z.array(z.object({
       unidad: z.number().int().min(1).max(99), formacion: texto(60).nullish(),
-      resultado: z.enum(['creada', 'omitida_ya_existe', 'reemplazada', 'error']),
+      resultado: z.enum(['creada', 'omitida_ya_existe', 'reemplazada', 'actualizada', 'error']),
       matriz: z.object({ id: texto(200).nullish(), url: opc(UrlGoogle), nombre: texto(300).nullish() }).nullish(),
       anterior_id: texto(200).nullish(), detalle: texto(2000).nullish(),
       filas: z.array(Fila).max(2000).nullish()
@@ -193,7 +193,7 @@ async function aplicar(c, ev, o, fecha, sec) {
       for (const u of ev.unidades) n += (await c.query(Q.pipeMatrizGuardar, [P, Y, u, null, 'generando', null, null, null, null, null, fecha, sec])).rowCount
       return n
     case 'matrices_fin': {
-      const ESTADO = { creada: 'creada', omitida_ya_existe: 'omitida', reemplazada: 'reemplazada', error: 'error' }
+      const ESTADO = { creada: 'creada', omitida_ya_existe: 'omitida', reemplazada: 'reemplazada', actualizada: 'actualizada', error: 'error' }
       for (const r of ev.resultados) {
         const estado = ESTADO[r.resultado]
         const m = r.matriz || {}
@@ -208,7 +208,8 @@ async function aplicar(c, ev, o, fecha, sec) {
           if (repetidos && r.filas.some((f) => !f.codigo)) console.warn('[avisos] matrices_fin con ids de fila repetidos y filas sin código (unidad ' + r.unidad + '): se perderán filas')
           const claves = r.filas.map((f) => f.codigo || f.id)
           for (const [k, f] of r.filas.entries()) {
-            await c.query(Q.pipeRecursoGuardar, [P, Y, claves[k], r.unidad, f.id_base || null, f.variante || null, f.alcance || null, f.tema ?? null, f.codigo || null, f.formato || null, f.titulo || null,
+            // «actualizada»: n8n conservó la hoja; sus filas no deben degradar lo que Praxia ya tiene (variante «no degradar»)
+            await c.query(estado === 'actualizada' ? QConservar : Q.pipeRecursoGuardar, [P, Y, claves[k], r.unidad, f.id_base || null, f.variante || null, f.alcance || null, f.tema ?? null, f.codigo || null, f.formato || null, f.titulo || null,
               f.con_actividad ?? null, f.generador || null, f.estado, f.observaciones || null, f.enlace_guion || null, f.enlace_recurso || null, null, fecha, sec, f.plantilla || null, null, null, null, null, null, null, null, null, null])
           }
           await c.query(Q.pipeRecursosQuitarSobrantes, [P, Y, r.unidad, claves, fecha])

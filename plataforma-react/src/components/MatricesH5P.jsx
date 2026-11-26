@@ -13,6 +13,7 @@ const MATRIZ = {
   creada: ['ok', 'Matriz creada'],
   omitida: ['ok', 'Matriz ya existente'],
   reemplazada: ['ok', 'Matriz regenerada'],
+  actualizada: ['ok', 'Matriz actualizada'],
   error: ['bad', 'Error al crear la matriz']
 }
 const SIN_RESPUESTA = ['bad', 'Sin respuesta de n8n']
@@ -242,13 +243,19 @@ function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, envi
         </div>
         {matriz.matrizUrl && <a className="mx4-lk" href={matriz.matrizUrl} target="_blank" rel="noopener noreferrer" title={matriz.matrizNombre || ''}>Abrir matriz ↗</a>}
         {puede && matrizMal && <button type="button" className="btn sm" disabled={ocupado} onClick={() => lanzar([unidad], false)}>Reintentar la matriz</button>}
-        {puede && !matrizMal && ['creada', 'omitida', 'reemplazada'].includes(matriz.estado) && !confirmar && (
+        {puede && !matrizMal && ['creada', 'omitida', 'reemplazada', 'actualizada'].includes(matriz.estado) && !confirmar && (
           <button type="button" className="mx4-q" disabled={ocupado} onClick={() => setConfirmar(true)} aria-label={'Volver a generar la matriz de la Unidad ' + unidad}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" /></svg>
             Volver a generar
           </button>
         )}
+        {puede && !matrizMal && ['creada', 'omitida', 'reemplazada', 'actualizada'].includes(matriz.estado) && !confirmar && (
+          <button type="button" className="mx4-q" disabled={ocupado} onClick={() => lanzar([unidad], false, true)} title="Conserva estados y enlaces; solo añade la columna de actividades" aria-label={'Agregar actividades a la matriz de la Unidad ' + unidad}>
+            Agregar actividades a la matriz
+          </button>
+        )}
       </div>
+      {puede && !matrizMal && ['creada', 'omitida', 'reemplazada', 'actualizada'].includes(matriz.estado) && !confirmar && <p className="mx-detalle">«Agregar actividades a la matriz»: conserva estados y enlaces; solo añade la columna de actividades.</p>}
       {matriz.sinRespuesta && <p className="mx-detalle mal">n8n empezó a generar esta matriz {hace(matriz.actualizadoEn)} y no ha vuelto a avisar. Puede haberse interrumpido.</p>}
       {matriz.detalle && matriz.estado === 'error' && <p className="mx-detalle mal">{matriz.detalle}</p>}
       {confirmar && (
@@ -413,12 +420,12 @@ export default function MatricesH5P({ s }) {
     return () => { document.removeEventListener('visibilitychange', alVolver); clearInterval(i) }
   }, [cargar])
 
-  const lanzar = useCallback(async (nums, forzar) => {
+  const lanzar = useCallback(async (nums, forzar, conservar) => {
     setLanzando(true); setError(''); setAviso('')
     try {
-      await api('POST', '/proyectos/' + encodeURIComponent(s.id) + '/pipeline/matrices', { unidades: nums, forzar })
+      await api('POST', '/proyectos/' + encodeURIComponent(s.id) + '/pipeline/matrices', { unidades: nums, forzar, ...(conservar ? { conservar: true } : {}) })
       setLanzadoEn(Date.now()); setYaEnCurso(0); setEnviadas(nums); setFaseSel(1)
-      setAviso((forzar ? 'Se pidió volver a generar' : 'Se pidió generar') + (nums.length === 1 ? ' la matriz de la Unidad ' + nums[0] : ' las matrices de las unidades ' + nums.join(', ')) + '. n8n la está preparando; esta pantalla se actualiza sola.')
+      setAviso((conservar ? 'Se pidió agregar las actividades a' : forzar ? 'Se pidió volver a generar' : 'Se pidió generar') + (nums.length === 1 ? ' la matriz de la Unidad ' + nums[0] : ' las matrices de las unidades ' + nums.join(', ')) + '. n8n la está preparando; esta pantalla se actualiza sola.')
       await cargar()
     } catch (e) {
       if (e && (e.estado === 409 || /ya se est/i.test(e.message || ''))) { setYaEnCurso(Date.now()); setEnviadas(nums); setLanzadoEn(Date.now()) } // no es un fallo: ya hay una en marcha
@@ -447,7 +454,7 @@ export default function MatricesH5P({ s }) {
 
   const resumen = useMemo(() => {
     if (!d) return null
-    const creadas = d.matrices.filter((m) => ['creada', 'omitida', 'reemplazada'].includes(m.estado)).length
+    const creadas = d.matrices.filter((m) => ['creada', 'omitida', 'reemplazada', 'actualizada'].includes(m.estado)).length
     const h5p = d.recursos.filter((r) => String(r.generador || '').toUpperCase() === 'H5P')
     return { creadas, unidades: unidades.length, h5p: h5p.length, generados: h5p.filter((r) => r.estado === 'GENERADO').length, errores: d.recursos.filter((r) => r.estado === 'ERROR').length }
   }, [d, unidades.length])
@@ -457,7 +464,7 @@ export default function MatricesH5P({ s }) {
   const ocupado = lanzando || lanzadoReciente || !!(d && (d.matrices.some((m) => m.estado === 'generando' && !m.sinRespuesta) || d.ejecuciones.some((e) => e.etapa === 'matrices' && e.estado === 'en_curso' && !e.sinRespuesta)))
   const puedeH5p = !!(d && d.puedeGenerarH5p)
   const puedePublicar = !!(d && d.puedePublicar)
-  const listas = d ? d.matrices.filter((m) => ['creada', 'omitida', 'reemplazada'].includes(m.estado) && !m.sinRespuesta).length : 0
+  const listas = d ? d.matrices.filter((m) => ['creada', 'omitida', 'reemplazada', 'actualizada'].includes(m.estado) && !m.sinRespuesta).length : 0
   const h5pOcupado = lanzando || (lanzadoReciente && !corridaNueva) || !!(d && d.ejecuciones.some((e) => e.etapa === 'h5p' && e.estado === 'en_curso' && !e.sinRespuesta))
   const conError = d ? d.recursos.filter((r) => r.estado === 'ERROR').length : 0
   const porRevisarTotal = d ? d.recursos.filter((r) => r.estado === 'POR_REVISAR').length : 0

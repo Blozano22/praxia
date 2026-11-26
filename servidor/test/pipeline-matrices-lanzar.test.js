@@ -31,7 +31,7 @@ before(async () => {
   const dueno = new pg.Client({ connectionString: `postgres://postgres:duenio@localhost:${PUERTO_PG}/ova` })
   await dueno.connect()
   await dueno.query("CREATE ROLE ova_app LOGIN PASSWORD 'appclave' NOSUPERUSER NOBYPASSRLS")
-  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql', '014_tipo_bibliografia.sql', '015_imagen_consumo_recurso.sql', '017_partes_recurso.sql', '018_estado_previo.sql', '019_actividad_tipos.sql', '020_alerta_actividad.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
+  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql', '014_tipo_bibliografia.sql', '015_imagen_consumo_recurso.sql', '017_partes_recurso.sql', '018_estado_previo.sql', '019_actividad_tipos.sql', '020_alerta_actividad.sql', '021_matriz_actualizada.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
   await dueno.end()
   n8n = http.createServer((req, res) => {
     const partes = []
@@ -334,4 +334,23 @@ test('regenerar: la orden lleva solo «regenerar» (sin unidades), valida estado
   assert.equal((await nuevo('r1', 'U1-T1-R1', { estado: 'POR_REVISAR', plantilla: 'quiz', contenido: { v: 'nuevo' } })).status, 200)
   r1 = await fila('r1')
   assert.equal(r1.estado, 'POR_REVISAR'); assert.deepEqual(r1.contenido, { v: 'nuevo' }); assert.equal(r1.enlace_recurso, ENL); assert.equal(r1.contenido_editado_en, null)
+})
+
+test('conservar: la orden lleva conservar:true y forzar:false; la matriz «actualizada» cuenta como lista', async () => {
+  const ana = await entrar('ana@u.co')
+  assert.equal((await ana('PUT', '/proyectos/curso-cs', curso('curso-cs'))).status, 200)
+  const t1 = (await (await ana('POST', '/proyectos/curso-cs/pipeline/matrices', { unidades: [1] })).json()).trabajo_id
+  const f = (s) => new Date(Date.now() - 600 * 1000 + s * 1000).toISOString()
+  const URL = 'https://docs.google.com/spreadsheets/d/m1abcdefgh/edit'
+  const fin = (id, t, resultado, sec) => firmado({ evento_id: id, evento: 'matrices_fin', etapa: 'matrices', proyecto_id: 'curso-cs', ejecucion_id: 'ej-cs', trabajo_id: t, origen_trabajo_id: t, secuencia: sec, fecha_evento: f(sec),
+    resultados: [{ unidad: 1, formacion: 'Tecnológico', resultado, matriz: { id: 'M1', url: URL }, filas: [] }] })
+  assert.equal((await fin('cs-fin-0001', t1, 'creada', 1)).status, 200)
+  const r = await ana('POST', '/proyectos/curso-cs/pipeline/matrices', { unidades: [1], forzar: true, conservar: true })
+  assert.equal(r.status, 202)
+  assert.equal(recibidas.at(-1).conservar, true); assert.equal(recibidas.at(-1).forzar, false)
+  const cuerpo = await r.json(); assert.equal(cuerpo.conservar, true)
+  assert.equal((await fin('cs-fin-0002', cuerpo.trabajo_id, 'actualizada', 2)).status, 200)
+  assert.equal((await ana('POST', '/proyectos/curso-cs/pipeline/matrices', { unidades: [1], conservar: 'si' })).status, 400)
+  respuestaN8n = { estado: 200, cuerpo: { ok: true } }
+  assert.equal((await ana('POST', '/proyectos/curso-cs/pipeline/h5p', {})).status, 202) // «actualizada» cuenta como lista para lanzar H5P
 })

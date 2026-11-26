@@ -13,7 +13,7 @@ import { esUrlImagen } from './eventos.js'
 
 const RE_CARPETA = /^https:\/\/drive\.google\.com\/drive\/(?:u\/\d+\/)?folders\/[A-Za-z0-9_-]+/
 const RE_CODIGO = /^U\d{1,3}-(?:T\d{1,3}-R\d{1,3}|PRES)$/
-const LISTAS = ['creada', 'omitida', 'reemplazada'] // estados de una matriz que ya se puede usar
+const LISTAS = ['creada', 'omitida', 'reemplazada', 'actualizada'] // estados de una matriz que ya se puede usar
 
 // Las direcciones de los webhooks las guarda el administrador en «Conexión n8n» (tabla configuracion); si no hay una guardada ahí,
 // se usa la del .env (N8N_MATRICES_URL / N8N_H5P_URL). Vacío = esa función queda desactivada.
@@ -26,7 +26,7 @@ export const urlH5p = () => urlConfigurada('n8n.h5p', config.n8nH5pUrl)
 export const urlPublicar = () => urlConfigurada('n8n.publicar', config.n8nPublicarUrl)
 
 const Unidades = z.array(z.number().int().min(1).max(200)).min(1).max(50)
-export const EsquemaLanzarMatrices = z.object({ unidades: Unidades, forzar: z.boolean().default(false) }).strict()
+export const EsquemaLanzarMatrices = z.object({ unidades: Unidades, forzar: z.boolean().default(false), conservar: z.boolean().default(false) }).strict()
 export const EsquemaLanzarH5p = z.object({
   maximo: z.number().int().min(1).max(200).optional(), // opcional: cuántos recursos tiene la corrida como tope. Praxia ya no lo pide; lo define n8n
   unidades: Unidades.optional(),
@@ -104,7 +104,8 @@ async function entregar({ url, cuerpo, minutos, trabajoId, publicarFn, nombre })
 }
 
 // Devuelve { codigo, cuerpo } listo para responder. «publicarFn» solo se cambia en las pruebas.
-export async function lanzarMatrices({ usuario, proyectoId, unidades, forzar, publicarFn = publicar }) {
+export async function lanzarMatrices({ usuario, proyectoId, unidades, forzar, conservar = false, publicarFn = publicar }) {
+  if (conservar) forzar = false // conservar manda: n8n ignora forzar y no toca la matriz existente
   const url = await urlMatrices()
   if (!url) return falla(503, 'La generación de matrices no está configurada en el servidor.')
   const curso = await leerCurso(usuario, proyectoId)
@@ -126,10 +127,10 @@ export async function lanzarMatrices({ usuario, proyectoId, unidades, forzar, pu
   if (!trabajoId) return falla(409, 'Ya se están generando las matrices de este curso. Espere a que termine.', { ya: true })
   // Dos minutos son de sobra para que n8n confirme que recibió la orden.
   const r = await entregar({ url, minutos: 2, trabajoId, publicarFn, nombre: 'matrices',
-    cuerpo: { trabajo_id: trabajoId, proyecto_id: proyectoId, carpeta_raiz: curso.carpeta, unidades: pedidas, unidades_detalle: detalle, forzar } })
+    cuerpo: { trabajo_id: trabajoId, proyecto_id: proyectoId, carpeta_raiz: curso.carpeta, unidades: pedidas, unidades_detalle: detalle, forzar, ...(conservar ? { conservar: true } : {}) } })
   if (r.codigo !== 202) return r
   const ejecucion = r.ack && typeof r.ack.ejecucion_id === 'string' ? r.ack.ejecucion_id.slice(0, 100) : undefined
-  return { codigo: 202, cuerpo: { trabajo_id: trabajoId, unidades: pedidas, forzar, ...(ejecucion ? { ejecucion_id: ejecucion } : {}) } }
+  return { codigo: 202, cuerpo: { trabajo_id: trabajoId, unidades: pedidas, forzar, conservar, ...(ejecucion ? { ejecucion_id: ejecucion } : {}) } }
 }
 
 export async function lanzarH5p({ usuario, proyectoId, maximo, unidades, reintentarErrores, regenerar, publicarFn = publicar }) {

@@ -36,7 +36,7 @@ before(async () => {
   const dueno = new pg.Client({ connectionString: `postgres://postgres:duenio@localhost:${PUERTO_PG}/ova` })
   await dueno.connect()
   await dueno.query("CREATE ROLE ova_app LOGIN PASSWORD 'appclave' NOSUPERUSER NOBYPASSRLS")
-  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql', '014_tipo_bibliografia.sql', '015_imagen_consumo_recurso.sql', '017_partes_recurso.sql', '018_estado_previo.sql', '019_actividad_tipos.sql', '020_alerta_actividad.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
+  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql', '014_tipo_bibliografia.sql', '015_imagen_consumo_recurso.sql', '017_partes_recurso.sql', '018_estado_previo.sql', '019_actividad_tipos.sql', '020_alerta_actividad.sql', '021_matriz_actualizada.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
   await dueno.end()
   process.env.DATABASE_URL = `postgres://ova_app:appclave@localhost:${PUERTO_PG}/ova`
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex')
@@ -693,4 +693,21 @@ test('alerta_actividad: el aviso con el campo manda (vacío limpia), sin el camp
   await enviar(h('GENERADO', 605, { alerta_actividad: TXT }))
   assert.equal((await enviar(h('GENERADO', 606, { alerta_actividad: 42 }))).estado, 200) // no es texto: se ignora, el aviso se acepta
   assert.equal(await alerta(), TXT) // y como si no viniera: se conserva
+})
+
+test('matrices_fin «actualizada»: se acepta, cuenta como matriz lista y no degrada recursos que Praxia ya tiene; «reemplazada» sigue igual', async () => {
+  const comunes = { trabajo_id: T.ana, ejecucion_id: 'conservar' }
+  assert.equal((await enviar(aviso('matrices_inicio', 'matrices', { ...comunes, unidades: [11], forzar: false, conservar: true }, 800))).estado, 200)
+  await enviar(aviso('matrices_fin', 'matrices', { ...comunes, resultados: [{ unidad: 11, resultado: 'creada', matriz: { id: 'M11', url: HOJA }, filas: [fila('x11'), fila('y11')] }] }, 801))
+  await enviar(aviso('h5p_recurso', 'h5p', { ...comunes, unidad: 11, id: 'x11', estado: 'GENERADO', enlace_recurso: 'https://drive.google.com/file/d/x11/view', contenido: { a: 1 }, observaciones: 'listo' }, 802))
+  const r = await enviar(aviso('matrices_fin', 'matrices', { ...comunes, resultados: [{ unidad: 11, resultado: 'actualizada', matriz: { id: 'M11', url: HOJA }, detalle: 'Se conservó la matriz', filas: [fila('x11', 'PENDIENTE'), fila('y11', 'PENDIENTE')] }] }, 803))
+  assert.equal(r.estado, 200, JSON.stringify(r.datos))
+  assert.equal((await una('ana', 'pipeline_matrices', 'unidad = 11'))[0].estado, 'actualizada')
+  const x = (await una('ana', 'pipeline_recursos', "id = 'x11'"))[0]
+  assert.equal(x.estado, 'GENERADO'); assert.deepEqual(x.contenido, { a: 1 }); assert.equal(x.enlace_recurso, 'https://drive.google.com/file/d/x11/view'); assert.equal(x.observaciones, 'listo')
+  assert.equal((await una('ana', 'pipeline_recursos', "id = 'y11'"))[0].estado, 'PENDIENTE')
+  // «reemplazada» mantiene su comportamiento: la fila toma el estado de la hoja
+  await enviar(aviso('matrices_fin', 'matrices', { ...comunes, resultados: [{ unidad: 11, resultado: 'reemplazada', matriz: { id: 'M11b', url: HOJA }, filas: [fila('x11', 'PENDIENTE'), fila('y11', 'PENDIENTE')] }] }, 804))
+  assert.equal((await una('ana', 'pipeline_matrices', 'unidad = 11'))[0].estado, 'reemplazada')
+  assert.equal((await una('ana', 'pipeline_recursos', "id = 'x11'"))[0].estado, 'PENDIENTE')
 })

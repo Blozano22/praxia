@@ -171,8 +171,8 @@ Vector de referencia (secreto de ejemplo, **no** el real; se imprime con `node s
 | `evento` | Campos propios |
 | --- | --- |
 | `guiones_terminados` (opcional) | `unidad`, `formacion`, `resultado` (`ok` o `error`), `detalle`, `guiones: [{tema, nombre, url}]` |
-| `matrices_inicio` | `unidades: [n]`, `forzar` |
-| `matrices_fin` | `resultados: [{unidad, formacion, resultado, matriz: {id, url, nombre}, anterior_id, detalle, filas: [...]}]`. `resultado` es `creada`, `omitida_ya_existe`, `reemplazada` o `error`. Cada fila: `id, id_base, variante, alcance, tema, codigo, formato, titulo, con_actividad, generador, estado, observaciones, enlace_guion, enlace_recurso`. `omitida_ya_existe` debe traer también `matriz` y `filas` |
+| `matrices_inicio` | `unidades: [n]`, `forzar`, `conservar` (opcional) |
+| `matrices_fin` | `resultados: [{unidad, formacion, resultado, matriz: {id, url, nombre}, anterior_id, detalle, filas: [...]}]`. `resultado` es `creada`, `omitida_ya_existe`, `reemplazada`, `actualizada` o `error`. `actualizada` (orden con `conservar:true`): n8n conservó la matriz y solo añadió «Actividad usada»; cuenta como matriz lista y sus filas no degradan recursos que Praxia ya tiene (no vuelven a PENDIENTE/EN_PROCESO). También requiere la migración `021`. Cada fila: `id, id_base, variante, alcance, tema, codigo, formato, titulo, con_actividad, generador, estado, observaciones, enlace_guion, enlace_recurso`. `omitida_ya_existe` debe traer también `matriz` y `filas` |
 | `h5p_inicio` | `maximo`, `plan: {a_generar: [{id, codigo}], omitidas: [{id, codigo, motivo}]}`. El motivo va en minúsculas con `_` (`sin_plantilla`, `generador_no_h5p`, `estado_no_pendiente`, `tipo_inactivo`, `supera_maximo`…) |
 | `h5p_recurso` | `unidad`, `id`, `codigo`, `estado` (`PENDIENTE`, `EN_PROCESO`, `GENERADO` o `ERROR`), `enlace_recurso`, `observaciones` |
 | `h5p_fin` | `resumen: {generados, errores, omitidos, pendientes_restantes}` |
@@ -214,7 +214,7 @@ Praxia entrega la orden y n8n responde enseguida; el resultado llega por los avi
 
 | Variable | Webhook | Cuerpo que recibe | Respuesta esperada |
 | --- | --- | --- | --- |
-| `N8N_MATRICES_URL` | subflujo de matrices | `{ trabajo_id, proyecto_id, carpeta_raiz, unidades:[n], unidades_detalle:[{ numero, formacion, guiones:[{ tema, nombre, url }] }], forzar }` (Praxia no manda unidades sin guiones) | `200 {ok, ejecucion_id}` de inmediato; `400` con el motivo si falta algo; `409 {ya:true}` si ya hay una corrida en esa carpeta |
+| `N8N_MATRICES_URL` | subflujo de matrices | `{ trabajo_id, proyecto_id, carpeta_raiz, unidades:[n], unidades_detalle:[{ numero, formacion, guiones:[{ tema, nombre, url }] }], forzar, conservar? }` (`POST .../pipeline/matrices` acepta `conservar:true`: Praxia manda `forzar:false`; n8n no reemplaza la matriz existente y solo agrega la columna de actividades) (Praxia no manda unidades sin guiones) | `200 {ok, ejecucion_id}` de inmediato; `400` con el motivo si falta algo; `409 {ya:true}` si ya hay una corrida en esa carpeta |
 | `N8N_H5P_URL` | orquestador de H5P | `{ trabajo_id, proyecto_id, carpeta_raiz, unidades?:[n], reintentar_errores }` (Praxia ya no manda `maximo`: cuántos recursos se generan lo define n8n; si el pedido lo trae, se reenvía) | 2xx tras planificar, idealmente `{ ejecucion_id, plan }`; `409` si ya hay una corrida |
 
 Rutas de Praxia (sesión y permiso `proyectos.crear`): `POST /api/proyectos/:id/pipeline/matrices` y `POST /api/proyectos/:id/pipeline/h5p`. Solo una generación por curso y etapa a la vez (409). Si n8n no acepta la orden, el curso no queda bloqueado. El flujo de guiones recibe además `proyecto_id` y `carpeta_raiz` (cambio 7.1a del plan).

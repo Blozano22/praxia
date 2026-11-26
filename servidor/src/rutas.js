@@ -219,9 +219,9 @@ rutas.post('/proyectos/:id/pipeline/recursos/:recurso/h5p', exigirSesion, exigir
 // Lanza la generación de matrices (las que faltan, o volver a generar con forzar). Responde 202 en cuanto n8n confirma la orden.
 rutas.post('/proyectos/:id/pipeline/matrices', exigirSesion, exigirPermiso('proyectos.crear'), limiteLanzar, validar(z.object({ id: IdProyecto }), 'params'), validar(EsquemaLanzarMatrices, 'body'), async (req, res, next) => {
   try {
-    const { unidades, forzar } = req.bodyOk
-    const r = await lanzarMatrices({ usuario: req.usuario, proyectoId: req.paramsOk.id, unidades, forzar })
-    if (r.codigo === 202) auditar(req.usuario.id, forzar ? 'matrices.regenerar' : 'matrices.generar', 'proyecto', req.paramsOk.id, req)
+    const { unidades, forzar, conservar } = req.bodyOk
+    const r = await lanzarMatrices({ usuario: req.usuario, proyectoId: req.paramsOk.id, unidades, forzar, conservar })
+    if (r.codigo === 202) auditar(req.usuario.id, conservar ? 'matrices.actualizar' : forzar ? 'matrices.regenerar' : 'matrices.generar', 'proyecto', req.paramsOk.id, req)
     res.status(r.codigo).json(r.cuerpo)
   } catch (err) { next(err) }
 })
