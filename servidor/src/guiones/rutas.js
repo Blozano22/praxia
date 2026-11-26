@@ -17,6 +17,7 @@ import { Q } from '../consultas.js'
 import { exigirPermiso, exigirSesion } from '../seguridad.js'
 import { armarPaquete } from '../bibliografia/rutas.js'
 import { registrarOrigen } from '../pipeline/eventos.js'
+import { exigirEditable } from '../diseno.js'
 import { asegurarAsignacion, ErrorPropio, exigirAprobadas } from '../pipeline/preparacion.js'
 
 export const rutasGuiones = Router()
@@ -129,6 +130,7 @@ const Nuevo = z.object({
 rutasGuiones.post('/trabajos', exigirPermiso('proyectos.crear'), limiteCrear, validar(Nuevo, 'body'), async (req, res, next) => {
   try {
     const { proyecto, unidad, unidadUrl, syllabusUrl, bibliografiaId, reasignar } = req.bodyOk
+    if (!(await exigirEditable(req, res, proyecto, 'curso'))) return
     // Los guiones solo se generan con todas las unidades del curso aprobadas (la pantalla ya lo exige; aquí se exige también en el servidor).
     try { await exigirAprobadas(req.usuario, proyecto) } catch (e) { if (e instanceof ErrorPropio) return res.status(409).json({ error: e.message }); throw e }
     // Los guiones se escriben con la bibliografía ya leída de ESA unidad; sin ella no se envía nada.

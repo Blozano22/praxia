@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { api } from '../lib/api.js'
 import Documentos from './Documentos.jsx'
 import PortalSyllabus from './PortalSyllabus.jsx'
 import EnlaceDoc from './EnlaceDoc.jsx'
@@ -13,6 +14,9 @@ import { uid } from '../lib/util.js'
 
 const ESTADOS = { listo: ['ok', 'Documentos generados'], error: ['warn', 'Con error'], pendiente: ['warn', 'Pendiente de generar'], sin: ['', 'Sin generar'] }
 
+// Deshabilita los controles de un paso (fieldset disabled): en solo lectura todo; en revisión del docente solo queda libre la edición de guiones.
+const Cierre = ({ activo, children }) => (activo ? <fieldset disabled style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>{children}</fieldset> : children)
+
 // Espacio de trabajo de UN syllabus: 1) documentos por unidad (se revisan y aprueban), 2) unidades con sus temas y recursos.
 export default function Workspace({ s, tab, setTab, unidadSel, setUnidadSel, recSel, setRecSel, onCambio, onVolver, onEditar, aviso, pendInicial }) {
   const [regenerar, setRegenerar] = useState(false)
@@ -20,6 +24,18 @@ export default function Workspace({ s, tab, setTab, unidadSel, setUnidadSel, rec
   const [pend, setPend] = useState(pendInicial ? pendInicial[0].pend : null)
   const [cola, setCola] = useState(pendInicial ? pendInicial.slice(1) : []) // guiones que siguen por revisar
   const [cls, txt] = ESTADOS[s.syllabus.estado] || ESTADOS.sin
+  // Estado de diseño del curso (null = lo tiene el docente). En diseño o asignado es solo lectura; en revisión solo se corrigen los guiones.
+  const [dis, setDis] = useState(null)
+  const [enviando, setEnviando] = useState(false)
+  useEffect(() => { api('GET', '/proyectos/' + encodeURIComponent(s.id) + '/diseno').then(setDis).catch(() => {}) }, [s.id])
+  const estadoDis = dis && dis.estado
+  const lectura = estadoDis === 'en_diseno' || estadoDis === 'asignado'
+  const revision = estadoDis === 'en_revision_docente'
+  const enviarADiseno = async () => {
+    if (!window.confirm('Al enviarlo a diseño ya no podrá editar el curso; un diseñador generará matrices y H5P. Podrá ver todo y, si el diseñador le pide una corrección, podrá corregir los guiones. ¿Enviar a diseño?')) return
+    setEnviando(true)
+    try { await api('POST', '/proyectos/' + encodeURIComponent(s.id) + '/enviar-diseno', {}); setDis(await api('GET', '/proyectos/' + encodeURIComponent(s.id) + '/diseno')); aviso('Curso enviado a diseño') } catch (e) { aviso(e.message) } finally { setEnviando(false) }
+  }
 
   const docs = s.syllabus.documentos
   const aprobados = docs.filter((d) => d.aprobado).length
@@ -34,6 +50,7 @@ export default function Workspace({ s, tab, setTab, unidadSel, setUnidadSel, rec
   ]
   // Un paso se marca como listo (chulito) cuando su trabajo está terminado, sin importar en cuál paso se esté: así «Unidades» sigue con su chulito al volver al syllabus.
   const guionesOk = docs.length > 0 && docs.every((d) => { const a = ((s.guionesUnidad || {})[d.unidad] || {}).archivos || []; return a.length > 0 && a.every((x) => x.aprobado) })
+  const motivoEnvio = !docs.length ? 'El curso no tiene unidades.' : faltan ? 'Apruebe todas las unidades.' : !guionesOk ? 'Genere y apruebe los guiones de todas las unidades.' : ''
   const completo = { syllabus: !!s.syllabusUrl && !sinFormacion, docs: docs.length > 0 && !faltan, unidades: guionesOk, matrices: false }
   if (faltan && (tab === 'unidades' || tab === 'recursos' || tab === 'matrices')) setTimeout(() => setTab('docs'), 0)
   // Al cambiar de paso el contenido se desliza: entra por la derecha al avanzar y por la izquierda al volver.
@@ -103,9 +120,19 @@ export default function Workspace({ s, tab, setTab, unidadSel, setUnidadSel, rec
           <div className="row" style={{ marginTop: 4 }}>
             {s.programa !== 'Sin programa' && <span className="help" style={{ margin: 0 }}>{s.programa}</span>}
             <span className={'pill ' + cls}>{txt}</span>
+            {lectura && <span className="pill warn">{estadoDis === 'asignado' ? 'Asignado a ' + (dis.disenador || 'un diseñador') : 'En diseño'}</span>}
+            {revision && <span className="pill warn">Revisión solicitada</span>}
           </div>
         </div>
+        {!estadoDis && dis && (
+          <div style={{ textAlign: 'right' }}>
+            <button className="btn gold" disabled={Boolean(motivoEnvio) || enviando} title={motivoEnvio} onClick={enviarADiseno}>{enviando ? 'Enviando…' : 'Enviar a diseño'}</button>
+            {motivoEnvio && <div className="help" style={{ margin: '4px 0 0' }}>{motivoEnvio}</div>}
+          </div>
+        )}
       </div>
+      {lectura && <div className="msg info" style={{ marginTop: 10 }}><b>Curso en diseño: solo lectura.</b> Puede ver todo; el diseñador genera las matrices y los H5P.</div>}
+      {revision && <div className="msg info" style={{ marginTop: 10 }}><b>Revisión solicitada: puede corregir los guiones.</b> Las matrices y los H5P los genera el diseñador.</div>}
 
       <div className="stepper2" role="tablist">
         {pasos.map(([k, n, t, sub]) => (
@@ -119,7 +146,7 @@ export default function Workspace({ s, tab, setTab, unidadSel, setUnidadSel, rec
 
       <div key={tab} className={'ws-paso ws-' + dir.current}>
       {tab === 'syllabus' && (
-        <div>
+        <Cierre activo={lectura || revision}><div>
           <h2>Syllabus</h2>
           {regenerar ? (
             <div>
@@ -144,11 +171,11 @@ export default function Workspace({ s, tab, setTab, unidadSel, setUnidadSel, rec
               </div>
             </>
           )}
-        </div>
+        </div></Cierre>
       )}
 
       {tab === 'docs' && (
-        <div>
+        <Cierre activo={lectura || revision}><div>
           <h2>Unidades del syllabus</h2>
           <p className="help">Revise el documento de cada unidad y apruébelo. Al aprobarlas todas se habilitan los guiones.</p>
           <Documentos s={s} onCambio={onCambio} />
@@ -156,7 +183,7 @@ export default function Workspace({ s, tab, setTab, unidadSel, setUnidadSel, rec
             <button className="btn gold" disabled={faltan} onClick={() => irA('unidades')}>Continuar a los guiones →</button>
             {faltan && <span className="help">Faltan {docs.length - aprobados} documento{docs.length - aprobados === 1 ? '' : 's'} por aprobar.</span>}
           </div>
-        </div>
+        </div></Cierre>
       )}
 
       {tab === 'unidades' && (
@@ -171,16 +198,16 @@ export default function Workspace({ s, tab, setTab, unidadSel, setUnidadSel, rec
               <CargarGuion onAnalizado={(p) => { setPend(p); setModo('revision') }} onCancelar={() => setModo('lista')} />
             </div>
           ) : unidadSel != null ? (
-            <UnidadVista s={s} unidad={unidadSel} onCambio={onCambio} onVolver={() => setUnidadSel(null)} onCrearDeGuiones={crearDeGuiones} aviso={aviso} />
+            <Cierre activo={lectura}><UnidadVista s={s} unidad={unidadSel} onCambio={onCambio} onVolver={() => setUnidadSel(null)} onCrearDeGuiones={crearDeGuiones} aviso={aviso} /></Cierre>
           ) : (
             <Unidades s={s} onAbrir={setUnidadSel} />
           )}
         </div>
       )}
 
-      {tab === 'matrices' && <MatricesH5P s={s} />}
+      {tab === 'matrices' && <Cierre activo={lectura || revision}><MatricesH5P s={s} /></Cierre>}
 
-      {tab === 'recursos' && <Recursos s={s} sel={recSel} setSel={setRecSel} onCambio={onCambio} onEditar={onEditar} aviso={aviso} />}
+      {tab === 'recursos' && <Cierre activo={lectura || revision}><Recursos s={s} sel={recSel} setSel={setRecSel} onCambio={onCambio} onEditar={onEditar} aviso={aviso} /></Cierre>}
       </div>
     </div>
   )

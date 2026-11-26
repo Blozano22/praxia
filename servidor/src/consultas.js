@@ -132,6 +132,12 @@ export const Q = Object.freeze({
     UPDATE unidades_trabajos SET estado = 'error', error = $1, terminado = now()
      WHERE estado = 'en_curso' AND creado < now() - ($2::int * interval '1 minute')`,
   unidadTrabajosLimpiar: `DELETE FROM unidades_trabajos WHERE estado <> 'en_curso' AND coalesce(terminado, creado) < now() - interval '7 days'`,
+  // ---- estado de diseño del curso (sin fila = con el docente)
+  disenoObtener: `SELECT d.estado, d.disenador_id, u.nombre AS disenador, d.enviado_en, d.asignado_en, d.actualizado_en
+    FROM curso_diseno d LEFT JOIN usuarios u ON u.id = d.disenador_id WHERE d.propietario_id = $1 AND d.proyecto_id = $2`,
+  disenoCrear: `INSERT INTO curso_diseno (propietario_id, proyecto_id, estado, enviado_por) VALUES ($1, $2, 'en_diseno', $3)
+    ON CONFLICT DO NOTHING RETURNING estado, enviado_en`,
+  disenoLista: `SELECT d.proyecto_id, d.estado, u.nombre AS disenador FROM curso_diseno d LEFT JOIN usuarios u ON u.id = d.disenador_id WHERE d.propietario_id = $1`,
   // ---- pipeline: avisos de n8n guardados ligados al curso (sin sesión: la persona sale de pipeline_origen)
   pipeCarpetaDeProyecto: `SELECT datos->>'carpetaUrl' AS carpeta FROM proyectos WHERE propietario_id = $1 AND id = $2`,
   pipeProyectoDatos: `SELECT datos FROM proyectos WHERE propietario_id = $1 AND id = $2`,

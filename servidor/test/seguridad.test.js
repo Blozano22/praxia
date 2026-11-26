@@ -27,6 +27,7 @@ before(async () => {
   await duenio.connect()
   await duenio.query("CREATE ROLE ova_app LOGIN PASSWORD 'appclave' NOSUPERUSER NOBYPASSRLS")
   await duenio.query(fs.readFileSync(path.join(aqui, '..', 'sql', '001_esquema.sql'), 'utf8'))
+  await duenio.query(fs.readFileSync(path.join(aqui, '..', 'sql', '024_curso_diseno.sql'), 'utf8'))
   await duenio.end()
 
   process.env.DATABASE_URL = `postgres://ova_app:appclave@localhost:${PUERTO_PG}/ova`

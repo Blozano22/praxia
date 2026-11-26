@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { api } from '../lib/api.js'
 import Titulo from './Titulo.jsx'
 
 const ESTADOS = {
@@ -18,6 +19,8 @@ const avance = (s) => {
 export default function Dashboard({ lista, onNuevo, onAbrir, onEliminar }) {
   const [prog, setProg] = useState('todos')
   const [q, setQ] = useState('')
+  const [diseno, setDiseno] = useState({}) // estado de diseño por curso: sin entrada = lo tiene el docente
+  useEffect(() => { api('GET', '/diseno').then((f) => setDiseno(Object.fromEntries(f.map((x) => [x.proyecto_id, x])))).catch(() => {}) }, [lista.length])
   const [seguro, setSeguro] = useState('') // id del syllabus que espera la segunda pulsación para eliminarse
 
   const programas = useMemo(() => {
@@ -92,7 +95,7 @@ export default function Dashboard({ lista, onNuevo, onAbrir, onEliminar }) {
                     <div className="db2-seg">{PASOS.map((p, i) => <i key={p} className={i < n ? 'on' : ''} />)}</div>
                     <small>{listo ? 'Todo listo' : `Paso ${n} de 3 · ${PASOS[n - 1]}`}{s.syllabus.documentos.length ? ` · ${s.syllabus.documentos.length} unidades` : ''}</small>
                   </div>
-                  <span><span className={'pill ' + cls}>{txt}</span></span>
+                  <span><span className={'pill ' + cls}>{txt}</span>{diseno[s.id] && <span className="pill warn" style={{ marginLeft: 6 }}>{diseno[s.id].estado === 'en_diseno' ? 'En diseño' : diseno[s.id].estado === 'asignado' ? 'Asignado a ' + (diseno[s.id].disenador || 'un diseñador') : 'Revisión solicitada'}</span>}</span>
                   <div className="db2-acc">
                     <button className="btn sm" onClick={() => onAbrir(s.id)}>{listo ? 'Abrir' : 'Continuar'}</button>
                     <button className={'btn danger sm' + (seguro === s.id ? ' sure' : '')} aria-label={'Eliminar ' + s.curso} onClick={() => eliminar(s)}>{seguro === s.id ? '¿Seguro?' : 'Eliminar'}</button>
