@@ -74,6 +74,25 @@ const ContenidoAviso = z.preprocess((v) => {
   return v
 }, z.record(z.string(), z.any()).nullish())
 const PlantillaAviso = z.string().transform((x) => x.trim().toLowerCase().slice(0, 80))
+// Partes extra del H5P (actividad y bibliografía): una parte inválida se IGNORA (null) sin rechazar el aviso.
+const MAX_PARTE = 200000
+const NOMBRE_PLANTILLA = /^[a-z0-9-]{1,80}$/
+const ParteAviso = z.preprocess((v) => {
+  if (typeof v === 'string') { try { v = JSON.parse(v) } catch { return null } }
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null
+  const plantilla = typeof v.plantilla === 'string' ? v.plantilla.trim().toLowerCase() : ''
+  let c = v.contenido
+  if (typeof c === 'string') { try { c = JSON.parse(c) } catch { c = null } }
+  if (!NOMBRE_PLANTILLA.test(plantilla) || !c || typeof c !== 'object' || Array.isArray(c)) { console.warn('[avisos] parte de recurso inválida: se ignora'); return null }
+  if (JSON.stringify(c).length > MAX_PARTE) { console.warn('[avisos] parte de recurso demasiado grande: se ignora'); return null }
+  return { plantilla, contenido: c, ...(esUrlImagen(v.imagen_url) ? { imagen_url: v.imagen_url } : {}) }
+}, z.object({ plantilla: z.string(), contenido: z.record(z.string(), z.any()), imagen_url: z.string().optional() }).nullish())
+const TipoActividad = z.preprocess((v) => (typeof v === 'string' && v.trim() && v.length <= 200 ? v.trim() : null), z.string().nullish())
+const ActividadGuion = z.preprocess((v) => {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null
+  try { if (JSON.stringify(v).length > 4000) return null } catch { return null }
+  return v
+}, z.record(z.string(), z.any()).nullish())
 const Fila = z.object({
   id: idTexto,
   id_base: texto(100).nullish(), variante: texto(100).nullish(), alcance: texto(100).nullish(),
@@ -118,6 +137,7 @@ const Evento = z.discriminatedUnion('evento', [
     unidad: z.number().int().min(0).max(99).nullish(), id: idTexto, codigo: texto(100).nullish(),
     estado: z.enum(['PENDIENTE', 'EN_PROCESO', 'POR_REVISAR', 'GENERADO', 'ERROR']), enlace_recurso: opc(UrlGoogle), observaciones: texto(2000).nullish(),
     plantilla: opc(PlantillaAviso), contenido: ContenidoAviso, imagen_url: ImagenUrl, consumo: Consumo,
+    tipo_actividad: TipoActividad, actividad_guion: ActividadGuion, actividad: ParteAviso, bibliografia: ParteAviso,
     revision_pendiente: z.preprocess((v) => (typeof v === 'string' && /^\d{1,4}$/.test(v.trim()) ? Number(v) : (Number.isInteger(v) && v >= 0 && v <= 9999 ? v : null)), z.number().nullish()) // campos que quedaron para revisión humana; lo no válido cuenta como «sin dato»
   }),
   Comun.extend({
@@ -188,7 +208,7 @@ async function aplicar(c, ev, o, fecha, sec) {
           const claves = r.filas.map((f) => f.codigo || f.id)
           for (const [k, f] of r.filas.entries()) {
             await c.query(Q.pipeRecursoGuardar, [P, Y, claves[k], r.unidad, f.id_base || null, f.variante || null, f.alcance || null, f.tema ?? null, f.codigo || null, f.formato || null, f.titulo || null,
-              f.con_actividad ?? null, f.generador || null, f.estado, f.observaciones || null, f.enlace_guion || null, f.enlace_recurso || null, null, fecha, sec, f.plantilla || null, null, null, null, null])
+              f.con_actividad ?? null, f.generador || null, f.estado, f.observaciones || null, f.enlace_guion || null, f.enlace_recurso || null, null, fecha, sec, f.plantilla || null, null, null, null, null, null, null, null, null])
           }
           await c.query(Q.pipeRecursosQuitarSobrantes, [P, Y, r.unidad, claves, fecha])
         }
@@ -203,7 +223,8 @@ async function aplicar(c, ev, o, fecha, sec) {
       return n
     case 'h5p_recurso': {
       const r = await c.query(Q.pipeRecursoGuardar, [P, Y, await claveFila(c, P, Y, ev.id, ev.codigo), ev.unidad ?? null, null, null, null, null, ev.codigo || null, null, null, null, null, ev.estado,
-        ev.observaciones || null, null, ev.enlace_recurso || null, null, fecha, sec, ev.plantilla || null, ev.contenido ? JSON.stringify(ev.contenido) : null, ev.revision_pendiente ?? null, ev.imagen_url || null, ev.consumo ? JSON.stringify(ev.consumo) : null])
+        ev.observaciones || null, null, ev.enlace_recurso || null, null, fecha, sec, ev.plantilla || null, ev.contenido ? JSON.stringify(ev.contenido) : null, ev.revision_pendiente ?? null, ev.imagen_url || null, ev.consumo ? JSON.stringify(ev.consumo) : null,
+        ev.tipo_actividad || null, ev.actividad_guion ? JSON.stringify(ev.actividad_guion) : null, ev.actividad ? JSON.stringify(ev.actividad) : null, ev.bibliografia ? JSON.stringify(ev.bibliografia) : null])
       // Un recurso que termina (GENERADO/ERROR) solo avanza una corrida que ya existe; si no hay corrida es una publicación tras aprobar y no debe aparecer como «generando».
       if (ev.estado === 'GENERADO' || ev.estado === 'ERROR') await c.query(Q.pipeEjecucionTocarExistente, [P, Y, ev.etapa, eje, fecha])
       else await c.query(Q.pipeEjecucionTocar, [...base, fecha])

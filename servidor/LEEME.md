@@ -311,6 +311,16 @@ En cada recurso generado que tiene contenido guardado aparece «Editar textos»:
 - `PUT /api/proyectos/:id/pipeline/recursos/:recurso/contenido` `{ contenido }` guarda lo editado. Solo textos: el servidor rechaza (400) cualquier cambio de estructura (campos o tipos distintos a los guardados), 413 si pasa de 400 KB. Un aviso posterior `h5p_recurso` con `contenido` (regeneración) lo reemplaza. Requiere migración `009_pipeline_contenido_editado.sql`.
 - `POST /api/proyectos/:id/pipeline/recursos/:recurso/h5p` arma el `.h5p` llamando al servicio de plantillas (`POST <SERVICIO_PLANTILLAS_URL>/h5p` con `X-API-Key`) y lo entrega como descarga; los íconos que el servicio no pudo resolver vienen en `X-Iconos-Sin-Resolver`. Variables de `.env`: `SERVICIO_PLANTILLAS_CLAVE` (la misma `SERVICIO_CLAVE` de n8n; sin ella responde 503) y, si cambia, `SERVICIO_PLANTILLAS_URL` (por defecto `https://proyectos.americana.edu.co/plantillas-diepo`). Subir el `.h5p` corregido a Drive/Moodle queda fuera de este paso.
 
+### Partes del recurso: actividad y bibliografía dentro del mismo H5P (migración `017_partes_recurso.sql`)
+
+Un recurso H5P puede llevar hasta 3 partes: el recurso (`contenido`, sin cambios), `actividad` y `bibliografia`. `h5p_recurso` acepta, todos opcionales:
+- `tipo_actividad` (texto ≤ 200) y `actividad_guion` (objeto `{ tipo, nombre, instrucciones }`, ≤ 4000 caracteres).
+- `actividad` `{ plantilla, contenido, imagen_url }` y `bibliografia` `{ plantilla, contenido }`: `plantilla` con la forma `^[a-z0-9-]{1,80}$`, `contenido` objeto (o texto JSON) de hasta 200000 caracteres, `imagen_url` https como la del recurso. Una parte inválida se ignora sin rechazar el aviso.
+- Se guardan en `pipeline_recursos` (`tipo_actividad`, `actividad_guion`, `actividad`, `bibliografia`, `actividad_editado_en`, `bibliografia_editado_en`); un aviso posterior sin ellos no los borra, y una parte nueva descarta las ediciones a mano de esa parte. Regenerar (`regenerar` en `POST pipeline/h5p`) conserva las partes hasta que llegue el aviso nuevo.
+- La lista del curso (`GET /proyectos/:id/pipeline`) devuelve `tipoActividad`, `actividadGuion`, `tieneActividad` y `tieneBibliografia`; el detalle (`GET .../recursos/:recurso/contenido`) añade `actividad` y `bibliografia` completas.
+- `PUT .../recursos/:recurso/contenido` acepta `parte`: `'recurso'` (por defecto) | `'actividad'` | `'bibliografia'`. `contenido` se valida contra la estructura guardada de esa parte (solo cambian textos; 400 si no) y se marca su `*_editado_en`; 404 si el recurso es de otro propietario o no tiene esa parte.
+- La orden de publicar suma `actividad` `{ plantilla, contenido, imagen_url }` y `bibliografia` `{ plantilla, contenido }` de primer nivel solo cuando la fila las tiene (con el contenido editado vigente); si no, no manda esas claves.
+
 ## Aprobar antes de publicar (H5P en dos etapas)
 
 1. **Generar** (flujo de H5P): por cada recurso avisa `h5p_recurso` con `estado: 'POR_REVISAR'`, `contenido` y `revision_pendiente`; no arma el `.h5p` ni sube nada a Drive. `h5p_fin.resumen` puede traer `por_revisar`.

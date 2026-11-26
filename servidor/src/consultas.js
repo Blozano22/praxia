@@ -211,8 +211,8 @@ export const Q = Object.freeze({
     WHERE (pipeline_matrices.actualizado_en, pipeline_matrices.secuencia) <= (EXCLUDED.actualizado_en, EXCLUDED.secuencia)
     RETURNING unidad`,
   pipeRecursoGuardar: `
-    INSERT INTO pipeline_recursos (propietario_id, proyecto_id, id, unidad, id_base, variante, alcance, tema, codigo, formato, titulo, con_actividad, generador, estado, observaciones, enlace_guion, enlace_recurso, omision, actualizado_en, secuencia, plantilla, contenido, revision_pendiente, imagen_url, consumo)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22::jsonb, $23, $24, $25::jsonb)
+    INSERT INTO pipeline_recursos (propietario_id, proyecto_id, id, unidad, id_base, variante, alcance, tema, codigo, formato, titulo, con_actividad, generador, estado, observaciones, enlace_guion, enlace_recurso, omision, actualizado_en, secuencia, plantilla, contenido, revision_pendiente, imagen_url, consumo, tipo_actividad, actividad_guion, actividad, bibliografia)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22::jsonb, $23, $24, $25::jsonb, $26, $27::jsonb, $28::jsonb, $29::jsonb)
     ON CONFLICT (propietario_id, proyecto_id, id) DO UPDATE SET
       unidad = coalesce(EXCLUDED.unidad, pipeline_recursos.unidad),
       id_base = coalesce(EXCLUDED.id_base, pipeline_recursos.id_base),
@@ -236,6 +236,12 @@ export const Q = Object.freeze({
       revision_pendiente = coalesce(EXCLUDED.revision_pendiente, pipeline_recursos.revision_pendiente),
       imagen_url = coalesce(EXCLUDED.imagen_url, pipeline_recursos.imagen_url),
       consumo = coalesce(EXCLUDED.consumo, pipeline_recursos.consumo),
+      tipo_actividad = coalesce(EXCLUDED.tipo_actividad, pipeline_recursos.tipo_actividad),
+      actividad_guion = coalesce(EXCLUDED.actividad_guion, pipeline_recursos.actividad_guion),
+      actividad = coalesce(EXCLUDED.actividad, pipeline_recursos.actividad),
+      actividad_editado_en = CASE WHEN EXCLUDED.actividad IS NOT NULL THEN NULL ELSE pipeline_recursos.actividad_editado_en END,
+      bibliografia = coalesce(EXCLUDED.bibliografia, pipeline_recursos.bibliografia),
+      bibliografia_editado_en = CASE WHEN EXCLUDED.bibliografia IS NOT NULL THEN NULL ELSE pipeline_recursos.bibliografia_editado_en END,
       actualizado_en = EXCLUDED.actualizado_en,
       secuencia = EXCLUDED.secuencia
     WHERE (pipeline_recursos.actualizado_en, pipeline_recursos.secuencia) <= (EXCLUDED.actualizado_en, EXCLUDED.secuencia)
@@ -263,6 +269,7 @@ export const Q = Object.freeze({
   pipeLeerRecursos: `
     SELECT id, unidad, tema, codigo, formato, titulo, generador, estado, observaciones, enlace_guion AS "enlaceGuion",
            enlace_recurso AS "enlaceRecurso", omision, plantilla, imagen_url AS "imagenUrl", consumo, (to_jsonb(r) -> 'contenido') IS NOT NULL AND (to_jsonb(r) -> 'contenido') <> 'null'::jsonb AS "conContenido",
+           tipo_actividad AS "tipoActividad", actividad_guion AS "actividadGuion", actividad IS NOT NULL AS "tieneActividad", bibliografia IS NOT NULL AS "tieneBibliografia",
            (to_jsonb(r) ->> 'aprobado_en')::timestamptz AS "aprobadoEn",
            COALESCE((to_jsonb(r) ->> 'aprobado_en')::timestamptz > actualizado_en, false) AS publicando,
            COALESCE((to_jsonb(r) ->> 'aprobado_en')::timestamptz > actualizado_en AND (to_jsonb(r) ->> 'aprobado_en')::timestamptz < now() - interval '15 minutes', false) AS "publicandoSinRespuesta", (to_jsonb(r) ->> 'revision_pendiente')::int AS "revisionPendiente", actualizado_en AS "actualizadoEn",
@@ -272,18 +279,27 @@ export const Q = Object.freeze({
   // El contenido (JSON) de UN recurso, para editarlo: solo de esa persona y ese curso.
   pipeLeerContenido: `
     SELECT id, codigo, titulo, plantilla, estado, enlace_recurso AS "enlaceRecurso", to_jsonb(r) -> 'contenido' AS contenido, actualizado_en AS "actualizadoEn",
-           to_jsonb(r) ->> 'contenido_editado_en' AS "editadoEn", (SELECT s.formacion FROM plantilla_subidas s WHERE s.nombre = r.plantilla) AS formacion
+           to_jsonb(r) ->> 'contenido_editado_en' AS "editadoEn",
+           tipo_actividad AS "tipoActividad", actividad_guion AS "actividadGuion", actividad, bibliografia,
+           actividad_editado_en AS "actividadEditadoEn", bibliografia_editado_en AS "bibliografiaEditadoEn", (SELECT s.formacion FROM plantilla_subidas s WHERE s.nombre = r.plantilla) AS formacion
       FROM pipeline_recursos r WHERE propietario_id = $1 AND proyecto_id = $2 AND id = $3`,
   // Guarda el contenido editado a mano (solo si el recurso ya tenía contenido). No toca actualizado_en/secuencia: eso es del orden de los avisos de n8n.
   pipeContenidoGuardar: `
     UPDATE pipeline_recursos SET contenido = $4::jsonb, contenido_editado_en = now()
      WHERE propietario_id = $1 AND proyecto_id = $2 AND id = $3 AND contenido IS NOT NULL RETURNING id`,
+  // Parte extra editada a mano (actividad o bibliografía).
+  pipeActividadGuardar: `
+    UPDATE pipeline_recursos SET actividad = $4::jsonb, actividad_editado_en = now()
+     WHERE propietario_id = $1 AND proyecto_id = $2 AND id = $3 AND actividad IS NOT NULL RETURNING id`,
+  pipeBibliografiaGuardar: `
+    UPDATE pipeline_recursos SET bibliografia = $4::jsonb, bibliografia_editado_en = now()
+     WHERE propietario_id = $1 AND proyecto_id = $2 AND id = $3 AND bibliografia IS NOT NULL RETURNING id`,
   // Aprobar = pedir la publicación en Drive. Atómico: solo marca si hay contenido y no se está publicando ya (o la última orden lleva más de 15 minutos sin respuesta).
   pipeAprobar: `
     UPDATE pipeline_recursos SET aprobado_en = now()
      WHERE propietario_id = $1 AND proyecto_id = $2 AND id = $3 AND contenido IS NOT NULL
        AND (aprobado_en IS NULL OR aprobado_en <= actualizado_en OR aprobado_en < now() - interval '15 minutes')
-    RETURNING id, codigo, unidad, plantilla, contenido, enlace_recurso AS "enlaceRecurso", estado, imagen_url AS "imagenUrl"`,
+    RETURNING id, codigo, unidad, plantilla, contenido, enlace_recurso AS "enlaceRecurso", estado, imagen_url AS "imagenUrl", actividad, bibliografia`,
   // Regenerar: filas del curso (por código de posición) con su estado y plantilla, para validar la petición.
   pipeRegenerarLeer: `
     SELECT id, codigo, unidad, estado, plantilla, actualizado_en AS "actualizadoEn"

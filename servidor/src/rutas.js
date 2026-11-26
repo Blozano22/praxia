@@ -152,17 +152,21 @@ const limiteLanzar = rateLimit({ windowMs: 60 * 1000, limit: Number(process.env.
 const limiteEditarRecurso = rateLimit({ windowMs: 60 * 1000, limit: Number(process.env.LIMITE_EDITAR_RECURSO || 90), keyGenerator: (req) => (req.usuario ? 'u:' + req.usuario.id : ipKeyGenerator(req.ip)), standardHeaders: true, legacyHeaders: false })
 // Edición del contenido de un recurso desde la pantalla del curso. Solo se cambian TEXTOS: la estructura (campos y tipos) debe ser la misma que ya tenía.
 const MAX_CONTENIDO_EDITADO = 400 * 1024
-const EsquemaContenidoEditado = z.object({ contenido: z.record(z.string(), z.any()) })
+const EsquemaContenidoEditado = z.object({ contenido: z.record(z.string(), z.any()), parte: z.enum(['recurso', 'actividad', 'bibliografia']).default('recurso') })
 rutas.put('/proyectos/:id/pipeline/recursos/:recurso/contenido', exigirSesion, exigirPermiso('proyectos.crear'), limiteEditarRecurso,
   validar(z.object({ id: IdProyecto, recurso: z.string().min(1).max(100) }), 'params'), validar(EsquemaContenidoEditado, 'body'), async (req, res, next) => {
     try {
       const nuevo = req.bodyOk.contenido
       if (JSON.stringify(nuevo).length > MAX_CONTENIDO_EDITADO) return res.status(413).json({ error: 'El contenido pesa más de ' + MAX_CONTENIDO_EDITADO / 1024 + ' KB.' })
       const f = (await sinUsuario(Q.pipeLeerContenido, [req.usuario.id, req.paramsOk.id, req.paramsOk.recurso])).rows[0]
-      if (!f || !f.contenido) return res.status(404).json({ error: 'Este recurso no tiene contenido guardado para editar.' })
-      const cmp = compararEsquemas(esquemaDe(f.contenido), esquemaDe(nuevo))
+      const parte = req.bodyOk.parte
+      const actual = parte === 'recurso' ? f?.contenido : f?.[parte]?.contenido
+      if (!f || !actual) return res.status(404).json({ error: parte === 'recurso' ? 'Este recurso no tiene contenido guardado para editar.' : 'Este recurso no tiene esa parte guardada para editar.' })
+      const cmp = compararEsquemas(esquemaDe(actual), esquemaDe(nuevo))
       if (!cmp.coincide) return res.status(400).json({ error: 'Solo se pueden editar textos: el contenido cambió de estructura (' + [...cmp.faltan.map((x) => 'falta ' + x.split(':')[0]), ...cmp.sobran.map((x) => 'sobra ' + x.split(':')[0])].slice(0, 5).join(', ') + ').' })
-      const r = await sinUsuario(Q.pipeContenidoGuardar, [req.usuario.id, req.paramsOk.id, req.paramsOk.recurso, JSON.stringify(nuevo)])
+      const r = parte === 'recurso'
+        ? await sinUsuario(Q.pipeContenidoGuardar, [req.usuario.id, req.paramsOk.id, req.paramsOk.recurso, JSON.stringify(nuevo)])
+        : await sinUsuario(parte === 'actividad' ? Q.pipeActividadGuardar : Q.pipeBibliografiaGuardar, [req.usuario.id, req.paramsOk.id, req.paramsOk.recurso, JSON.stringify({ ...f[parte], contenido: nuevo })])
       if (!r.rowCount) return res.status(404).json({ error: 'Este recurso no tiene contenido guardado para editar.' })
       auditar(req.usuario.id, 'recurso.contenido_editar', 'proyecto', req.paramsOk.id, req)
       res.json({ ok: true })

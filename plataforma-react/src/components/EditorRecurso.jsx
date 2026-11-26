@@ -141,7 +141,7 @@ function ListaRecursos({ recursos, actualId, puedePublicar, sucio, onElegir, onA
                       <li key={r.id} className={'er-rec ' + k + (r.id === actualId ? ' on' : '')}>
                         <button type="button" className="er-rec-btn" disabled={!r.conContenido && r.id !== actualId} aria-current={r.id === actualId ? 'true' : undefined} onClick={() => onElegir(r)}>
                           <span className={'er-rec-ic ' + k} aria-hidden="true">{k === 'en' ? <i className="er-gira" /> : k === 'ok' ? '✓' : k === 'er' ? '!' : ''}</span>
-                          <span className="er-rec-tx"><b>{r.codigo || r.id}</b><small>{r.titulo || 'Sin título'}</small></span>
+                          <span className="er-rec-tx"><b>{r.codigo || r.id}</b><small>{r.titulo || 'Sin título'}</small>{(r.tieneActividad || r.tieneBibliografia) && <small className="er-rec-partes">{[r.tieneActividad && 'Con actividad', r.tieneBibliografia && 'Con bibliografía'].filter(Boolean).join(' · ')}</small>}</span>
                           <span className={'er-rec-et ' + k}>{pub ? 'Publicando…' : sin ? 'Sin avisos' : r.enCola ? (r.regenera ? 'Se regenerará' : 'En cola') : TEXTO_ESTADO[r.estado] || r.estado}</span>
                         </button>
                         {aprobable(r) && (
@@ -175,18 +175,22 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
   const [msg, setMsg] = useState(null) // { tipo: 'ok' | 'bad' | 'warn', texto }
   const [ocupado, setOcupado] = useState('')
   const [navAbierta, setNavAbierta] = useState(() => typeof window === 'undefined' || window.innerWidth > 860) // en pantallas angostas la lista de recursos se abre a demanda
-  const ref = useRef({ contenido: null, esqueleto: '', titulo: '', formacion: null, activo: true })
+  const [parte, setParte] = useState('recurso') // parte abierta: recurso | actividad | bibliografia
+  const [partesDisp, setPartesDisp] = useState(['recurso'])
+  // partes: por cada una { contenido, esqueleto, titulo }; sucias: las partes con cambios sin guardar
+  const ref = useRef({ partes: {}, parte: 'recurso', formacion: null, activo: true, sucias: new Set() })
   const marco = useRef(null)
   const ruta = '/proyectos/' + encodeURIComponent(proyecto) + '/pipeline/recursos/' + encodeURIComponent(recurso.id) + '/contenido'
 
   const pintar = useCallback((activoAhora) => {
     const r = ref.current
-    setPagina(armarPagina(r.esqueleto, r.contenido, r.titulo, r.formacion, activoAhora))
+    const p = r.partes[r.parte]
+    setPagina(armarPagina(p.esqueleto, p.contenido, p.titulo, r.formacion, activoAhora))
   }, [])
 
   useEffect(() => {
     let vivo = true
-    setEstado('cargando'); setError(''); setSucio(false); setMsg(null); setPagina('')
+    setEstado('cargando'); setError(''); setSucio(false); setMsg(null); setPagina(''); setParte('recurso'); setPartesDisp(['recurso'])
     if (recurso.conContenido === false) { setEstado('sinContenido'); return () => { vivo = false } }
     ;(async () => {
       try {
@@ -196,7 +200,21 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
         if (!r.ok) throw new Error('No se encontró la plantilla ' + c.plantilla.toUpperCase() + '.')
         const esqueleto = await r.text()
         if (!vivo) return
-        ref.current = { contenido: c.contenido, esqueleto, titulo: (c.contenido && c.contenido.titulo) || c.titulo, formacion: c.formacion || null, activo: true }
+        const partes = { recurso: { contenido: c.contenido, esqueleto, titulo: (c.contenido && c.contenido.titulo) || c.titulo } }
+        const faltan = []
+        for (const k of ['actividad', 'bibliografia']) {
+          const x = c[k]
+          if (!x || !x.plantilla || !x.contenido) continue
+          try {
+            const rp = await fetch(RUTA_API.replace(/\/api$/, '') + '/plantillas-html/' + encodeURIComponent(x.plantilla) + '.html')
+            if (!rp.ok) throw new Error('sin plantilla')
+            partes[k] = { contenido: x.contenido, esqueleto: await rp.text(), titulo: (x.contenido && x.contenido.titulo) || c.titulo }
+          } catch { faltan.push(k === 'actividad' ? 'la actividad' : 'la bibliografía') }
+        }
+        if (!vivo) return
+        ref.current = { partes, parte: 'recurso', formacion: c.formacion || null, activo: true, sucias: new Set() }
+        setPartesDisp(['recurso', 'actividad', 'bibliografia'].filter((k) => partes[k]))
+        if (faltan.length) setMsg({ tipo: 'warn', texto: 'No se encontró la plantilla de ' + faltan.join(' ni de ') + ': esa parte no se puede editar aquí.' })
         pintar(true)
         setEstado('listo')
       } catch (e) { if (vivo) { setError(e.message || 'No se pudo abrir el editor'); setEstado('error') } }
@@ -211,7 +229,8 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
       const d = e.data
       if (!d || d.fuente !== 'praxia-editor') return
       if (d.tipo === 'campo' && typeof d.ruta === 'string' && typeof d.valor === 'string') {
-        if (!ponerRuta(ref.current.contenido, d.ruta, d.valor)) return
+        if (!ponerRuta(ref.current.partes[ref.current.parte].contenido, d.ruta, d.valor)) return
+        ref.current.sucias.add(ref.current.parte)
         setSucio(true); setMsg(null)
         if (!d.parchado) pintar(ref.current.activo) // el texto no se pudo cambiar en pantalla: se vuelve a pintar con el JSON nuevo
       } else if (d.tipo === 'sin_campo') setMsg({ tipo: 'warn', texto: 'Ese texto no viene de un campo que se pueda editar por clic.' })
@@ -220,6 +239,7 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
     return () => window.removeEventListener('message', alMensaje)
   }, [pintar])
 
+  const cambiarParte = (k) => { if (k === ref.current.parte || !ref.current.partes[k]) return; ref.current.parte = k; setParte(k); pintar(ref.current.activo) }
   const cambiarModo = (v) => {
     ref.current.activo = v; setActivo(v)
     try { marco.current && marco.current.contentWindow.postMessage({ fuente: 'praxia-editor', tipo: 'modo', activo: v }, '*') } catch { /* iframe aún sin cargar */ }
@@ -228,7 +248,9 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
 
   const guardar = async () => {
     setOcupado('guardar'); setMsg(null)
-    try { await api('PUT', ruta, { contenido: ref.current.contenido }); setSucio(false); setMsg({ tipo: 'ok', texto: 'Cambios guardados.' }); return true }
+    try {
+      for (const k of [...ref.current.sucias]) { await api('PUT', ruta, { contenido: ref.current.partes[k].contenido, ...(k === 'recurso' ? {} : { parte: k }) }); ref.current.sucias.delete(k) }
+      setSucio(false); setMsg({ tipo: 'ok', texto: 'Cambios guardados.' }); return true }
     catch (e) { setMsg({ tipo: 'bad', texto: e.message || 'No se pudo guardar.' }); return false }
     finally { setOcupado('') }
   }
@@ -355,6 +377,12 @@ export default function EditorRecurso({ proyecto, recurso, recursos = [], puedeP
         {msg && <p className={'er-msg ' + msg.tipo} role="status"><i className="er-msg-ic" aria-hidden="true">{msg.tipo === 'ok' ? '✓' : msg.tipo === 'bad' ? '!' : '!'}</i><span>{msg.texto}</span></p>}
         {publicandoAhora && <p className="er-msg info" role="status"><i className="er-gira" aria-hidden="true" /><span>Publicando en Drive. Este aviso se quita solo cuando n8n termina; puede seguir revisando otros recursos mientras tanto.</span></p>}
         {ocupado === 'h5p' && <p className="er-msg info" role="status"><i className="er-gira" aria-hidden="true" /><span>Armando el H5P con los cambios. Suele tardar unos 3 segundos; en algunos casos hasta 90. No cierre esta ventana.</span></p>}
+
+        {estado === 'listo' && partesDisp.length > 1 && (
+          <div className="er-partes" role="tablist" aria-label="Partes del recurso">
+            {partesDisp.map((k) => <button key={k} type="button" role="tab" aria-selected={parte === k} className={parte === k ? 'on' : ''} onClick={() => cambiarParte(k)}>{{ recurso: 'Recurso', actividad: 'Actividad', bibliografia: 'Bibliografía' }[k]}</button>)}
+          </div>
+        )}
 
         {estado === 'listo' && (
           <div className="er-barra">

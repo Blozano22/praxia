@@ -12,7 +12,7 @@ import EmbeddedPostgres from 'embedded-postgres'
 import pg from 'pg'
 
 const aqui = path.dirname(fileURLToPath(import.meta.url))
-const PUERTO_PG = 54337
+const PUERTO_PG = 54382
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ova-pg-pip-'))
 const servidorPg = new EmbeddedPostgres({ databaseDir: dir, user: 'postgres', password: 'duenio', port: PUERTO_PG, persistent: false })
 const CLAVE = 'ClaveSegura123'
@@ -36,7 +36,7 @@ before(async () => {
   const dueno = new pg.Client({ connectionString: `postgres://postgres:duenio@localhost:${PUERTO_PG}/ova` })
   await dueno.connect()
   await dueno.query("CREATE ROLE ova_app LOGIN PASSWORD 'appclave' NOSUPERUSER NOBYPASSRLS")
-  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql', '014_tipo_bibliografia.sql', '015_imagen_consumo_recurso.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
+  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql', '014_tipo_bibliografia.sql', '015_imagen_consumo_recurso.sql', '017_partes_recurso.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
   await dueno.end()
   process.env.DATABASE_URL = `postgres://ova_app:appclave@localhost:${PUERTO_PG}/ova`
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex')
@@ -575,4 +575,66 @@ test('imagen y consumo del recurso: se guardan, un aviso posterior sin ellos no 
   assert.equal((await una('beto', 'pipeline_recursos', "id = 'img1'")).length, 0) // el curso de Beto (mismo identificador) no se toca
   const beto = await entrar('beto@u.co')
   assert.equal((await beto(ruta, 'PUT', { recursoId: 'img1', imagenUrl: NUEVA })).status, 404) // su curso no tiene ese recurso
+})
+
+test('partes del recurso (actividad y bibliografía): guardado con COALESCE, parte inválida ignorada, edición por parte, orden de publicar y regenerar', async () => {
+  const entrar = async (correo) => {
+    const r = await fetch(base + '/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json', 'x-ova': '1' }, body: JSON.stringify({ correo, clave: CLAVE }) })
+    const cookie = (r.headers.get('set-cookie') || '').split(';')[0]
+    return (ruta, metodo = 'GET', cuerpo) => fetch(base + '/api' + ruta, { method: metodo, headers: { cookie, 'x-ova': '1', 'content-type': 'application/json' }, body: cuerpo ? JSON.stringify(cuerpo) : undefined })
+  }
+  const ana = await entrar('ana@u.co'), beto = await entrar('beto@u.co')
+  await ana('/proyectos/curso-a', 'PUT', { id: 'curso-a', programa: 'P', curso: 'Curso A', creado: Date.now(), carpetaUrl: 'https://drive.google.com/drive/folders/carpetaAna', recursos: [], guiones: [], info: {} })
+  const ACT = { plantilla: 'act-quiz-v01', contenido: { titulo: 'Quiz', preguntas: [{ texto: 'p1' }] }, imagen_url: 'https://x.co/a.png' }
+  const BIB = { plantilla: 'bib-v01', contenido: { titulo: 'Bibliografía', items: [{ ref: 'r1' }] } }
+  const h = (seg, extra = {}) => aviso('h5p_recurso', 'h5p', { ejecucion_id: 'pt', unidad: 9, id: 'pt1', codigo: 'U9-T1-R1', estado: 'POR_REVISAR', plantilla: 'g-11-doc-v01', ...extra }, 600 + seg)
+  const GUION = { tipo: 'quiz', nombre: 'Quiz final', instrucciones: 'Responda' }
+  // parte inválida (plantilla mala, contenido no objeto) se ignora sin rechazar el aviso
+  const mal = await enviar(h(1, { contenido: { titulo: 'R', bloques: [] }, tipo_actividad: 'Quiz', actividad: { plantilla: 'MAL NOMBRE!', contenido: {} }, bibliografia: { plantilla: 'bib-v01', contenido: 'texto' } }))
+  assert.equal(mal.estado, 200); assert.equal(mal.datos.aplicados, 1)
+  let f = (await una('ana', 'pipeline_recursos', "id = 'pt1'"))[0]
+  assert.equal(f.tipo_actividad, 'Quiz'); assert.equal(f.actividad, null); assert.equal(f.bibliografia, null)
+  // las 4 columnas se guardan
+  assert.equal((await enviar(h(2, { actividad_guion: GUION, actividad: ACT, bibliografia: { ...BIB, contenido: JSON.stringify(BIB.contenido) } }))).datos.aplicados, 1)
+  f = (await una('ana', 'pipeline_recursos', "id = 'pt1'"))[0]
+  assert.deepEqual(f.actividad_guion, GUION); assert.deepEqual(f.actividad, ACT); assert.deepEqual(f.bibliografia, BIB)
+  // un aviso posterior sin esos campos no los borra
+  assert.equal((await enviar(h(3, { estado: 'GENERADO' }))).datos.aplicados, 1)
+  f = (await una('ana', 'pipeline_recursos', "id = 'pt1'"))[0]
+  assert.equal(f.tipo_actividad, 'Quiz'); assert.deepEqual(f.actividad, ACT); assert.deepEqual(f.bibliografia, BIB)
+  await pool.query("UPDATE pipeline_recursos SET estado = 'POR_REVISAR' WHERE propietario_id = $1 AND id = 'pt1'", [ids.ana])
+  // lectura: la lista trae banderas; el detalle trae las partes completas
+  const lista = (await (await ana('/proyectos/curso-a/pipeline')).json()).recursos.find((x) => x.codigo === 'U9-T1-R1')
+  assert.equal(lista.tieneActividad, true); assert.equal(lista.tieneBibliografia, true); assert.equal(lista.tipoActividad, 'Quiz'); assert.deepEqual(lista.actividadGuion, GUION); assert.equal('actividad' in lista, false)
+  const ruta = '/proyectos/curso-a/pipeline/recursos/' + lista.id + '/contenido'
+  const det = await (await ana(ruta)).json()
+  assert.deepEqual(det.actividad, ACT); assert.deepEqual(det.bibliografia, BIB)
+  // edición por parte: misma estructura sí, otra no, parte inválida 400, ajeno 404
+  const okA = { titulo: 'Quiz editado', preguntas: [{ texto: 'otra' }] }
+  assert.equal((await ana(ruta, 'PUT', { parte: 'actividad', contenido: okA })).status, 200)
+  assert.equal((await ana(ruta, 'PUT', { parte: 'actividad', contenido: { titulo: 'x' } })).status, 400)
+  assert.equal((await ana(ruta, 'PUT', { parte: 'otra', contenido: okA })).status, 400)
+  assert.equal((await ana(ruta, 'PUT', { parte: 'bibliografia', contenido: { titulo: 'B2', items: [{ ref: 'r2' }] } })).status, 200)
+  assert.equal((await beto(ruta, 'PUT', { parte: 'actividad', contenido: okA })).status, 404)
+  assert.equal((await ana(ruta, 'PUT', { contenido: { titulo: 'R2', bloques: [] } })).status, 200) // por defecto: el recurso
+  f = (await una('ana', 'pipeline_recursos', "id = 'pt1'"))[0]
+  assert.deepEqual(f.actividad.contenido, okA); assert.equal(f.actividad.plantilla, ACT.plantilla); assert.equal(f.actividad.imagen_url, ACT.imagen_url)
+  assert.ok(f.actividad_editado_en); assert.ok(f.bibliografia_editado_en); assert.equal(f.bibliografia.contenido.items[0].ref, 'r2')
+  // regenerar (marcar EN_PROCESO) conserva las partes hasta el aviso nuevo; el aviso nuevo con una parte borra solo su *_editado_en
+  const { Q } = await import('../src/consultas.js')
+  await pool.query(Q.pipeRegenerarMarcar, [ids.ana, 'curso-a', [lista.id]])
+  f = (await una('ana', 'pipeline_recursos', "id = 'pt1'"))[0]
+  assert.equal(f.estado, 'EN_PROCESO'); assert.deepEqual(f.actividad.contenido, okA); assert.ok(f.bibliografia_editado_en)
+  assert.equal((await enviar(h(10, { actividad: ACT, fecha_evento: new Date(Date.now() + 60000).toISOString(), secuencia: 99 }))).datos.aplicados, 1)
+  f = (await una('ana', 'pipeline_recursos', "id = 'pt1'"))[0]
+  assert.deepEqual(f.actividad, ACT); assert.equal(f.actividad_editado_en, null); assert.ok(f.bibliografia_editado_en)
+  // publicar: con partes la orden las lleva (contenido vigente); sin ellas no manda las claves
+  ordenesPublicar.length = 0
+  assert.equal((await ana('/proyectos/curso-a/pipeline/recursos/' + lista.id + '/aprobar', 'POST')).status, 202)
+  const o = ordenesPublicar[0]
+  assert.deepEqual(o.actividad, ACT); assert.deepEqual(o.bibliografia, { plantilla: BIB.plantilla, contenido: { titulo: 'B2', items: [{ ref: 'r2' }] } })
+  await pool.query("UPDATE pipeline_recursos SET actividad = NULL, bibliografia = NULL, aprobado_en = NULL WHERE propietario_id = $1 AND id = 'pt1'", [ids.ana])
+  ordenesPublicar.length = 0
+  assert.equal((await ana('/proyectos/curso-a/pipeline/recursos/' + lista.id + '/aprobar', 'POST')).status, 202)
+  assert.equal('actividad' in ordenesPublicar[0], false); assert.equal('bibliografia' in ordenesPublicar[0], false)
 })

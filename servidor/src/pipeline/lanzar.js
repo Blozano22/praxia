@@ -200,7 +200,9 @@ export async function lanzarPublicar({ usuario, proyectoId, recursoId, publicarF
   const r = await entregar({ url, minutos: 2, trabajoId, publicarFn, nombre: 'la publicación del H5P',
     cuerpo: { trabajo_id: trabajoId, proyecto_id: proyectoId, carpeta_raiz: curso.carpeta, id: marcado.id, codigo: marcado.codigo || null, unidad: marcado.unidad ?? null,
       plantilla: marcado.plantilla, contenido: marcado.contenido, enlace_recurso: reemplazar ? marcado.enlaceRecurso : null, reemplazar,
-      ...(esUrlImagen(marcado.imagenUrl) ? { imagen_url: marcado.imagenUrl } : {}) } })
+      ...(esUrlImagen(marcado.imagenUrl) ? { imagen_url: marcado.imagenUrl } : {}),
+      ...(marcado.actividad ? { actividad: { plantilla: marcado.actividad.plantilla, contenido: marcado.actividad.contenido, imagen_url: marcado.actividad.imagen_url || null } } : {}),
+      ...(marcado.bibliografia ? { bibliografia: { plantilla: marcado.bibliografia.plantilla, contenido: marcado.bibliografia.contenido } } : {}) } })
   if (r.codigo !== 202) { await sinUsuario(Q.pipeAprobarRevertir, [usuario.id, proyectoId, recursoId]).catch(() => {}); return r }
   return { codigo: 202, cuerpo: { trabajo_id: trabajoId, id: marcado.id, reemplazar } }
 }
