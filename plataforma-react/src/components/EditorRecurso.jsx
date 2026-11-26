@@ -308,7 +308,6 @@ export default function EditorRecurso({ proyecto, propietario, soloLectura = fal
   }
 
   // Aprobar y publicar: guarda lo editado, pide la publicación (el componente de arriba confirma si hay que reemplazar un archivo ya publicado) y cierra.
-  const puedePedirCorr = !!propietario && !actual.correccion
   const [senalCorr, setSenalCorr] = useState(0)
   const pedirCorr = () => setSenalCorr((n) => n + 1)
   const aprobarYPublicar = async () => {
@@ -370,6 +369,7 @@ export default function EditorRecurso({ proyecto, propietario, soloLectura = fal
   const pesos = [['Vista 30%', 0.3], ['50 / 50', 0.5], ['Vista 70%', 0.7]]
   const estiloLado = modo === 'flotante' ? { left: flota.x, top: flota.y, width: flota.w, height: flota.min ? 46 : flota.h } : undefined
   const actual = recursos.find((x) => x.id === recurso.id) || recurso
+  const puedePedirCorr = !!propietario && !actual.correccion
   const urlGuion = vistaGuion(actual.enlaceGuion)
   const publicandoAhora = !!actual.publicando && !actual.publicandoSinRespuesta
   // Imagen del recurso: se cambia con un clic sobre ella en la vista previa (enlace https; cadena vacía = quitarla).
