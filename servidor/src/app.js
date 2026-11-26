@@ -18,6 +18,7 @@ import { rutasBancoIconos, rutasIconos } from './iconos/rutas.js'
 import { rutasPiloto } from './piloto/rutas.js'
 import { rutasImagenes } from './plantillas/imagenes.js'
 import { rutasRubricas } from './rubricas/rutas.js'
+import { rutasAuditor } from './auditor/rutas.js'
 
 export function crearApp() {
   const app = express()
@@ -51,6 +52,7 @@ export function crearApp() {
   app.use('/api/guiones', exigirCabecera, rutasGuiones)
   app.use('/api/unidades', exigirCabecera, rutasUnidades)
   app.use('/api/piloto', exigirCabecera, rutasPiloto)
+  app.use('/api/auditor', exigirCabecera, rutasAuditor) // pantalla «Auditor de guiones» (permiso guiones.auditar)
   app.use('/api/rubricas', exigirCabecera, rutasRubricas) // pantalla «Generar rúbrica» (permiso rubricas.generar)
   app.use('/api/plantillas-imagenes', exigirCabecera, rutasImagenes) // pantalla «Plantillas con imágenes» (permiso plantillas.imagenes)
   app.use('/api', exigirCabecera, rutas)

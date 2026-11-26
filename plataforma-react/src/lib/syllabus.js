@@ -8,15 +8,15 @@ const WEBHOOKS_ANTERIORES = ['https://n8n.americana.edu.co/webhook/syllabus-a-pl
 
 // Las direcciones de n8n son UNA para toda la plataforma: las guarda el administrador en el servidor y todas las personas las leen de allí.
 // '' = la dirección original (la del código).
-let config = { syllabus: '', guiones: '', matrices: '', h5p: '', publicar: '', preparacion: '', rubricas: '', pruebas_plantillas: false }
+let config = { syllabus: '', guiones: '', matrices: '', h5p: '', publicar: '', preparacion: '', rubricas: '', auditor: '', pruebas_plantillas: false }
 let cargaEnCurso = null
 export const cargarConfigN8n = (forzar = false) => {
   if (!cargaEnCurso || forzar) {
-    cargaEnCurso = api('GET', '/config/n8n').then((c) => { config = { syllabus: (c && c.syllabus) || '', guiones: (c && c.guiones) || '', matrices: (c && c.matrices) || '', h5p: (c && c.h5p) || '', publicar: (c && c.publicar) || '', preparacion: (c && c.preparacion) || '', rubricas: (c && c.rubricas) || '', pruebas_plantillas: !!(c && c.pruebas_plantillas) } }).catch(() => { cargaEnCurso = null })
+    cargaEnCurso = api('GET', '/config/n8n').then((c) => { config = { syllabus: (c && c.syllabus) || '', guiones: (c && c.guiones) || '', matrices: (c && c.matrices) || '', h5p: (c && c.h5p) || '', publicar: (c && c.publicar) || '', preparacion: (c && c.preparacion) || '', rubricas: (c && c.rubricas) || '', auditor: (c && c.auditor) || '', pruebas_plantillas: !!(c && c.pruebas_plantillas) } }).catch(() => { cargaEnCurso = null })
   }
   return cargaEnCurso
 }
-export const olvidarConfigN8n = () => { config = { syllabus: '', guiones: '', matrices: '', h5p: '', publicar: '', preparacion: '', rubricas: '', pruebas_plantillas: false }; cargaEnCurso = null }
+export const olvidarConfigN8n = () => { config = { syllabus: '', guiones: '', matrices: '', h5p: '', publicar: '', preparacion: '', rubricas: '', auditor: '', pruebas_plantillas: false }; cargaEnCurso = null }
 const guardarConfig = (campo, u) => api('PUT', '/config/n8n', { [campo]: u }).then(() => { config = { ...config, [campo]: u } })
 
 export const leerWebhook = () => (!config.syllabus || WEBHOOKS_ANTERIORES.includes(config.syllabus) ? WEBHOOK_POR_DEFECTO : config.syllabus)
@@ -32,6 +32,8 @@ export const leerWebhookPreparacion = () => config.preparacion
 export const guardarWebhookPreparacion = (u) => guardarConfig('preparacion', u)
 export const leerWebhookRubricas = () => config.rubricas
 export const guardarWebhookRubricas = (u) => guardarConfig('rubricas', u)
+export const leerWebhookAuditor = () => config.auditor
+export const guardarWebhookAuditor = (u) => guardarConfig('auditor', u)
 // Modo de pruebas de plantillas (solo administración): encendido, al preparar un curso se asigna cualquier plantilla subida, aprobada o no.
 export const leerPruebasPlantillas = () => !!config.pruebas_plantillas
 export const guardarPruebasPlantillas = (b) => guardarConfig('pruebas_plantillas', !!b)

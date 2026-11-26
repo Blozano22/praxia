@@ -15,6 +15,7 @@ import PipelineGlobal from './components/PipelineGlobal.jsx'
 import CursoPiloto from './components/CursoPiloto.jsx'
 import PlantillasImagenes from './components/PlantillasImagenes.jsx'
 import GenerarRubrica from './components/GenerarRubrica.jsx'
+import AuditorGuiones from './components/AuditorGuiones.jsx'
 import { arrancarSondeo, detenerSondeo, fijarAnfitrion } from './lib/trabajosGuiones.js'
 import { arrancarSondeoUnidades, detenerSondeoUnidades, fijarAnfitrionUnidades } from './lib/trabajosUnidades.js'
 import UnidadesEnCurso from './components/UnidadesEnCurso.jsx'
@@ -82,6 +83,7 @@ export default function App() {
     else if (p[0] === 'plantillas' && perm('plantillas.ver')) setVista('plantillas')
     else if (p[0] === 'plantillas-imagenes' && perm('plantillas.imagenes')) setVista('plantillas-imagenes')
     else if (p[0] === 'rubricas' && perm('rubricas.generar')) setVista('rubricas')
+    else if (p[0] === 'auditor-guiones' && perm('guiones.auditar')) setVista('auditor-guiones')
     else if (p[0] === 'seguimiento' && perm('proyectos.ver_todos')) setVista('seguimiento')
     else if (p[0] === 'pipeline' && perm('proyectos.ver_todos')) setVista('pipeline')
     else if (p[0] === 'curso-piloto' && perm('proyectos.crear')) setVista('curso-piloto')
@@ -105,7 +107,7 @@ export default function App() {
   useEffect(() => {
     if (!yo) return
     setCargado(false)
-    if (!yo.permisos.includes('proyectos.ver_propios')) { setVista(yo.permisos.includes('usuarios.gestionar') ? 'usuarios' : (!yo.permisos.includes('plantillas.ver') && yo.permisos.includes('plantillas.imagenes') ? 'plantillas-imagenes' : (!yo.permisos.includes('plantillas.ver') && yo.permisos.includes('rubricas.generar') ? 'rubricas' : 'plantillas'))); setCargado(true); return }
+    if (!yo.permisos.includes('proyectos.ver_propios')) { setVista(yo.permisos.includes('usuarios.gestionar') ? 'usuarios' : (!yo.permisos.includes('plantillas.ver') && yo.permisos.includes('plantillas.imagenes') ? 'plantillas-imagenes' : (!yo.permisos.includes('plantillas.ver') && yo.permisos.includes('rubricas.generar') ? 'rubricas' : (!yo.permisos.includes('plantillas.ver') && yo.permisos.includes('guiones.auditar') ? 'auditor-guiones' : 'plantillas')))); setCargado(true); return }
     todos().then((l) => { l.forEach((p) => { versiones.current[p.id] = p._v }); setLista(l.sort((a, b) => b.creado - a.creado)) }).catch(() => {}).finally(() => setCargado(true))
     locales().then(setPendientesLocales)
   }, [yo])
@@ -113,8 +115,8 @@ export default function App() {
   // Si cambian los permisos de la persona (por ejemplo, se quitó un rol a sí misma) y la pantalla en que está ya no le corresponde, vuelve al inicio que le toca.
   useEffect(() => {
     if (!yo) return
-    const exige = { usuarios: 'usuarios.gestionar', bibliografia: 'usuarios.gestionar', conexion: 'usuarios.gestionar', plantillas: 'plantillas.ver', 'plantillas-imagenes': 'plantillas.imagenes', rubricas: 'rubricas.generar', seguimiento: 'proyectos.ver_todos', pipeline: 'proyectos.ver_todos', 'curso-piloto': 'proyectos.crear' }
-    if (exige[vista] && !yo.permisos.includes(exige[vista])) setVista(yo.permisos.includes('proyectos.ver_propios') ? 'dashboard' : (yo.permisos.includes('plantillas.ver') ? 'plantillas' : (yo.permisos.includes('plantillas.imagenes') ? 'plantillas-imagenes' : (yo.permisos.includes('rubricas.generar') ? 'rubricas' : 'dashboard'))))
+    const exige = { usuarios: 'usuarios.gestionar', bibliografia: 'usuarios.gestionar', conexion: 'usuarios.gestionar', plantillas: 'plantillas.ver', 'plantillas-imagenes': 'plantillas.imagenes', rubricas: 'rubricas.generar', 'auditor-guiones': 'guiones.auditar', seguimiento: 'proyectos.ver_todos', pipeline: 'proyectos.ver_todos', 'curso-piloto': 'proyectos.crear' }
+    if (exige[vista] && !yo.permisos.includes(exige[vista])) setVista(yo.permisos.includes('proyectos.ver_propios') ? 'dashboard' : (yo.permisos.includes('plantillas.ver') ? 'plantillas' : (yo.permisos.includes('plantillas.imagenes') ? 'plantillas-imagenes' : (yo.permisos.includes('rubricas.generar') ? 'rubricas' : (yo.permisos.includes('guiones.auditar') ? 'auditor-guiones' : 'dashboard')))))
   }, [yo, vista])
 
   const importarLocales = async () => {
@@ -254,6 +256,7 @@ export default function App() {
   const esAdmin = yo.permisos.includes('usuarios.gestionar')
   const verPlantillas = yo.permisos.includes('plantillas.ver')
   const verRubricas = yo.permisos.includes('rubricas.generar') // rol «Generador de rúbricas»
+  const verAuditor = yo.permisos.includes('guiones.auditar') // rol «Auditor de guiones» y administración
   const verImagenes = yo.permisos.includes('plantillas.imagenes') // rol «Editor de imágenes»: ve, valida y edita las imágenes de las plantillas
   const veTodos = yo.permisos.includes('proyectos.ver_todos') // coordinación: ve el avance de todos los cursos
 
@@ -287,6 +290,7 @@ export default function App() {
         {verPlantillas && <ItemMenu on={vista === 'plantillas'} icono="M8 7l-5 5 5 5M16 7l5 5-5 5" texto="Plantillas HTML" onClick={() => ir('plantillas')} />}
         {verImagenes && <ItemMenu on={vista === 'plantillas-imagenes'} icono="M4 5h16v14H4V5zM8.5 10a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM4 17l5-5 4 4 3-3 4 4" texto="Plantillas con imágenes" onClick={() => ir('plantillas-imagenes')} />}
         {verRubricas && <ItemMenu on={vista === 'rubricas'} icono="M6 3h9l4 4v14H6zM14 3v5h5M9 13l2 2 4-4M9 18h6" texto="Generar rúbrica" onClick={() => ir('rubricas')} />}
+        {verAuditor && <ItemMenu on={vista === 'auditor-guiones'} icono="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8l-5-5zM14 3v5h5M9 14l2 2 4-4" texto="Auditor de guiones" onClick={() => ir('auditor-guiones')} />}
         {esAdmin && <ItemMenu on={vista === 'conexion'} icono="M9 7V3M15 7V3M7 7h10v4a5 5 0 01-10 0V7zM12 16v5" texto="Conexión n8n" onClick={() => ir('conexion')} />}
         {esAdmin && <ItemMenu on={vista === 'usuarios'} icono="M16 20v-1a4 4 0 00-4-4H8a4 4 0 00-4 4v1M10 11a3 3 0 100-6 3 3 0 000 6" texto="Usuarios" onClick={() => ir('usuarios')} />}
       </nav>
@@ -294,6 +298,7 @@ export default function App() {
       {vista === 'plantillas' && verPlantillas && <Plantillas puedeRevisar={yo.permisos.includes('plantillas.revisar')} puedeCorregir={yo.permisos.includes('plantillas.corregir')} puedeCategorias={yo.permisos.includes('plantillas.categorias')} puedeSubirVariante={yo.permisos.includes('plantillas.subir')} yo={yo} aviso={aviso} pulsoAvisos={pulsoAvisos} abrirPlantilla={abrirPlantilla} onAbierto={() => setAbrirPlantilla('')} />}
       {vista === 'plantillas-imagenes' && verImagenes && <PlantillasImagenes aviso={aviso} />}
       {vista === 'rubricas' && verRubricas && <GenerarRubrica />}
+      {vista === 'auditor-guiones' && verAuditor && <AuditorGuiones />}
       {vista === 'bibliografia' && esAdmin && <Bibliografia lista={lista} />}
       {vista === 'usuarios' && esAdmin && <Usuarios yo={yo} aviso={aviso} onYo={() => api('GET', '/auth/yo').then(setYo).catch(() => {})} />}
       {vista === 'conexion' && esAdmin && <Conexiones aviso={aviso} />}

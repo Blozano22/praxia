@@ -1,0 +1,60 @@
+/* «Auditor de guiones»: prefijo au-. Usa la línea gráfica de Praxia (card, btn, msg, pl2-n), igual que rubricas.css. */
+.au-cuerpo{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start}
+.au-form{flex:999 1 540px;min-width:0;padding:24px;display:flex;flex-direction:column;gap:20px}
+.au-lado{flex:1 1 280px;max-width:360px;min-width:0}
+.au-grupo{border:0;margin:0;padding:0;min-width:0;display:flex;flex-direction:column;gap:16px}
+.au-grupo[disabled]{opacity:.7}
+.au-doc{border:1.5px solid var(--line2);border-radius:14px;padding:16px 18px 18px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.au-doc-cab{display:flex;align-items:center;gap:10px;font-weight:700;color:var(--nav)}
+.au-req,.au-opc{font-style:normal;font-size:.72rem;font-weight:700;padding:2px 9px;border-radius:99px}
+.au-req{color:var(--brand);background:color-mix(in srgb,var(--brand) 10%,#fff)}
+.au-opc{color:var(--muted);background:var(--tint)}
+.au-ayuda{color:var(--muted);font-size:.8rem}
+.au-err{color:#a63a32;font-size:.82rem;font-weight:600}
+.au-modos{display:inline-flex;align-self:flex-start;background:var(--tint);border-radius:10px;padding:3px;gap:2px}
+.au-modos button{border:0;background:transparent;font:inherit;font-size:.86rem;font-weight:600;color:var(--muted);padding:6px 14px;border-radius:8px;cursor:pointer}
+.au-modos button.on{background:#fff;color:var(--brand);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.au-modos button:focus-visible,.au-elegir:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.au-drop{border:2px dashed var(--line2);border-radius:12px;background:var(--tint);transition:border-color .15s,background .15s}
+.au-drop.arrastra{border-color:var(--brand);background:color-mix(in srgb,var(--brand) 8%,#fff)}
+.au-drop.con{border-style:solid;background:#fff}
+.au-oculto{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.au-elegir{width:100%;border:0;background:transparent;font:inherit;color:var(--nav);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;padding:22px 12px;border-radius:12px}
+.au-elegir svg{color:var(--brand)}
+.au-elegir small{color:var(--muted);font-size:.78rem}
+.au-arch{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 14px}
+.au-arch b{color:var(--nav);word-break:break-all}
+.au-arch span{color:var(--muted);font-size:.84rem;margin-right:auto}
+.au-doc input[type=url],.au-campo input{width:100%;box-sizing:border-box;border:1.5px solid var(--line2);border-radius:10px;padding:11px 13px;font:inherit;font-size:.92rem;color:var(--nav);background:#fff}
+.au-doc input:focus{outline:none;border-color:var(--brand)}
+.au-doc [aria-invalid="true"]{border-color:#a63a32}
+.au-dos{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+.au-campo{display:flex;flex-direction:column;gap:6px}
+.au-campo label{font-weight:600;color:var(--nav);font-size:.9rem}
+.au-acciones{display:flex;flex-wrap:wrap;align-items:center;gap:14px}
+.au-estado{display:inline-flex;align-items:center;gap:10px;color:var(--muted);font-size:.86rem}
+.au-spin{width:16px;height:16px;border-radius:50%;border:2.5px solid var(--line2);border-top-color:var(--brand);animation:au-gira .8s linear infinite}
+@keyframes au-gira{to{transform:rotate(360deg)}}
+.au-pasos{padding:18px}
+.au-pasos h4{margin:0 0 10px;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.au-pasos ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+.au-pasos li{display:flex;gap:12px;align-items:flex-start}
+.au-pasos li>span:last-child{display:flex;flex-direction:column;gap:2px}
+.au-pasos b{color:var(--nav)}
+.au-pasos small{color:var(--muted);font-size:.82rem}
+.au-res{margin-top:20px;padding:22px 24px;border-left:5px solid var(--brand);display:flex;flex-direction:column;align-items:flex-start;gap:10px}
+.au-res.ok{border-left-color:#1f7a4d;background:color-mix(in srgb,#1f7a4d 6%,#fff)}
+.au-res.warn{border-left-color:#b7791f;background:color-mix(in srgb,#b7791f 7%,#fff)}
+.au-res.bad{border-left-color:#a63a32;background:color-mix(in srgb,#a63a32 6%,#fff)}
+.au-res h4{margin:0;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.au-res h2{margin:0;font-size:1.3rem}
+.au-res.ok h2{color:#1b6a43}.au-res.bad h2{color:#8c2a22}.au-res.warn h2{color:#8a5a12}
+.au-res p{margin:0}
+.au-res .btn{display:inline-block;text-decoration:none}
+.au-resumen{margin:4px 0;font-size:.92rem;color:var(--nav);max-width:78ch}
+.au-resumen p{margin:0 0 8px}
+ul.au-resumen{padding-left:20px}
+dl.au-resumen div{margin-bottom:8px}
+dl.au-resumen dt{font-weight:700;text-transform:capitalize}
+dl.au-resumen dd{margin:0}
+@media(prefers-reduced-motion:reduce){.au-spin{animation:none}.au-drop{transition:none}}

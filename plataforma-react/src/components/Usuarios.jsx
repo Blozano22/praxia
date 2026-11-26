@@ -9,7 +9,8 @@ const DETALLE_ROL = {
   disenador: 'Solo ve las plantillas HTML',
   editor_html: 'Ve la galería de plantillas HTML y sube variantes; no aprueba ni revisa',
   editor_imagenes: 'Solo ve, valida y edita las imágenes de las plantillas HTML',
-  generador_rubricas: 'Solo genera la rúbrica de evaluación de una asignatura'
+  generador_rubricas: 'Solo genera la rúbrica de evaluación de una asignatura',
+  auditor_guiones: 'Solo audita guiones con el Instrumento de validación'
 }
 
 const alternar = (lista, r) => (lista.includes(r) ? lista.filter((x) => x !== r) : [...lista, r])
@@ -26,6 +27,7 @@ const ICONO = {
   docente: <><path d="M2 9l10-5 10 5-10 5L2 9z" /><path d="M6 11.5V16c0 1.2 2.7 3 6 3s6-1.8 6-3v-4.5M22 9v5" /></>,
   editor_html: <><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16" /></>,
   generador_rubricas: <><path d="M6 3h9l4 4v14H6zM14 3v5h5" /><path d="M9 13l2 2 4-4M9 18h6" /></>,
+  auditor_guiones: <><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8l-5-5z" /><path d="M14 3v5h5M9 14l2 2 4-4" /></>,
   editor_imagenes: <><rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="8.5" cy="10" r="1.5" /><path d="M3 17l5-5 4 4 3-3 6 6" /></>,
   disenador: <><path d="M12 3a9 9 0 100 18c1.2 0 2-.8 2-1.8 0-.5-.2-.9-.5-1.3-.3-.4-.5-.8-.5-1.3 0-1 .8-1.8 1.8-1.8H17a4 4 0 004-4c0-4.4-4-8-9-8z" /><circle cx="7.5" cy="11" r="1" /><circle cx="10" cy="7" r="1" /><circle cx="15" cy="7.5" r="1" /></>
 }

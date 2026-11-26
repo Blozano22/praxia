@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import Titulo from './Titulo.jsx'
 import { api } from '../lib/api.js'
-import { cargarConfigN8n, guardarWebhook, guardarWebhookGuiones, guardarWebhookH5p, guardarWebhookMatrices, guardarWebhookPublicar, guardarPruebasPlantillas, guardarWebhookPreparacion, guardarWebhookRubricas, leerWebhookRubricas, leerPruebasPlantillas, leerWebhook, leerWebhookGuiones, leerWebhookH5p, leerWebhookPublicar, leerWebhookMatrices, leerWebhookPreparacion } from '../lib/syllabus.js'
+import { cargarConfigN8n, guardarWebhook, guardarWebhookGuiones, guardarWebhookH5p, guardarWebhookMatrices, guardarWebhookPublicar, guardarPruebasPlantillas, guardarWebhookPreparacion, guardarWebhookRubricas, leerWebhookRubricas, guardarWebhookAuditor, leerWebhookAuditor, leerPruebasPlantillas, leerWebhook, leerWebhookGuiones, leerWebhookH5p, leerWebhookPublicar, leerWebhookMatrices, leerWebhookPreparacion } from '../lib/syllabus.js'
 
 // Direcciones (webhooks) de n8n que usa la plataforma. Se guardan en el servidor: el cambio vale para todas las personas.
 const RE_URL = /^https:\/\/\S+$/
@@ -178,6 +178,8 @@ export default function Conexiones({ aviso }) {
               leer={leerWebhookPublicar} guardar={guardarWebhookPublicar} aviso={aviso} opcional sinDireccion="Falta la dirección: sin ella no aparece «Aprobar y publicar»." />
             <Conexion titulo="Generar rúbricas de evaluación" icono="tabla" ayuda="Recibe los enlaces de las unidades de una asignatura (unidad_url, uno por línea) y la carpeta de Drive (carpeta_url), crea la rúbrica en Google Sheets y responde con su enlace (url) y un detalle (log). Praxia espera su respuesta hasta 6 minutos."
               leer={leerWebhookRubricas} guardar={guardarWebhookRubricas} aviso={aviso} opcional sinDireccion="Falta la dirección: sin ella la pantalla «Generar rúbrica» no puede generar." />
+            <Conexion titulo="Auditar guion (Auditor de guiones)" icono="doc" ayuda="Recibe por POST (multipart) los campos guion_file o guion_url, syllabus_file o syllabus_url, estructura_file o estructura_url, nombre y correo, y responde { ok, job_id }. Praxia consulta el avance en esta misma dirección terminada en «-estado» (…-estado?job=…) cada 6 segundos, hasta 20 minutos."
+              leer={leerWebhookAuditor} guardar={guardarWebhookAuditor} aviso={aviso} opcional sinDireccion="Falta la dirección: sin ella la pantalla «Auditor de guiones» no puede enviar revisiones." />
           </div>
           <p className="cx-pie">Cada dirección debe empezar por https://. El cambio se aplica a todas las personas desde su siguiente envío.</p>
         </>
