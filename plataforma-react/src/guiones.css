@@ -223,3 +223,9 @@
 .gu-formacion-val{display:inline-flex;align-items:center;gap:10px;padding:8px 16px;border-radius:10px;background:#eef1f7;color:var(--nav);font-weight:800;font-size:.9rem}
 .gu-formacion-val.nueva{background:#dff2ea;color:#0a6b5c}
 .gu-formacion-val em{font-style:normal;font-size:.72rem;padding:2px 8px;border-radius:99px;background:#0a6b5c;color:#fff}
+.pj:has(.ws-envio){flex-wrap:nowrap;align-items:center}
+.ws-envio{display:flex;flex-direction:column;align-items:flex-end;gap:5px;margin-left:auto;flex:0 0 auto}
+.ws-envio-btn{display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.ws-envio-btn.sec:disabled{background:transparent;border:1px solid var(--line,#d5dae3);color:color-mix(in srgb,var(--nav) 55%,#fff);cursor:not-allowed;box-shadow:none}
+.ws-envio-motivo{display:flex;align-items:center;gap:5px;font-size:12px;color:#7a8292;text-align:right}
+@media (max-width:900px){.pj:has(.ws-envio){flex-wrap:wrap}.ws-envio{align-items:flex-start;margin-left:0;width:100%}.ws-envio-motivo{text-align:left}}

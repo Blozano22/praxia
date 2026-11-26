@@ -120,14 +120,26 @@ export default function Workspace({ s, tab, setTab, unidadSel, setUnidadSel, rec
           <div className="row" style={{ marginTop: 4 }}>
             {s.programa !== 'Sin programa' && <span className="help" style={{ margin: 0 }}>{s.programa}</span>}
             <span className={'pill ' + cls}>{txt}</span>
+          </div>
+        </div>
+        {(lectura || revision) && (
+          <div className="ws-envio">
             {lectura && <span className="pill warn">{estadoDis === 'asignado' ? 'Asignado a ' + (dis.disenador || 'un diseñador') : 'En diseño'}</span>}
             {revision && <span className="pill warn">Revisión solicitada</span>}
           </div>
-        </div>
+        )}
         {!estadoDis && dis && (
-          <div style={{ textAlign: 'right' }}>
-            <button className="btn gold" disabled={Boolean(motivoEnvio) || enviando} title={motivoEnvio} onClick={enviarADiseno}>{enviando ? 'Enviando…' : 'Enviar a diseño'}</button>
-            {motivoEnvio && <div className="help" style={{ margin: '4px 0 0' }}>{motivoEnvio}</div>}
+          <div className="ws-envio">
+            <button className={'btn ws-envio-btn ' + (motivoEnvio ? 'sec' : 'gold')} disabled={Boolean(motivoEnvio) || enviando} title={motivoEnvio} onClick={enviarADiseno}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M22 2L11 13" /><path d="M22 2l-7 20-4-9-9-4 20-7z" /></svg>
+              {enviando ? 'Enviando…' : 'Enviar a diseño'}
+            </button>
+            {motivoEnvio && (
+              <div className="ws-envio-motivo">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 018 0v4" /></svg>
+                {motivoEnvio}
+              </div>
+            )}
           </div>
         )}
       </div>
