@@ -369,3 +369,4 @@ button.mx3-fase.bloq{cursor:not-allowed;opacity:.75}
 @media(max-width:700px){.mx4-lista .mx4-r.hija{padding-left:30px}.mx4-lista .mx4-r.hija:before,.mx4-lista .mx4-r.hija:not(:last-child):after{left:14px}.mx4-lista .mx4-r.hija:before{width:10px}}
 
 .mx4-alerta{padding:1px 8px;border-radius:99px;background:#fff1cf;color:#8a5a00;font-weight:700;font-size:.72rem;white-space:nowrap}
+.mx4-corr{padding:1px 8px;border-radius:99px;background:#ffe3c2;color:#8a4500;font-weight:700;font-size:.72rem;white-space:nowrap}.mx4-corr.corregida{background:#d8f2e3;color:#1d6b40}

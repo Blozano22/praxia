@@ -4,6 +4,7 @@ import CargaRecurso from './CargaRecurso.jsx'
 import { api as apiBase, conPropietario, RUTA_API } from '../lib/api.js'
 import { tokensDe, costoDe, imagenesDe, usd, miles, esUrlImagen } from '../lib/consumo.js'
 import codigoEditor from '../lib/editor-campos.js?raw'
+import PanelCorreccion from './PanelCorreccion.jsx'
 import './editor-recurso.css'
 
 // Editor de un recurso H5P ya generado: se pinta la plantilla con el contenido (JSON) que guardó el flujo, dentro de un iframe aislado (sandbox sin
@@ -74,7 +75,7 @@ function ListaRecursos({ recursos, actualId, puedePublicar, sucio, onElegir, onA
     const orden = (a, b) => (ORDEN_ESTADO[a.estado] ?? 9) - (ORDEN_ESTADO[b.estado] ?? 9) || String(a.codigo || a.id).localeCompare(String(b.codigo || b.id), undefined, { numeric: true })
     return [...m.entries()].sort((a, b) => a[0] - b[0]).map(([u, mt]) => [u, [...mt.entries()].sort((a, b) => a[0] - b[0]).map(([t, l]) => [t, l.sort(orden)])])
   }, [recursos, filtro]) // eslint-disable-line react-hooks/exhaustive-deps
-  const aprobable = (r) => puedePublicar && onAprobar && r.conContenido && !r.publicando && !r.enCola && (r.estado === 'POR_REVISAR' || r.estado === 'ERROR')
+  const aprobable = (r) => puedePublicar && onAprobar && !r.correccion && r.conContenido && !r.publicando && !r.enCola && (r.estado === 'POR_REVISAR' || r.estado === 'ERROR')
 
   const aprobarUno = async (r) => {
     if (sucio && r.id === actualId) { setAviso({ tipo: 'warn', texto: 'Guarde o descarte los cambios del recurso abierto antes de aprobarlo.' }); return }
@@ -173,7 +174,7 @@ function ListaRecursos({ recursos, actualId, puedePublicar, sucio, onElegir, onA
   )
 }
 
-export default function EditorRecurso({ proyecto, propietario, recurso, recursos = [], puedePublicar, onAprobar, onRegenerar, regenerarBloqueado, onElegir, onCerrar }) {
+export default function EditorRecurso({ proyecto, propietario, recurso, recursos = [], puedePublicar, onAprobar, onRegenerar, regenerarBloqueado, onElegir, onCerrar, onActualizar }) {
   const api = useCallback((metodo, ruta, cuerpo) => apiBase(metodo, conPropietario(ruta, propietario), cuerpo), [propietario])
   const [estado, setEstado] = useState('cargando') // cargando | listo | error
   const [error, setError] = useState('')
@@ -400,8 +401,8 @@ export default function EditorRecurso({ proyecto, propietario, recurso, recursos
             <i className="er-sw" aria-hidden="true" />
             Editar con clic
           </label>}
-          {estado === 'listo' && puedePublicar && onAprobar && ['POR_REVISAR', 'GENERADO', 'ERROR'].includes(actual.estado) && <button type="button" className="er-b ok" onClick={aprobarYPublicar} disabled={!!ocupado || publicandoAhora} title="Aprobar este contenido: n8n arma el H5P y lo sube a Drive">{ocupado === 'aprobar' ? 'Enviando…' : publicandoAhora ? 'Publicando…' : actual.estado === 'GENERADO' ? 'Aprobar y volver a publicar' : 'Aprobar y publicar'}</button>}
-          {estado === 'listo' && puedePublicar && onRegenerar && (['POR_REVISAR', 'GENERADO', 'ERROR'].includes(actual.estado) || actual.sinRespuesta) && <button type="button" className="er-b" onClick={regenerarEste} disabled={!!ocupado || publicandoAhora || !!regenerarBloqueado} title="Crear de nuevo con la misma plantilla">{ocupado === 'regenerar' ? 'Regenerando…' : 'Regenerar'}</button>}
+          {estado === 'listo' && puedePublicar && onAprobar && !actual.correccion && ['POR_REVISAR', 'GENERADO', 'ERROR'].includes(actual.estado) && <button type="button" className="er-b ok" onClick={aprobarYPublicar} disabled={!!ocupado || publicandoAhora} title="Aprobar este contenido: n8n arma el H5P y lo sube a Drive">{ocupado === 'aprobar' ? 'Enviando…' : publicandoAhora ? 'Publicando…' : actual.estado === 'GENERADO' ? 'Aprobar y volver a publicar' : 'Aprobar y publicar'}</button>}
+          {estado === 'listo' && puedePublicar && onRegenerar && (['POR_REVISAR', 'GENERADO', 'ERROR'].includes(actual.estado) || actual.sinRespuesta) && <button type="button" className="er-b" onClick={regenerarEste} disabled={!!ocupado || publicandoAhora || !!regenerarBloqueado || (actual.correccion && actual.correccion.estado === 'abierta')} title="Crear de nuevo con la misma plantilla">{ocupado === 'regenerar' ? 'Regenerando…' : 'Regenerar'}</button>}
           {estado === 'listo' && <button type="button" className="er-b" onClick={guardar} disabled={!sucio || !!ocupado}>{ocupado === 'guardar' ? <><i className="er-gira" aria-hidden="true" />Guardando…</> : 'Guardar cambios'}</button>}
           {estado === 'listo' && <button type="button" className="er-b pri" onClick={descargar} disabled={!!ocupado}>{ocupado === 'h5p' ? <><i className="er-gira" aria-hidden="true" />Armando el H5P…</> : <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M4 20h16" /></svg>Descargar .h5p</>}</button>}
         </header>
@@ -413,6 +414,7 @@ export default function EditorRecurso({ proyecto, propietario, recurso, recursos
         {publicandoAhora && <p className="er-msg info" role="status"><i className="er-gira" aria-hidden="true" /><span>Publicando en Drive. Este aviso se quita solo cuando n8n termina; puede seguir revisando otros recursos mientras tanto.</span></p>}
         {ocupado === 'h5p' && <p className="er-msg info" role="status"><i className="er-gira" aria-hidden="true" /><span>Armando el H5P con los cambios. Suele tardar unos 3 segundos; en algunos casos hasta 90. No cierre esta ventana.</span></p>}
 
+        {propietario && <PanelCorreccion proyecto={proyecto} propietario={propietario} recurso={actual} onCambio={onActualizar} />}
         {actual.alertaActividad && <div className="er-alerta-act" role="alert"><b>Alerta de actividad</b><p>{actual.alertaActividad}</p><small>Corrija el guion o la tabla de tipos de actividad y use «Regenerar» en este recurso</small></div>}
 
         {estado === 'listo' && partesDisp.length > 1 && (

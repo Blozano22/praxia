@@ -15,6 +15,7 @@ import { CLAVE_PRUEBAS, pruebasEncendidas, urlPreparacion } from './pipeline/pre
 import { esUrlImagen } from './pipeline/eventos.js'
 import { invalidarAsignaciones, normalizarTipo } from './pipeline/asignaciones.js'
 import * as asignarDiseno from './asignar-diseno.js'
+import * as correcciones from './correcciones.js'
 import { bloqueoDiseno, enviarADiseno, estadoDiseno, pipelineCurso, revisarEnvio } from './diseno.js'
 import { publicarAviso, tomarAvisos } from './avisos.js'
 import { COOKIE, claveValida, compararClave, emitirSesion, exigirAlguno, exigirPermiso, exigirSesion, hashClave } from './seguridad.js'
@@ -128,7 +129,7 @@ rutas.get('/proyectos/:id/pipeline', exigirSesion, pipelineCurso('proyectos.ver_
       costoEstimadoUsd: Math.round((conCosto.reduce((a, b) => a + b, 0) + prom * (d.rows.length - conCosto.length)) * 10000) / 10000, sinCosto: d.rows.length - conCosto.length }
     // El plan de una corrida puede ser largo: se entrega el conteo y la lista de lo omitido con su motivo, no todos los recursos a generar.
     const ejecuciones = e.rows.map((x) => ({ ...x, plan: x.plan ? { aGenerar: (x.plan.a_generar || []).length, aGenerarClaves: (x.plan.a_generar || []).slice(0, 500).map((i) => ({ id: i.id, codigo: i.codigo || null })), omitidas: (x.plan.omitidas || []).slice(0, 500) } : null }))
-    res.json({ matrices: m.rows, recursos: r.rows, ejecuciones, desactualizados, generado: new Date().toISOString(), puedeGenerarMatrices: Boolean(await urlMatrices()), puedeGenerarH5p: Boolean(await urlH5p()), puedePublicar: Boolean(await urlPublicar()), puedePreparar: Boolean(await urlPreparacion()) })
+    res.json({ matrices: m.rows, recursos: await correcciones.conCorrecciones(req.pipe.propietarioId, req.paramsOk.id, r.rows), ejecuciones, desactualizados, generado: new Date().toISOString(), puedeGenerarMatrices: Boolean(await urlMatrices()), puedeGenerarH5p: Boolean(await urlH5p()), puedePublicar: Boolean(await urlPublicar()), puedePreparar: Boolean(await urlPreparacion()) })
   } catch (err) { next(err) }
 })
 
@@ -185,6 +186,7 @@ rutas.put('/proyectos/:id/pipeline/recursos/:recurso/contenido', exigirSesion, p
 rutas.post('/proyectos/:id/pipeline/recursos/:recurso/aprobar', exigirSesion, pipelineCurso('proyectos.crear'), limiteEditarRecurso,
   validar(z.object({ id: IdProyecto, recurso: z.string().min(1).max(100) }), 'params'), async (req, res, next) => {
     try {
+      if (await correcciones.bloqueaAprobar(req.pipe.propietarioId, req.paramsOk.id, req.paramsOk.recurso)) return res.status(409).json({ error: correcciones.MENSAJE_PENDIENTE, correccionPendiente: true })
       const r = await lanzarPublicar({ usuario: req.pipe.usuario, proyectoId: req.paramsOk.id, recursoId: req.paramsOk.recurso })
       if (r.codigo === 202) auditar(req.usuario.id, 'recurso.aprobar_publicar', 'proyecto', req.paramsOk.id, req)
       res.status(r.codigo).json(r.cuerpo)
@@ -233,6 +235,7 @@ rutas.post('/proyectos/:id/pipeline/matrices', exigirSesion, pipelineCurso('proy
 rutas.post('/proyectos/:id/pipeline/h5p', exigirSesion, pipelineCurso('proyectos.crear'), limiteLanzar, validar(z.object({ id: IdProyecto }), 'params'), validar(EsquemaLanzarH5p, 'body'), async (req, res, next) => {
   try {
     const { maximo, unidades, reintentarErrores, regenerar } = req.bodyOk
+    if (regenerar && await correcciones.bloqueaRegenerar(req.pipe.propietarioId, req.paramsOk.id, regenerar)) return res.status(409).json({ error: correcciones.MENSAJE_PENDIENTE + ': espere a que el docente la marque como corregida.', correccionPendiente: true })
     const r = await lanzarH5p({ usuario: req.pipe.usuario, proyectoId: req.paramsOk.id, maximo, unidades, reintentarErrores, regenerar })
     if (r.codigo === 202) auditar(req.usuario.id, regenerar ? 'h5p.regenerar' : reintentarErrores ?'h5p.reintentar' : 'h5p.generar', 'proyecto', req.paramsOk.id, req)
     res.status(r.codigo).json(r.cuerpo)
@@ -290,6 +293,32 @@ rutas.post('/diseno/asignar-rapido', exigirSesion, exigirPermiso('diseno.asignar
 })
 rutas.post('/diseno/asignar-rapido-todos', exigirSesion, exigirPermiso('diseno.asignar'), async (req, res, next) => {
   try { res.json(await asignarDiseno.asignarTodos(req.usuario, auditarDiseno(req))) } catch (e) { next(e) }
+})
+
+// Correcciones docente <-> diseñador por recurso (la lógica y los permisos están en correcciones.js).
+const responderCorr = (res, r) => res.status(r.codigo).json(r.cuerpo)
+const IdCorr = z.object({ id: IdUuid })
+const Mensaje = z.object({ mensaje: z.string().max(4000).optional() }).strict()
+rutas.post('/diseno/correcciones', exigirSesion, validar(z.object({ propietario: IdUuid, proyecto: IdProyecto, recursoId: z.string().min(1).max(100), mensaje: z.string().max(4000) }).strict(), 'body'), async (req, res, next) => {
+  try { responderCorr(res, await correcciones.crear(req.usuario, req.bodyOk, auditarDiseno(req))) } catch (e) { next(e) }
+})
+rutas.get('/diseno/correcciones', exigirSesion, validar(z.object({ propietario: IdUuid.optional(), proyecto: IdProyecto.optional() }), 'query'), async (req, res, next) => {
+  try { responderCorr(res, await correcciones.listar(req.usuario, req.queryOk.propietario || req.usuario.id, req.queryOk.proyecto)) } catch (e) { next(e) }
+})
+rutas.post('/diseno/correcciones/:id/mensajes', exigirSesion, validar(IdCorr, 'params'), validar(z.object({ texto: z.string().max(4000) }).strict(), 'body'), async (req, res, next) => {
+  try { responderCorr(res, await correcciones.responder(req.usuario, req.paramsOk.id, req.bodyOk.texto, auditarDiseno(req))) } catch (e) { next(e) }
+})
+rutas.post('/diseno/correcciones/:id/corregida', exigirSesion, validar(IdCorr, 'params'), validar(Mensaje, 'body'), async (req, res, next) => {
+  try { responderCorr(res, await correcciones.marcarCorregida(req.usuario, req.paramsOk.id, req.bodyOk.mensaje, auditarDiseno(req))) } catch (e) { next(e) }
+})
+rutas.post('/diseno/correcciones/:id/cerrar', exigirSesion, validar(IdCorr, 'params'), async (req, res, next) => {
+  try { responderCorr(res, await correcciones.cerrar(req.usuario, req.paramsOk.id, auditarDiseno(req))) } catch (e) { next(e) }
+})
+rutas.post('/diseno/correcciones/:id/reabrir', exigirSesion, validar(IdCorr, 'params'), validar(Mensaje, 'body'), async (req, res, next) => {
+  try { responderCorr(res, await correcciones.reabrir(req.usuario, req.paramsOk.id, req.bodyOk.mensaje, auditarDiseno(req))) } catch (e) { next(e) }
+})
+rutas.post('/proyectos/:id/devolver-diseno', exigirSesion, validar(z.object({ id: IdProyecto }), 'params'), async (req, res, next) => {
+  try { responderCorr(res, await correcciones.devolverADiseno(req.usuario, req.paramsOk.id, auditarDiseno(req))) } catch (e) { next(e) }
 })
 
 rutas.put('/proyectos/:id', exigirSesion,

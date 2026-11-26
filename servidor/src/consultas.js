@@ -171,10 +171,35 @@ export const Q = Object.freeze({
   disenoDriveGuardar: `UPDATE curso_diseno SET drive_compartido = $3 WHERE propietario_id = $1 AND proyecto_id = $2`,
   disenoPendientes: `SELECT propietario_id, proyecto_id FROM curso_diseno WHERE estado = 'en_diseno' AND disenador_id IS NULL ORDER BY enviado_en`,
   disenoMios: `
-    SELECT d.propietario_id, d.proyecto_id, d.estado, d.asignado_en, p.curso, p.programa, up.nombre AS docente, p.datos->>'carpetaUrl' AS carpeta
+    SELECT d.propietario_id, d.proyecto_id, d.estado, d.asignado_en, p.curso, p.programa, up.nombre AS docente, p.datos->>'carpetaUrl' AS carpeta,
+           (SELECT count(*)::int FROM correcciones c WHERE c.propietario_id = d.propietario_id AND c.proyecto_id = d.proyecto_id AND c.estado = 'corregida') AS correcciones_listas
       FROM curso_diseno d JOIN usuarios up ON up.id = d.propietario_id
       LEFT JOIN proyectos p ON p.propietario_id = d.propietario_id AND p.id = d.proyecto_id
      WHERE d.disenador_id = $1 ORDER BY d.asignado_en DESC NULLS LAST`,
+  // ---- correcciones docente <-> diseñador (sin RLS: el módulo correcciones.js decide quién puede qué)
+  corrRecursoBuscar: `SELECT id, codigo FROM pipeline_recursos WHERE propietario_id = $1 AND proyecto_id = $2 AND (id = $3 OR codigo = $3) ORDER BY (id = $3) DESC LIMIT 1`,
+  corrPendienteDeRecurso: `SELECT id FROM correcciones WHERE propietario_id = $1 AND proyecto_id = $2 AND (recurso_id = $3 OR codigo = $3) AND estado <> 'cerrada' LIMIT 1`,
+  corrCrear: `INSERT INTO correcciones (propietario_id, proyecto_id, recurso_id, codigo, creado_por) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+  corrMensajeCrear: `INSERT INTO correccion_mensajes (correccion_id, autor_id, rol, texto) VALUES ($1, $2, $3, $4) RETURNING id`,
+  corrLista: `
+    SELECT c.id, c.propietario_id, c.proyecto_id, c.recurso_id, c.codigo, c.estado, c.creado_en, c.corregido_en, c.cerrado_en,
+           (SELECT titulo FROM pipeline_recursos r WHERE r.propietario_id = c.propietario_id AND r.proyecto_id = c.proyecto_id AND r.id = c.recurso_id) AS titulo,
+           (SELECT unidad FROM pipeline_recursos r WHERE r.propietario_id = c.propietario_id AND r.proyecto_id = c.proyecto_id AND r.id = c.recurso_id) AS unidad,
+           COALESCE((SELECT json_agg(json_build_object('id', m.id, 'rol', m.rol, 'autor', u.nombre, 'texto', m.texto, 'creado_en', m.creado_en) ORDER BY m.creado_en, m.id)
+                       FROM correccion_mensajes m LEFT JOIN usuarios u ON u.id = m.autor_id WHERE m.correccion_id = c.id), '[]'::json) AS mensajes
+      FROM correcciones c WHERE c.propietario_id = $1 AND ($2::text IS NULL OR c.proyecto_id = $2) AND ($3::boolean OR c.estado <> 'cerrada')
+     ORDER BY c.creado_en, c.id`,
+  corrObtener: `
+    SELECT c.id, c.propietario_id, c.proyecto_id, c.recurso_id, c.codigo, c.estado, d.estado AS curso_estado, d.disenador_id
+      FROM correcciones c LEFT JOIN curso_diseno d ON d.propietario_id = c.propietario_id AND d.proyecto_id = c.proyecto_id WHERE c.id = $1`,
+  corrEstado: `UPDATE correcciones SET estado = $3::text,
+      corregido_en = CASE WHEN $3::text = 'corregida' THEN now() WHEN $3::text = 'abierta' THEN NULL ELSE corregido_en END,
+      cerrado_en = CASE WHEN $3::text = 'cerrada' THEN now() ELSE NULL END
+     WHERE id = $1 AND estado = ANY($2::text[]) RETURNING id`,
+  corrAbiertas: `SELECT count(*)::int AS n FROM correcciones WHERE propietario_id = $1 AND proyecto_id = $2 AND estado = 'abierta'`,
+  corrCursoEstado: `UPDATE curso_diseno SET estado = $3, actualizado_en = now() WHERE propietario_id = $1 AND proyecto_id = $2 AND estado = ANY($4::text[]) RETURNING estado`,
+  corrPorRecurso: `SELECT id, recurso_id, codigo, estado FROM correcciones WHERE propietario_id = $1 AND proyecto_id = $2 AND estado <> 'cerrada'`,
+  corrAbiertasDeCodigos: `SELECT id FROM correcciones WHERE propietario_id = $1 AND proyecto_id = $2 AND estado = 'abierta' AND codigo = ANY($3::text[]) LIMIT 1`,
   disenoCursoDatos: `SELECT p.propietario_id, p.id, p.curso, p.programa, p.datos, up.nombre AS docente FROM proyectos p JOIN usuarios up ON up.id = p.propietario_id WHERE p.propietario_id = $1 AND p.id = $2`,
   // ---- pipeline: avisos de n8n guardados ligados al curso (sin sesión: la persona sale de pipeline_origen)
   pipeCarpetaDeProyecto: `SELECT datos->>'carpetaUrl' AS carpeta FROM proyectos WHERE propietario_id = $1 AND id = $2`,

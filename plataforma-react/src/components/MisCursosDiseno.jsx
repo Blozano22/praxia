@@ -27,7 +27,7 @@ export default function MisCursosDiseno() {
             <div className="db2-fila" key={f.propietario_id + '/' + f.proyecto_id}>
               <div className="db2-nom"><b>{f.curso || f.proyecto_id}</b><small>{f.programa}</small></div>
               <span>{f.docente}</span>
-              <span><span className="pill">{ESTADOS[f.estado] || f.estado}</span></span>
+              <span><span className="pill">{ESTADOS[f.estado] || f.estado}</span>{f.correcciones_listas > 0 && <span className="pill ok" style={{ marginLeft: 6 }}>{f.correcciones_listas} {f.correcciones_listas === 1 ? "corrección lista" : "correcciones listas"} para revisar</span>}</span>
               <span>{f.carpeta ? <a href={f.carpeta} target="_blank" rel="noreferrer">Carpeta de Drive</a> : ''} <button className="btn" onClick={() => setAbierto(f)}>Abrir</button></span>
             </div>
           ))}

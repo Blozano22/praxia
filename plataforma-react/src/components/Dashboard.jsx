@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from '../lib/api.js'
 import Titulo from './Titulo.jsx'
+import SolicitudesDiseno from './SolicitudesDiseno.jsx'
 
 const ESTADOS = {
   listo: ['ok', 'Documentos generados'],
@@ -20,7 +21,8 @@ export default function Dashboard({ lista, onNuevo, onAbrir, onEliminar }) {
   const [prog, setProg] = useState('todos')
   const [q, setQ] = useState('')
   const [diseno, setDiseno] = useState({}) // estado de diseño por curso: sin entrada = lo tiene el docente
-  useEffect(() => { api('GET', '/diseno').then((f) => setDiseno(Object.fromEntries(f.map((x) => [x.proyecto_id, x])))).catch(() => {}) }, [lista.length])
+  const cargarDiseno = useCallback(() => api('GET', '/diseno').then((f) => setDiseno(Object.fromEntries(f.map((x) => [x.proyecto_id, x])))).catch(() => {}), [])
+  useEffect(() => { cargarDiseno() }, [lista.length, cargarDiseno])
   const [seguro, setSeguro] = useState('') // id del syllabus que espera la segunda pulsación para eliminarse
 
   const programas = useMemo(() => {
@@ -66,6 +68,8 @@ export default function Dashboard({ lista, onNuevo, onAbrir, onEliminar }) {
           <button className="btn sm" onClick={() => onAbrir(porRevisar.id)}>Continuar donde quedó</button>
         </div>
       )}
+
+      <SolicitudesDiseno lista={lista} diseno={diseno} onAbrir={onAbrir} onCambio={cargarDiseno} />
 
       <div className="db2-progs">
         <button className={prog === 'todos' ? 'on' : ''} onClick={() => setProg('todos')}>Todos <span>· {lista.length}</span></button>

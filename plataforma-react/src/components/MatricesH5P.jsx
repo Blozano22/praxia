@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api as apiBase, conPropietario } from '../lib/api.js'
+import { textoCorreccion } from './PanelCorreccion.jsx'
 import { resumenConsumo, tokensDe, costoDe, usd, miles, esUrlImagen } from '../lib/consumo.js'
 import EditorRecurso from './EditorRecurso.jsx'
 import CargaRecurso from './CargaRecurso.jsx'
@@ -158,10 +159,11 @@ function Fila({ r, editar, aprobar, regenerar, bloqueado, puedePublicar, hija, e
       <span className="mx4-rt" title={r.titulo || ''}>{r.titulo || 'Sin título'}</span>
       <span className="mx4-re">{texto}</span>
       {r.alertaActividad && <span className="mx4-alerta" title={r.alertaActividad}>Alerta de actividad</span>}
+      {r.correccion && <span className={'mx4-corr ' + r.correccion.estado}>{textoCorreccion(r.correccion)}</span>}
       <span className="mx4-rl">
         {r.conContenido && !publicando && !r.enCola && ['POR_REVISAR', 'GENERADO', 'ERROR'].includes(r.estado) && editar && <button type="button" className="mx4-ed" onClick={() => editar(r)} title="Corregir los textos del recurso antes de publicarlo">Editar textos</button>}
-        {r.conContenido && !publicando && !r.enCola && ['POR_REVISAR', 'ERROR'].includes(r.estado) && puedePublicar && aprobar && <button type="button" className="mx4-ed ok" onClick={() => aprobar(r)} title="Aprobar el contenido: n8n arma el H5P y lo sube a Drive">Aprobar y publicar</button>}
-        {r.plantilla && !publicando && !r.enCola && (['POR_REVISAR', 'GENERADO', 'ERROR'].includes(r.estado) || r.sinRespuesta) && puedePublicar && regenerar && <button type="button" className="mx4-ed" disabled={bloqueado} onClick={() => regenerar(r)} title="Crear de nuevo con la misma plantilla">Regenerar</button>}
+        {r.conContenido && !publicando && !r.enCola && ['POR_REVISAR', 'ERROR'].includes(r.estado) && puedePublicar && aprobar && !r.correccion && <button type="button" className="mx4-ed ok" onClick={() => aprobar(r)} title="Aprobar el contenido: n8n arma el H5P y lo sube a Drive">Aprobar y publicar</button>}
+        {r.plantilla && !publicando && !r.enCola && (['POR_REVISAR', 'GENERADO', 'ERROR'].includes(r.estado) || r.sinRespuesta) && puedePublicar && regenerar && <button type="button" className="mx4-ed" disabled={bloqueado || (r.correccion && r.correccion.estado === 'abierta')} onClick={() => regenerar(r)} title="Crear de nuevo con la misma plantilla">Regenerar</button>}
         {hecho && r.enlaceRecurso && <a href={r.enlaceRecurso} target="_blank" rel="noopener noreferrer">Recurso ↗</a>}
         {r.enlaceGuion && <a href={r.enlaceGuion} target="_blank" rel="noopener noreferrer">Guion ↗</a>}
         {r.consumo && <span className="mx4-cons" title="Tokens de texto y costo estimado de este recurso">{miles(tokensDe(r.consumo))} tokens · {usd(costoDe(r.consumo))}{r.consumo.costo_parcial ? ' (parcial)' : ''}</span>}
@@ -659,7 +661,7 @@ export default function MatricesH5P({ s, propietario }) {
           </div>
         </>
       )}
-      {editando && <EditorRecurso proyecto={s.id} propietario={propietario} recurso={editando} recursos={d ? d.recursos.filter((r) => String(r.generador || '').toUpperCase() === 'H5P') : []} puedePublicar={puedePublicar} onAprobar={aprobarRecurso} onRegenerar={regenerarRecurso} regenerarBloqueado={h5pOcupado} onElegir={setEditando} onCerrar={() => { setEditando(null); cargar() }} />}
+      {editando && <EditorRecurso proyecto={s.id} propietario={propietario} recurso={editando} recursos={d ? d.recursos.filter((r) => String(r.generador || '').toUpperCase() === 'H5P') : []} puedePublicar={puedePublicar} onAprobar={aprobarRecurso} onRegenerar={regenerarRecurso} regenerarBloqueado={h5pOcupado} onElegir={setEditando} onActualizar={cargar} onCerrar={() => { setEditando(null); cargar() }} />}
     </div>
   )
 }

@@ -1,0 +1,6 @@
+.sd-sec{margin:18px 0}.sd-sec h2{font-size:1.05rem;margin:0 0 8px}
+.sd-lista{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}.sd-lista li{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:8px 12px;border:1px solid #e1e7ee;border-radius:10px;background:#fff}
+.sd-curso{border:1px solid #e8b44a;border-radius:12px;padding:10px 14px;margin-bottom:10px;background:#fffaf0}.sd-curso-cab{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.sd-izq{margin-left:auto}
+.sd-lista-corr{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}.sd-corr{padding:8px 12px;border:1px solid #e1e7ee;border-radius:10px;background:#fff;display:flex;flex-direction:column;gap:6px}
+.sd-corr-cab{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.sd-hilo{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}.sd-hilo li{padding:5px 9px;border-radius:8px;background:#f4f8fc}.sd-hilo li.docente{background:#eef6ff}.sd-hilo p{margin:2px 0;white-space:pre-wrap}
+.sd-corr textarea{width:100%;font:inherit;padding:6px 8px;border:1px solid #cfd8e3;border-radius:8px;box-sizing:border-box}.sd-bt{display:flex;gap:8px;flex-wrap:wrap}
