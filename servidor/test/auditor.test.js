@@ -147,3 +147,18 @@ test('auditor: un fallo momentáneo al consultar no cancela la revisión; nadie 
     assert.equal((await leer('/trabajo/no-existe')).estado, 404)
   })
 })
+
+test('auditor: la protección global acepta el formulario multipart solo en POST /api/auditor y con x-ova', async () => {
+  const { exigirCabecera } = await import('../src/seguridad.js')
+  const app = express()
+  app.use('/api', exigirCabecera, (req, res) => res.json({ ok: true }))
+  const srv = await new Promise((r) => { const s = http.createServer(app).listen(0, '127.0.0.1', () => r(s)) })
+  const base = 'http://127.0.0.1:' + srv.address().port + '/api'
+  const form = () => { const f = new FormData(); f.append('guion_url', DOC); return f }
+  try {
+    assert.equal((await fetch(base + '/auditor', { method: 'POST', headers: { 'x-ova': '1' }, body: form() })).status, 200)
+    assert.equal((await fetch(base + '/auditor', { method: 'POST', body: form() })).status, 400, 'sin x-ova')
+    assert.equal((await fetch(base + '/usuarios', { method: 'POST', headers: { 'x-ova': '1' }, body: form() })).status, 400, 'otra ruta con multipart')
+    assert.equal((await fetch(base + '/auditor', { method: 'PUT', headers: { 'x-ova': '1' }, body: form() })).status, 400, 'otro método')
+  } finally { srv.close() }
+})
