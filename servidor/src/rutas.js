@@ -13,7 +13,7 @@ import { crearZip, sanear } from './plantillas/zip.js'
 import { EsquemaLanzarH5p, EsquemaLanzarMatrices, lanzarH5p, lanzarMatrices, lanzarPublicar, urlH5p, urlMatrices, urlPublicar } from './pipeline/lanzar.js'
 import { CLAVE_PRUEBAS, pruebasEncendidas, urlPreparacion } from './pipeline/preparacion.js'
 import { esUrlImagen } from './pipeline/eventos.js'
-import { invalidarAsignaciones } from './pipeline/asignaciones.js'
+import { invalidarAsignaciones, normalizarTipo } from './pipeline/asignaciones.js'
 import { publicarAviso, tomarAvisos } from './avisos.js'
 import { COOKIE, claveValida, compararClave, emitirSesion, exigirAlguno, exigirPermiso, exigirSesion, hashClave } from './seguridad.js'
 
@@ -407,6 +407,32 @@ rutas.get('/config/n8n', exigirSesion, async (req, res, next) => {
     res.json({ syllabus: v(CLAVES_N8N.syllabus), guiones: v(CLAVES_N8N.guiones), matrices: v(CLAVES_N8N.matrices), h5p: v(CLAVES_N8N.h5p), publicar: v(CLAVES_N8N.publicar), preparacion: v(CLAVES_N8N.preparacion), pruebas_plantillas: pruebasEncendidas((f.find((x) => x.clave === CLAVE_PRUEBAS) || {}).valor) }) // '' = la dirección original
   } catch (e) { next(e) }
 })
+// ------------------------------------------------------------------ tipos de actividad (texto del guion → categoría ACT; coincidencia exacta normalizada)
+rutas.get('/actividad-tipos', exigirSesion, async (req, res, next) => {
+  try { res.json({ tipos: (await sinUsuario(Q.actividadTiposListar, [])).rows.map((f) => ({ tipo: f.nombre, categoria: f.categoria })) }) } catch (e) { next(e) }
+})
+const FilaTipo = z.object({ tipo: z.string().trim().min(1).max(300), categoria: z.string().trim().toUpperCase().regex(/^ACT-[A-Z]-\d{2}$/) }).strict()
+// «filas» = lista que se guarda (con reemplazar:true es la lista COMPLETA: lo que no esté se quita); «borrar» = tipos a quitar.
+rutas.put('/actividad-tipos', ...admin, validar(z.object({ filas: z.array(FilaTipo).max(300).default([]), borrar: z.array(z.string().max(300)).max(300).default([]), reemplazar: z.boolean().default(false) }).strict(), 'body'),
+  async (req, res, next) => {
+    try {
+      const { filas, borrar, reemplazar } = req.bodyOk
+      const vistos = new Set()
+      for (const f of filas) {
+        const n = normalizarTipo(f.tipo)
+        if (!n || n.length > 150) return res.status(400).json({ error: 'El tipo «' + f.tipo.slice(0, 60) + '» no es válido (1 a 150 caracteres).' })
+        if (vistos.has(n)) return res.status(400).json({ error: 'El tipo «' + f.tipo.slice(0, 60) + '» está repetido (se ignoran mayúsculas, tildes y espacios).' })
+        vistos.add(n); f.n = n
+      }
+      await conTransaccion(async (c) => {
+        if (reemplazar) await c.query(Q.actividadTiposBorrarTodo)
+        for (const t of borrar) await c.query(Q.actividadTipoBorrar, [normalizarTipo(t)])
+        for (const f of filas) await c.query(Q.actividadTipoGuardar, [f.n, f.categoria, f.tipo])
+      })
+      await auditar(req.usuario.id, 'config_actividad_tipos', 'configuracion', null, req)
+      res.json({ ok: true, tipos: (await sinUsuario(Q.actividadTiposListar, [])).rows.map((f) => ({ tipo: f.nombre, categoria: f.categoria })) })
+    } catch (e) { next(e) }
+  })
 // Solo lectura: lo que se perdería si se reinicia el servidor ahora.
 rutas.get('/admin/trabajos-en-curso', ...admin, async (req, res, next) => {
   try { res.json(await trabajosEnCurso(sinUsuario)) } catch (e) { next(e) }

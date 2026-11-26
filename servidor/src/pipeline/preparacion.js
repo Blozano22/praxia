@@ -65,7 +65,7 @@ export async function exigirAprobadas(usuario, proyectoId) {
 const MOTIVOS = {
   variantes_agotadas: 'ya no quedan variantes libres en su categoría para esta unidad', sin_variantes_aprobadas: 'no hay variantes aprobadas', sin_variantes_de_la_formacion: 'no hay variantes de la formación del curso',
   categoria_sin_variantes: 'la categoría no tiene variantes', categoria_no_es_de_la_formacion: 'la categoría no es de la formación del curso', categoria_inexistente: 'la categoría no existe',
-  plantilla_eliminada: 'su plantilla se eliminó', categoria_eliminada: 'su categoría se eliminó'
+  tipo_actividad_sin_categoria: 'el tipo de actividad del guion no coincide con ninguno de la tabla de tipos: corrija el guion o la tabla y regenere el recurso', plantilla_eliminada: 'su plantilla se eliminó', categoria_eliminada: 'su categoría se eliminó'
 }
 const motivoTexto = (m) => MOTIVOS[m] || (/^plantilla_movida_a_/.test(m || '') ? 'su plantilla se movió de categoría' : m || 'sin variante')
 

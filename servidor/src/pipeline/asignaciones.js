@@ -37,6 +37,7 @@ const Pedir = z.object({
     unidad: Opc(z.number().int().min(0).max(999)),
     id_catalogo: Opc(z.string().max(100)),
     id_base: Opc(z.string().max(100)),
+    tipo_actividad: Opc(z.string().max(300)), // texto crudo del «Tipo de actividad» del guion: se traduce a categoría ACT por coincidencia exacta (tabla actividad_tipos)
     calificable: z.boolean().nullish() // solo en categorías de actividad: true = la calificable de la unidad, false = práctica (lo lee n8n de la tabla de la unidad)
   })).min(1).max(500)
 }).refine((b) => new Set(b.recursos.map((r) => r.codigo)).size === b.recursos.length, { message: 'hay códigos repetidos en «recursos»' })
@@ -55,6 +56,10 @@ function validar(esquema, req, res) {
   if (!r.success) { res.status(400).json({ error: 'Cuerpo no válido', problemas: r.error.issues.slice(0, 5).map((x) => x.path.join('.') + ': ' + x.message) }); return null }
   return r.data
 }
+// «Análisis de  Incidentes » → «analisis de incidentes»: sin mayúsculas, sin tildes, espacios colapsados y sin los de los extremos. Nada más (sin sinónimos).
+export const normalizarTipo = (t) => String(t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim()
+// Código de la actividad de un recurso: U1-T1-R2 → U1-T1-A2 (la presentación nunca lleva actividad).
+const codigoActividad = (codigo) => (/^U\d+-T\d+-R\d+$/.test(codigo) ? codigo.replace('-R', '-A') : null)
 const unidadDe = (codigo) => Number(/^U(\d+)-/.exec(codigo)[1])
 
 // Variantes que pueden asignarse a un recurso: de esa categoría, aprobadas (salvo que se pida lo contrario) y de la formación del curso.
@@ -93,7 +98,7 @@ rutasAsignaciones.post('/asignaciones/pedir', limite, async (req, res, next) => 
       const cats = new Map((await c.query(Q.categoriasListar)).rows.map((k) => [k.id, k.tipo])) // categoría → 'recurso' | 'actividad' | 'bibliografia'
       const formDe = {}
       for (const x of (await c.query(Q.formacionesListar)).rows) (formDe[x.categoria] ||= []).push(x.formacion)
-      const existentes = Object.fromEntries((await c.query(Q.asignExistentes, [o.propietario_id, o.proyecto_id, b.recursos.map((r) => r.codigo)])).rows.map((f) => [f.codigo, f]))
+      const existentes = Object.fromEntries((await c.query(Q.asignExistentes, [o.propietario_id, o.proyecto_id, b.recursos.flatMap((r) => [r.codigo, ...(r.tipo_actividad && codigoActividad(r.codigo) ? [codigoActividad(r.codigo)] : [])])])).rows.map((f) => [f.codigo, f]))
       const porCategoria = {} // categoría → { variantes (elegibles), usadas }
       const cargar = async (cat) => {
         if (!porCategoria[cat]) {
@@ -113,20 +118,19 @@ rutasAsignaciones.post('/asignaciones/pedir', limite, async (req, res, next) => 
       }
       const usoDe = (cat, unidad) => { const k = unidad ?? -1; if (!cat.porUnidad.has(k)) cat.porUnidad.set(k, { usadas: new Set(), veces: new Map() }); return cat.porUnidad.get(k) }
       const salida = []
-      for (const r of b.recursos) {
+      const procesar = async (r) => {
         const ex = existentes[r.codigo]
         const unidad = r.unidad ?? unidadDe(r.codigo)
-        if (!cats.has(r.categoria)) { salida.push({ codigo: r.codigo, resultado: 'error', motivo: 'categoria_inexistente', categoria: r.categoria, plantilla: null }); continue }
-        if (cats.get(r.categoria) === 'bibliografia') { salida.push({ codigo: r.codigo, resultado: 'error', motivo: 'categoria_de_bibliografia', categoria: r.categoria, plantilla: null }); continue } // no se reparten por recurso
+        if (!cats.has(r.categoria)) { return { codigo: r.codigo, resultado: 'error', motivo: 'categoria_inexistente', categoria: r.categoria, plantilla: null } }
+        if (cats.get(r.categoria) === 'bibliografia') { return { codigo: r.codigo, resultado: 'error', motivo: 'categoria_de_bibliografia', categoria: r.categoria, plantilla: null } } // no se reparten por recurso
         if (ex && ex.estado === 'asignada' && !b.forzar) {
           // Idempotente: lo ya asignado no cambia. Si ahora piden otra categoría para ese código, se avisa en vez de pisarlo.
-          if (ex.categoria !== r.categoria) { salida.push({ ...forma(ex), resultado: 'conflicto', motivo: 'ya_asignada_en_otra_categoria' }); continue }
-          salida.push({ ...forma(ex), resultado: 'ya_asignada' })
-          continue
+          if (ex.categoria !== r.categoria) { return { ...forma(ex), resultado: 'conflicto', motivo: 'ya_asignada_en_otra_categoria' } }
+          return { ...forma(ex), resultado: 'ya_asignada' }
         }
         const esAct = cats.get(r.categoria) === 'actividad'
         // En las categorías de actividad hay que saber si el recurso es la calificable o una práctica: lo dice n8n (lo lee de la tabla de la unidad); Praxia no lo adivina.
-        if (esAct && typeof r.calificable !== 'boolean') { salida.push({ codigo: r.codigo, resultado: 'error', motivo: 'falta_calificable', categoria: r.categoria, plantilla: null }); continue }
+        if (esAct && typeof r.calificable !== 'boolean') { return { codigo: r.codigo, resultado: 'error', motivo: 'falta_calificable', categoria: r.categoria, plantilla: null } }
         const cat = await cargar(r.categoria)
         const uso = usoDe(cat, unidad) // lo usado en ESTA unidad
         if (ex && ex.plantilla && b.forzar) { // recalcular desde cero libera la suya
@@ -157,12 +161,43 @@ rutasAsignaciones.post('/asignaciones/pedir', limite, async (req, res, next) => 
           uso.veces.set(libre.nombre, (uso.veces.get(libre.nombre) || 0) + 1)
           const motivoRep = r.calificable === true ? 'calificable_repetida' : 'variante_repetida'
           await c.query(Q.asignGuardar, [...base, libre.nombre, null, 'asignada', repetida ? motivoRep : null, b.trabajo_id, repetida])
-          salida.push({ codigo: r.codigo, resultado: 'asignada', categoria: r.categoria, formacion: b.formacion, plantilla: libre.nombre, motivo: repetida ? motivoRep : null, repetida, aviso: repetida && r.calificable !== true ? avisoRepetida(r.categoria) : null })
+          return { codigo: r.codigo, resultado: 'asignada', categoria: r.categoria, formacion: b.formacion, plantilla: libre.nombre, motivo: repetida ? motivoRep : null, repetida, aviso: repetida && r.calificable !== true ? avisoRepetida(r.categoria) : null }
         } else {
           const m = motivo || 'variantes_agotadas' // había elegibles pero ya las tienen otros recursos de la misma unidad
           await c.query(Q.asignGuardar, [...base, null, anterior, 'pendiente', m, b.trabajo_id, false])
-          salida.push({ codigo: r.codigo, resultado: 'pendiente', categoria: r.categoria, formacion: b.formacion, plantilla: null, motivo: m, repetida: false, aviso: null })
+          return { codigo: r.codigo, resultado: 'pendiente', categoria: r.categoria, formacion: b.formacion, plantilla: null, motivo: m, repetida: false, aviso: null }
         }
+      }
+      // Plantilla de bibliografía de la formación del curso: la misma para todos los recursos; no se guarda en asignacion_variantes.
+      let bibliografia = { plantilla: null, motivo: 'sin_plantilla_bibliografia' }
+      for (const [id, tipo] of cats) {
+        if (tipo !== 'bibliografia' || !(formDe[id] || []).includes(b.formacion)) continue
+        const cat = await cargar(id)
+        const { lista } = elegibles(cat.vars, b.formacion, formDe[id] || [], b.solo_aprobadas, pruebas)
+        if (lista.length) { bibliografia = { plantilla: lista[0].nombre }; break }
+      }
+      // Tabla «tipo de actividad → categoría» (sql/019) y categorías reales de actividad marcadas para la formación del curso.
+      const tipos = new Map((await c.query(Q.actividadTiposListar)).rows.map((f) => [f.tipo_normalizado, f.categoria]))
+      const categoriaDe = (prefijo) => [...cats].find(([id, tipo]) => tipo === 'actividad' && (id === prefijo || id.startsWith(prefijo + '-')) && (formDe[id] || []).includes(b.formacion))?.[0]
+      for (const r of b.recursos) {
+        const e = await procesar(r)
+        const codAct = codigoActividad(r.codigo)
+        if (r.tipo_actividad && codAct) {
+          const prefijo = tipos.get(normalizarTipo(r.tipo_actividad))
+          if (!prefijo) {
+            e.actividad = { codigo: codAct, resultado: 'omitida', motivo: 'tipo_actividad_sin_categoria', tipo: r.tipo_actividad }
+            await c.query(Q.pipeRecursoAlerta, [o.propietario_id, o.proyecto_id, r.codigo, 'ALERTA: El tipo de actividad «' + r.tipo_actividad + '» del guion no coincide con ninguno de la tabla de tipos: corrija el guion o la tabla y regenere el recurso.'])
+          } else {
+            const real = categoriaDe(prefijo)
+            if (!real) e.actividad = { codigo: codAct, categoria: prefijo, plantilla: null, resultado: 'omitida', motivo: cats.has(prefijo) ? 'categoria_no_es_de_la_formacion' : 'categoria_inexistente' }
+            else {
+              const a = await procesar({ codigo: codAct, categoria: real, unidad: r.unidad, id_catalogo: r.id_catalogo, id_base: r.id_base, calificable: r.calificable })
+              e.actividad = { codigo: a.codigo, categoria: a.categoria, plantilla: a.plantilla ?? null, resultado: a.resultado, ...(a.motivo ? { motivo: a.motivo } : {}) }
+            }
+          }
+        }
+        e.bibliografia = bibliografia
+        salida.push(e)
       }
       return salida
     })

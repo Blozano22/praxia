@@ -10,7 +10,7 @@
     "db:migrar": "node scripts/migrar.js",
     "puede-reiniciar": "node scripts/puede-reiniciar.js",
     "usuario:crear-admin": "node scripts/crear-admin.js",
-    "test": "node --test test/seguridad.test.js test/bibliografia.test.js test/plantillas-publicas.test.js test/guiones-trabajos.test.js test/limites.test.js test/proyectos-versiones.test.js test/unidades-trabajos.test.js test/plantillas-ciclo.test.js test/descarga-masiva.test.js test/pipeline-eventos.test.js test/pipeline-matrices-lanzar.test.js test/plantillas-categorias.test.js test/iconos-normalizar.test.js test/asignaciones.test.js test/guiones-preparacion.test.js test/actividades.test.js test/avisos-plantillas.test.js test/trabajos-en-curso.test.js",
+    "test": "node --test test/seguridad.test.js test/bibliografia.test.js test/plantillas-publicas.test.js test/guiones-trabajos.test.js test/limites.test.js test/proyectos-versiones.test.js test/unidades-trabajos.test.js test/plantillas-ciclo.test.js test/descarga-masiva.test.js test/pipeline-eventos.test.js test/pipeline-matrices-lanzar.test.js test/plantillas-categorias.test.js test/iconos-normalizar.test.js test/asignaciones.test.js test/guiones-preparacion.test.js test/actividades.test.js test/avisos-plantillas.test.js test/trabajos-en-curso.test.js test/actividad-tipos.test.js",
     "demo": "node test/demo-temporal.js",
     "db:preparar": "node scripts/preparar-local.js"
   },
