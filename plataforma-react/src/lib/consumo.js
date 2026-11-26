@@ -19,4 +19,10 @@ export function resumenConsumo(recursos) {
 }
 
 // Enlace https de una imagen (misma regla que el servidor).
-export const esUrlImagen = (v) => typeof v === 'string' && v.length <= 500 && /^https:\/\/[^\s"'<>]+$/.test(v)
+export const esUrlImagen = (v) => {
+  if (typeof v !== 'string' || v.length > 500 || !/^https:\/\/[^\s"'<>]+$/.test(v)) return false
+  const sinQuery = v.split(/[?#]/)[0].toLowerCase()
+  if (sinQuery.includes('/plantillas-html/') || /\.(html?|json)$/.test(sinQuery)) return false
+  if (/^https:\/\/proyectos\.americana\.edu\.co\//.test(sinQuery) && sinQuery.includes('/api/')) return false
+  return true
+}

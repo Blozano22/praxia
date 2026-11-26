@@ -43,7 +43,13 @@ const idTexto = z.union([z.string(), z.number()]).transform(String).pipe(z.strin
 const UrlGoogle = z.string().max(600).regex(/^https:\/\/(docs|drive)\.google\.com\//)
 const entero = z.number().int().min(0).max(1e9)
 // Imagen del recurso y consumo de IA: un valor inválido (http, con espacios o comillas, demasiado grande) se ignora en vez de rechazar el aviso.
-export const esUrlImagen = (v) => typeof v === 'string' && v.length <= 500 && /^https:\/\/[^\s"'<>]+$/.test(v)
+export const esUrlImagen = (v) => {
+  if (typeof v !== 'string' || v.length > 500 || !/^https:\/\/[^\s"'<>]+$/.test(v)) return false
+  const sinQuery = v.split(/[?#]/)[0].toLowerCase()
+  if (sinQuery.includes('/plantillas-html/') || /\.(html?|json)$/.test(sinQuery)) return false
+  if (/^https:\/\/proyectos\.americana\.edu\.co\//.test(sinQuery) && sinQuery.includes('/api/')) return false
+  return true
+}
 const ImagenUrl = z.preprocess((v) => (esUrlImagen(v) ? v : undefined), z.string().optional())
 const Consumo = z.preprocess((v) => (v && typeof v === 'object' && !Array.isArray(v) && JSON.stringify(v).length <= 4000 ? v : undefined), z.record(z.string(), z.unknown()).optional())
 // n8n arma los avisos con cadenas vacías donde no hay dato (origen_trabajo_id: '', enlace_recurso: ''…): una cadena vacía cuenta como «sin dato»,
