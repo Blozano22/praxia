@@ -153,13 +153,14 @@ function ListaRecursos({ recursos, actualId, puedePublicar, sucio, onElegir, onA
                   {sub.map((r) => {
                     const pub = !!r.publicando && !r.publicandoSinRespuesta
                     const sin = !!r.sinRespuesta && !pub // lleva mucho sin avisos: no es «generando», es un aviso que no llegó
-                    const k = sin ? 'er' : pub || r.estado === 'EN_PROCESO' ? 'en' : r.estado === 'POR_REVISAR' ? 'prev' : r.estado === 'GENERADO' ? 'ok' : r.estado === 'ERROR' ? 'er' : 'pe'
+                    const cr = !!r.enColaRegenerar && !pub
+                    const k = cr ? 'en' : sin ? 'er' : pub || r.estado === 'EN_PROCESO' ? 'en' : r.estado === 'POR_REVISAR' ? 'prev' : r.estado === 'GENERADO' ? 'ok' : r.estado === 'ERROR' ? 'er' : 'pe'
                     return (
                       <li key={r.id} className={'er-rec ' + k + (r.id === actualId ? ' on' : '')}>
                         <button type="button" className="er-rec-btn" disabled={!r.conContenido && r.id !== actualId} aria-current={r.id === actualId ? 'true' : undefined} onClick={() => onElegir(r)}>
-                          <span className={'er-rec-ic ' + k} aria-hidden="true">{k === 'en' ? <i className="er-gira" /> : k === 'ok' ? '✓' : k === 'er' ? '!' : ''}</span>
+                          <span className={'er-rec-ic ' + k} aria-hidden="true">{cr ? '⏳' : k === 'en' ? <i className="er-gira" /> : k === 'ok' ? '✓' : k === 'er' ? '!' : ''}</span>
                           <span className="er-rec-tx"><b>{r.codigo || r.id}</b><small>{r.titulo || 'Sin título'}</small>{(r.tieneActividad || r.tieneBibliografia) && <small className="er-rec-partes">{[r.tieneActividad && 'Con actividad', r.tieneBibliografia && 'Con bibliografía'].filter(Boolean).join(' · ')}</small>}{r.alertaActividad && <small className="er-rec-alerta" title={r.alertaActividad}>Alerta de actividad</small>}</span>
-                          <span className={'er-rec-et ' + k}>{pub ? 'Publicando…' : sin ? 'Sin avisos' : r.enCola ? (r.regenera ? 'Se regenerará' : 'En cola') : TEXTO_ESTADO[r.estado] || r.estado}</span>
+                          <span className={'er-rec-et ' + k}>{pub ? 'Publicando…' : cr ? 'En cola para regenerar' : sin ? 'Sin avisos' : r.enCola ? (r.regenera ? 'Se regenerará' : 'En cola') : TEXTO_ESTADO[r.estado] || r.estado}</span>
                         </button>
                         {aprobable(r) && (
                           <button type="button" className="er-rec-ok" disabled={!!ocupados[r.id] || unidadBusy !== null} onClick={() => aprobarUno(r)} aria-label={'Aprobar y publicar ' + (r.codigo || r.id)} title="Aprobar y publicar">

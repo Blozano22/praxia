@@ -371,10 +371,12 @@ export default function MatricesH5P({ s, propietario, soloLectura = false }) {
     if (r.estado === 'GENERADO' && !(await confirmar({ titulo: '¿Volver a publicar el recurso?', texto: 'Este recurso ya está publicado en Drive. Se reemplazará el contenido del mismo archivo (no se crea un duplicado).', tono: 'aviso', textoConfirmar: 'Aprobar y publicar' }))) return false
     await api('POST', '/proyectos/' + encodeURIComponent(s.id) + '/pipeline/recursos/' + encodeURIComponent(r.id) + '/aprobar')
     setAviso('Se aprobó ' + (r.codigo || r.id) + '. n8n está armando el H5P y subiéndolo a Drive; aparecerá como Generado en unos instantes.')
+    marcarRegenerando([r.codigo], !!(resp && resp.encolado))
     cargar()
     return true
   }
   // Regenerar = crear de nuevo con la misma plantilla; queda un borrador «Por revisar» y publicarlo reemplaza el archivo ya publicado.
+  const marcarRegenerando = (codigos, encolado) => setD((x) => x && ({ ...x, recursos: x.recursos.map((r) => (codigos.includes(r.codigo) ? (encolado ? { ...r, enColaRegenerar: true } : { ...r, estado: 'EN_PROCESO', conContenido: true, sinRespuesta: false }) : r)) }))
   const regenerarRecurso = async (r) => {
     if (!(await confirmar({ titulo: '¿Regenerar este recurso?', texto: 'Se creará de nuevo con la misma plantilla y se perderán las ediciones hechas a mano.\nSi ya estaba publicado, el archivo se reemplazará solo cuando vuelva a aprobarlo.', tono: 'peligro', icono: IconoAviso, textoConfirmar: 'Regenerar' }))) return false
     const resp = await api('POST', '/proyectos/' + encodeURIComponent(s.id) + '/pipeline/h5p', { regenerar: [r.codigo] })
@@ -399,6 +401,7 @@ export default function MatricesH5P({ s, propietario, soloLectura = false }) {
         setLanzadoEn(Date.now()); setYaEnCurso(0); setEnviadas([])
         setAviso('Regenerando ' + x.total + ' recursos… aparecerán como «Por revisar» cuando n8n termine.')
       }
+      marcarRegenerando(x.codigos, !!(resp && resp.encolado))
       cargar()
     } catch (e) { setError(e.message || 'No se pudo regenerar el curso.') }
   }
