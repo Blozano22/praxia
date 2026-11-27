@@ -123,7 +123,61 @@ const I_VISTO = <path d="M5 12.5l4.5 4.5L19 7.5" />
 const I_FLECHA = <path d="M6 9l6 6 6-6" />
 const I_BLANCO = <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1.2" /></>
 
-function Guion({ a, n, activo, abierto, onAlternar, onVisto, onAprobar, onDesaprobar }) {
+// Cuando alguien rehace o mueve el documento a mano, el enlace guardado queda viejo: aquí se pega el nuevo.
+function CambiarEnlace({ url, onGuardar }) {
+  const [editando, setEditando] = useState(false)
+  const [valor, setValor] = useState('')
+  const [err, setErr] = useState('')
+  const guardar = () => {
+    const v = valor.trim()
+    if (!/^https:\/\/docs\.google\.com\/document\/d\/[A-Za-z0-9_-]+/.test(v)) { setErr('Pegue el enlace de un Google Doc (docs.google.com/document/d/…).'); return }
+    onGuardar(v); setEditando(false); setErr('')
+  }
+  if (!editando) return <button type="button" className="btn sec sm" style={{ marginTop: 8 }} onClick={() => { setValor(url || ''); setEditando(true) }}>{url ? 'Cambiar el enlace del documento' : 'Poner el enlace del documento'}</button>
+  return (
+    <div style={{ marginTop: 8 }}>
+      <input type="url" aria-label="Nuevo enlace del guion" value={valor} onChange={(e) => { setValor(e.target.value); setErr('') }} autoComplete="off" placeholder="https://docs.google.com/document/d/…" style={{ width: '100%' }} />
+      {err && <p className="help" role="alert" style={{ color: '#8c2620' }}>{err}</p>}
+      <div className="row" style={{ marginTop: 6 }}>
+        <button type="button" className="btn sm" onClick={guardar}>Guardar enlace</button>
+        <button type="button" className="btn sec sm" onClick={() => { setEditando(false); setErr('') }}>Cancelar</button>
+      </div>
+    </div>
+  )
+}
+
+// Vuelve a leer el documento de Drive (por si se editó a mano) y se queda con su contenido actual.
+const firmaDe = (g) => { const t = JSON.stringify(g || {}); let h = 0; for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) | 0; return String(h) }
+function ActualizarDeDrive({ url, firma, onNuevo, onFirma }) {
+  const [estado, setEstado] = useState({ ocupado: false, msg: '', mal: false })
+  const ir = async (auto) => {
+    setEstado({ ocupado: true, msg: '', mal: false })
+    try {
+      const r = await api('POST', '/guiones/releer', { url })
+      const nueva = firmaDe(r.guion)
+      if (auto === true) {
+        // Automático: la primera lectura solo fija la referencia (el contenido de n8n y el leído no son idénticos); desde ahí, si cambia, se toma el cambio.
+        if (!firma) { onFirma(nueva); setEstado({ ocupado: false, msg: '', mal: false }); return }
+        if (firma === nueva) { setEstado({ ocupado: false, msg: 'El documento no ha cambiado en Drive.', mal: false }); return }
+        onNuevo(r, nueva)
+        setEstado({ ocupado: false, msg: 'Se detectaron cambios en Drive y Praxia los tomó.', mal: false })
+        return
+      }
+      onNuevo(r, nueva)
+      setEstado({ ocupado: false, msg: 'Listo: Praxia tomó el contenido actual del documento.', mal: false })
+    } catch (e) { setEstado({ ocupado: false, msg: auto === true ? '' : (e.message || 'No se pudo leer el documento.'), mal: true }) }
+  }
+  // Al abrir el guion se revisa solo, una vez por apertura.
+  useEffect(() => { if (url) ir(true); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [url])
+  return (
+    <div style={{ marginTop: 8 }}>
+      <button type="button" className="btn sec sm" disabled={estado.ocupado || !url} onClick={() => ir(false)}>{estado.ocupado ? 'Leyendo el documento…' : 'Actualizar desde Drive'}</button>
+      {estado.msg && <p className="help" role="status" style={{ color: estado.mal ? '#8c2620' : undefined }}>{estado.msg}</p>}
+    </div>
+  )
+}
+
+function Guion({ a, n, activo, abierto, onAlternar, onVisto, onAprobar, onDesaprobar, onCambiarUrl, onNuevoContenido, onFirmaDrive }) {
   const bloqueado = !a.aprobado && !activo
   const resumen = (() => { try { return guionAPendiente(a).recursos.length } catch (e) { return 0 } })()
   const estado = a.aprobado ? ['ok', I_VISTO, 'Aprobado'] : activo ? ['warn', I_RELOJ, 'En revisión'] : ['', I_RELOJ, 'Pendiente']
@@ -146,6 +200,8 @@ function Guion({ a, n, activo, abierto, onAlternar, onVisto, onAprobar, onDesapr
         <div className={'gu-it-cu' + (activo ? ' con-acc' : '')}>
           <div className="gu-it-izq">
             {a.url && <EnlaceDoc compacto titulo={'Guion ' + (a.tema != null ? 'del tema ' + a.tema : a.nombre)} url={a.url} onVisto={activo ? onVisto : undefined} />}
+            {a.url && onNuevoContenido && <ActualizarDeDrive url={a.url} firma={a.driveFirma} onNuevo={onNuevoContenido} onFirma={onFirmaDrive} />}
+            {onCambiarUrl && <CambiarEnlace url={a.url} onGuardar={onCambiarUrl} />}
             {a.advertencias.length > 0 && (
               <details className="dt">
                 <summary>Notas del generador ({a.advertencias.length}) · solo informativas</summary>
@@ -387,7 +443,10 @@ export default function Guiones({ s, unidad, doc, onCambio, onCrear }) {
                 onAlternar={() => setAbierto(i === efectivo ? -2 : i)}
                 onVisto={() => { if (!a.visto) cambiar(i, { visto: true }) }}
                 onAprobar={() => cambiar(i, { aprobado: true, visto: true })}
-                onDesaprobar={() => cambiar(i, { aprobado: false })} />
+                onDesaprobar={() => cambiar(i, { aprobado: false })}
+                onCambiarUrl={(url) => cambiar(i, { url })}
+                onNuevoContenido={(r, firma) => cambiar(i, { guion: r.guion, info: { ...(a.info || {}), ...r.info }, driveFirma: firma })}
+                onFirmaDrive={(firma) => cambiar(i, { driveFirma: firma })} />
             ))}
           </div>
           <div className="row" style={{ marginTop: 14 }}>

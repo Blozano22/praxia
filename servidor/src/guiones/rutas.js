@@ -18,6 +18,9 @@ import { exigirPermiso, exigirSesion } from '../seguridad.js'
 import { armarPaquete } from '../bibliografia/rutas.js'
 import { registrarOrigen } from '../pipeline/eventos.js'
 import { exigirEditable } from '../diseno.js'
+import { bloquesDeHtml } from '../piloto/documento.js'
+import { guionEstructurado } from '../piloto/guion.js'
+import { ErrorGoogle, exportarDocHtml } from '../piloto/google.js'
 import { asegurarAsignacion, ErrorPropio, exigirAprobadas } from '../pipeline/preparacion.js'
 
 export const rutasGuiones = Router()
@@ -157,6 +160,22 @@ rutasGuiones.post('/trabajos', exigirPermiso('proyectos.crear'), limiteCrear, va
     } catch (e) { console.error('[pipeline] no se pudo anotar el origen del trabajo', e && e.message) } // no debe impedir la generación
     res.status(202).json({ id: t.id, estado: 'en_curso', creado: t.creado })
   } catch (e) { next(e) }
+})
+
+// Vuelve a leer UN guion desde su Google Doc (público, sin credenciales) por si alguien lo editó a mano en Drive.
+// Devuelve la misma estructura que entrega el flujo de n8n: { info, guion: { presentacion, recursos } }. No escribe nada: la página decide qué hacer.
+rutasGuiones.post('/releer', exigirPermiso('proyectos.ver_propios'), limiteCrear, validar(z.object({ url: z.string().max(500).regex(RE_DOC) }).strict(), 'body'), async (req, res) => {
+  const id = /\/document\/d\/([A-Za-z0-9_-]+)/.exec(req.bodyOk.url)[1]
+  try {
+    const bloques = bloquesDeHtml(await exportarDocHtml(id))
+    const e = guionEstructurado(bloques)
+    if (!e.presentacion && !e.recursos.length) return res.status(422).json({ error: 'No se encontraron recursos en ese documento. Revise que conserve las tablas «Código del recurso» del guion.' })
+    res.json({ info: e.info, guion: { presentacion: e.presentacion, recursos: e.recursos } })
+  } catch (err) {
+    if (err instanceof ErrorGoogle) return res.status(422).json({ error: 'No se pudo leer el documento. Debe estar compartido para «cualquiera con el enlace» (lector).' })
+    console.warn('[guiones] no se pudo releer el guion')
+    res.status(500).json({ error: 'Error interno' })
+  }
 })
 
 rutasGuiones.get('/trabajos', exigirPermiso('proyectos.ver_propios'), limiteLeer, async (req, res, next) => {
