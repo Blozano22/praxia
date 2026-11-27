@@ -249,11 +249,11 @@ export default function EditorRecurso({ proyecto, propietario, soloLectura = fal
         const deseada = partes[parteDeseada.current] ? parteDeseada.current : 'recurso'
         parteDeseada.current = ''
         versionCargada.current = String(c.actualizadoEn || '')
-        ref.current = { partes, parte: deseada, formacion: c.formacion || null, activo: !soloLectura, sucias: new Set() }
+        ref.current = { partes, parte: deseada, formacion: c.formacion || null, activo: soloLectura ? false : ref.current.activo, sucias: new Set() } // conserva «Editar con clic» al cambiar de recurso
         setParte(deseada); if (onParte) onParte(deseada)
         setPartesDisp(['recurso', 'actividad', 'bibliografia'].filter((k) => partes[k]))
         if (faltan.length) setMsg({ tipo: 'warn', texto: 'No se encontró la plantilla de ' + faltan.join(' ni de ') + ': esa parte no se puede editar aquí.' })
-        pintar(true)
+        pintar(ref.current.activo)
         setEstado('listo')
       } catch (e) { if (vivo) { setError(e.message || 'No se pudo abrir el editor'); setEstado('error') } }
     })()
