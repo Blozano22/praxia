@@ -371,7 +371,6 @@ export default function MatricesH5P({ s, propietario, soloLectura = false }) {
     if (r.estado === 'GENERADO' && !(await confirmar({ titulo: '¿Volver a publicar el recurso?', texto: 'Este recurso ya está publicado en Drive. Se reemplazará el contenido del mismo archivo (no se crea un duplicado).', tono: 'aviso', textoConfirmar: 'Aprobar y publicar' }))) return false
     await api('POST', '/proyectos/' + encodeURIComponent(s.id) + '/pipeline/recursos/' + encodeURIComponent(r.id) + '/aprobar')
     setAviso('Se aprobó ' + (r.codigo || r.id) + '. n8n está armando el H5P y subiéndolo a Drive; aparecerá como Generado en unos instantes.')
-    marcarRegenerando([r.codigo], !!(resp && resp.encolado))
     cargar()
     return true
   }
@@ -385,6 +384,7 @@ export default function MatricesH5P({ s, propietario, soloLectura = false }) {
       setLanzadoEn(Date.now()); setYaEnCurso(0); setEnviadas([])
       setAviso('Regenerando… ' + r.codigo + ' aparecerá como «Por revisar» cuando n8n termine.')
     }
+    marcarRegenerando([r.codigo], !!(resp && resp.encolado))
     cargar()
     return true
   }
