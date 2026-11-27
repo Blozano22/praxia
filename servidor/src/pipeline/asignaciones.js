@@ -37,7 +37,7 @@ const Pedir = z.object({
     unidad: Opc(z.number().int().min(0).max(999)),
     id_catalogo: Opc(z.string().max(100)),
     id_base: Opc(z.string().max(100)),
-    tipo_actividad: Opc(z.string().max(300)), // texto crudo del «Tipo de actividad» del guion: se traduce a categoría ACT por coincidencia exacta (tabla actividad_tipos)
+    tipo_actividad: Opc(z.string().max(300)), // texto crudo del «Tipo de actividad» del guion: se compara con el nombre de las categorías de actividad
     calificable: z.boolean().nullish() // solo en categorías de actividad: true = la calificable de la unidad, false = práctica (lo lee n8n de la tabla de la unidad)
   })).min(1).max(500)
 }).refine((b) => new Set(b.recursos.map((r) => r.codigo)).size === b.recursos.length, { message: 'hay códigos repetidos en «recursos»' })
@@ -95,7 +95,8 @@ rutasAsignaciones.post('/asignaciones/pedir', limite, async (req, res, next) => 
     const resultados = await conTransaccion(async (c) => {
       // Un curso a la vez: las unidades que se piden en paralelo esperan su turno y ven lo que acaba de asignar la anterior.
       await c.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['asign:' + o.propietario_id + ':' + o.proyecto_id])
-      const cats = new Map((await c.query(Q.categoriasListar)).rows.map((k) => [k.id, k.tipo])) // categoría → 'recurso' | 'actividad' | 'bibliografia'
+      const filasCats = (await c.query(Q.categoriasListar)).rows
+      const cats = new Map(filasCats.map((k) => [k.id, k.tipo])) // categoría → 'recurso' | 'actividad' | 'bibliografia'
       const formDe = {}
       for (const x of (await c.query(Q.formacionesListar)).rows) (formDe[x.categoria] ||= []).push(x.formacion)
       const existentes = Object.fromEntries((await c.query(Q.asignExistentes, [o.propietario_id, o.proyecto_id, b.recursos.flatMap((r) => [r.codigo, ...(r.tipo_actividad && codigoActividad(r.codigo) ? [codigoActividad(r.codigo)] : [])])])).rows.map((f) => [f.codigo, f]))
@@ -176,24 +177,25 @@ rutasAsignaciones.post('/asignaciones/pedir', limite, async (req, res, next) => 
         const { lista } = elegibles(cat.vars, b.formacion, formDe[id] || [], b.solo_aprobadas, pruebas)
         if (lista.length) { bibliografia = { plantilla: lista[0].nombre }; break }
       }
-      // Tabla «tipo de actividad → categoría» (sql/019) y categorías reales de actividad marcadas para la formación del curso.
-      const tipos = new Map((await c.query(Q.actividadTiposListar)).rows.map((f) => [f.tipo_normalizado, f.categoria]))
-      const categoriaDe = (prefijo) => [...cats].find(([id, tipo]) => tipo === 'actividad' && (id === prefijo || id.startsWith(prefijo + '-')) && (formDe[id] || []).includes(b.formacion))?.[0]
+      // El «Tipo de actividad» del guion se compara (normalizado) con el NOMBRE de las categorías de actividad marcadas para la formación del curso
+      // (las variantes sin formación las resuelve elegibles). Con varias coincidencias manda la de la formación del curso.
+      const nombresAct = new Map()
+      for (const k of filasCats) if (k.tipo === 'actividad') { const n = normalizarTipo(k.nombre); if (n) (nombresAct.get(n) || nombresAct.set(n, []).get(n)).push(k.id) }
+      const categoriaPorNombre = (texto) => {
+        const ids = nombresAct.get(normalizarTipo(texto)) || []
+        return ids.find((id) => (formDe[id] || []).includes(b.formacion))
+      }
       for (const r of b.recursos) {
         const e = await procesar(r)
         const codAct = codigoActividad(r.codigo)
         if (r.tipo_actividad && codAct) {
-          const prefijo = tipos.get(normalizarTipo(r.tipo_actividad))
-          if (!prefijo) {
+          const real = categoriaPorNombre(r.tipo_actividad)
+          if (!real) {
             e.actividad = { codigo: codAct, resultado: 'omitida', motivo: 'tipo_actividad_sin_categoria', tipo: r.tipo_actividad }
-            await c.query(Q.pipeRecursoAlerta, [o.propietario_id, o.proyecto_id, r.codigo, 'ALERTA: El tipo de actividad «' + r.tipo_actividad + '» del guion no coincide con ninguno de la tabla de tipos: corrija el guion o la tabla y regenere el recurso.'])
+            await c.query(Q.pipeRecursoAlerta, [o.propietario_id, o.proyecto_id, r.codigo, 'ALERTA: El tipo de actividad «' + r.tipo_actividad + '» del guion no coincide con el nombre de ninguna categoría de actividad de la formación: corrija el guion o las categorías y regenere el recurso.'])
           } else {
-            const real = categoriaDe(prefijo)
-            if (!real) e.actividad = { codigo: codAct, categoria: prefijo, plantilla: null, resultado: 'omitida', motivo: cats.has(prefijo) ? 'categoria_no_es_de_la_formacion' : 'categoria_inexistente' }
-            else {
-              const a = await procesar({ codigo: codAct, categoria: real, unidad: r.unidad, id_catalogo: r.id_catalogo, id_base: r.id_base, calificable: r.calificable })
-              e.actividad = { codigo: a.codigo, categoria: a.categoria, plantilla: a.plantilla ?? null, resultado: a.resultado, ...(a.motivo ? { motivo: a.motivo } : {}) }
-            }
+            const a = await procesar({ codigo: codAct, categoria: real, unidad: r.unidad, id_catalogo: r.id_catalogo, id_base: r.id_base, calificable: r.calificable })
+            e.actividad = { codigo: a.codigo, categoria: a.categoria, plantilla: a.plantilla ?? null, resultado: a.resultado, ...(a.motivo ? { motivo: a.motivo } : {}) }
           }
         }
         e.bibliografia = bibliografia

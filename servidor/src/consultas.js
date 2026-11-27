@@ -332,10 +332,6 @@ export const Q = Object.freeze({
        SET actividad = CASE WHEN $4::text IS NULL THEN actividad - 'imagen_url' ELSE jsonb_set(actividad, '{imagen_url}', to_jsonb($4::text)) END
      WHERE propietario_id = $1 AND proyecto_id = $2 AND id = $3 AND actividad IS NOT NULL
     RETURNING id, actividad->>'imagen_url' AS "imagenUrl"`,
-  actividadTiposListar: `SELECT tipo_normalizado, categoria, nombre FROM actividad_tipos ORDER BY categoria, tipo_normalizado`,
-  actividadTiposBorrarTodo: `DELETE FROM actividad_tipos`,
-  actividadTipoBorrar: `DELETE FROM actividad_tipos WHERE tipo_normalizado = $1`,
-  actividadTipoGuardar: `INSERT INTO actividad_tipos (tipo_normalizado, categoria, nombre) VALUES ($1, $2, $3) ON CONFLICT (tipo_normalizado) DO UPDATE SET categoria = EXCLUDED.categoria, nombre = EXCLUDED.nombre, actualizado_en = now()`,
   // Alerta sobre la fila del recurso en Praxia (si ya existe): se ve en su observación.
   pipeRecursoAlerta: `UPDATE pipeline_recursos SET observaciones = $4 WHERE propietario_id = $1 AND proyecto_id = $2 AND codigo = $3`,
   // Plan de una corrida: marca el motivo de omisión en las filas que ya se conocen (sin crear filas).

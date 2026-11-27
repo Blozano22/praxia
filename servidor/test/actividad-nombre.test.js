@@ -1,4 +1,4 @@
-// Tipos de actividad del guion → categoría ACT (sql/019) en /asignaciones/pedir: coincidencia exacta normalizada, bibliografía por formación, administración de la tabla.
+// Tipo de actividad del guion → categoría de actividad por NOMBRE (normalizado) en /asignaciones/pedir; bibliografía por formación; plantillas.json publica las categorías.
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
@@ -10,8 +10,8 @@ import EmbeddedPostgres from 'embedded-postgres'
 import pg from 'pg'
 
 const aqui = path.dirname(fileURLToPath(import.meta.url))
-const PUERTO_PG = 54420
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ova-pg-acttipos-'))
+const PUERTO_PG = 54421
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ova-pg-actnombre-'))
 const servidorPg = new EmbeddedPostgres({ databaseDir: dir, user: 'postgres', password: 'duenio', port: PUERTO_PG, persistent: false })
 const CLAVE = 'ClaveSegura123'
 const SECRETO = 'secreto-de-prueba-0123456789abcdef0123456789'
@@ -63,8 +63,8 @@ async function entrar(correo) {
   const h = { cookie: (r.headers.get('set-cookie') || '').split(';')[0], 'x-ova': '1', 'content-type': 'application/json' }
   return (m, ruta, cuerpo) => fetch(base + '/api' + ruta, { method: m, headers: h, body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo) })
 }
-const categoria = async (id, tipo, formacion = 'tecnologico') => {
-  await dueno.query('INSERT INTO plantilla_categorias (id, nombre, tipo) VALUES ($1, $1, $2)', [id, tipo])
+const categoria = async (id, tipo, formacion = 'tecnologico', nombre = id) => {
+  await dueno.query('INSERT INTO plantilla_categorias (id, nombre, tipo) VALUES ($1, $3, $2)', [id, tipo, nombre])
   await dueno.query('INSERT INTO plantilla_categoria_formacion (categoria, formacion) VALUES ($1, $2)', [id, formacion])
 }
 const variante = async (nombre, cat, formacion, calificable) => {
@@ -75,22 +75,8 @@ const variante = async (nombre, cat, formacion, calificable) => {
 const filas = () => dueno.query('SELECT * FROM asignacion_variantes WHERE propietario_id = $1 ORDER BY codigo', [ids.ana]).then((r) => r.rows)
 const porCodigo = (d) => Object.fromEntries(d.resultados.map((r) => [r.codigo, r]))
 
-test('tabla sembrada, GET para cualquiera y PUT solo administración', async () => {
-  const ana = await entrar('ana@u.co'), root = await entrar('root@u.co')
-  const g = await (await ana('GET', '/actividad-tipos')).json()
-  assert.equal(g.tipos.length, 25)
-  assert.ok(g.tipos.some((t) => t.tipo === 'Análisis de incidentes' && t.categoria === 'ACT-E-01'))
-  assert.equal((await ana('PUT', '/actividad-tipos', { filas: [{ tipo: 'X', categoria: 'ACT-G-01' }] })).status, 403)
-  assert.equal((await root('PUT', '/actividad-tipos', { filas: [{ tipo: 'X', categoria: 'ACT-G-1' }] })).status, 400)
-  assert.equal((await root('PUT', '/actividad-tipos', { filas: [{ tipo: 'Tarea', categoria: 'ACT-G-08' }, { tipo: ' TAREA ', categoria: 'ACT-G-08' }] })).status, 400)
-  assert.equal((await root('PUT', '/actividad-tipos', { filas: [{ tipo: 'Cuestionario interactivo', categoria: 'act-g-06' }] })).status, 200)
-  assert.ok((await (await ana('GET', '/actividad-tipos')).json()).tipos.some((t) => t.tipo === 'Cuestionario interactivo' && t.categoria === 'ACT-G-06'))
-  const q = await root('PUT', '/actividad-tipos', { borrar: ['cuestionario  INTERACTIVO'] })
-  assert.equal(q.status, 200); assert.equal((await q.json()).tipos.length, 25)
-})
-
-test('actividad por coincidencia exacta, sin repetir por unidad, alerta si no coincide; bibliografía por formación y sin guardarla', async () => {
-  await categoria('ACT-E-03-TEC', 'actividad'); await categoria('ACT-G-08', 'actividad'); await categoria('TST-01', 'recurso'); await categoria('BIB-01', 'bibliografia')
+test('actividad por nombre de categoría (sin importar mayúsculas, tildes ni espacios), sin repetir por unidad, alerta si no coincide; bibliografía por formación y sin guardarla', async () => {
+  await categoria('ACT-E-03-TEC', 'actividad', 'tecnologico', 'Emparejar normas con situaciones'); await categoria('ACT-G-08', 'actividad', 'tecnologico', 'Tarea'); await categoria('ACT-E-09-PRO', 'actividad', 'profesional', 'Análisis de incidentes'); await categoria('TST-01', 'recurso'); await categoria('BIB-01', 'bibliografia')
   await variante('e03-p1', 'ACT-E-03-TEC', 'tecnologico', false)
   await variante('e03-p2', 'ACT-E-03-TEC', 'tecnologico', false)
   await variante('g08-p1', 'ACT-G-08', 'tecnologico', false)
@@ -125,4 +111,14 @@ test('actividad por coincidencia exacta, sin repetir por unidad, alerta si no co
   assert.match(al, /Cuestionario interactivo.*no coincide/)
   const r2 = await pedir([rec('U2-T1-R1', 'TST-01')], { formacion: 'doctorado' })
   assert.deepEqual(r2.datos.resultados[0].bibliografia, { plantilla: null, motivo: 'sin_plantilla_bibliografia' })
+  // el nombre existe, pero la categoría es de otra formación: no se asigna
+  const r3 = await pedir([rec('U3-T1-R1', 'TST-01', { tipo_actividad: 'ANÁLISIS  de incidentes', calificable: false })])
+  assert.equal(porCodigo(r3.datos)['U3-T1-R1'].actividad.motivo, 'tipo_actividad_sin_categoria')
+})
+
+test('plantillas.json publica las categorías con id, nombre, tipo y formaciones', async () => {
+  const d = await (await fetch(base + '/plantillas-html/plantillas.json')).json()
+  const c = d.categorias.find((x) => x.id === 'ACT-G-08')
+  assert.equal(c.nombre, 'Tarea'); assert.equal(c.tipo, 'actividad'); assert.deepEqual(c.formaciones.map((f) => f.formacion), ['tecnologico'])
+  assert.ok(d.categorias.some((x) => x.id === 'BIB-01' && x.tipo === 'bibliografia'))
 })

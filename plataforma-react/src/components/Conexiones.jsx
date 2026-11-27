@@ -94,58 +94,6 @@ function ModoPruebas({ aviso }) {
   )
 }
 
-// Tabla de la administración: texto del «Tipo de actividad» del guion → categoría de actividad (ACT-E-01, ACT-G-08…).
-function TiposActividad({ aviso }) {
-  const [filas, setFilas] = useState(null)
-  const [guardado, setGuardado] = useState('')
-  const [ocupado, setOcupado] = useState(false)
-  const [error, setError] = useState('')
-  useEffect(() => { api('GET', '/actividad-tipos').then((r) => { setFilas(r.tipos); setGuardado(JSON.stringify(r.tipos)) }).catch((e) => setError(e.message || 'No se pudo leer la tabla.')) }, [])
-  const cambiar = (i, campo, v) => setFilas((f) => f.map((x, j) => (j === i ? { ...x, [campo]: v } : x)))
-  const valida = filas && filas.every((f) => f.tipo.trim() && /^ACT-[A-Z]-d{2}$/.test(f.categoria.trim().toUpperCase()))
-  const cambio = filas && JSON.stringify(filas) !== guardado
-  const guardar = async () => {
-    if (!valida || ocupado) return
-    setOcupado(true); setError('')
-    try {
-      const r = await api('PUT', '/actividad-tipos', { reemplazar: true, filas: filas.map((f) => ({ tipo: f.tipo.trim(), categoria: f.categoria.trim().toUpperCase() })) })
-      setFilas(r.tipos); setGuardado(JSON.stringify(r.tipos))
-      aviso && aviso('Tipos de actividad guardados')
-    } catch (e) { setError(e.message || 'No se pudo guardar.') }
-    setOcupado(false)
-  }
-  return (
-    <section className={'cx-fila' + (cambio ? ' cambio' : '')}>
-      <div className="cx-que">
-        <span className="cx-ico" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={ICONOS.tabla} /></svg></span>
-        <div><h2>Tipos de actividad</h2><p>Traduce el «Tipo de actividad» del guion a la categoría de actividad. <b>Solo coincide el nombre exacto (sin importar mayúsculas ni tildes)</b>; si no coincide, la actividad no se asigna y se avisa en el recurso.</p></div>
-      </div>
-      <div className="cx-dir">
-        {filas && (
-          <table className="cx-tabla">
-            <thead><tr><th>Tipo de actividad (texto del guion)</th><th>Categoría</th><th /></tr></thead>
-            <tbody>
-              {filas.map((f, i) => (
-                <tr key={i}>
-                  <td><input aria-label="Tipo de actividad" value={f.tipo} maxLength={150} onChange={(e) => cambiar(i, 'tipo', e.target.value)} /></td>
-                  <td><input aria-label="Categoría" value={f.categoria} maxLength={8} placeholder="ACT-G-08" onChange={(e) => cambiar(i, 'categoria', e.target.value)} /></td>
-                  <td><button type="button" className="btn sec" onClick={() => setFilas((l) => l.filter((_, j) => j !== i))}>Quitar</button></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-        <div className="cx-campo">
-          <button type="button" className="btn sec" disabled={!filas} onClick={() => setFilas((l) => [...l, { tipo: '', categoria: '' }])}>Añadir fila</button>
-          <button type="button" className="btn" disabled={!cambio || !valida || ocupado} onClick={guardar}>{ocupado ? 'Guardando…' : 'Guardar'}</button>
-        </div>
-        {filas && !valida && <span className="cx-est mal" aria-live="polite"><i aria-hidden="true" />Cada fila necesita un tipo y una categoría con la forma ACT-G-08.</span>}
-        {error && <div className="msg bad" role="alert">{error}</div>}
-      </div>
-    </section>
-  )
-}
-
 export default function Conexiones({ aviso }) {
   const [listo, setListo] = useState(false)
   const [enCurso, setEnCurso] = useState(0)
@@ -167,7 +115,6 @@ export default function Conexiones({ aviso }) {
             <Conexion titulo="Preparar el curso (variantes de plantillas)" icono="capas" ayuda="Se llama al pedir «Generar guiones»: lee las estructuras del curso y pide a Praxia la variante de plantilla de cada recurso. Praxia espera su respuesta (200 al terminar) antes de generar los guiones."
               leer={leerWebhookPreparacion} guardar={guardarWebhookPreparacion} aviso={aviso} opcional sinDireccion="Falta la dirección: sin ella la preparación del curso queda desactivada." />
             <ModoPruebas aviso={aviso} />
-            <TiposActividad aviso={aviso} />
             <Conexion titulo="Crear los guiones de una unidad" icono="doc" ayuda="Recibe una unidad ya creada y arma sus guiones. Solo se usa al trabajar dentro de un syllabus."
               leer={leerWebhookGuiones} guardar={guardarWebhookGuiones} aviso={aviso} />
             <Conexion titulo="Generar las matrices de recursos" icono="tabla" ayuda="Recibe la orden de crear (o volver a crear) la matriz de una unidad, con su formación y sus guiones. Responde enseguida y avisa el resultado a Praxia."
