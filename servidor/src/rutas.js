@@ -10,7 +10,7 @@ import { config } from './config.js'
 import { extraerEnlaces } from './enlaces.js'
 import { armarSubida, compararEsquemas, esquemaDe, MAX_HTML, NOMBRES_RESERVADOS } from './plantillas/subidas.js'
 import { crearZip, sanear } from './plantillas/zip.js'
-import { cuerpoServicioH5p, EsquemaLanzarH5p, EsquemaLanzarMatrices, lanzarH5p, lanzarMatrices, lanzarPublicar, urlH5p, urlMatrices, urlPublicar } from './pipeline/lanzar.js'
+import { actualizarActividades, EsquemaActualizarActividades, codigosDeRegenerar, cuerpoServicioH5p, EsquemaLanzarH5p, EsquemaLanzarMatrices, lanzarH5p, lanzarMatrices, lanzarPublicar, urlH5p, urlMatrices, urlPublicar } from './pipeline/lanzar.js'
 import { CLAVE_PRUEBAS, pruebasEncendidas, urlPreparacion } from './pipeline/preparacion.js'
 import { esUrlImagen } from './pipeline/eventos.js'
 import { invalidarAsignaciones, normalizarTipo } from './pipeline/asignaciones.js'
@@ -231,6 +231,15 @@ rutas.post('/proyectos/:id/pipeline/recursos/:recurso/h5p', exigirSesion, pipeli
     } catch (err) { next(err) }
   })
 
+// Asigna las actividades nuevas o corregidas de la estructura de una unidad y las escribe en la matriz (conservar) sin reiniciarla. Solo diseñador asignado o admin.
+rutas.post('/proyectos/:id/pipeline/actualizar-actividades', exigirSesion, pipelineCurso('proyectos.crear'), limiteLanzar, validar(z.object({ id: IdProyecto }), 'params'), validar(EsquemaActualizarActividades, 'body'), async (req, res, next) => {
+  try {
+    const r = await actualizarActividades({ usuario: req.pipe.usuario, proyectoId: req.paramsOk.id, unidad: req.bodyOk.unidad })
+    if (r.codigo === 202) auditar(req.usuario.id, 'matrices.actualizar_actividades', 'proyecto', req.paramsOk.id, req)
+    res.status(r.codigo).json(r.cuerpo)
+  } catch (err) { next(err) }
+})
+
 // Lanza la generación de matrices (las que faltan, o volver a generar con forzar). Responde 202 en cuanto n8n confirma la orden.
 rutas.post('/proyectos/:id/pipeline/matrices', exigirSesion, pipelineCurso('proyectos.crear'), limiteLanzar, validar(z.object({ id: IdProyecto }), 'params'), validar(EsquemaLanzarMatrices, 'body'), async (req, res, next) => {
   try {
@@ -245,7 +254,7 @@ rutas.post('/proyectos/:id/pipeline/matrices', exigirSesion, pipelineCurso('proy
 rutas.post('/proyectos/:id/pipeline/h5p', exigirSesion, pipelineCurso('proyectos.crear'), limiteLanzar, validar(z.object({ id: IdProyecto }), 'params'), validar(EsquemaLanzarH5p, 'body'), async (req, res, next) => {
   try {
     const { maximo, unidades, reintentarErrores, regenerar } = req.bodyOk
-    if (regenerar && await correcciones.bloqueaRegenerar(req.pipe.propietarioId, req.paramsOk.id, regenerar)) return res.status(409).json({ error: correcciones.MENSAJE_PENDIENTE + ': espere a que el docente la marque como corregida.', correccionPendiente: true })
+    if (regenerar && await correcciones.bloqueaRegenerar(req.pipe.propietarioId, req.paramsOk.id, codigosDeRegenerar(regenerar))) return res.status(409).json({ error: correcciones.MENSAJE_PENDIENTE + ': espere a que el docente la marque como corregida.', correccionPendiente: true })
     const r = await lanzarH5p({ usuario: req.pipe.usuario, proyectoId: req.paramsOk.id, maximo, unidades, reintentarErrores, regenerar, encolar: true, pedidoPor: req.usuario.id })
     if (r.codigo === 202) auditar(req.usuario.id, regenerar ? 'h5p.regenerar' : reintentarErrores ?'h5p.reintentar' : 'h5p.generar', 'proyecto', req.paramsOk.id, req)
     res.status(r.codigo).json(r.cuerpo)

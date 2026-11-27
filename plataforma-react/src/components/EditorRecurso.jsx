@@ -36,6 +36,7 @@ function armarPagina(esqueleto, contenido, titulo, formacion, activo, imagenUrl)
   const usar = esUrlImagen(imagenUrl) ? imagenUrl : ''
   if (usar && original !== undefined) h = h.replace(RE_IMG, (_m, pre) => pre + JSON.stringify(usar))
   const imagenes = [usar, original].filter((u) => u)
+  { const leyendas = '<style>figure figcaption{display:none!important}</style>'; h = /<head(?:\s[^>]*)?>/i.test(h) ? h.replace(/<head(?:\s[^>]*)?>/i, (m) => m + leyendas) : leyendas + h } // las leyendas no se ven (igual que en la librería H5P)
   if (usar && original !== undefined) { const est = '<style>.figura-marca{display:none !important}</style>'; h = /<\/head>/i.test(h) ? h.replace(/<\/head>/i,() => est + '</head>') : est + h } // con imagen reemplazada no se muestra el rótulo «Imagen de ejemplo»
   if (marca) h = /<head[^>]*>/i.test(h) ? h.replace(/<head[^>]*>/i, (m) => m + marca) : marca + h
   const editor = '<script>' + codigoEditor + '</script><script>PraxiaEditor.iniciar({ contenido: ' + json(contenido) + ', activo: ' + (activo ? 'true' : 'false') + ', imagenes: ' + json(imagenes) + ', imagenNueva: ' + json(usar) + ', imagenOriginal: ' + json(original || '') + ' })</script>'

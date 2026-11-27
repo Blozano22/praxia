@@ -6,6 +6,7 @@ import { leerHash, ponerHash } from '../lib/hashEstado.js'
 import EditorRecurso from './EditorRecurso.jsx'
 import CargaRecurso from './CargaRecurso.jsx'
 import { useConfirmar, IconoAviso } from './Confirmar.jsx'
+import { usePedirRegenerar, itemRegenerar } from './RegenerarPartes.jsx'
 import './matrices.css'
 
 // Paso «Matrices y H5P» del curso: muestra lo que n8n AVISÓ a Praxia (la matriz de cada unidad, sus recursos y las corridas de H5P).
@@ -189,11 +190,12 @@ function Cronometro({ desde }) {
 
 // Unidades cuya lista de recursos H5P abrió la persona durante la sesión (la lista sale cerrada por defecto).
 const listasAbiertas = {}
-function Unidad({ clave, unidad, nombre, matriz, recursos, puede, ocupado, lanzar, enviada, desdeEnvio, editar, aprobar, regenerar, bloqueado, puedePublicar, fase }) {
+function Unidad({ clave, unidad, nombre, matriz, recursos, puede, ocupado, lanzar, actualizar, enviada, desdeEnvio, editar, aprobar, regenerar, bloqueado, puedePublicar, fase }) {
   const [todos, setTodos0] = useState(() => !!listasAbiertas[clave])
   const setTodos = (v) => { listasAbiertas[clave] = !!v; setTodos0(!!v) }
   const [filtro, setFiltro] = useState('todos')
   const [confirmar, setConfirmar] = useState(false)
+  const [actualizando, setActualizando] = useState(false)
   const conteo = useMemo(() => {
     const c = { total: recursos.length, actividades: recursos.filter((r) => /-T\d+-A\d+$/i.test(String(r.codigo || ''))).length, PENDIENTE: 0, EN_PROCESO: 0, GENERADO: 0, ERROR: 0, enCola: 0, h5p: 0, otros: 0 }
     recursos.forEach((r) => { c[r.estado] = (c[r.estado] || 0) + 1; if (r.enCola) c.enCola++; if (String(r.generador || '').toUpperCase() === 'H5P') c.h5p++; else c.otros++ })
@@ -248,6 +250,11 @@ function Unidad({ clave, unidad, nombre, matriz, recursos, puede, ocupado, lanza
         </div>
         {matriz.matrizUrl && <a className="mx4-lk" href={matriz.matrizUrl} target="_blank" rel="noopener noreferrer" title={matriz.matrizNombre || ''} aria-label={'Abrir la matriz de la Unidad ' + unidad + ' (se abre en otra pestaña)'}>Abrir matriz<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" /></svg></a>}
         {puede && matrizMal && <button type="button" className="btn sm" disabled={ocupado} onClick={() => lanzar([unidad], false)}>Reintentar la matriz</button>}
+        {fase === 1 && puede && actualizar && !matrizMal && ['creada', 'omitida', 'reemplazada', 'actualizada'].includes(matriz.estado) && (
+          <button type="button" className="mx4-q" disabled={ocupado || actualizando} onClick={async () => { setActualizando(true); try { await actualizar(unidad) } finally { setActualizando(false) } }} aria-label={'Actualizar las actividades asignadas de la Unidad ' + unidad} title="Asigna las actividades nuevas o corregidas de la estructura y las escribe en la matriz">
+            {actualizando ? 'Actualizando actividades…' : 'Actualizar actividades asignadas'}
+          </button>
+        )}
         {fase === 1 && puede && !matrizMal && ['creada', 'omitida', 'reemplazada', 'actualizada'].includes(matriz.estado) && !confirmar && (
           <button type="button" className="mx4-q" disabled={ocupado} onClick={() => setConfirmar(true)} aria-label={'Volver a generar la matriz de la Unidad ' + unidad}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" /></svg>
@@ -351,6 +358,7 @@ function marcarEnCola(data) {
 
 export default function MatricesH5P({ s, propietario, soloLectura = false }) {
   const [confirmar, dialogo] = useConfirmar()
+  const [pedirRegenerar, dialogoRegenerar] = usePedirRegenerar()
   const api = (metodo, ruta, cuerpo) => apiBase(metodo, conPropietario(ruta, propietario), cuerpo) // con propietario: el diseñador actúa en nombre del dueño del curso
   const [d, setD] = useState(null)
   const [error, setError] = useState('')
@@ -372,8 +380,9 @@ export default function MatricesH5P({ s, propietario, soloLectura = false }) {
   // Regenerar = crear de nuevo con la misma plantilla; queda un borrador «Por revisar» y publicarlo reemplaza el archivo ya publicado.
   const marcarRegenerando = (codigos, encolado) => setD((x) => x && ({ ...x, recursos: x.recursos.map((r) => (codigos.includes(r.codigo) ? (encolado ? { ...r, enColaRegenerar: true } : { ...r, estado: 'EN_PROCESO', conContenido: true, sinRespuesta: false }) : r)) }))
   const regenerarRecurso = async (r) => {
-    if (!(await confirmar({ titulo: '¿Regenerar este recurso?', texto: 'Se creará de nuevo con la misma plantilla y se perderán las ediciones hechas a mano.\nSi ya estaba publicado, el archivo se reemplazará solo cuando vuelva a aprobarlo.', tono: 'peligro', icono: IconoAviso, textoConfirmar: 'Regenerar' }))) return false
-    const resp = await api('POST', '/proyectos/' + encodeURIComponent(s.id) + '/pipeline/h5p', { regenerar: [r.codigo] })
+    const sel = await pedirRegenerar(r, () => api('GET', '/proyectos/' + encodeURIComponent(s.id) + '/pipeline/recursos/' + encodeURIComponent(r.id) + '/contenido')) // undefined = canceló; null = todo
+    if (sel === undefined) return false
+    const resp = await api('POST', '/proyectos/' + encodeURIComponent(s.id) + '/pipeline/h5p', { regenerar: [itemRegenerar(r.codigo, sel)] })
     if (resp && resp.encolado) setAviso(r.codigo + ' quedó en cola para regenerar: empieza apenas termine la corrida en curso (' + resp.en_cola + (resp.en_cola === 1 ? ' recurso' : ' recursos') + ' en cola).')
     else {
       setLanzadoEn(Date.now()); setYaEnCurso(0); setEnviadas([])
@@ -467,6 +476,19 @@ export default function MatricesH5P({ s, propietario, soloLectura = false }) {
     setLanzando(false)
   }, [s.id, cargar])
 
+  // «Actualizar actividades asignadas»: el servidor corre la preparación (sin forzar) y, si no hay pendientes, la matriz con conservar (solo «Actividad usada»).
+  const actualizarActividades = async (n) => {
+    if (!(await confirmar({ titulo: '¿Actualizar las actividades de la Unidad ' + n + '?', texto: 'Asigna las actividades nuevas o corregidas de la estructura y las escribe en la matriz, sin cambiar estados ni recursos ya generados.\nDespués regenere los recursos afectados.', tono: 'aviso', icono: IconoAviso, textoConfirmar: 'Actualizar actividades' }))) return
+    setLanzando(true); setError(''); setAviso('')
+    try {
+      const r = await api('POST', '/proyectos/' + encodeURIComponent(s.id) + '/pipeline/actualizar-actividades', { unidad: n })
+      setLanzadoEn(Date.now()); setYaEnCurso(0); setEnviadas([n]); setFaseSel(1)
+      setAviso('Actividades de la Unidad ' + n + ' actualizadas (' + ((r && r.preparacion && r.preparacion.asignadas) || 0) + ' recursos con variante asignada). n8n está escribiendo «Actividad usada» en la matriz; esta pantalla se actualiza sola. Después regenere los recursos afectados.')
+      await cargar()
+    } catch (e) { setError(e.message || 'No se pudieron actualizar las actividades de la unidad ' + n + '.') }
+    setLanzando(false)
+  }
+
   const lanzarH5p = useCallback(async (reintentar) => {
     setLanzando(true); setError(''); setAviso('')
     try {
@@ -525,6 +547,7 @@ export default function MatricesH5P({ s, propietario, soloLectura = false }) {
   return (
     <div className="mx">
       {dialogo}
+      {dialogoRegenerar}
       <div className="mx3-cab">
         <div>
           <h2>Matrices y H5P</h2>
@@ -687,7 +710,7 @@ export default function MatricesH5P({ s, propietario, soloLectura = false }) {
           <h4 className="mx2-h mx3-h">Unidades</h4>
           <div className="mx-grid mx3-lista">
             {unidades.map((u) => (
-              <Unidad key={u.unidad} clave={String((s && s.id) || '') + ':' + u.unidad} unidad={u.unidad} nombre={u.nombre} matriz={d.matrices.find((m) => m.unidad === u.unidad)} recursos={d.recursos.filter((r) => r.unidad === u.unidad)} puede={puede} ocupado={ocupado} lanzar={lanzar} enviada={lanzadoReciente && enviadas.includes(u.unidad)} desdeEnvio={yaEnCurso ? 0 : lanzadoEn} editar={setEditando} aprobar={aprobarDesdeFila} regenerar={regenerarDesdeFila} bloqueado={h5pOcupado} puedePublicar={puedePublicar} fase={fase} />
+              <Unidad key={u.unidad} clave={String((s && s.id) || '') + ':' + u.unidad} unidad={u.unidad} nombre={u.nombre} matriz={d.matrices.find((m) => m.unidad === u.unidad)} recursos={d.recursos.filter((r) => r.unidad === u.unidad)} puede={puede} ocupado={ocupado} lanzar={lanzar} actualizar={actualizarActividades} enviada={lanzadoReciente && enviadas.includes(u.unidad)} desdeEnvio={yaEnCurso ? 0 : lanzadoEn} editar={setEditando} aprobar={aprobarDesdeFila} regenerar={regenerarDesdeFila} bloqueado={h5pOcupado} puedePublicar={puedePublicar} fase={fase} />
             ))}
           </div>
         </>

@@ -430,9 +430,22 @@ export const Q = Object.freeze({
        AND ($5::timestamptz IS NULL OR actualizado_en <= $5)
     RETURNING id, codigo`,
   // Cola de «regenerar» (ver sql/027): códigos que esperan a que termine la corrida H5P en curso.
+  // $3 = jsonb [{codigo, partes|null (todo), imagenes|null}] sin códigos repetidos; si el código ya esperaba se combina (todo gana; si no, unión de partes e imágenes).
   colaAgregar: `
-    INSERT INTO regenerar_cola (propietario_id, proyecto_id, codigo, pedido_por) SELECT $1::uuid, $2::text, unnest($3::text[]), $4::uuid ON CONFLICT DO NOTHING`,
-  colaListar: `SELECT codigo FROM regenerar_cola WHERE propietario_id = $1 AND proyecto_id = $2 ORDER BY pedido_en, codigo`,
+    INSERT INTO regenerar_cola (propietario_id, proyecto_id, codigo, pedido_por, partes, imagenes)
+    SELECT $1::uuid, $2::text, x->>'codigo', $4::uuid, nullif(x->'partes', 'null'::jsonb), nullif(x->'imagenes', 'null'::jsonb) FROM jsonb_array_elements($3::jsonb) x
+    ON CONFLICT (propietario_id, proyecto_id, codigo) DO UPDATE SET
+      partes = CASE WHEN regenerar_cola.partes IS NULL OR EXCLUDED.partes IS NULL THEN NULL
+                    ELSE (SELECT jsonb_agg(DISTINCT e) FROM jsonb_array_elements(regenerar_cola.partes || EXCLUDED.partes) e) END,
+      imagenes = CASE WHEN regenerar_cola.partes IS NULL OR EXCLUDED.partes IS NULL THEN NULL
+                      WHEN regenerar_cola.imagenes IS NULL THEN EXCLUDED.imagenes
+                      WHEN EXCLUDED.imagenes IS NULL THEN regenerar_cola.imagenes
+                      ELSE (SELECT jsonb_agg(DISTINCT e) FROM jsonb_array_elements(regenerar_cola.imagenes || EXCLUDED.imagenes) e) END`,
+  colaListar: `SELECT codigo, partes, imagenes FROM regenerar_cola WHERE propietario_id = $1 AND proyecto_id = $2 ORDER BY pedido_en, codigo`,
+  // Lo vigente de los recursos que se regeneran por partes (contenido editado incluido).
+  pipeRegenerarActual: `
+    SELECT codigo, contenido, actividad, bibliografia, imagen_url AS "imagenUrl"
+      FROM pipeline_recursos WHERE propietario_id = $1 AND proyecto_id = $2 AND codigo = ANY($3::text[])`,
   colaQuitar: `DELETE FROM regenerar_cola WHERE propietario_id = $1 AND proyecto_id = $2 AND codigo = ANY($3::text[])`,
   pipeRegenerarPendientes: `
     SELECT id, codigo FROM pipeline_recursos WHERE propietario_id = $1 AND proyecto_id = $2 AND estado = 'EN_PROCESO' AND estado_previo IS NOT NULL`,

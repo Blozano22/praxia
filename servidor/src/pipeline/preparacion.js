@@ -111,7 +111,7 @@ async function llamarPreparacion({ usuario, proyectoId, url, datos, formacion, f
 }
 
 // Devuelve null si la preparación no está configurada; si no, { asignaciones } con las variantes de la unidad. Lanza ErrorPropio si el curso no está listo.
-export async function asegurarAsignacion({ usuario, proyectoId, unidad, reasignar = false, publicarFn }) {
+export async function asegurarAsignacion({ usuario, proyectoId, unidad, reasignar = false, siempre = false, publicarFn }) {
   const url = await urlPreparacion()
   if (!url) return null
   const datos = await leerDatos(usuario, proyectoId)
@@ -125,7 +125,8 @@ export async function asegurarAsignacion({ usuario, proyectoId, unidad, reasigna
   const filas = async () => (await sinUsuario(Q.asignConsultar, [usuario.id, proyectoId, unidad, null])).rows
   let rows = await filas()
   // Se prepara si se pidió volver a asignar, si la unidad aún no tiene nada, o si algo de la unidad quedó pendiente o inválido (el flujo lo vuelve a pedir y se resuelve).
-  if (reasignar || !rows.length || rows.some((f) => f.estado !== 'asignada')) {
+  // «siempre»: llama al flujo aunque todo esté asignado (sin forzar: lo ya asignado no se toca) para que pida las actividades nuevas o corregidas de la estructura.
+  if (reasignar || siempre || !rows.length || rows.some((f) => f.estado !== 'asignada')) {
     const clave = usuario.id + ':' + proyectoId
     let p = enMarcha.get(clave)
     if (!p) {

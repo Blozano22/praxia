@@ -10,6 +10,7 @@ import { conTransaccion, conUsuario, sinUsuario } from '../db.js'
 import { Q } from '../consultas.js'
 import { publicar } from '../guiones/rutas.js'
 import { esUrlImagen } from './eventos.js'
+import { asegurarAsignacion, ErrorPropio, urlPreparacion } from './preparacion.js'
 
 const RE_CARPETA = /^https:\/\/drive\.google\.com\/drive\/(?:u\/\d+\/)?folders\/[A-Za-z0-9_-]+/
 const RE_CODIGO = /^U\d{1,3}-(?:T\d{1,3}-R\d{1,3}|PRES)$/
@@ -27,11 +28,37 @@ export const urlPublicar = () => urlConfigurada('n8n.publicar', config.n8nPublic
 
 const Unidades = z.array(z.number().int().min(1).max(200)).min(1).max(50)
 export const EsquemaLanzarMatrices = z.object({ unidades: Unidades, forzar: z.boolean().default(false), conservar: z.boolean().default(false) }).strict()
+// Regenerar por partes: ítem objeto {codigo, partes?, imagenes?}. Una ruta es «a.b[2].c», «actividad:a.b[2].c» o IMAGEN_EJEMPLO (la imagen principal).
+export const PARTES_REGENERAR = ['recurso', 'imagenes', 'actividad', 'bibliografia']
+const RE_RUTA = /^(?:actividad:)?[A-Za-z_][A-Za-z0-9_-]{0,60}(?:\[\d{1,4}\])*(?:\.[A-Za-z_][A-Za-z0-9_-]{0,60}(?:\[\d{1,4}\])*){0,9}$/
+const RutaImagen = z.string().max(200).refine((x) => x === 'IMAGEN_EJEMPLO' || RE_RUTA.test(x), 'ruta de imagen no válida')
+const ItemRegenerar = z.object({
+  codigo: z.string().regex(RE_CODIGO),
+  partes: z.array(z.enum(PARTES_REGENERAR)).min(1).max(4).optional(),
+  imagenes: z.array(RutaImagen).min(1).max(50).optional()
+}).strict().refine((x) => !x.imagenes || (x.partes && x.partes.includes('imagenes')), { message: 'imagenes exige la parte «imagenes»' })
+const union = (a, b) => [...new Set([...(a || []), ...(b || [])])]
+// Lista de strings/objetos → un ítem por código ({codigo, partes|null (= todo), imagenes|null}); si un código viene repetido se combinan (todo gana; si no, unión).
+export function normalizarRegenerar(lista) {
+  const m = new Map()
+  for (const x of lista || []) {
+    const it = typeof x === 'string' ? { codigo: x, partes: null, imagenes: null } : { codigo: x.codigo, partes: x.partes ? [...new Set(x.partes)] : null, imagenes: x.imagenes ? [...new Set(x.imagenes)] : null }
+    const a = m.get(it.codigo)
+    if (!a) { m.set(it.codigo, it); continue }
+    if (!a.partes || !it.partes) { a.partes = null; a.imagenes = null; continue }
+    a.partes = union(a.partes, it.partes)
+    a.imagenes = a.imagenes && it.imagenes ? union(a.imagenes, it.imagenes) : (a.imagenes || it.imagenes) // «solo las que faltan» + lista: se conserva la lista
+  }
+  return [...m.values()]
+}
+export const codigosDeRegenerar = (lista) => (lista || []).map((x) => (typeof x === 'string' ? x : x.codigo))
+const parteDe = (p) => (p && typeof p === 'object' ? { plantilla: p.plantilla, contenido: p.contenido } : null)
+
 export const EsquemaLanzarH5p = z.object({
   maximo: z.number().int().min(1).max(200).optional(), // opcional: cuántos recursos tiene la corrida como tope. Praxia ya no lo pide; lo define n8n
   unidades: Unidades.optional(),
   reintentarErrores: z.boolean().default(false),
-  regenerar: z.array(z.string().regex(RE_CODIGO)).min(1).max(200).optional() // códigos de posición de recursos ya creados que se vuelven a generar
+  regenerar: z.array(z.union([z.string().regex(RE_CODIGO), ItemRegenerar])).min(1).max(200).optional() // códigos de posición (o {codigo, partes, imagenes}) de recursos ya creados que se vuelven a generar
 }).strict()
 
 // En pruebas locales (túnel): la dirección pública de esta Praxia, para que n8n le responda a ella y no a producción. Sin ella, no se envía nada.
@@ -144,8 +171,10 @@ export async function lanzarH5p({ usuario, proyectoId, maximo, unidades, reinten
   // Regenerar: solo filas ya creadas del curso, por revisar / generadas / con error y con plantilla asignada (la plantilla nunca cambia).
   let codigosReg = null
   let filasReg = []
+  let itemsReg = []
   if (regenerar && regenerar.length) {
-    codigosReg = [...new Set(regenerar)]
+    itemsReg = normalizarRegenerar(regenerar)
+    codigosReg = itemsReg.map((x) => x.codigo)
     filasReg = (await sinUsuario(Q.pipeRegenerarLeer, [usuario.id, proyectoId, codigosReg])).rows
     const porCodigo = new Map(filasReg.map((f) => [f.codigo, f]))
     const invalidos = codigosReg.filter((c) => { const f = porCodigo.get(c); return !f || !(['POR_REVISAR', 'GENERADO', 'ERROR'].includes(f.estado) || f.vencida) || !f.plantilla })
@@ -167,20 +196,30 @@ export async function lanzarH5p({ usuario, proyectoId, maximo, unidades, reinten
   // Con una corrida en curso: pedir «regenerar» (encolar) no falla, deja los códigos esperando al aviso h5p_fin.
   const ocupado = async () => {
     if (!(codigosReg && encolar)) return falla(409, 'Ya se están generando los recursos H5P de este curso. Espere a que termine.', { ya: true })
-    await sinUsuario(Q.colaAgregar, [usuario.id, proyectoId, codigosReg, pedidoPor || usuario.id])
+    await sinUsuario(Q.colaAgregar, [usuario.id, proyectoId, JSON.stringify(itemsReg), pedidoPor || usuario.id])
     const n = (await sinUsuario(Q.colaListar, [usuario.id, proyectoId])).rows.length
     return { codigo: 202, cuerpo: { encolado: true, en_cola: n, regenerar: codigosReg } }
   }
   const trabajoId = await reservar({ usuarioId: usuario.id, proyectoId, carpeta: curso.carpeta, etapa: 'h5p', unidad: pedidas && pedidas.length === 1 ? pedidas[0] : null })
   if (!trabajoId) return ocupado()
   // Regenerar: las filas pasan a EN_PROCESO sin perder enlace, imagen, consumo ni contenido hasta que llegue el aviso nuevo.
+  let ordenReg = null
   if (codigosReg) {
     const ids = filasReg.map((f) => f.id)
+    // Ítems con partes: se manda lo vigente en Praxia (contenido editado incluido) para que n8n regenere solo esas partes; sin partes, el código como texto.
+    const conPartes = itemsReg.filter((x) => x.partes).map((x) => x.codigo)
+    const actuales = new Map(conPartes.length ? (await sinUsuario(Q.pipeRegenerarActual, [usuario.id, proyectoId, conPartes])).rows.map((f) => [f.codigo, f]) : [])
+    ordenReg = itemsReg.map((x) => {
+      if (!x.partes) return x.codigo
+      const f = actuales.get(x.codigo) || {}
+      return { codigo: x.codigo, partes: x.partes, ...(x.imagenes ? { imagenes: x.imagenes } : {}),
+        actual: { contenido: f.contenido ?? null, actividad: parteDe(f.actividad), bibliografia: parteDe(f.bibliografia), imagen_url: f.imagenUrl || null, imagen_url_actividad: (f.actividad && f.actividad.imagen_url) || null } }
+    })
     await sinUsuario(Q.pipeRegenerarMarcar, [usuario.id, proyectoId, ids])
   }
   // El orquestador responde después de planificar (lee las matrices): se le da más margen que a una simple confirmación.
   const r = await entregar({ url, minutos: 5, trabajoId, publicarFn, nombre: 'recursos H5P',
-    cuerpo: { trabajo_id: trabajoId, proyecto_id: proyectoId, carpeta_raiz: curso.carpeta, ...(maximo ? { maximo } : {}), ...(pedidas && !codigosReg ? { unidades: pedidas } : {}), ...(codigosReg ? { regenerar: codigosReg } : {}), reintentar_errores: reintentarErrores, ...enlacePublico() } })
+    cuerpo: { trabajo_id: trabajoId, proyecto_id: proyectoId, carpeta_raiz: curso.carpeta, ...(maximo ? { maximo } : {}), ...(pedidas && !codigosReg ? { unidades: pedidas } : {}), ...(ordenReg ? { regenerar: ordenReg } : {}), reintentar_errores: reintentarErrores, ...enlacePublico() } })
   if (r.codigo !== 202) {
     if (codigosReg) await sinUsuario(Q.pipeRegenerarRevertir, [usuario.id, proyectoId, filasReg.map((f) => f.id), filasReg.map((f) => f.estado), filasReg.map((f) => f.actualizadoEn)]).catch(() => {})
     if (r.codigo === 409 && r.cuerpo.ya && codigosReg && encolar) return ocupado() // n8n tiene su propio bloqueo por carpeta
@@ -194,21 +233,22 @@ export async function lanzarH5p({ usuario, proyectoId, maximo, unidades, reinten
 // Nunca lanza errores: si falla, los códigos siguen en la cola y se registra.
 export async function drenarColaRegenerar({ propietarioId, proyectoId, publicarFn = publicar }) {
   try {
-    const cola = (await sinUsuario(Q.colaListar, [propietarioId, proyectoId])).rows.map((x) => x.codigo)
+    const cola = (await sinUsuario(Q.colaListar, [propietarioId, proyectoId])).rows
     if (!cola.length) return
     const usuario = { id: propietarioId, permisos: new Set(['proyectos.ver_propios']), roles: [] }
     let lote = []
-    for (const c of cola) {
+    for (const e of cola) {
+      const c = e.codigo
       if ((await sinUsuario(Q.corrAbiertasDeCodigos, [propietarioId, proyectoId, [c]])).rows.length) { await sinUsuario(Q.colaQuitar, [propietarioId, proyectoId, [c]]); continue } // corrección abierta: no se regenera
-      lote.push(c)
+      lote.push(e.partes ? { codigo: c, partes: e.partes, ...(e.imagenes ? { imagenes: e.imagenes } : {}) } : c) // el «actual» se arma al enviar
     }
     for (let intento = 0; intento < 2 && lote.length; intento++) {
       const r = await lanzarH5p({ usuario, proyectoId, regenerar: lote, reintentarErrores: false, publicarFn })
-      if (r.codigo === 202) { await sinUsuario(Q.colaQuitar, [propietarioId, proyectoId, lote]); return }
+      if (r.codigo === 202) { await sinUsuario(Q.colaQuitar, [propietarioId, proyectoId, codigosDeRegenerar(lote)]); return }
       const invalidos = r.codigo === 409 && Array.isArray(r.cuerpo.invalidos) ? r.cuerpo.invalidos : null
       if (!invalidos) { console.error('[cola-regenerar] no se pudo lanzar (' + r.codigo + '): ' + (r.cuerpo.error || '')); return }
       await sinUsuario(Q.colaQuitar, [propietarioId, proyectoId, invalidos]) // ya no se pueden regenerar (cambiaron de estado)
-      lote = lote.filter((c) => !invalidos.includes(c))
+      lote = lote.filter((c) => !invalidos.includes(typeof c === 'string' ? c : c.codigo))
     }
   } catch (e) { console.error('[cola-regenerar] error: ' + ((e && e.message) || e)) }
 }
@@ -244,4 +284,20 @@ export async function lanzarPublicar({ usuario, proyectoId, recursoId, publicarF
       ...cuerpoServicioH5p(marcado), enlace_recurso: reemplazar ? marcado.enlaceRecurso : null, reemplazar } })
   if (r.codigo !== 202) { await sinUsuario(Q.pipeAprobarRevertir, [usuario.id, proyectoId, recursoId]).catch(() => {}); return r }
   return { codigo: 202, cuerpo: { trabajo_id: trabajoId, id: marcado.id, reemplazar } }
+}
+
+// «Actualizar actividades asignadas» de una unidad: (1) el flujo de preparación (sin forzar) pide y guarda las actividades nuevas o corregidas de la estructura sin tocar lo ya asignado;
+// (2) la orden de matrices con conservar:true escribe «Actividad usada» sin tocar estados ni enlaces. Si la preparación falla o deja pendientes, no se lanza la matriz.
+export const EsquemaActualizarActividades = z.object({ unidad: z.number().int().min(1).max(200) }).strict()
+export async function actualizarActividades({ usuario, proyectoId, unidad, publicarFn = publicar }) {
+  if (!(await urlPreparacion())) return falla(503, 'La preparación del curso no está configurada en el servidor.')
+  let prep
+  try { prep = await asegurarAsignacion({ usuario, proyectoId, unidad, reasignar: false, siempre: true, publicarFn }) } catch (e) {
+    if (e instanceof ErrorPropio) return falla(409, e.message, { preparacion: 'error' })
+    throw e
+  }
+  const asignadas = prep ? prep.asignaciones.length : 0
+  const r = await lanzarMatrices({ usuario, proyectoId, unidades: [unidad], forzar: false, conservar: true, publicarFn })
+  if (r.codigo !== 202) return { codigo: r.codigo, cuerpo: { ...r.cuerpo, preparacion: { asignadas } } }
+  return { codigo: 202, cuerpo: { preparacion: { asignadas }, matrices: r.cuerpo } }
 }
