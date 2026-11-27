@@ -55,6 +55,7 @@ export default function App() {
   const [recSel, setRecSel] = useState({ u: null })
   const [toast, setToast] = useState('')
   const [pulsoAvisos, setPulsoAvisos] = useState(0) // sube cada vez que llega un aviso temporal: la galería de plantillas recarga las revisiones
+  const [enlacePlant, setEnlacePlant] = useState(null) // deep link #/plantillas?categoria=G-13&variante=g-13-tec-v01
   const [abrirPlantilla, setAbrirPlantilla] = useState('') // plantilla que se abre al pulsar un aviso temporal de «Plantillas HTML»
   const vistaRef = useRef('dashboard') // pantalla actual y función de abrir, para el trabajo de unidades que termina fuera de React
   const abrirRef = useRef(() => {})
@@ -83,8 +84,11 @@ export default function App() {
     } else if (p[0] === 'editor' && proy && proy.recursos.some((r) => r.id === p[2])) {
       setActualId(proy.id); setRecId(p[2]); setVista('editor')
     } else if (['dashboard', 'nuevo'].includes(p[0]) && perm('proyectos.ver_propios')) setVista(p[0])
-    else if (p[0] === 'plantillas' && perm('plantillas.ver')) setVista('plantillas')
-    else if (p[0] === 'plantillas-imagenes' && perm('plantillas.imagenes')) setVista('plantillas-imagenes')
+    else if (p[0] === 'plantillas' && perm('plantillas.ver')) {
+      const qs = new URLSearchParams(location.hash.split('?')[1] || '')
+      if (qs.get('categoria') || qs.get('variante')) setEnlacePlant({ categoria: qs.get('categoria') || '', variante: qs.get('variante') || '' })
+      setVista('plantillas')
+    } else if (p[0] === 'plantillas-imagenes' && perm('plantillas.imagenes')) setVista('plantillas-imagenes')
     else if (p[0] === 'rubricas' && perm('rubricas.generar')) setVista('rubricas')
     else if (p[0] === 'auditor-guiones' && perm('guiones.auditar')) setVista('auditor-guiones')
     else if (p[0] === 'asignacion-diseno' && perm('diseno.asignar')) setVista('asignacion-diseno')
@@ -306,7 +310,7 @@ export default function App() {
         {esAdmin && <ItemMenu on={vista === 'usuarios'} icono="M16 20v-1a4 4 0 00-4-4H8a4 4 0 00-4 4v1M10 11a3 3 0 100-6 3 3 0 000 6" texto="Usuarios" onClick={() => ir('usuarios')} />}
       </nav>
       <div className="shellmain">
-      {vista === 'plantillas' && verPlantillas && <Plantillas puedeRevisar={yo.permisos.includes('plantillas.revisar')} puedeCorregir={yo.permisos.includes('plantillas.corregir')} puedeCategorias={yo.permisos.includes('plantillas.categorias')} puedeSubirVariante={yo.permisos.includes('plantillas.subir')} yo={yo} aviso={aviso} pulsoAvisos={pulsoAvisos} abrirPlantilla={abrirPlantilla} onAbierto={() => setAbrirPlantilla('')} />}
+      {vista === 'plantillas' && verPlantillas && <Plantillas puedeRevisar={yo.permisos.includes('plantillas.revisar')} puedeCorregir={yo.permisos.includes('plantillas.corregir')} puedeCategorias={yo.permisos.includes('plantillas.categorias')} puedeSubirVariante={yo.permisos.includes('plantillas.subir')} yo={yo} aviso={aviso} pulsoAvisos={pulsoAvisos} enlace={enlacePlant} abrirPlantilla={abrirPlantilla} onAbierto={() => setAbrirPlantilla('')} />}
       {vista === 'plantillas-imagenes' && verImagenes && <PlantillasImagenes aviso={aviso} />}
       {vista === 'rubricas' && verRubricas && <GenerarRubrica />}
       {vista === 'auditor-guiones' && verAuditor && <AuditorGuiones />}

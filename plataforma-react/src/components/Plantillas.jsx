@@ -111,11 +111,11 @@ function SelectorCategoria({ opciones, actual, onElegir, deshabilitado }) {
   )
 }
 
-export default function Plantillas({ puedeRevisar = false, puedeCorregir = false, puedeCategorias = false, puedeSubirVariante = false, yo = null, aviso, abrirPlantilla = '', pulsoAvisos = 0, onAbierto }) {
+export default function Plantillas({ puedeRevisar = false, puedeCorregir = false, puedeCategorias = false, puedeSubirVariante = false, yo = null, aviso, abrirPlantilla = '', enlace = null, pulsoAvisos = 0, onAbierto }) {
   const gruposTodos = useMemo(() => GRUPOS.map(([g, l]) => [g, l.filter(([k]) => CATALOGO[k])]).filter(([, l]) => l.length), [])
   const [clase, setClase] = useState('recurso') // qué clase de HTML se ve en la galería: recurso | actividad
   const [ejSubido, setEjSubido] = useState(false) // la variante publicada que se ve trae su propio contenido de ejemplo (plantilla subida)
-  const [vista, setVista] = useState('galeria') // galeria | categorias (las categorías que usa n8n)
+  const [vista, setVista] = useState(enlace ? 'categorias' : 'galeria') // galeria | categorias (las categorías que usa n8n)
   const [tipo, setTipo] = useState(() => (gruposTodos.find(([g]) => !esActividad(g)) || gruposTodos[0])[1][0][0])
   const [q, setQ] = useState('')
   const [formacion, setFormacion] = useState('') // '' = todas; si no, el id de la formación (tecnologico, profesional…): filtra las categorías y colorea la vista previa
@@ -380,7 +380,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
           <Titulo icono="codigo"><h1>Plantillas HTML</h1></Titulo>
         </div>
         <div className="pg-fila-tabs">{pestanas}</div>
-        <CategoriasPlantillas puedeCambiar={puedeRevisar} esAdmin={!!(yo && yo.permisos && yo.permisos.includes('usuarios.gestionar'))} aviso={aviso} />
+        <CategoriasPlantillas enlace={enlace} puedeCambiar={puedeRevisar} esAdmin={!!(yo && yo.permisos && yo.permisos.includes('usuarios.gestionar'))} aviso={aviso} />
       </div>
     )
   }

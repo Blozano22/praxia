@@ -169,10 +169,10 @@ function SelectCategoria({ valor, categorias, ocupado, onChange, etiqueta, vacio
   )
 }
 
-function FilaSin({ nombre, actual = '', compacta, categorias, puedeCambiar, ocupado, onAsignar, subida, oculta, onReemplazar, onEliminar, onOcultar, onVer, confirmando, setConfirmando }) {
+function FilaSin({ resaltada, nombre, actual = '', compacta, categorias, puedeCambiar, ocupado, onAsignar, subida, oculta, onReemplazar, onEliminar, onOcultar, onVer, confirmando, setConfirmando }) {
   const archivo = useRef(null)
   return (
-    <li className={'cs-fila' + (compacta ? ' compacta' : '') + (oculta ? ' oculta' : '') + (puedeCambiar ? '' : ' sin-sel')}>
+    <li id={'var-' + nombre} style={resaltada ? { outline: '2px solid #2563eb', outlineOffset: 2, background: '#eff6ff' } : undefined} className={'cs-fila' + (compacta ? ' compacta' : '') + (oculta ? ' oculta' : '') + (puedeCambiar ? '' : ' sin-sel')}>
       <span className="cat-var-n" title={verNombre(nombre)}>{verNombre(nombre)}{subida && <em className="cat-sub" title={'Subida por ' + (subida.por || 'alguien')}>subida</em>}{oculta && <em className="cat-ocu" title="Oculta para n8n: no sale en el índice ni se descarga">oculta</em>}</span>
       <button type="button" className="cat-var-ver" onClick={() => onVer(nombre)}>Ver</button>
       {puedeCambiar && <span className="cs-sep" aria-hidden="true" />}
@@ -203,7 +203,7 @@ function FilaSin({ nombre, actual = '', compacta, categorias, puedeCambiar, ocup
   )
 }
 
-export default function CategoriasPlantillas({ puedeCambiar = false, esAdmin = false, aviso }) {
+export default function CategoriasPlantillas({ puedeCambiar = false, esAdmin = false, aviso, enlace = null }) {
   const [d, setD] = useState(null)
   const [error, setError] = useState('')
   const [ocupado, setOcupado] = useState(false)
@@ -224,6 +224,23 @@ export default function CategoriasPlantillas({ puedeCambiar = false, esAdmin = f
     try { setD(await api('GET', '/plantillas/categorias')); setError('') } catch (e) { setError(e.message || 'No se pudieron cargar las categorías.') }
   }, [])
   useEffect(() => { cargar() }, [cargar])
+
+  // Deep link: abre la categoría de la variante, su gestión de variantes y resalta la variante (o abre su vista previa si no se puede gestionar).
+  const [resaltada, setResaltada] = useState('')
+  const enlaceHecho = useRef(false)
+  useEffect(() => {
+    if (!enlace || !d || enlaceHecho.current) return
+    enlaceHecho.current = true
+    const nom = enlace.variante ? d.plantillas.find((n) => n === enlace.variante || n === enlace.variante.replace(/\.html$/i, '')) : ''
+    const id = (nom && d.asignaciones[nom]) || enlace.categoria
+    const cat = id && d.categorias.find((c) => c.id.toUpperCase() === String(id).toUpperCase())
+    if (!cat) { if (aviso) aviso('No se encontró la categoría o la variante de ese enlace.'); return }
+    setVer(cat.tipo); setGrupo(''); setBuscar('')
+    if (!nom) { if (aviso) aviso('No se encontró la variante ' + enlace.variante + '; se muestra su categoría.') }
+    if (puedeCambiar) setGestionando(cat.id)
+    if (nom) { setResaltada(nom); if (!puedeCambiar) setViendo(nom) }
+    setTimeout(() => { const el = document.getElementById('var-' + (nom || 'cat-' + cat.id)) || document.getElementById('cat-' + cat.id); if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' }) }, 300)
+  }, [enlace, d, puedeCambiar, aviso])
 
   const hacer = async (fn, ok) => {
     setOcupado(true); setError('')
@@ -373,7 +390,7 @@ export default function CategoriasPlantillas({ puedeCambiar = false, esAdmin = f
               return (
                 <Fragment key={c.id}>
                 {titulo && <h3 className="cat-grupo">{g.nombre} <span>{(grupos.find((x) => x.k === g.k) || {}).n}</span></h3>}
-                <section className={'card cat-card cat-res' + (n ? '' : ' vacia') + (edit && edit.id === c.id ? ' editando' : '')}>
+                <section id={'cat-' + c.id} className={'card cat-card cat-res' + (n ? '' : ' vacia') + (edit && edit.id === c.id ? ' editando' : '')}>
                   <header className="cat-cab">
                     <span className="cat-id">{c.id}</span>
                     {edit && edit.id === c.id ? (
@@ -407,7 +424,7 @@ export default function CategoriasPlantillas({ puedeCambiar = false, esAdmin = f
                     <div className="cat-gestion">
                       <p className="cs-info"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg><span><b>Subidas por una persona:</b> se reemplazan o se eliminan. <b>Del sistema:</b> no se borran; se pueden ocultar de n8n y volver a mostrar.</span></p>
                       {(todasPorCategoria[c.id] || []).length
-                        ? <ul className="cs-lista una">{todasPorCategoria[c.id].map((nom) => <FilaSin compacta key={nom} nombre={nom} actual={c.id} subida={d.subidas && d.subidas[nom]} oculta={ocultas.has(nom)} {...propsFila} />)}</ul>
+                        ? <ul className="cs-lista una">{todasPorCategoria[c.id].map((nom) => <FilaSin resaltada={nom === resaltada} compacta key={nom} nombre={nom} actual={c.id} subida={d.subidas && d.subidas[nom]} oculta={ocultas.has(nom)} {...propsFila} />)}</ul>
                         : <p className="help cat-vacia">Esta categoría todavía no tiene variantes.</p>}
                     </div>
                   )}

@@ -56,6 +56,8 @@ const TEXTO_ESTADO = { POR_REVISAR: 'Por revisar', ERROR: 'Con error', EN_PROCES
 function ListaRecursos({ recursos, actualId, puedePublicar, sucio, onElegir, onAprobar }) {
   const [filtro, setFiltro] = useState(() => (recursos.some((r) => r.estado !== 'PENDIENTE' || r.enCola) ? 'con' : 'todos')) // con = los que ya tienen algo que ver; revisar; todos
   const [confirmar, dialogo] = useConfirmar()
+  const [veGestion, setVeGestion] = useState(false) // quien ve «Plantillas HTML» abre la plantilla ahí; el resto, la vista pública
+  useEffect(() => { apiBase('GET', '/auth/yo').then((y) => setVeGestion(!!(y && y.permisos && y.permisos.includes('plantillas.ver')))).catch(() => {}) }, [])
   const [cerradas, setCerradas] = useState({})
   const [ocupados, setOcupados] = useState({}) // id → true mientras se aprueba
   const [unidadBusy, setUnidadBusy] = useState(null)
@@ -500,7 +502,7 @@ export default function EditorRecurso({ proyecto, propietario, soloLectura = fal
               <MenuAcciones items={[
                 puedePublicar && onRegenerar && (['POR_REVISAR', 'GENERADO', 'ERROR'].includes(actual.estado) || actual.sinRespuesta) && { k: 'reg', texto: ocupado === 'regenerar' ? 'Regenerando…' : actual.enColaRegenerar ? 'En cola para regenerar' : 'Regenerar', icono: 'M20 11a8 8 0 10-2.3 5.7M20 4v7h-7', onClick: regenerarEste, deshab: !!ocupado || publicandoAhora || !!actual.enColaRegenerar || (actual.correccion && actual.correccion.estado === 'abierta'), titulo: 'Crear de nuevo con la misma plantilla' },
                 puedePedirCorr && !actual.alertaActividad && { k: 'corr', texto: 'Pedir corrección al docente', icono: 'M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z', onClick: pedirCorr, deshab: !!ocupado, titulo: 'El problema depende del guion: se lo envía al docente y este recurso queda bloqueado hasta que lo resuelva' },
-                actual.plantilla && { k: 'plant', texto: 'Abrir la plantilla usada', icono: 'M14 3h7v7M21 3l-9 9M10 5H5a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2v-5', onClick: () => window.open(RUTA_API.replace(/[/]api$/, '') + '/plantillas-html/ver/' + encodeURIComponent(actual.plantilla), '_blank', 'noopener'), titulo: 'Abre en otra pestaña la variante con la que se generó este recurso' },
+                actual.plantilla && { k: 'plant', texto: 'Abrir la plantilla usada', icono: 'M14 3h7v7M21 3l-9 9M10 5H5a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2v-5', onClick: () => { const v = String(actual.plantilla).toLowerCase(); const m = v.match(/^([a-z]-\d+)/i); window.open(veGestion ? location.origin + location.pathname + location.search + '#/plantillas?' + (m ? 'categoria=' + encodeURIComponent(m[1].toUpperCase()) + '&' : '') + 'variante=' + encodeURIComponent(v) : RUTA_API.replace(/[/]api$/, '') + '/plantillas-html/ver/' + encodeURIComponent(actual.plantilla), '_blank', 'noopener') }, titulo: 'Abre en otra pestaña la variante con la que se generó este recurso' },
                 { k: 'h5p', texto: ocupado === 'h5p' ? 'Armando el H5P…' : 'Descargar .h5p', icono: 'M12 4v11M7 11l5 5 5-5M4 20h16', onClick: descargar, deshab: !!ocupado }
               ].filter(Boolean)} />
             </div>
