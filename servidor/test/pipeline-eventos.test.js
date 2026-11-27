@@ -239,6 +239,13 @@ test('H5P: el plan con lo omitido y su motivo, el avance por recurso y el resume
   assert.equal(ej2.estado, 'terminada'); assert.equal(ej2.resumen.errores, 1); assert.ok(ej2.terminado_en)
 })
 
+test('h5p_fin sin matrices: guarda sin_matrices y mensaje', async () => {
+  const r = await enviar(aviso('h5p_fin', 'h5p', { ejecucion_id: 'sm1', resumen: { generados: 0, errores: 0, omitidos: 0, sin_matrices: true, mensaje: 'No hay matrices en la carpeta' } }, 65))
+  assert.equal(r.estado, 200)
+  const [ej] = await una('ana', 'pipeline_ejecuciones', "ejecucion_id = 'sm1'")
+  assert.equal(ej.resumen.sin_matrices, true)
+})
+
 test('un aviso nunca escribe en un curso ajeno: la persona sale del trabajo, no de lo que diga el aviso', async () => {
   // aviso con el trabajo de Ana pero el curso de otro: se rechaza y no se escribe nada
   const antes = (await una('ana', 'pipeline_recursos')).length
@@ -298,6 +305,8 @@ test('la pantalla del curso lee lo guardado: cada persona ve solo lo de su curso
   assert.ok(a.recursos.some((r) => r.id === 'f1' && r.unidad === 1)); assert.ok(a.generado)
   const h2 = a.ejecuciones.find((e) => e.ejecucionId === 'h2')
   assert.equal(h2.etapa, 'h5p'); assert.equal(h2.plan.aGenerar, 1); assert.equal(h2.plan.omitidas[0].motivo, 'sin_plantilla'); assert.equal(h2.resumen.errores, 1)
+  const sm = a.ejecuciones.find((e) => e.ejecucionId === 'sm1')
+  assert.equal(sm.resumen.sin_matrices, true); assert.equal(sm.resumen.mensaje, 'No hay matrices en la carpeta'); assert.equal(sm.resumen.generados, 0)
   const b = await (await beto('/proyectos/curso-a/pipeline')).json() // mismo identificador de curso, otra persona
   assert.equal(b.matrices.length, 0); assert.deepEqual(b.recursos.map((r) => r.id), ['f1'])
   assert.equal(b.recursos[0].enlaceRecurso, 'https://drive.google.com/file/d/deBeto/view')

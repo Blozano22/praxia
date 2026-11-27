@@ -59,6 +59,13 @@ function AvisoTope({ e }) {
   return <p className="mx-nada" role="status"><b>Quedan {n} {n === 1 ? 'recurso' : 'recursos'} sin generar</b> (n8n genera hasta un máximo por corrida). Pulse «Generar H5P» otra vez para continuar.</p>
 }
 
+function AvisoMensaje({ r }) {
+  if (!r || !r.mensaje) return null
+  return r.sin_matrices
+    ? <p className="mx-nada mx-err" role="alert"><b>No se generó nada.</b> {r.mensaje}</p>
+    : <p className="help mx-nota">{r.mensaje}</p>
+}
+
 function Pill({ par }) { return <span className={'pill ' + par[0]}>{par[1]}</span> }
 
 function CorridaFranja({ e }) {
@@ -74,7 +81,7 @@ function CorridaFranja({ e }) {
       <div className="mx6-corr-cab">
         <span className="mx6-corr-t"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>Última corrida</span>
         <span className="mx6-corr-f">{e.estado === 'en_curso' ? 'En curso' : fecha(e.terminadoEn || e.ultimoEventoEn)}{e.maximo ? ' · máximo ' + e.maximo + ' recursos' : ''}</span>
-        {e.estado !== 'en_curso' && <span className="mx6-ok">Terminada</span>}
+        {e.estado !== 'en_curso' && (r && r.sin_matrices ? <span className="pill bad">Con error</span> : <span className="mx6-ok">Terminada</span>)}
         <span className="mx6-sp" />
         <span className="mx6-res"><b>{r ? r.generados ?? 0 : 0}</b> generados · <b>{nOmit}</b> omitidos · <b>{r ? r.errores ?? 0 : 0}</b> con error</span>
         {(porMotivo.length > 0 || omitidas.length > 0) && (
@@ -84,6 +91,7 @@ function CorridaFranja({ e }) {
           </button>
         )}
       </div>
+      <AvisoMensaje r={r} />
       {abierto && (
         <div className="mx6-mot">
           {nadaQueGenerar && <p><b>Ningún recurso se generó:</b> n8n los revisó y los omitió. Estos son los motivos.</p>}
@@ -119,7 +127,7 @@ function Corrida({ e }) {
           <h3>Última corrida de H5P</h3>
           <p className="help">{e.estado === 'en_curso' ? (e.sinRespuesta ? 'n8n no avisa desde ' + hace(e.ultimoEventoEn) + ': puede haberse interrumpido' : 'En curso · último aviso ' + hace(e.ultimoEventoEn)) : 'Terminada ' + fecha(e.terminadoEn || e.ultimoEventoEn)}{e.maximo ? ' · máximo ' + e.maximo + ' recursos' : ''}</p>
         </div>
-        <Pill par={e.estado === 'en_curso' ? (e.sinRespuesta ? SIN_RESPUESTA : ['warn', 'En curso']) : ['ok', 'Terminada']} />
+        <Pill par={e.estado === 'en_curso' ? (e.sinRespuesta ? SIN_RESPUESTA : ['warn', 'En curso']) : r && r.sin_matrices ? ['bad', 'Con error'] : ['ok', 'Terminada']} />
       </div>
       <div className="mx-cifras">
         {e.plan && <div><b>{e.plan.aGenerar}</b><span>a generar</span></div>}
@@ -129,6 +137,7 @@ function Corrida({ e }) {
         {r && r.pendientes_restantes != null && <div><b>{r.pendientes_restantes}</b><span>pendientes</span></div>}
       </div>
       <AvisoTope e={e} />
+      <AvisoMensaje r={r} />
       {nadaQueGenerar && <p className="mx-nada"><b>n8n revisó los recursos pero no generó ninguno.</b> {porMotivo.map(([m, n]) => n + ' × ' + motivoTexto(m)).join(' · ')}.</p>}
       {omitidas.length > 0 && (
         <details className="mx-omitidas">

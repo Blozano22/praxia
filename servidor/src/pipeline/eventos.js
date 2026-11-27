@@ -151,7 +151,7 @@ const Evento = z.discriminatedUnion('evento', [
   }),
   Comun.extend({
     evento: z.literal('h5p_fin'), ejecucion_id: ejecucion,
-    resumen: z.object({ generados: entero.default(0), errores: entero.default(0), omitidos: entero.default(0), pendientes_restantes: entero.nullish(), por_revisar: entero.nullish() })
+    resumen: z.object({ generados: entero.default(0), errores: entero.default(0), omitidos: entero.default(0), pendientes_restantes: entero.nullish(), por_revisar: entero.nullish(), sin_matrices: z.boolean().nullish(), mensaje: texto(500).nullish() })
   })
 ])
 
