@@ -9,6 +9,7 @@ import './marco.css'
 import './lineagrafica.css'
 import './bibliografia.css'
 import './guiones.css'
+import AvisoVersion from './components/AvisoVersion.jsx'
 import App from './App.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 
@@ -16,6 +17,7 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ErrorBoundary>
       <App />
+      <AvisoVersion />
     </ErrorBoundary>
   </StrictMode>
 )

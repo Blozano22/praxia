@@ -53,6 +53,12 @@ export function crearApp() {
   app.use('/api/unidades', exigirCabecera, rutasUnidades)
   app.use('/api/piloto', exigirCabecera, rutasPiloto)
   app.use('/api/auditor', exigirCabecera, rutasAuditor) // pantalla «Auditor de guiones» (permiso guiones.auditar)
+  // Versión del front desplegado (la escribe `npm run build` en version.json). Sin sesión y sin caché: el front la consulta para avisar de una versión nueva.
+  app.get('/api/version', (req, res) => {
+    let version = 'dev'
+    if (config.carpetaWeb) { try { version = String(JSON.parse(fs.readFileSync(path.join(config.carpetaWeb, 'version.json'), 'utf8')).version || 'dev') } catch { /* sin build */ } }
+    res.set('Cache-Control', 'no-store').json({ version })
+  })
   app.use('/api/rubricas', exigirCabecera, rutasRubricas) // pantalla «Generar rúbrica» (permiso rubricas.generar)
   app.use('/api/plantillas-imagenes', exigirCabecera, rutasImagenes) // pantalla «Plantillas con imágenes» (permiso plantillas.imagenes)
   app.use('/api', exigirCabecera, rutas)
@@ -141,7 +147,14 @@ export function crearApp() {
     } catch { next() }
   })
   if (config.carpetaWeb && fs.existsSync(config.carpetaWeb)) {
-    app.use(express.static(config.carpetaWeb, { index: 'index.html' }))
+    // La página principal siempre se revalida (no-cache); lo demás con hash en el nombre (assets/) se puede guardar un año.
+    app.use(express.static(config.carpetaWeb, {
+      index: 'index.html',
+      setHeaders: (res, f) => {
+        if (/[\\/]assets[\\/].+-[A-Za-z0-9_-]{8,}\.\w+$/.test(f)) res.set('Cache-Control', 'public, max-age=31536000, immutable')
+        else if (/\.html$/.test(f) || /version\.json$/.test(f)) res.set('Cache-Control', 'no-cache')
+      }
+    }))
   }
 
   // Nunca se devuelve el detalle de un error interno al navegador.
