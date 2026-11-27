@@ -289,3 +289,9 @@
 .er-m-flotante .er-lado.min .er-lado-tt span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .er-m-flotante .er-lado.min .er-link{display:none}
 .er-mini{align-self:center}
+
+.er-guion-modo{display:inline-flex;border:1px solid #cbd5e1;border-radius:8px;overflow:hidden;flex:none}
+.er-guion-modo button{border:0;background:#fff;color:#334155;font:inherit;font-size:12px;padding:3px 9px;cursor:pointer}
+.er-guion-modo button.on{background:#1e3a8a;color:#fff}
+.er-guion-nota{margin:0;padding:5px 10px;font-size:12px;background:#fffbeb;color:#92400e;border-bottom:1px solid #fde68a}
+.er-lado-cab{flex-wrap:wrap}

@@ -48,7 +48,8 @@ function armarPagina(esqueleto, contenido, titulo, formacion, activo, imagenUrl)
 // Tema de un recurso: el que avisó n8n o, si falta, el del código («U1-T4-R6» → 4). 0 = sin tema.
 const temaDe = (r) => { if (r.tema != null && Number.isFinite(Number(r.tema))) return Number(r.tema); const m = /-T(\d+)-/i.exec(r.codigo || ''); return m ? Number(m[1]) : 0 }
 // El guion (Google Doc) se muestra incrustado en modo de solo lectura (/preview) para leerlo y compararlo con el recurso; si no es un Doc de Google no se incrusta.
-const vistaGuion = (url) => { const m = /^https:\/\/docs\.google\.com\/document\/d\/([A-Za-z0-9_-]+)/.exec(String(url || '')); return m ? 'https://docs.google.com/document/d/' + m[1] + '/preview' : '' }
+const vistaGuion = (url, editar) => { const m = /^https:\/\/docs\.google\.com\/document\/d\/([A-Za-z0-9_-]+)/.exec(String(url || '')); return m ? 'https://docs.google.com/document/d/' + m[1] + (editar ? '/edit?rm=minimal' : '/preview') : '' }
+const CLAVE_MODO_GUION = 'praxia.guion.modo'
 const ORDEN_ESTADO = { POR_REVISAR: 0, ERROR: 1, EN_PROCESO: 2, GENERADO: 3, PENDIENTE: 4 }
 const TEXTO_ESTADO = { POR_REVISAR: 'Por revisar', ERROR: 'Con error', EN_PROCESO: 'Generando', GENERADO: 'Generado', PENDIENTE: 'Por generar' }
 
@@ -436,7 +437,9 @@ export default function EditorRecurso({ proyecto, propietario, soloLectura = fal
   const estiloLado = modo === 'flotante' ? { left: flota.x, top: flota.y, width: flota.w, height: flota.min ? 64 : flota.h } : undefined
   const actual = recursos.find((x) => x.id === recurso.id) || recurso
   const puedePedirCorr = !!propietario && !actual.correccion
-  const urlGuion = vistaGuion(actual.enlaceGuion)
+  const [guionEdita, setGuionEdita] = useState(() => { try { return localStorage.getItem(CLAVE_MODO_GUION) === 'editar' } catch { return false } })
+  const cambiarModoGuion = (v) => { setGuionEdita(v); try { localStorage.setItem(CLAVE_MODO_GUION, v ? 'editar' : 'leer') } catch { /* sin almacenamiento */ } }
+  const urlGuion = vistaGuion(actual.enlaceGuion, guionEdita)
   // Si el recurso se regeneró (la lista del curso trae una fecha nueva y ya no está en proceso): sin cambios sin guardar se recarga solo; con cambios se avisa.
   const nuevaVersion = estado === 'listo' && !!versionCargada.current && !!actual.actualizadoEn && actual.estado !== 'EN_PROCESO' && String(actual.actualizadoEn) !== versionCargada.current
   const cargarNueva = () => { parteDeseada.current = ref.current.parte; setRecarga((n) => n + 1) }
@@ -577,12 +580,17 @@ export default function EditorRecurso({ proyecto, propietario, soloLectura = fal
                     <b>Guion del recurso</b>
                     <span>{urlGuion ? 'Para leerlo y compararlo con el recurso' : 'Sin guion para mostrar'}</span>
                   </div>
+                  {urlGuion && <div className="er-guion-modo" role="group" aria-label="Modo del guion">
+                    <button type="button" className={guionEdita ? '' : 'on'} aria-pressed={!guionEdita} onClick={() => cambiarModoGuion(false)}>Solo lectura</button>
+                    <button type="button" className={guionEdita ? 'on' : ''} aria-pressed={guionEdita} onClick={() => cambiarModoGuion(true)}>Editar</button>
+                  </div>}
                   {actual.enlaceGuion && <a className="er-link" href={actual.enlaceGuion} target="_blank" rel="noopener noreferrer">Abrir en otra pestaña ↗</a>}
                   {modo === 'flotante' && <button type="button" className="er-mini" aria-label={flota.min ? 'Expandir el panel' : 'Minimizar el panel'} onClick={() => setFlota((f) => ({ ...f, min: !f.min }))}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true"><path d={flota.min ? 'M5 12h14M12 5v14' : 'M5 12h14'} /></svg></button>}
                 </div>
+                {urlGuion && guionEdita && <p className="er-guion-nota">Edita el documento original. Necesita sesión de Google con permiso de edición.</p>}
                 <div className="er-lado-cuerpo guion">
                   {urlGuion
-                    ? <iframe className="er-guion-marco" title="Guion del recurso" src={urlGuion} sandbox="allow-scripts allow-same-origin allow-popups allow-forms" />
+                    ? <iframe key={guionEdita ? 'e' : 'l'} className="er-guion-marco" title="Guion del recurso" src={urlGuion} sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox" />
                     : <p className="er-vacio">{actual.enlaceGuion ? 'El guion de este recurso no es un documento de Google que se pueda mostrar aquí. Ábralo con el enlace de arriba.' : 'Este recurso no tiene enlace al guion todavía.'}</p>}
                 </div>
                 {modo === 'flotante' && !flota.min && <span className="er-redim" aria-hidden="true" onPointerDown={(e) => empezar('redim', e)} {...ptr}><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M11 1L1 11M11 6L6 11" /></svg></span>}
