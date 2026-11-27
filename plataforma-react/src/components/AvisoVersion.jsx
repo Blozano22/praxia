@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import './avisoversion.css'
+import { RUTA_API } from '../lib/api.js'
 
 const CARGADA = typeof __VERSION_BUILD__ !== 'undefined' ? __VERSION_BUILD__ : null
 const CADA = 5 * 60 * 1000
+const RECORDAR = 30 * 60 * 1000 // «Más tarde» lo oculta 30 minutos; luego vuelve a aparecer
 
-// Avisa cuando el servidor ya tiene un build distinto al que cargó esta página. «Más tarde» lo oculta hasta que salga otra versión.
+// Avisa cuando el servidor ya tiene un build distinto al que cargó esta página. «Más tarde» lo oculta 30 minutos y vuelve a recordarlo.
 export default function AvisoVersion() {
   const [nueva, setNueva] = useState(null)
   const cerrada = useRef(null)
@@ -14,10 +16,10 @@ export default function AvisoVersion() {
     let vivo = true
     const revisar = async () => {
       try {
-        const r = await fetch('/api/version', { cache: 'no-store' })
+        const r = await fetch(RUTA_API + '/version', { cache: 'no-store' })
         if (!r.ok) return
         const { version } = await r.json()
-        if (vivo && version && version !== 'dev' && version !== CARGADA && version !== cerrada.current) setNueva(version)
+        if (vivo && version && version !== 'dev' && version !== CARGADA && !(cerrada.current && cerrada.current.version === version && Date.now() < cerrada.current.hasta)) setNueva(version)
       } catch { /* sin red: se reintenta luego */ }
     }
     const alVolver = () => { if (document.visibilityState === 'visible') revisar() }
@@ -47,7 +49,7 @@ export default function AvisoVersion() {
         <p className="aviso-version-tx">Actualice para ver los cambios.</p>
         <div className="aviso-version-acc">
           <button className="btn sm" onClick={actualizar}>Actualizar</button>
-          <button className="btn sec sm" onClick={() => { cerrada.current = nueva; setNueva(null) }}>Más tarde</button>
+          <button className="btn sec sm" onClick={() => { cerrada.current = { version: nueva, hasta: Date.now() + RECORDAR }; setNueva(null) }}>Más tarde</button>
         </div>
       </div>
     </div>
