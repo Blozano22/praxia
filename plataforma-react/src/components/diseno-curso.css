@@ -1,0 +1,45 @@
+/* Vistas del diseñador: lista de cursos asignados y resumen del curso */
+.dc-lista{display:flex;flex-direction:column;background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:0 10px 28px rgba(var(--sombra),.06);overflow:hidden}
+.dc-fila{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) minmax(0,1.3fr) auto;align-items:center;gap:12px 20px;padding:16px 20px;border-top:1px solid var(--line)}
+.dc-fila:first-child{border-top:0}
+.dc-cab{background:color-mix(in srgb,var(--nav) 6%,#fff);font-size:.72rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:12px 20px}
+.dc-fila:not(.dc-cab):hover{background:color-mix(in srgb,var(--nav) 3%,#fff)}
+.dc-nom{min-width:0}
+.dc-nom b{display:block;font-size:1rem;color:var(--ink)}
+.dc-nom small{display:block;margin-top:2px;font-size:.82rem;color:var(--muted)}
+.dc-doc{min-width:0;overflow-wrap:anywhere;color:var(--ink)}
+.dc-est{display:flex;flex-wrap:wrap;gap:6px}
+.dc-est .pill{font-size:.78rem;white-space:nowrap}
+.dc-acc{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px}
+.dc-acc .btn{display:inline-flex;align-items:center;gap:8px;min-height:40px;margin:0;text-decoration:none;white-space:nowrap}
+.dc-lbl{display:none;font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+.dc-vacio{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;padding:40px 20px;background:#fff;border:1.5px dashed var(--line);border-radius:18px;color:var(--muted)}
+.dc-vacio-ico{display:flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:16px;background:var(--okbg);color:var(--g)}
+.dc-vacio h2{margin:0;font-size:1.1rem;color:var(--ink)}
+.dc-vacio p{margin:0;font-size:.9rem}
+@media(max-width:900px){
+  .dc-cab{display:none}
+  .dc-fila{grid-template-columns:1fr 1fr;padding:16px}
+  .dc-nom,.dc-acc{grid-column:1/-1}
+  .dc-acc{justify-content:stretch}
+  .dc-acc .btn{flex:1 1 140px;justify-content:center}
+  .dc-lbl{display:block}
+}
+@media(max-width:560px){
+  .dc-fila{grid-template-columns:1fr}
+  .dc-lista{border-radius:14px}
+}
+/* Resumen del curso */
+.dc-resumen{display:flex;flex-wrap:wrap;align-items:center;gap:16px 24px;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 10px 28px rgba(var(--sombra),.06);padding:18px 20px;margin:0 0 18px}
+.dc-datos{flex:1 1 480px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.dc-dato{display:flex;align-items:center;gap:12px;min-width:0}
+.dc-dato-ico{flex:none;display:flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:12px;background:var(--okbg);color:var(--g)}
+.dc-dato small{display:block;font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.dc-dato b{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:1.05rem;color:var(--ink);overflow-wrap:anywhere}
+.dc-dato .pill{font-size:.72rem}
+.dc-resumen .btn{display:inline-flex;align-items:center;gap:8px;min-height:42px;margin:0;text-decoration:none;white-space:nowrap}
+.dc-cab-curso{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:12px 20px;margin-bottom:6px}
+.dc-cab-curso .tit{margin-bottom:0;flex:1 1 320px;min-width:0}
+.dc-cab-curso .btn{display:inline-flex;align-items:center;gap:8px;min-height:40px}
+@media(max-width:900px){.dc-datos{grid-template-columns:1fr}.dc-resumen .btn{width:100%;justify-content:center}}
+@media(max-width:560px){.dc-cab-curso .btn{width:100%;justify-content:center}.dc-resumen{padding:16px}}

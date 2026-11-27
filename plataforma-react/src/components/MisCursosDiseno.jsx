@@ -3,6 +3,9 @@ import { api } from '../lib/api.js'
 import Titulo from './Titulo.jsx'
 import DisenoCurso from './DisenoCurso.jsx'
 import { leerHash, ponerHash } from '../lib/hashEstado.js'
+import './diseno-curso.css'
+
+const IcoCarpeta = ({ size = 16 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" /></svg>
 
 // Inicio del diseñador: los cursos que la coordinación le asignó; cada uno abre su vista de diseño (matrices y H5P).
 const ESTADOS = { asignado: 'Asignado', en_revision_docente: 'En revisión del docente', en_diseno: 'Sin asignar' }
@@ -22,19 +25,34 @@ export default function MisCursosDiseno() {
         <p className="lead">Cursos que la coordinación le asignó para diseñar.</p>
       </Titulo>
       {error && <div className="msg err" role="alert">{error}</div>}
-      {filas && filas.length === 0 && <div className="drop"><h2>Aún no tiene cursos asignados</h2></div>}
+      {filas && filas.length === 0 && (
+        <div className="dc-vacio">
+          <span className="dc-vacio-ico" aria-hidden="true"><IcoCarpeta size={28} /></span>
+          <h2>Aún no tiene cursos asignados</h2>
+          <p>Cuando la coordinación le asigne un curso, aparecerá aquí.</p>
+        </div>
+      )}
       {filas && filas.length > 0 && (
-        <div className="db2-tabla"><div className="db2-scroll"><div className="db2-min">
-          <div className="db2-fila db2-cabt"><span>Curso</span><span>Docente</span><span>Estado</span><span>Acciones</span></div>
+        <div className="dc-lista" role="list">
+          <div className="dc-fila dc-cab" aria-hidden="true"><span>Curso</span><span>Docente</span><span>Estado</span><span>Acciones</span></div>
           {filas.map((f) => (
-            <div className="db2-fila" key={f.propietario_id + '/' + f.proyecto_id}>
-              <div className="db2-nom"><b>{f.curso || f.proyecto_id}</b><small>{f.programa}</small></div>
-              <span>{f.docente}</span>
-              <span><span className="pill">{ESTADOS[f.estado] || f.estado}</span>{f.correcciones_listas > 0 && <span className="pill ok" style={{ marginLeft: 6 }}>{f.correcciones_listas} {f.correcciones_listas === 1 ? "corrección lista" : "correcciones listas"} para revisar</span>}</span>
-              <span>{f.carpeta ? <a href={f.carpeta} target="_blank" rel="noreferrer">Carpeta de Drive</a> : ''} <button className="btn" onClick={() => setAbierto(f)}>Abrir</button></span>
+            <div className="dc-fila" role="listitem" key={f.propietario_id + '/' + f.proyecto_id}>
+              <div className="dc-nom"><b>{f.curso || f.proyecto_id}</b><small>{f.programa}</small></div>
+              <div className="dc-doc"><span className="dc-lbl">Docente</span>{f.docente}</div>
+              <div>
+                <span className="dc-lbl">Estado</span>
+                <div className="dc-est">
+                  <span className={'pill ' + (f.estado === 'en_revision_docente' ? 'warn' : 'ok')}>{ESTADOS[f.estado] || f.estado}</span>
+                  {f.correcciones_listas > 0 && <span className="pill ok">{f.correcciones_listas} {f.correcciones_listas === 1 ? 'corrección lista' : 'correcciones listas'} para revisar</span>}
+                </div>
+              </div>
+              <div className="dc-acc">
+                {f.carpeta && <a className="btn sec sm" href={f.carpeta} target="_blank" rel="noreferrer"><IcoCarpeta />Carpeta de Drive</a>}
+                <button className="btn sm" onClick={() => setAbierto(f)}>Abrir</button>
+              </div>
             </div>
           ))}
-        </div></div></div>
+        </div>
       )}
     </div>
   )
