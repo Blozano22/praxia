@@ -36,7 +36,7 @@ before(async () => {
   const dueno = new pg.Client({ connectionString: `postgres://postgres:duenio@localhost:${PUERTO_PG}/ova` })
   await dueno.connect()
   await dueno.query("CREATE ROLE ova_app LOGIN PASSWORD 'appclave' NOSUPERUSER NOBYPASSRLS")
-  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql', '014_tipo_bibliografia.sql', '015_imagen_consumo_recurso.sql', '017_partes_recurso.sql', '018_estado_previo.sql', '019_actividad_tipos.sql', '020_alerta_actividad.sql', '021_matriz_actualizada.sql', '024_curso_diseno.sql', '025_asignar_diseno.sql', '026_correcciones.sql', '027_cola_regenerar.sql', '028_cola_partes.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
+  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql', '014_tipo_bibliografia.sql', '015_imagen_consumo_recurso.sql', '017_partes_recurso.sql', '018_estado_previo.sql', '019_actividad_tipos.sql', '020_alerta_actividad.sql', '021_matriz_actualizada.sql', '024_curso_diseno.sql', '025_asignar_diseno.sql', '026_correcciones.sql', '027_cola_regenerar.sql', '028_cola_partes.sql', '029_permiso_h5p.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
   await dueno.end()
   process.env.DATABASE_URL = `postgres://ova_app:appclave@localhost:${PUERTO_PG}/ova`
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex')
@@ -733,6 +733,7 @@ test('las acciones de escritura del pipeline son del diseñador: el dueño docen
   const pedir = async (h, metodo, ruta, cuerpo) => { const r = await fetch(base + '/api/proyectos/curso-a/pipeline' + ruta, { method: metodo, headers: h, body: cuerpo ? JSON.stringify(cuerpo) : undefined }); return { status: r.status, json: await r.json().catch(() => ({})) } }
   for (const [m, ruta, cuerpo] of [['POST', '/matrices', { unidades: [1] }], ['POST', '/h5p', { maximo: 3 }], ['POST', '/matrices', { regenerar: ['x'] }], ['POST', '/recursos/f1/aprobar'], ['POST', '/recursos/f1/h5p'], ['PUT', '/recursos/f1/contenido', { contenido: { titulo: 't', bloques: [] } }], ['PUT', '/recursos/imagen', { recursoId: 'f1', imagenUrl: 'https://x.test/a.png' }]]) {
     const r = await pedir(beto, m, ruta, cuerpo)
+    if (ruta === '/h5p') { assert.equal(r.status, 403, m + ' ' + ruta); continue } // H5P: el docente no tiene el permiso
     assert.equal(r.status, 409, m + ' ' + ruta); assert.equal(r.json.error, MSG)
   }
   assert.equal((await pedir(beto, 'GET', '')).status, 200)

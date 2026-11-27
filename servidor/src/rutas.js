@@ -138,7 +138,7 @@ rutas.get('/proyectos/:id/pipeline', exigirSesion, pipelineCurso('proyectos.ver_
       recursos = recursos.map(({ consumo, ...x }) => x)
       delete desactualizados.costoEstimadoUsd; delete desactualizados.sinCosto
     }
-    res.json({ matrices: m.rows, recursos, colaRegenerar: cola.length, ejecuciones, desactualizados, generado: new Date().toISOString(), puedeGenerarMatrices: Boolean(await urlMatrices()), puedeGenerarH5p: Boolean(await urlH5p()), puedePublicar: Boolean(await urlPublicar()), puedePreparar: Boolean(await urlPreparacion()) })
+    res.json({ matrices: m.rows, recursos, colaRegenerar: cola.length, ejecuciones, desactualizados, generado: new Date().toISOString(), puedeGenerarMatrices: Boolean(await urlMatrices()), rolH5p: req.usuario.permisos.has('recursos.generar'), puedeGenerarH5p: req.usuario.permisos.has('recursos.generar') && Boolean(await urlH5p()), puedePublicar: Boolean(await urlPublicar()), puedePreparar: Boolean(await urlPreparacion()) })
   } catch (err) { next(err) }
 })
 
@@ -251,12 +251,12 @@ rutas.post('/proyectos/:id/pipeline/matrices', exigirSesion, pipelineCurso('proy
 })
 
 // Lanza la generación de recursos H5P de las matrices ya listas. Responde 202 cuando n8n ya planificó y aceptó la corrida.
-rutas.post('/proyectos/:id/pipeline/h5p', exigirSesion, pipelineCurso('proyectos.crear'), limiteLanzar, validar(z.object({ id: IdProyecto }), 'params'), validar(EsquemaLanzarH5p, 'body'), async (req, res, next) => {
+rutas.post('/proyectos/:id/pipeline/h5p', exigirSesion, exigirPermiso('recursos.generar'), pipelineCurso('proyectos.crear'), limiteLanzar, validar(z.object({ id: IdProyecto }), 'params'), validar(EsquemaLanzarH5p, 'body'), async (req, res, next) => {
   try {
     const { maximo, unidades, reintentarErrores, regenerar } = req.bodyOk
     if (regenerar && await correcciones.bloqueaRegenerar(req.pipe.propietarioId, req.paramsOk.id, codigosDeRegenerar(regenerar))) return res.status(409).json({ error: correcciones.MENSAJE_PENDIENTE + ': espere a que el docente la marque como corregida.', correccionPendiente: true })
     const r = await lanzarH5p({ usuario: req.pipe.usuario, proyectoId: req.paramsOk.id, maximo, unidades, reintentarErrores, regenerar, encolar: true, pedidoPor: req.usuario.id })
-    if (r.codigo === 202) auditar(req.usuario.id, regenerar ? 'h5p.regenerar' : reintentarErrores ?'h5p.reintentar' : 'h5p.generar', 'proyecto', req.paramsOk.id, req)
+    if (r.codigo === 202) auditar(req.usuario.id, regenerar ? 'h5p.regenerar' : reintentarErrores ?'h5p.reintentar' : 'recursos.generar', 'proyecto', req.paramsOk.id, req)
     res.status(r.codigo).json(r.cuerpo)
   } catch (err) { next(err) }
 })

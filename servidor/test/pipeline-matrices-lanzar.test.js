@@ -31,7 +31,7 @@ before(async () => {
   const dueno = new pg.Client({ connectionString: `postgres://postgres:duenio@localhost:${PUERTO_PG}/ova` })
   await dueno.connect()
   await dueno.query("CREATE ROLE ova_app LOGIN PASSWORD 'appclave' NOSUPERUSER NOBYPASSRLS")
-  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql', '014_tipo_bibliografia.sql', '015_imagen_consumo_recurso.sql', '017_partes_recurso.sql', '018_estado_previo.sql', '019_actividad_tipos.sql', '020_alerta_actividad.sql', '021_matriz_actualizada.sql', '024_curso_diseno.sql', '025_asignar_diseno.sql', '026_correcciones.sql', '027_cola_regenerar.sql', '028_cola_partes.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
+  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql', '014_tipo_bibliografia.sql', '015_imagen_consumo_recurso.sql', '017_partes_recurso.sql', '018_estado_previo.sql', '019_actividad_tipos.sql', '020_alerta_actividad.sql', '021_matriz_actualizada.sql', '024_curso_diseno.sql', '025_asignar_diseno.sql', '026_correcciones.sql', '027_cola_regenerar.sql', '028_cola_partes.sql', '029_permiso_h5p.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
   await dueno.end()
   n8n = http.createServer((req, res) => {
     const partes = []
@@ -218,7 +218,7 @@ test('H5P: una sola corrida a la vez, el 409 de n8n y los fallos se explican y n
   respuestaN8n = { estado: 200, cuerpo: { ok: true } }
   assert.equal((await ana('POST', '/proyectos/curso-h/pipeline/h5p', { maximo: 3 })).status, 202) // los fallos no dejaron bloqueado el curso
   const beto = await entrar('beto@u.co')
-  assert.equal((await beto('POST', '/proyectos/curso-h/pipeline/h5p', { maximo: 3 })).status, 409) // curso ajeno
+  assert.equal((await beto('POST', '/proyectos/curso-h/pipeline/h5p', { maximo: 3 })).status, 403) // curso ajeno
 })
 
 test('matrices: la orden lleva formación y guiones por unidad; sin guiones no sale, y el 400 de n8n se explica; el ack trae ejecucion_id', async () => {

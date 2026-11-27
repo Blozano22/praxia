@@ -664,7 +664,7 @@ export default function MatricesH5P({ s, propietario, soloLectura = false }) {
           {ultimaH5P && <CorridaFranja e={ultimaH5P} />}
         </section>
       )}
-      {d && !puedeH5p && !soloLectura && listas > 0 && <p className="help" style={{ marginTop: 10 }}>La generación de H5P desde Praxia todavía no está activada en este servidor.</p>}
+      {d && d.rolH5p && !puedeH5p && !soloLectura && listas > 0 && <p className="help" style={{ marginTop: 10 }}>La generación de H5P desde Praxia todavía no está activada en este servidor.</p>}
 
       {d && fase === 2 && todoAlDia && !(enCursoMat.length > 0 || corridaH5p || soloEnviado) && (
         <section className="mx3-ahora listo">

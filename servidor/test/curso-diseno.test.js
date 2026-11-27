@@ -23,7 +23,7 @@ before(async () => {
   const duenio = new pg.Client({ connectionString: `postgres://postgres:duenio@localhost:${PUERTO_PG}/ova` })
   await duenio.connect()
   await duenio.query("CREATE ROLE ova_app LOGIN PASSWORD 'appclave' NOSUPERUSER NOBYPASSRLS")
-  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql', '014_tipo_bibliografia.sql', '015_imagen_consumo_recurso.sql', '017_partes_recurso.sql', '018_estado_previo.sql', '019_actividad_tipos.sql', '020_alerta_actividad.sql', '021_matriz_actualizada.sql', '024_curso_diseno.sql', '025_asignar_diseno.sql', '026_correcciones.sql', '027_cola_regenerar.sql', '028_cola_partes.sql']) await duenio.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
+  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql', '014_tipo_bibliografia.sql', '015_imagen_consumo_recurso.sql', '017_partes_recurso.sql', '018_estado_previo.sql', '019_actividad_tipos.sql', '020_alerta_actividad.sql', '021_matriz_actualizada.sql', '024_curso_diseno.sql', '025_asignar_diseno.sql', '026_correcciones.sql', '027_cola_regenerar.sql', '028_cola_partes.sql', '029_permiso_h5p.sql']) await duenio.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
   await duenio.query(fs.readFileSync(path.join(aqui, '..', 'sql', '024_curso_diseno.sql'), 'utf8')) // idempotente
   await duenio.end()
   process.env.DATABASE_URL = `postgres://ova_app:appclave@localhost:${PUERTO_PG}/ova`
@@ -107,7 +107,7 @@ test('en_diseno y asignado: el docente no guarda ni usa guiones ni pipeline; lee
     assert.equal(put.status, 409)
     assert.match((await put.json()).error, /solo lectura/)
     for (const [m, ruta, cuerpo] of [['POST', '/proyectos/curso-1/pipeline/matrices', {}], ['POST', '/proyectos/curso-1/pipeline/h5p', {}], ['POST', '/proyectos/curso-1/pipeline/recursos/x/aprobar', {}], ['POST', '/proyectos/curso-1/pipeline/recursos/x/h5p', {}],
-      ['PUT', '/proyectos/curso-1/pipeline/recursos/x/contenido', { contenido: {} }], ['PUT', '/proyectos/curso-1/pipeline/recursos/imagen', { recursoId: 'x', imagenUrl: '' }]]) assert.equal((await ana(m, ruta, cuerpo)).status, 409, m + ' ' + ruta)
+      ['PUT', '/proyectos/curso-1/pipeline/recursos/x/contenido', { contenido: {} }], ['PUT', '/proyectos/curso-1/pipeline/recursos/imagen', { recursoId: 'x', imagenUrl: '' }]]) assert.equal((await ana(m, ruta, cuerpo)).status, ruta.endsWith('/pipeline/h5p') ? 403 : 409, m + ' ' + ruta)
     const g = await ana('POST', GUIONES, pedidoGuion)
     assert.equal(g.status, 409)
     assert.equal((await g.json()).bloqueado, true)
@@ -121,7 +121,7 @@ test('en_revision_docente: guarda el curso y lanza guiones, pero no matrices ni 
   await pool.query("UPDATE curso_diseno SET estado = 'en_revision_docente' WHERE proyecto_id = 'curso-1'")
   const v = (await (await ana('GET', '/proyectos')).json())[0]._v
   assert.equal((await ana('PUT', '/proyectos/curso-1', proyecto({ _v: v, curso: 'Corregido' }))).status, 200)
-  for (const ruta of ['/proyectos/curso-1/pipeline/matrices', '/proyectos/curso-1/pipeline/h5p']) assert.equal((await ana('POST', ruta, {})).status, 409, ruta)
+  for (const ruta of ['/proyectos/curso-1/pipeline/matrices', '/proyectos/curso-1/pipeline/h5p']) assert.equal((await ana('POST', ruta, {})).status, ruta.endsWith('/h5p') ? 403 : 409, ruta)
   const g = await ana('POST', GUIONES, pedidoGuion)
   assert.ok(!(await g.json()).bloqueado) // pasa el bloqueo (después falla por otra causa: no hay bibliografía)
 })
@@ -142,7 +142,7 @@ test('asignado con una corrección abierta: el docente guarda el curso y lanza g
   const cid = (await pool.query("INSERT INTO correcciones (propietario_id, proyecto_id, recurso_id, codigo) VALUES ($1, 'curso-1', 'r1', 'U1-T1-R1') RETURNING id", [ownerId])).rows[0].id
   const v = (await (await ana('GET', '/proyectos')).json())[0]._v
   assert.equal((await ana('PUT', '/proyectos/curso-1', proyecto({ _v: v, curso: 'Con corrección' }))).status, 200)
-  for (const ruta of ['/proyectos/curso-1/pipeline/matrices', '/proyectos/curso-1/pipeline/h5p']) assert.equal((await ana('POST', ruta, {})).status, 409, ruta)
+  for (const ruta of ['/proyectos/curso-1/pipeline/matrices', '/proyectos/curso-1/pipeline/h5p']) assert.equal((await ana('POST', ruta, {})).status, ruta.endsWith('/h5p') ? 403 : 409, ruta)
   assert.ok(!(await (await ana('POST', GUIONES, pedidoGuion)).json()).bloqueado)
   await pool.query("UPDATE correcciones SET estado = 'corregida' WHERE id = $1", [cid])
   assert.equal((await ana('PUT', '/proyectos/curso-1', proyecto({ curso: 'Otra vez' }))).status, 409)

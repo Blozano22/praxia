@@ -28,7 +28,7 @@ before(async () => {
   const dueno = new pg.Client({ connectionString: `postgres://postgres:duenio@localhost:${PUERTO_PG}/ova` })
   await dueno.connect()
   await dueno.query("CREATE ROLE ova_app LOGIN PASSWORD 'appclave' NOSUPERUSER NOBYPASSRLS")
-  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql', '014_tipo_bibliografia.sql', '015_imagen_consumo_recurso.sql', '017_partes_recurso.sql', '018_estado_previo.sql', '019_actividad_tipos.sql', '020_alerta_actividad.sql', '021_matriz_actualizada.sql', '024_curso_diseno.sql', '025_asignar_diseno.sql', '026_correcciones.sql', '027_cola_regenerar.sql', '028_cola_partes.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
+  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql', '014_tipo_bibliografia.sql', '015_imagen_consumo_recurso.sql', '017_partes_recurso.sql', '018_estado_previo.sql', '019_actividad_tipos.sql', '020_alerta_actividad.sql', '021_matriz_actualizada.sql', '024_curso_diseno.sql', '025_asignar_diseno.sql', '026_correcciones.sql', '027_cola_regenerar.sql', '028_cola_partes.sql', '029_permiso_h5p.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
   await dueno.end()
   n8n = http.createServer((req, res) => {
     const partes = []
@@ -157,4 +157,17 @@ test('el administrador puede operar cualquier curso con propietario', async () =
   const r = await admin('POST', '/proyectos/c1/pipeline/matrices' + q(), { unidades: [2] })
   assert.ok([202, 409].includes(r.status), 'status ' + r.status)
   assert.equal((await admin('GET', '/diseno/cursos/' + ids.ana + '/c1')).status, 200)
+})
+
+test('H5P: el docente recibe 403 (permiso recursos.generar); diseñador y administración no', async () => {
+  const ana = await entrar('ana@u.co'); const dina = await entrar('dina@u.co'); const admin = await entrar('admin@u.co')
+  const n = recibidas.length
+  assert.equal((await ana('POST', '/proyectos/c1/pipeline/h5p', { unidades: [1] })).status, 403)
+  assert.equal((await ana('POST', '/proyectos/c1/pipeline/h5p', { reintentarErrores: true })).status, 403)
+  assert.equal(recibidas.length, n)
+  assert.notEqual((await dina('POST', '/proyectos/c1/pipeline/h5p' + q(), { unidades: [1] })).status, 403)
+  assert.notEqual((await admin('POST', '/proyectos/c1/pipeline/h5p' + q(), { unidades: [1] })).status, 403)
+  // el flag de la pantalla: verdadero para el diseñador (con la URL de n8n configurada), falso para el docente
+  assert.equal((await (await dina('GET', '/proyectos/c1/pipeline' + q())).json()).puedeGenerarH5p, true)
+  assert.equal((await (await ana('GET', '/proyectos/c1/pipeline')).json()).puedeGenerarH5p, false)
 })
