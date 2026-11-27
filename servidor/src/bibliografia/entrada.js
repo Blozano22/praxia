@@ -63,5 +63,8 @@ export function extraerEntradas(textoSyllabus) {
   return salida
     .filter((e) => parece(e.texto))
     .map((e) => ({ ...parseEntrada(e.texto), unidad: e.unidad, categoria: e.categoria }))
-    .filter((e) => { const k = e.doi || e.url || e.entrada_cruda.toLowerCase(); if (vistos.has(k)) return false; vistos.add(k); return true })
+    // Una fuente repetida DENTRO de la misma unidad se lee una vez; la misma fuente en otra unidad se conserva: cada unidad
+    // recibe su propia bibliografía (el Syllabus de Derecho Penal lista la Ley 906 y la Ley 2477 en las unidades 1 y 2, y la
+    // deduplicación global dejaba a la unidad 2 sin ellas).
+    .filter((e) => { const k = (e.doi || e.url || e.entrada_cruda.toLowerCase()) + '|' + (e.unidad || ''); if (vistos.has(k)) return false; vistos.add(k); return true })
 }

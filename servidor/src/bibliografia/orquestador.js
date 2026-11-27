@@ -7,6 +7,8 @@ import { Q } from '../consultas.js'
 import { descargar } from './red.js'
 import { metadatosPorDoi } from './crossref.js'
 import { huella, leerDocx, leerHtml, leerPdf, tipoDeContenido } from './extraer.js'
+import { esPdf } from './tipo.js'
+import { decodificar } from './decodificar.js'
 import { limpiarDoi } from './entrada.js'
 import * as openalex from './openalex.js'
 import { similitud } from './openalex.js'
@@ -121,7 +123,7 @@ export async function procesarFuente(usuario, fuente, ctx = {}) {
       const formato = tipoDeContenido(r.tipo, r.url, r.datos)
       if (!formato) { notas.push('Formato no admitido (' + (r.tipo || 'desconocido') + ')'); continue }
       if (url === inicio) urlFinal = r.url
-      const resultado = formato === 'pdf' ? await leerPdf(r.datos) : formato === 'docx' ? await leerDocx(r.datos) : leerHtml(r.datos.toString('utf8'), r.url)
+      const resultado = formato === 'pdf' ? await leerPdf(r.datos) : formato === 'docx' ? await leerDocx(r.datos) : leerHtml(decodificar(r.datos, r.tipo), r.url)
       if (formato === 'pdf') {
         capaPdf = capaPdf || { titulo: resultado.meta.titulo, autores: autoresDeTexto((resultado.meta.autoresTexto || '').split(/;| y | and /)), anio: resultado.meta.anio }
         if (resultado.ocr) notas.push('Leído por OCR (PDF escaneado, ' + resultado.ocr + ' páginas): puede traer errores de lectura')
@@ -198,11 +200,11 @@ export async function leerArchivoSubido(usuario, fuenteId, datos, nombre) {
   const uid = usuario.id
   const ext = (/\.([A-Za-z0-9]{2,5})$/.exec(nombre || '') || [])[1] || ''
   let formato = null
-  if (datos.subarray(0, 5).toString() === '%PDF-') formato = 'pdf'
+  if (esPdf(datos)) formato = 'pdf'
   else if (/^docx$/i.test(ext) && datos.subarray(0, 2).toString() === 'PK') formato = 'docx'
   else if (/^html?$/i.test(ext)) formato = 'html'
   if (!formato) throw Object.assign(new Error('Formato no admitido: sube un PDF, un Word (.docx) o una página guardada (.html).'), { estado: 415 })
-  const resultado = formato === 'pdf' ? await leerPdf(datos) : formato === 'docx' ? await leerDocx(datos) : leerHtml(datos.toString('utf8'), 'https://archivo.local/')
+  const resultado = formato === 'pdf' ? await leerPdf(datos) : formato === 'docx' ? await leerDocx(datos) : leerHtml(decodificar(datos, ''), 'https://archivo.local/')
   const chars = resultado.paginas.reduce((a, p) => a + p.texto.length, 0)
   if (!chars) throw Object.assign(new Error('No se pudo sacar texto del archivo, ni siquiera por OCR (¿imagen borrosa o muy girada?).'), { estado: 422 })
   const sha = huella(datos)

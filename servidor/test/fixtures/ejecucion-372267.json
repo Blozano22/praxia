@@ -1,0 +1,132 @@
+{
+  "_procedencia": {
+    "fuente": "Ejecución 372267 del flujo de producción LpbqMnxAaiFSXhQG (modo manual, 2026-11-07). Solo lectura: se exportaron únicamente los campos listados.",
+    "nodos": [
+      "Webhook Guiones (entrada)",
+      "Armar estructura RED (tema y bibliografía entregados)",
+      "Generar guion (fuentes_ids y sustento de cada recurso)"
+    ],
+    "syllabus": "https://docs.google.com/document/d/1nmsiSTUe4RQfOaVTDhWB5IihLDyyCHdcrhF9hx0Mf70 (Fundamentos de Administración, Tecnología en Gestión del Servicio de Policía)",
+    "unidad": "https://docs.google.com/document/d/1GEWR93I5kIQpJHxdbqIFBJkpzlpJxqyMv-exK6Y4S9I (Unidad 2: Administración estratégica)",
+    "nota": "En esa ejecución el flujo era la versión anterior: n8n NO recibió el texto de las fuentes (solo sus referencias del Syllabus), por eso ninguna entrada trae extractos."
+  },
+  "entrada": {
+    "unidad_url": "https://docs.google.com/document/d/1GEWR93I5kIQpJHxdbqIFBJkpzlpJxqyMv-exK6Y4S9I/edit?tab=t.0#heading=h.3x3x7a8uy59n",
+    "syllabus_url": "https://docs.google.com/document/d/1nmsiSTUe4RQfOaVTDhWB5IihLDyyCHdcrhF9hx0Mf70/edit?tab=t.0"
+  },
+  "unidad": 2,
+  "tema": {
+    "numero": 1,
+    "nombre": "1. Diagnóstico estratégico y gestión del cambio",
+    "subtemas": [
+      "1. Herramientas para el análisis del entorno institucional",
+      "2. Análisis del entorno en la administración estratégica",
+      "3. Análisis interno y gestión del cambio en la administración estratégica"
+    ]
+  },
+  "bibliografia_entregada": [
+    {
+      "id": "U2-B1",
+      "tipo": "basica",
+      "texto": "Departamento Administrativo de la Función Pública. (2025). Guía para la gestión integral del riesgo en entidades públicas (versión 7). https://www.funcionpublica.gov.co/documents/20119/767360/2025-09-11_Guia_gestion_integral_riesgo_v7.pdf/6bb23c52-643d-eaed-fcd6-b80d27408f41?version=2.0",
+      "url": "https://www.funcionpublica.gov.co/documents/20119/767360/2025-09-11_Guia_gestion_integral_riesgo_v7.pdf/6bb23c52-643d-eaed-fcd6-b80d27408f41?version=2.0"
+    },
+    {
+      "id": "U2-B2",
+      "tipo": "basica",
+      "texto": "Ministerio de Defensa Nacional. (2023). Plan estratégico institucional (PEI) 2023–2026. https://www.policia.gov.co/sites/default/files/2024-12/PLAN%20ESTRAT%C3%89GICO%20INSTITUCIONAL%20DEL%20SECTOR%20DEFENSA%202023-2026.pdf",
+      "url": "https://www.policia.gov.co/sites/default/files/2024-12/PLAN%20ESTRAT%C3%89GICO%20INSTITUCIONAL%20DEL%20SECTOR%20DEFENSA%202023-2026.pdf"
+    },
+    {
+      "id": "U2-B3",
+      "tipo": "basica",
+      "texto": "Policía Nacional de Colombia. (2024). Plan estratégico de tecnologías de la información y las comunicaciones 2024–2026. https://www.policia.gov.co/sites/default/files/descargables/Plan-Estrategico-de-Tecnologias-de-la-informacion-Comunicaciones-2024-2026.pdf",
+      "url": "https://www.policia.gov.co/sites/default/files/descargables/Plan-Estrategico-de-Tecnologias-de-la-informacion-Comunicaciones-2024-2026.pdf"
+    },
+    {
+      "id": "U2-C1",
+      "tipo": "complementaria",
+      "texto": "Departamento Administrativo de la Función Pública. (2024). Manual operativo del Modelo Integrado de Planeación y Gestión (MIPG) (versión 6). https://www1.funcionpublica.gov.co/documents/28587410/56548624/2024-12-18_Manual_operativo_mipg_6V-publicada.pdf/0a5653af-7639-bda1-ec7a-6cded14d7da4?t=1746645145494",
+      "url": "https://www1.funcionpublica.gov.co/documents/28587410/56548624/2024-12-18_Manual_operativo_mipg_6V-publicada.pdf/0a5653af-7639-bda1-ec7a-6cded14d7da4?t=1746645145494"
+    },
+    {
+      "id": "U2-C2",
+      "tipo": "complementaria",
+      "texto": "Departamento Administrativo de la Función Pública. (2024). Caracterización de grupos de valor y ciudadanías (versión 2). https://www1.funcionpublica.gov.co/documents/418537/34076909/2024-01-31_Informes_caracterizacion_2023_v2.pdf/16dd1c29-5385-eae3-7b28-e4940343137b?t=1706755468299",
+      "url": "https://www1.funcionpublica.gov.co/documents/418537/34076909/2024-01-31_Informes_caracterizacion_2023_v2.pdf/16dd1c29-5385-eae3-7b28-e4940343137b?t=1706755468299"
+    },
+    {
+      "id": "U2-C3",
+      "tipo": "complementaria",
+      "texto": "Policía Nacional de Colombia. (2023). Acta de informe de gestión: Período del 16 de agosto de 2022 al 13 de abril de 2023. https://www.policia.gov.co/sites/default/files/acta_empalme_-_informe_de_gestion_del_16-08-2022_al_13-04-2023.pdf",
+      "url": "https://www.policia.gov.co/sites/default/files/acta_empalme_-_informe_de_gestion_del_16-08-2022_al_13-04-2023.pdf"
+    }
+  ],
+  "syllabus_unidad1_basica": [
+    "Policía Nacional de Colombia. (2024, 30 de abril). La Policía Nacional presenta el Marco de Gerencia Policial: un hito en la gestión y planeación para la convivencia y seguridad.",
+    "Policía Nacional de Colombia. (2025). Informe de gestión 2024.",
+    "Departamento Administrativo de la Función Pública. (2025). Guía para la gestión integral del riesgo en entidades públicas (versión 7)."
+  ],
+  "generar_guion": {
+    "presentacion": {
+      "fuentes_ids": [],
+      "sustento": "La presentación se basa en la estructura y resultados de aprendizaje de la asignatura y el programa, siguiendo la hoja de estructura RED."
+    },
+    "recursos": [
+      {
+        "posicion": 1,
+        "titulo": "Factores clave para el análisis del entorno institucional",
+        "fuentes_ids": [
+          "U2-B2",
+          "U2-B1"
+        ],
+        "sustento": "El título de U2-B2 aborda el plan estratégico institucional y el de U2-B1 la gestión integral del riesgo, ambos relacionados con el análisis del entorno institucional."
+      },
+      {
+        "posicion": 2,
+        "titulo": "Secuencia de pasos para aplicar herramientas de diagnóstico institucional",
+        "fuentes_ids": [
+          "U2-B1",
+          "U2-C1"
+        ],
+        "sustento": "El título de U2-B1 aborda la gestión integral del riesgo y el de U2-C1 el modelo integrado de planeación y gestión, ambos relevantes para el diagnóstico institucional."
+      },
+      {
+        "posicion": 3,
+        "titulo": "Variables del entorno en la administración estratégica",
+        "fuentes_ids": [
+          "U2-B2",
+          "U2-C1"
+        ],
+        "sustento": "El título de U2-B2 aborda el plan estratégico institucional y el de U2-C1 el modelo integrado de planeación y gestión, ambos relacionados con el análisis del entorno en la administración estratégica."
+      },
+      {
+        "posicion": 4,
+        "titulo": "Identificación visual de elementos del entorno estratégico",
+        "fuentes_ids": [
+          "U2-B2",
+          "U2-C2"
+        ],
+        "sustento": "El título de U2-B2 aborda el plan estratégico institucional y el de U2-C2 la caracterización de grupos de valor, ambos útiles para identificar elementos del entorno estratégico."
+      },
+      {
+        "posicion": 5,
+        "titulo": "Procesos internos y gestión del cambio en la administración estratégica",
+        "fuentes_ids": [
+          "U2-B1",
+          "U2-B3"
+        ],
+        "sustento": "El título de U2-B1 trata la gestión integral del riesgo y el de U2-B3 el plan estratégico de tecnologías, ambos vinculados al análisis interno y la gestión del cambio."
+      },
+      {
+        "posicion": 6,
+        "titulo": "Aplicación de la gestión del cambio en casos institucionales",
+        "fuentes_ids": [
+          "U2-B1",
+          "U2-B3"
+        ],
+        "sustento": "El título de U2-B1 trata la gestión integral del riesgo y el de U2-B3 el plan estratégico de tecnologías, ambos relevantes para la gestión del cambio en procesos administrativos."
+      }
+    ]
+  }
+}

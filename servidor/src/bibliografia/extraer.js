@@ -8,13 +8,7 @@ import { leerPaginasConOcr, ocrActivo } from './ocr.js'
 export const huella = (buf) => crypto.createHash('sha256').update(buf).digest('hex')
 const limpiaTexto = (s) => String(s || '').replace(/ /g, ' ').replace(/[ \t]+/g, ' ').replace(/ ?\n ?/g, '\n').replace(/\n{3,}/g, '\n\n').trim()
 
-export const tipoDeContenido = (tipo, url, datos) => {
-  if (datos && datos.length > 4 && datos.subarray(0, 5).toString() === '%PDF-') return 'pdf'
-  if (/pdf/.test(tipo) || /\.pdf(?:[?#]|$)/i.test(url)) return datos && datos.subarray(0, 5).toString() === '%PDF-' ? 'pdf' : null
-  if (/officedocument\.wordprocessingml/.test(tipo) || /\.docx(?:[?#]|$)/i.test(url)) return 'docx'
-  if (/html|xml/.test(tipo) || !tipo) return 'html'
-  return null
-}
+export { tipoDeContenido } from './tipo.js'
 
 // ---------------------------------------------------------------- PDF
 export async function leerPdf(datos) {

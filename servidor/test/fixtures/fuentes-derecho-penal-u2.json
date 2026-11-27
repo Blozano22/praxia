@@ -1,0 +1,46 @@
+{
+  "_procedencia": {
+    "syllabus": "Syllabus «Derecho Penal y Actuaciones de Policía Judicial» (Google Docs 1ZDFdML-5Dm4t8RCbIif2MpkIKq8GX4HKwrMbYFJlUo8), Unidad 2 «Policía judicial e investigación», Tema 1 «Gestión de la evidencia y documentación judicial».",
+    "textos": "Ley 906 de 2004, arts. 254–255, tomados del texto oficial publicado en funcionpublica.gov.co (norma.php?i=14787); resumen del artículo de Calderón-Ortega y Cueto-Calderón (2022) tomado de redalyc.org/journal/1002/100274292006/html/. Las páginas son las de una paginación de prueba de 2 500 caracteres, no las que numera Praxia. El texto de Redalyc llega con caracteres perdidos (art culo, producci n) tal como lo entrega la página."
+  },
+  "unidad": 2,
+  "tema": {
+    "numero": 1,
+    "nombre": "Gestión de la evidencia y documentación judicial",
+    "subtemas": [
+      "Elementos materiales probatorios y evidencia física",
+      "Técnicas de fijación, recolección, embalaje y preservación",
+      "Registro de cadena de custodia"
+    ]
+  },
+  "entradas": [
+    {
+      "id": "U2-B1",
+      "tipo": "basica",
+      "texto": "Congreso de Colombia. (2004). Ley 906 de 2004. Por la cual se expide el Código de Procedimiento Penal.",
+      "extractos": [
+        {
+          "pagina": 98,
+          "texto": "ARTÍCULO 254 . Aplicación. Con el fin de demostrar la autenticidad de los elementos materiales probatorios y evidencia física, la cadena de custodia se aplicará teniendo en cuenta los siguientes factores: identidad, estado original, condiciones de recolección, preservación, embalaje y envío; lugares y fechas de permanencia y los cambios que cada custodio haya realizado. Igualmente se registrará el nombre y la identificación de todas las personas que hayan estado en contacto con esos elementos. La cadena de custodia se iniciará en el lugar donde se descubran, recauden o encuentren los elementos materiales probatorios y evidencia física, y finaliza por orden de autoridad competente. Parágrafo. El Fiscal General de la Nación reglamentará lo relacionado con el diseño, aplicación y control del sistema de cadena de custodia, de acuerdo con los avances científicos, técnicos y artísticos. NOTA: El Manual de procedimientos del Sistema de Cadena de Custodia, fue adoptado por la Fiscalía General de la Nación, mediante la Resolución 0-6394 de 2004 ARTÍCULO 255 . Responsabilidad. La aplicación de la cadena de custodia es responsabilidad de los servidores públicos que entren en contacto con los elementos materiales probatorios y evidencia física. Los particulares que por razón de su trabajo o por el cumplimento de las funciones propias de su cargo, en especial el personal de los servicios de salud que entren en contacto con elementos materiales probatorios y evidencia física, son responsables por su recolección, preservación y entrega a la autoridad correspondiente. ARTÍCULO 256 . Macroelementos materiales probatorios . Los objetos de gran tamaño, como naves, aeronaves, vehículos autom"
+        }
+      ]
+    },
+    {
+      "id": "U2-C3",
+      "tipo": "complementaria",
+      "texto": "Calderón-Ortega, M. A., & Cueto-Calderón, C. A. (2022). Prueba por inteligencia artificial: una propuesta de producción probatoria desde el dictamen pericial científico en Colombia. Civilizar: Ciencias Sociales y Humanas, 22(42).",
+      "extractos": [
+        {
+          "pagina": 1,
+          "texto": "Resumen: El presente art culo propone reglas probatorias para la producci n de la prueba por inteligencia artificial dentro del proceso judicial colombiano a partir del dictamen pericial cient fico. Para ello, se elabor una metodolog a cualitativa, jur dica, anal tica de dise o bibliogr fico-documental basado en fichas de an lisis de fuentes secundarias (bibliograf a, normativa y jurisprudencia) estudiadas desde la hermen utica sistem tica y teleol gica. Se cuestion la eficacia de los mensajes de datos frente a las necesidades de la prueba derivada de la m quina sapiente, se identificaron los elementos dogm ticos del dictamen pericial en Colombia a partir de los m ltiples reg menes procesales y se caracteriz la pericia cient fica seg n la Ley 721 de 2001 . Result que la normativa actual ex"
+        }
+      ]
+    },
+    {
+      "id": "U2-B3",
+      "tipo": "basica",
+      "texto": "Pérez Alarcón, C. A. (2022). ¿Es necesario el testigo de acreditación para la prueba documental en el proceso penal colombiano? Vniversitas, 71.",
+      "extractos": []
+    }
+  ]
+}
