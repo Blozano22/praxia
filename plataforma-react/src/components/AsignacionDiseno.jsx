@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../lib/api.js'
 import Titulo from './Titulo.jsx'
+import './asignacion-diseno.css'
 
 // «Asignación a diseño» (coordinación): cursos que los docentes enviaron a diseño; se asignan o reasignan a un diseñador, a mano o con «Asignación rápida» (el de menor carga).
-const ESTADOS = { en_diseno: ['warn', 'Sin asignar'], asignado: ['ok', 'Asignado'], en_revision_docente: ['', 'En revisión del docente'] }
+const ESTADOS = { en_diseno: ['warn', 'Sin asignar'], asignado: ['ok', 'Asignado'], en_revision_docente: ['info', 'En revisión del docente'] }
 const FILTROS = [['todos', 'Todos'], ['sin', 'Sin asignar'], ['asignados', 'Asignados'], ['revision', 'En revisión']]
 const coincide = (f, filtro) => filtro === 'todos' || (filtro === 'sin' && f.estado === 'en_diseno') || (filtro === 'asignados' && f.estado === 'asignado') || (filtro === 'revision' && f.estado === 'en_revision_docente')
 const fecha = (t) => { try { return new Date(t).toLocaleDateString() } catch { return '' } }
-const COLS = { display: 'grid', gridTemplateColumns: '1.6fr 1fr 1.2fr .7fr 1fr 2.4fr', gap: 10, alignItems: 'center' }
+const RAYO = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z" /></svg>
 
 export default function AsignacionDiseno() {
   const [filas, setFilas] = useState(null)
@@ -59,7 +60,7 @@ export default function AsignacionDiseno() {
     <div className="wrapx fade">
       <Titulo icono="inicio">
         <h1>Asignación a diseño</h1>
-        <p className="lead">Cursos que los docentes enviaron a diseño. Asigne cada uno a un diseñador; la carga cuenta los cursos asignados o en revisión.</p>
+        <p className="lead">Cursos enviados a diseño por los docentes. Asigne cada uno a un diseñador.</p>
       </Titulo>
       {error && <div className="msg err" role="alert">{error}</div>}
       {avisos.map((a) => (
@@ -69,39 +70,53 @@ export default function AsignacionDiseno() {
           <button className="btn sm sec" onClick={() => setAvisos((x) => x.filter((y) => y !== a))}>Entendido</button>
         </div>
       ))}
-      <div className="db2-progs">
-        {FILTROS.map(([k, t]) => <button key={k} className={filtro === k ? 'on' : ''} onClick={() => setFiltro(k)}>{t} <span>· {(filas || []).filter((f) => coincide(f, k)).length}</span></button>)}
-        <button className="btn gold sm" style={{ marginLeft: 'auto' }} disabled={!sinAsignar || ocupado === 'todos'} onClick={todos}>{ocupado === 'todos' ? 'Asignando…' : 'Asignar todos los pendientes (' + sinAsignar + ')'}</button>
+      {filas && (
+        <div className="ad-resumen">
+          <div className="ad-cifra warn"><b>{sinAsignar}</b> sin asignar</div>
+          <div className="ad-cifra ok"><b>{filas.filter((f) => f.estado === 'asignado').length}</b> asignados</div>
+          <div className="ad-cifra"><b>{filas.filter((f) => f.estado === 'en_revision_docente').length}</b> en revisión</div>
+        </div>
+      )}
+      <div className="ad-barra">
+        <div className="ad-tabs" role="group" aria-label="Filtrar cursos">
+          {FILTROS.map(([k, t]) => <button key={k} className={filtro === k ? 'on' : ''} aria-pressed={filtro === k} onClick={() => setFiltro(k)}>{t} <span>{(filas || []).filter((f) => coincide(f, k)).length}</span></button>)}
+        </div>
+        {sinAsignar > 0 && <button className="btn gold sm ad-todos" disabled={ocupado === 'todos'} onClick={todos}>{RAYO}{ocupado === 'todos' ? 'Asignando…' : 'Asignar todos los pendientes (' + sinAsignar + ')'}</button>}
       </div>
       {filas === null && !error && <p className="lead">Cargando…</p>}
-      {filas && (
-        <div className="db2-tabla"><div className="db2-scroll"><div className="db2-min" style={{ minWidth: 980 }}>
-          <div className="db2-fila db2-cabt" style={COLS}><span>Curso</span><span>Programa</span><span>Docente</span><span>Enviado</span><span>Estado</span><span>Diseñador</span></div>
+      {filas && visibles.length === 0 && (
+        <div className="ad-vacio">
+          <span className="ad-vacio-ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg></span>
+          <b>No hay cursos en esta lista</b>
+          <span>Cuando un docente envíe un curso a diseño aparecerá aquí.</span>
+        </div>
+      )}
+      {filas && visibles.length > 0 && (
+        <div className="ad-lista">
+          <div className="ad-fila ad-cab"><span>Curso</span><span>Docente</span><span>Enviado</span><span>Estado</span><span>Diseñador</span></div>
           {visibles.map((f) => {
             const [cls, txt] = ESTADOS[f.estado] || ['', f.estado]
             const k = clave(f)
             const valor = elegido[k] !== undefined ? elegido[k] : ''
             const asignado = f.estado !== 'en_diseno'
             return (
-              <div className="db2-fila" key={k} style={COLS}>
-                <div className="db2-nom"><b>{f.curso || f.proyecto_id}</b></div>
-                <span>{f.programa || '—'}</span>
-                <span title={f.docente_correo}>{f.docente}</span>
-                <span>{fecha(f.enviado_en)}</span>
-                <span><span className={'pill ' + cls}>{txt}</span></span>
-                <div className="db2-acc" style={{ flexWrap: 'wrap' }}>
+              <div className="ad-fila" key={k}>
+                <div className="ad-nom"><b>{f.curso || f.proyecto_id}</b>{f.programa && <small>{f.programa}</small>}</div>
+                <div className="ad-doc" title={f.docente_correo}><span className="ad-lbl">Docente</span>{f.docente}</div>
+                <div className="ad-fecha"><span className="ad-lbl">Enviado</span>{fecha(f.enviado_en)}</div>
+                <div className="ad-est"><span className="ad-lbl">Estado</span><span className={'pill ' + cls}>{txt}</span></div>
+                <div className="ad-acc">
                   <select aria-label={'Diseñador para ' + (f.curso || f.proyecto_id)} value={valor} onChange={(e) => setElegido({ ...elegido, [k]: e.target.value })}>
                     <option value="">{f.disenador ? 'Actual: ' + f.disenador : 'Elegir diseñador…'}</option>
                     {disenadores.map((d) => <option key={d.id} value={d.id}>{d.nombre} ({d.carga} {d.carga === 1 ? 'curso' : 'cursos'})</option>)}
                   </select>
                   <button className="btn sm" disabled={!valor || valor === f.disenador_id || !!ocupado} onClick={() => asignar(f, false)}>{asignado ? 'Reasignar' : 'Asignar'}</button>
-                  <button className="btn sm sec" disabled={!!ocupado} onClick={() => asignar(f, true)}>Asignación rápida</button>
+                  <button className="btn sm sec" disabled={!!ocupado} onClick={() => asignar(f, true)}>{RAYO}Asignación rápida</button>
                 </div>
               </div>
             )
           })}
-          {visibles.length === 0 && <div className="db2-vacio">No hay cursos en esta lista.</div>}
-        </div></div></div>
+        </div>
       )}
     </div>
   )
