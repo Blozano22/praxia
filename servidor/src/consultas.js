@@ -366,14 +366,14 @@ export const Q = Object.freeze({
   // PENDIENTE, EN_PROCESO y ERROR nunca cuentan.
   pipeDesactualizados: `
     SELECT r.codigo, CASE WHEN EXISTS (SELECT 1 FROM asignacion_variantes a WHERE a.propietario_id = r.propietario_id AND a.proyecto_id = r.proyecto_id
-                                         AND a.estado = 'asignada' AND a.plantilla IS NOT NULL AND a.codigo = regexp_replace(r.codigo, '-R([0-9]+)$', '-A\\1'))
+                                         AND a.estado = 'asignada' AND a.plantilla IS NOT NULL AND r.codigo ~ '-T[0-9]+-R[0-9]+$' AND a.codigo ~ '-A[0-9]+$' AND a.codigo = regexp_replace(r.codigo, '-R([0-9]+)$', '-A\\1'))
                           THEN 'actividad_asignada' ELSE 'matriz_actualizada' END AS motivo,
            CASE WHEN jsonb_typeof(r.consumo -> 'costo_estimado_usd') = 'number' THEN (r.consumo ->> 'costo_estimado_usd')::numeric END AS costo
       FROM pipeline_recursos r
      WHERE r.propietario_id = $1 AND r.proyecto_id = $2 AND r.codigo IS NOT NULL AND r.plantilla IS NOT NULL
        AND r.estado IN ('GENERADO','POR_REVISAR') AND r.contenido IS NOT NULL AND r.contenido <> 'null'::jsonb AND r.actividad IS NULL
        AND ( EXISTS (SELECT 1 FROM asignacion_variantes a WHERE a.propietario_id = r.propietario_id AND a.proyecto_id = r.proyecto_id
-                        AND a.estado = 'asignada' AND a.plantilla IS NOT NULL AND a.codigo = regexp_replace(r.codigo, '-R([0-9]+)$', '-A\\1'))
+                        AND a.estado = 'asignada' AND a.plantilla IS NOT NULL AND r.codigo ~ '-T[0-9]+-R[0-9]+$' AND a.codigo ~ '-A[0-9]+$' AND a.codigo = regexp_replace(r.codigo, '-R([0-9]+)$', '-A\\1'))
           OR ( r.bibliografia IS NULL AND r.codigo !~ '-PRES$'
                AND EXISTS (SELECT 1 FROM pipeline_matrices m WHERE m.propietario_id = r.propietario_id AND m.proyecto_id = r.proyecto_id
                              AND m.unidad = r.unidad AND m.estado IN ('reemplazada','actualizada') AND m.actualizado_en > r.actualizado_en) ) )

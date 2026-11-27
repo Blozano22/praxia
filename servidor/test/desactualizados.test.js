@@ -74,6 +74,7 @@ test('actividad asignada (A3 ↔ R3) y matriz reemplazada después de generar: c
   await rec('U2-T1-R1', 2, 'POR_REVISAR')                    // matriz U2 reemplazada -> cuenta
   await rec('U2-T1-R2', 2, 'GENERADO', { bib: true })        // trae bibliografía, no cuenta
   await dueno.query("INSERT INTO asignacion_variantes (propietario_id, proyecto_id, codigo, unidad, categoria, formacion, plantilla, estado, asignada_en) VALUES ($1,'curso-a','U1-T1-A3',1,'G-12','tecnologico','g-12-tec-v01','asignada', now())", [idAna])
+  await dueno.query("INSERT INTO asignacion_variantes (propietario_id, proyecto_id, codigo, unidad, categoria, formacion, plantilla, estado, asignada_en) VALUES ($1,'curso-a','U1-PRES',1,'PRES','tecnologico','pres-tec-v01','asignada', now())", [idAna]) // presentación con variante: no debe salir
   await dueno.query("INSERT INTO asignacion_variantes (propietario_id, proyecto_id, codigo, unidad, categoria, formacion, estado, motivo) VALUES ($1,'curso-a','U1-T1-A7',1,'G-12','tecnologico','pendiente','sin variante')", [idAna])
   await dueno.query("INSERT INTO pipeline_matrices (propietario_id, proyecto_id, unidad, estado, actualizado_en) VALUES ($1,'curso-a',2,'reemplazada', now())", [idAna])
   const d = (await leer()).desactualizados
