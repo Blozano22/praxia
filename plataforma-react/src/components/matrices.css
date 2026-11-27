@@ -370,3 +370,8 @@ button.mx3-fase.bloq{cursor:not-allowed;opacity:.75}
 
 .mx4-alerta{padding:1px 8px;border-radius:99px;background:#fff1cf;color:#8a5a00;font-weight:700;font-size:.72rem;white-space:nowrap}
 .mx4-corr{padding:1px 8px;border-radius:99px;background:#ffe3c2;color:#8a4500;font-weight:700;font-size:.72rem;white-space:nowrap}.mx4-corr.corregida{background:#d8f2e3;color:#1d6b40}
+
+/* Enlace «Abrir matriz» como botón secundario pequeño */
+.mx4-lk{display:inline-flex;align-items:center;gap:7px;min-height:32px;padding:0 12px;border:1px solid #c3ccdc;border-radius:9px;background:#fff;color:var(--nav);font-size:.8rem;font-weight:700;text-decoration:none;white-space:nowrap}
+.mx4-lk:hover{background:#f3f6fb;border-color:var(--nav)}
+.mx4-lk:focus-visible,.mx4-q:focus-visible,.mx4-ver:focus-visible{outline:3px solid var(--brand);outline-offset:2px}

@@ -134,3 +134,16 @@ test('un administrador no se bloquea aunque su curso esté en diseño', async ()
   const m = await adm('POST', '/proyectos/curso-a/pipeline/matrices', {})
   assert.ok(!((await m.json()).bloqueado))
 })
+
+test('asignado con una corrección abierta: el docente guarda el curso y lanza guiones, pero no matrices ni H5P; sin abierta vuelve a solo lectura', async () => {
+  const ana = await entrar('ana@u.co')
+  await pool.query("UPDATE curso_diseno SET estado = 'asignado' WHERE proyecto_id = 'curso-1'")
+  const ownerId = (await pool.query("SELECT propietario_id FROM curso_diseno WHERE proyecto_id = 'curso-1'")).rows[0].propietario_id
+  const cid = (await pool.query("INSERT INTO correcciones (propietario_id, proyecto_id, recurso_id, codigo) VALUES ($1, 'curso-1', 'r1', 'U1-T1-R1') RETURNING id", [ownerId])).rows[0].id
+  const v = (await (await ana('GET', '/proyectos')).json())[0]._v
+  assert.equal((await ana('PUT', '/proyectos/curso-1', proyecto({ _v: v, curso: 'Con corrección' }))).status, 200)
+  for (const ruta of ['/proyectos/curso-1/pipeline/matrices', '/proyectos/curso-1/pipeline/h5p']) assert.equal((await ana('POST', ruta, {})).status, 409, ruta)
+  assert.ok(!(await (await ana('POST', GUIONES, pedidoGuion)).json()).bloqueado)
+  await pool.query("UPDATE correcciones SET estado = 'corregida' WHERE id = $1", [cid])
+  assert.equal((await ana('PUT', '/proyectos/curso-1', proyecto({ curso: 'Otra vez' }))).status, 409)
+})

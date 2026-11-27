@@ -111,7 +111,7 @@ const fin = (id, t, n, eje) => firmado({ evento_id: id + '-fin-' + n, evento: 'h
 const esperar = async (cond) => { for (let i = 0; i < 100; i++) { if (await cond()) return true; await new Promise((r) => setTimeout(r, 50)) } return false }
 const colaDe = async (id) => (await pool.query('SELECT codigo FROM regenerar_cola WHERE proyecto_id = $1 ORDER BY codigo', [id])).rows.map((x) => x.codigo)
 
-test('regenerar con corrida en curso: 202 encolado (no 409), GET marca enColaRegenerar y h5p_fin lanza una corrida nueva con la cola (máx 30) y la vacía', async () => {
+test('regenerar con corrida en curso: 202 encolado (no 409), GET marca enColaRegenerar y h5p_fin lanza una corrida nueva con TODA la cola (sin tope de 30) y la vacía', async () => {
   const ana = await entrar('ana@u.co')
   const t = await prepararCurso(ana, 'curso-cola', 35)
   assert.equal((await fin('curso-cola', t, 1)).status, 200)
@@ -134,17 +134,12 @@ test('regenerar con corrida en curso: 202 encolado (no 409), GET marca enColaReg
   assert.equal(g.colaRegenerar, 34)
   assert.equal(g.recursos.find((x) => x.codigo === 'U1-T1-R2').enColaRegenerar, true)
   assert.equal(g.recursos.find((x) => x.codigo === 'U1-T1-R1').enColaRegenerar, undefined)
-  // h5p_fin de la corrida en curso: sale la orden nueva con 30 y quedan 4
+  // h5p_fin de la corrida en curso: sale una orden nueva con los 34
   assert.equal((await fin('curso-cola', t2, 2, 'ej-b')).status, 200)
   assert.ok(await esperar(async () => recibidas.length === antes + 2))
   const orden = recibidas.at(-1)
   const esperado = [...[...codigos.slice(0, 20)].sort(), ...[...codigos.slice(20)].sort()] // por orden de pedido
-  assert.deepEqual(orden.regenerar, esperado.slice(0, 30))
-  assert.ok(await esperar(async () => (await colaDe('curso-cola')).length === 4))
-  // segundo h5p_fin: salen los 4 restantes y la cola queda vacía
-  assert.equal((await fin('curso-cola', orden.trabajo_id, 3, 'ej-nuevo')).status, 200)
-  assert.ok(await esperar(async () => recibidas.length === antes + 3))
-  assert.deepEqual(recibidas.at(-1).regenerar, esperado.slice(30))
+  assert.deepEqual(orden.regenerar, esperado)
   assert.ok(await esperar(async () => (await colaDe('curso-cola')).length === 0))
 })
 

@@ -1,6 +1,6 @@
 // Estado de «diseño» del curso (tabla curso_diseno; sin fila = con el docente) y el bloqueo que implica.
 //  en_diseno / asignado      → el docente no puede guardar el curso, lanzar guiones ni usar el pipeline (solo lectura).
-//  en_revision_docente       → puede guardar el curso y regenerar guiones, pero NO matrices, H5P ni el resto del pipeline.
+//  en_revision_docente o con alguna corrección abierta → puede guardar el curso y regenerar guiones, pero NO matrices, H5P ni el resto del pipeline.
 // Los administradores no se bloquean (soporte).
 import { conUsuario, sinUsuario } from './db.js'
 import { Q } from './consultas.js'
@@ -25,7 +25,10 @@ export function motivoBloqueo(fila, tipo) {
 // Responde 409 si corresponde; true si la ruta puede continuar. Úsese donde ya se conoce el id del curso.
 export async function exigirEditable(req, res, proyectoId, tipo = 'curso') {
   if (esAdmin(req.usuario)) return true
-  const m = motivoBloqueo(await estadoDiseno(req.usuario.id, proyectoId), tipo)
+  const fila = await estadoDiseno(req.usuario.id, proyectoId)
+  let m = motivoBloqueo(fila, tipo)
+  // el docente puede editar sus guiones mientras tenga una corrección abierta aunque el curso siga «asignado»
+  if (m && tipo === 'curso' && fila && fila.estado === 'asignado' && (await sinUsuario(Q.corrAbiertas, [req.usuario.id, String(proyectoId)])).rows[0].n > 0) m = null
   if (!m) return true
   res.status(409).json({ error: m, bloqueado: true })
   return false
@@ -49,7 +52,7 @@ export async function cursoPipeline(req, proyectoId, escritura) {
   if (esAdmin(u)) return { propietarioId: dueno, usuario: efectivo, delegado: true }
   const f = await estadoDiseno(dueno, proyectoId)
   if (!f || f.disenador_id !== u.id) return { error: { codigo: 403, cuerpo: { error: 'No tienes permiso para esto' } } }
-  if (escritura && f.estado !== 'asignado') return { error: { codigo: 409, cuerpo: { error: 'El curso está en revisión del docente', bloqueado: true } } }
+  if (escritura && !['asignado', 'en_revision_docente'].includes(f.estado)) return { error: { codigo: 409, cuerpo: { error: 'El curso está en revisión del docente', bloqueado: true } } }
   return { propietarioId: dueno, usuario: efectivo, delegado: true, estado: f.estado }
 }
 

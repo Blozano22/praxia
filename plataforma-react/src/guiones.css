@@ -229,3 +229,5 @@
 .ws-envio-btn.sec:disabled{background:transparent;border:1px solid var(--line,#d5dae3);color:color-mix(in srgb,var(--nav) 55%,#fff);cursor:not-allowed;box-shadow:none}
 .ws-envio-motivo{display:flex;align-items:center;gap:5px;font-size:12px;color:#7a8292;text-align:right}
 @media (max-width:900px){.pj:has(.ws-envio){flex-wrap:wrap}.ws-envio{align-items:flex-start;margin-left:0;width:100%}.ws-envio-motivo{text-align:left}}
+.ws-envio-fila{flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px}
+@media (max-width:900px){.ws-envio-fila{justify-content:flex-start}}

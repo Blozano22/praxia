@@ -184,6 +184,50 @@ function ListaRecursos({ recursos, actualId, puedePublicar, sucio, onElegir, onA
   )
 }
 
+// «Más acciones ⋮»: menú desplegable con teclado (flechas, Inicio/Fin, Esc, Tab) y cierre al hacer clic fuera.
+function MenuAcciones({ items }) {
+  const [abierto, setAbierto] = useState(false)
+  const raiz = useRef(null)
+  const boton = useRef(null)
+  const lista = useRef(null)
+  const enfocar = (i) => { const l = lista.current ? [...lista.current.querySelectorAll('[role="menuitem"]:not(:disabled)')] : []; if (l.length) l[(i + l.length) % l.length].focus() }
+  useEffect(() => {
+    if (!abierto) return undefined
+    enfocar(0)
+    const fuera = (e) => { if (raiz.current && !raiz.current.contains(e.target)) setAbierto(false) }
+    document.addEventListener('mousedown', fuera)
+    return () => document.removeEventListener('mousedown', fuera)
+  }, [abierto])
+  const teclas = (e) => {
+    const l = lista.current ? [...lista.current.querySelectorAll('[role="menuitem"]:not(:disabled)')] : []
+    const i = l.indexOf(document.activeElement)
+    if (e.key === 'Escape' && abierto) { e.preventDefault(); e.stopPropagation(); setAbierto(false); boton.current && boton.current.focus() }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); if (!abierto) setAbierto(true); else enfocar(i + 1) }
+    else if (e.key === 'ArrowUp' && abierto) { e.preventDefault(); enfocar(i <= 0 ? -1 : i - 1) }
+    else if (e.key === 'Home' && abierto) { e.preventDefault(); enfocar(0) }
+    else if (e.key === 'End' && abierto) { e.preventDefault(); enfocar(-1) }
+    else if (e.key === 'Tab' && abierto) setAbierto(false)
+  }
+  if (!items.length) return null
+  return (
+    <div className="er-mas" ref={raiz} onKeyDown={teclas}>
+      <button ref={boton} type="button" className={'er-b er-mas-btn' + (abierto ? ' on' : '')} aria-haspopup="menu" aria-expanded={abierto} onClick={() => setAbierto(!abierto)}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="12" cy="19" r="2" /></svg>
+        <span>Más acciones</span>
+      </button>
+      {abierto && (
+        <div className="er-mas-lista" role="menu" aria-label="Más acciones" ref={lista}>
+          {items.map((it) => (
+            <button key={it.k} type="button" role="menuitem" disabled={it.deshab} title={it.titulo} onClick={() => { setAbierto(false); it.onClick() }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={it.icono} /></svg>{it.texto}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function EditorRecurso({ proyecto, propietario, soloLectura = false, recurso, recursos = [], puedePublicar, onAprobar, onRegenerar, parteInicial = '', onParte, onElegir, onCerrar, onActualizar }) {
   const [confirmar, dialogo] = useConfirmar()
   const api = useCallback((metodo, ruta, cuerpo) => apiBase(metodo, conPropietario(ruta, propietario), cuerpo), [propietario])
@@ -318,6 +362,7 @@ export default function EditorRecurso({ proyecto, propietario, soloLectura = fal
 
   // Aprobar y publicar: guarda lo editado, pide la publicación (el componente de arriba confirma si hay que reemplazar un archivo ya publicado) y cierra.
   const [senalCorr, setSenalCorr] = useState(0)
+  const [alertaVer, setAlertaVer] = useState(null) // id del recurso cuya alerta de actividad se muestra completa
   const pedirCorr = () => setSenalCorr((n) => n + 1)
   const aprobarYPublicar = async () => {
     if (actual.alertaActividad) {
@@ -356,8 +401,11 @@ export default function EditorRecurso({ proyecto, propietario, soloLectura = fal
   const [flota, setFlota] = useState({ x: 40, y: 20, w: 360, h: 420, min: false })
   const [arrastre, setArrastre] = useState(null)
   const cuerpo = useRef(null)
+  // Arrastre con pointer events: el elemento captura el puntero, así no se pierde al salir del área ni sobre el iframe, y siempre se suelta.
   const empezar = (tipo, e) => {
+    if (e.button !== undefined && e.button !== 0) return
     e.preventDefault()
+    try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* sin captura */ }
     const r = cuerpo.current ? cuerpo.current.getBoundingClientRect() : { width: 900, height: 600 }
     setArrastre({ tipo, x0: e.clientX, y0: e.clientY, w: r.width, h: r.height, frac, flota: { ...flota } })
   }
@@ -375,8 +423,16 @@ export default function EditorRecurso({ proyecto, propietario, soloLectura = fal
       setFlota((f) => ({ ...f, w: Math.min(arrastre.w - f.x, Math.max(280, arrastre.flota.w + dx)), h: Math.min(arrastre.h - f.y, Math.max(200, arrastre.flota.h + dy)) }))
     }
   }
+  const soltar = (e) => { try { if (e && e.currentTarget && e.currentTarget.hasPointerCapture && e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId) } catch { /* ya soltado */ } setArrastre(null) }
+  useEffect(() => {
+    if (!arrastre) return undefined
+    const fin = () => setArrastre(null)
+    window.addEventListener('pointerup', fin); window.addEventListener('pointercancel', fin); window.addEventListener('blur', fin)
+    return () => { window.removeEventListener('pointerup', fin); window.removeEventListener('pointercancel', fin); window.removeEventListener('blur', fin) }
+  }, [arrastre])
+  const ptr = { onPointerMove: mover, onPointerUp: soltar, onPointerCancel: soltar, onLostPointerCapture: () => setArrastre(null) }
   const pesos = [['Vista 30%', 0.3], ['50 / 50', 0.5], ['Vista 70%', 0.7]]
-  const estiloLado = modo === 'flotante' ? { left: flota.x, top: flota.y, width: flota.w, height: flota.min ? 46 : flota.h } : undefined
+  const estiloLado = modo === 'flotante' ? { left: flota.x, top: flota.y, width: flota.w, height: flota.min ? 64 : flota.h } : undefined
   const actual = recursos.find((x) => x.id === recurso.id) || recurso
   const puedePedirCorr = !!propietario && !actual.correccion
   const urlGuion = vistaGuion(actual.enlaceGuion)
@@ -433,16 +489,17 @@ export default function EditorRecurso({ proyecto, propietario, soloLectura = fal
             if (mal.length) { const u = mal[0].src; return <small className="er-cons" style={{ color: '#b45309' }} title={u}>Imagen: no cargó — haga clic en la imagen para revisar el enlace ({u.length > 60 ? u.slice(0, 57) + '…' : u})</small> }
             return null
           })()}{actual.consumo && /* el servidor solo envía el consumo a administradores */ <small className="er-cons" title="Consumo de la generación de este recurso">{miles(tokensDe(actual.consumo))} tokens · {imagenesDe(actual.consumo)} img · {usd(costoDe(actual.consumo))}{actual.consumo.costo_parcial ? ' (parcial)' : ''}</small>}</div>
-          {estado === 'listo' && !soloLectura && <label className={'er-modo' + (activo ? ' on' : '')} title="Con esto activo, un clic en cualquier texto del recurso lo abre para editarlo">
-            <input type="checkbox" checked={activo} onChange={(e) => cambiarModo(e.target.checked)} />
-            <i className="er-sw" aria-hidden="true" />
-            Editar con clic
-          </label>}
-          {estado === 'listo' && puedePublicar && onAprobar && !actual.correccion && ['POR_REVISAR', 'GENERADO', 'ERROR'].includes(actual.estado) && <button type="button" className="er-b ok" onClick={aprobarYPublicar} disabled={!!ocupado || publicandoAhora} title="Aprobar este contenido: n8n arma el H5P y lo sube a Drive">{ocupado === 'aprobar' ? 'Enviando…' : publicandoAhora ? 'Publicando…' : actual.estado === 'GENERADO' ? 'Aprobar y volver a publicar' : 'Aprobar y publicar'}</button>}
-          {estado === 'listo' && puedePublicar && onRegenerar && (['POR_REVISAR', 'GENERADO', 'ERROR'].includes(actual.estado) || actual.sinRespuesta) && <button type="button" className="er-b" onClick={regenerarEste} disabled={!!ocupado || publicandoAhora || !!actual.enColaRegenerar || (actual.correccion && actual.correccion.estado === 'abierta')} title="Crear de nuevo con la misma plantilla">{ocupado === 'regenerar' ? 'Regenerando…' : actual.enColaRegenerar ? 'En cola para regenerar' : 'Regenerar'}</button>}
-          {estado === 'listo' && puedePedirCorr && !actual.alertaActividad && <button type="button" className="er-b" onClick={pedirCorr} disabled={!!ocupado} title="El problema depende del guion: se lo envía al docente y este recurso queda bloqueado hasta que lo resuelva">Pedir corrección al docente</button>}
-          {estado === 'listo' && !soloLectura && <button type="button" className="er-b" onClick={guardar} disabled={!sucio || !!ocupado}>{ocupado === 'guardar' ? <><i className="er-gira" aria-hidden="true" />Guardando…</> : 'Guardar cambios'}</button>}
-          {estado === 'listo' && <button type="button" className="er-b pri" onClick={descargar} disabled={!!ocupado}>{ocupado === 'h5p' ? <><i className="er-gira" aria-hidden="true" />Armando el H5P…</> : <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M4 20h16" /></svg>Descargar .h5p</>}</button>}
+          {estado === 'listo' && (
+            <div className="er-cab-acc">
+              {!soloLectura && sucio && <button type="button" className="er-b pri" onClick={guardar} disabled={!!ocupado}>{ocupado === 'guardar' ? <><i className="er-gira" aria-hidden="true" />Guardando…</> : 'Guardar cambios'}</button>}
+              {puedePublicar && onAprobar && !actual.correccion && ['POR_REVISAR', 'GENERADO', 'ERROR'].includes(actual.estado) && <button type="button" className="er-b ok" onClick={aprobarYPublicar} disabled={!!ocupado || publicandoAhora} title="Aprobar este contenido: n8n arma el H5P y lo sube a Drive">{ocupado === 'aprobar' ? 'Enviando…' : publicandoAhora ? 'Publicando…' : actual.estado === 'GENERADO' ? 'Aprobar y volver a publicar' : 'Aprobar y publicar'}</button>}
+              <MenuAcciones items={[
+                puedePublicar && onRegenerar && (['POR_REVISAR', 'GENERADO', 'ERROR'].includes(actual.estado) || actual.sinRespuesta) && { k: 'reg', texto: ocupado === 'regenerar' ? 'Regenerando…' : actual.enColaRegenerar ? 'En cola para regenerar' : 'Regenerar', icono: 'M20 11a8 8 0 10-2.3 5.7M20 4v7h-7', onClick: regenerarEste, deshab: !!ocupado || publicandoAhora || !!actual.enColaRegenerar || (actual.correccion && actual.correccion.estado === 'abierta'), titulo: 'Crear de nuevo con la misma plantilla' },
+                puedePedirCorr && !actual.alertaActividad && { k: 'corr', texto: 'Pedir corrección al docente', icono: 'M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z', onClick: pedirCorr, deshab: !!ocupado, titulo: 'El problema depende del guion: se lo envía al docente y este recurso queda bloqueado hasta que lo resuelva' },
+                { k: 'h5p', texto: ocupado === 'h5p' ? 'Armando el H5P…' : 'Descargar .h5p', icono: 'M12 4v11M7 11l5 5 5-5M4 20h16', onClick: descargar, deshab: !!ocupado }
+              ].filter(Boolean)} />
+            </div>
+          )}
         </header>
 
         <div className={'er-cols' + (navAbierta ? ' nav' : '')}>
@@ -454,7 +511,21 @@ export default function EditorRecurso({ proyecto, propietario, soloLectura = fal
         {ocupado === 'h5p' && <p className="er-msg info" role="status"><i className="er-gira" aria-hidden="true" /><span>Armando el H5P con los cambios. Suele tardar unos 3 segundos; en algunos casos hasta 90. No cierre esta ventana.</span></p>}
 
         {propietario && <PanelCorreccion proyecto={proyecto} propietario={propietario} recurso={actual} onCambio={onActualizar} senal={senalCorr} />}
-        {actual.alertaActividad && <div className="er-alerta-act" role="alert"><div className="er-alerta-tx"><b>Alerta de actividad</b><p>{actual.alertaActividad}</p><small>Corrija el guion o la tabla de tipos de actividad y use «Regenerar» en este recurso</small></div>{puedePedirCorr && <button type="button" className="er-alerta-btn" onClick={pedirCorr} title="El problema depende del guion: se lo envía al docente y este recurso queda bloqueado hasta que lo resuelva"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>Pedir corrección al docente</button>}</div>}
+        {actual.alertaActividad && (() => {
+          const ver = alertaVer === actual.id
+          return (
+            <div className={'er-alerta-act' + (ver ? ' ver' : '')} role="alert">
+              <div className="er-alerta-fila">
+                <svg className="er-alerta-ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3l10 18H2zM12 10v5M12 18v.01" /></svg>
+                <b>Alerta de actividad</b>
+                <span className="er-alerta-res" title={ver ? undefined : actual.alertaActividad}>{actual.alertaActividad}</span>
+                <button type="button" className="er-alerta-mas" aria-expanded={ver} onClick={() => setAlertaVer(ver ? null : actual.id)}>{ver ? 'ver menos' : 'ver más'}</button>
+                {puedePedirCorr && <button type="button" className="er-alerta-btn" onClick={pedirCorr} title="El problema depende del guion: se lo envía al docente y este recurso queda bloqueado hasta que lo resuelva">Pedir corrección al docente</button>}
+              </div>
+              {ver && <small className="er-alerta-pie">Corrija el guion o la tabla de tipos de actividad y use «Regenerar» en este recurso</small>}
+            </div>
+          )
+        })()}
 
         {estado === 'listo' && partesDisp.length > 1 && (
           <div className="er-partes" role="tablist" aria-label="Partes del recurso">
@@ -482,6 +553,11 @@ export default function EditorRecurso({ proyecto, propietario, soloLectura = fal
               )}
               {modo === 'flotante' && <span className="er-ayuda">Arrastre el panel del guion desde su título; cambie su tamaño desde la esquina.</span>}
               {modo === 'recurso' && <span className="er-ayuda">Haga clic en cualquier texto del recurso para editarlo.</span>}
+              {!soloLectura && <label className={'er-modo er-modo-barra' + (activo ? ' on' : '')} title="Con esto activo, un clic en cualquier texto del recurso lo abre para editarlo">
+                <input type="checkbox" checked={activo} onChange={(e) => cambiarModo(e.target.checked)} />
+                <i className="er-sw" aria-hidden="true" />
+                Editar con clic
+              </label>}
             </div>
         )}
 
@@ -492,9 +568,9 @@ export default function EditorRecurso({ proyecto, propietario, soloLectura = fal
                 {estado === 'cargando' && <div className="er-estado"><CargaRecurso tam="grande" etiqueta="Abriendo el recurso" /><b>Abriendo el recurso…</b><span>Se está preparando la plantilla con su contenido.</span></div>}
                 {estado === 'error' && <div className="er-estado mal" role="alert"><i className="er-estado-ic" aria-hidden="true">!</i><b>No se pudo abrir el editor</b><span>{error}</span></div>}
               </div>
-              <div className={'er-asa' + (arrastre && arrastre.tipo === 'divisor' ? ' act' : '')} role="separator" aria-label="Repartir el espacio entre la vista y el guion" onMouseDown={(e) => empezar('divisor', e)}><i /></div>
+              <div className={'er-asa' + (arrastre && arrastre.tipo === 'divisor' ? ' act' : '')} role="separator" aria-label="Repartir el espacio entre la vista y el guion" onPointerDown={(e) => empezar('divisor', e)} {...ptr}><i /></div>
               <aside className={'er-lado' + (flota.min && modo === 'flotante' ? ' min' : '')} style={estiloLado} aria-label="Guion del recurso">
-                <div className="er-lado-cab" onMouseDown={modo === 'flotante' ? (e) => { if (!e.target.closest('button')) empezar('mover', e) } : undefined}>
+                <div className="er-lado-cab" onPointerDown={modo === 'flotante' ? (e) => { if (!e.target.closest('button') && !e.target.closest('a')) empezar('mover', e) } : undefined} {...(modo === 'flotante' ? ptr : {})}>
                   <div className="er-lado-tt">
                     <b>Guion del recurso</b>
                     <span>{urlGuion ? 'Para leerlo y compararlo con el recurso' : 'Sin guion para mostrar'}</span>
@@ -507,9 +583,9 @@ export default function EditorRecurso({ proyecto, propietario, soloLectura = fal
                     ? <iframe className="er-guion-marco" title="Guion del recurso" src={urlGuion} sandbox="allow-scripts allow-same-origin allow-popups allow-forms" />
                     : <p className="er-vacio">{actual.enlaceGuion ? 'El guion de este recurso no es un documento de Google que se pueda mostrar aquí. Ábralo con el enlace de arriba.' : 'Este recurso no tiene enlace al guion todavía.'}</p>}
                 </div>
-                {modo === 'flotante' && !flota.min && <span className="er-redim" aria-hidden="true" onMouseDown={(e) => empezar('redim', e)}><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M11 1L1 11M11 6L6 11" /></svg></span>}
+                {modo === 'flotante' && !flota.min && <span className="er-redim" aria-hidden="true" onPointerDown={(e) => empezar('redim', e)} {...ptr}><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M11 1L1 11M11 6L6 11" /></svg></span>}
               </aside>
-              {arrastre && <div className={'er-capa ' + arrastre.tipo} onMouseMove={mover} onMouseUp={() => setArrastre(null)} />}
+              {arrastre && <div className={'er-capa ' + arrastre.tipo} onPointerMove={mover} onPointerUp={soltar} onPointerCancel={soltar} />}
             </div>
 
         {estado === 'listo' && (

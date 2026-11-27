@@ -31,19 +31,15 @@ function Solicitud({ c, onCambio }) {
 export default function SolicitudesDiseno({ lista, diseno, onAbrir, onCambio }) {
   const [corr, setCorr] = useState([])
   const [error, setError] = useState('')
-  const [devolviendo, setDevolviendo] = useState('')
   const cargar = useCallback(async () => {
     try { setCorr(((await api('GET', '/diseno/correcciones')) || {}).correcciones || []) } catch { /* sin datos: no se muestra */ }
     onCambio && onCambio()
   }, [onCambio])
   useEffect(() => { cargar() }, [cargar, lista.length])
 
-  const aprobados = lista.filter((s) => diseno[s.id] && ['en_diseno', 'asignado'].includes(diseno[s.id].estado))
-  const revision = lista.filter((s) => diseno[s.id] && diseno[s.id].estado === 'en_revision_docente')
-  const devolver = async (id) => {
-    setDevolviendo(id); setError('')
-    try { await api('POST', '/proyectos/' + encodeURIComponent(id) + '/devolver-diseno'); await cargar() } catch (e) { setError(e.message || 'No se pudo devolver el curso a diseño.') } finally { setDevolviendo('') }
-  }
+  const conSolicitud = (s) => diseno[s.id] && (diseno[s.id].estado === 'en_revision_docente' || corr.some((c) => c.proyecto_id === s.id)) // el curso sigue «asignado»: solo se bloquea el recurso
+  const aprobados = lista.filter((s) => diseno[s.id] && ['en_diseno', 'asignado'].includes(diseno[s.id].estado) && !conSolicitud(s))
+  const revision = lista.filter(conSolicitud)
   if (!aprobados.length && !revision.length) return null
   return (
     <>
@@ -69,7 +65,6 @@ export default function SolicitudesDiseno({ lista, diseno, onAbrir, onCambio }) 
                 <div className="sd-curso-cab">
                   <b>{s.curso}</b>{diseno[s.id].disenador && <small>Diseñador: {diseno[s.id].disenador}</small>}
                   <button type="button" className="btn sm sd-izq" onClick={() => onAbrir(s.id)} title="Abrir el curso para corregir los guiones">Abrir el curso</button>
-                  <button type="button" className="btn sm gold" disabled={abiertas > 0 || devolviendo === s.id} onClick={() => devolver(s.id)} title={abiertas > 0 ? 'Marque todas las solicitudes como corregidas' : 'El diseñador podrá regenerar los recursos'}>{devolviendo === s.id ? 'Devolviendo…' : 'Devolver a diseño'}</button>
                 </div>
                 {abiertas > 0 && <small>{abiertas} {abiertas === 1 ? 'solicitud pendiente' : 'solicitudes pendientes'}: corrija el guion y márquela como corregida.</small>}
                 <ul className="sd-lista-corr">{mias.map((c) => <Solicitud key={c.id} c={c} onCambio={cargar} />)}</ul>

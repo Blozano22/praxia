@@ -6,6 +6,7 @@ import EnlaceDoc from './EnlaceDoc.jsx'
 import CargarGuion from './CargarGuion.jsx'
 import Revision from './Revision.jsx'
 import MatricesH5P from './MatricesH5P.jsx'
+import CorreccionesCurso from './CorreccionesCurso.jsx'
 import { useConfirmar, IconoEnviar, IconoCandado, IconoOjo, IconoEditar } from './Confirmar.jsx'
 import { FormacionCurso, formacionDe } from './Guiones.jsx'
 import { Recursos, Unidades, UnidadVista } from './Unidades.jsx'
@@ -31,7 +32,9 @@ export default function Workspace({ s, tab, setTab, unidadSel, setUnidadSel, rec
   const enviando = false
   useEffect(() => { api('GET', '/proyectos/' + encodeURIComponent(s.id) + '/diseno').then(setDis).catch(() => {}) }, [s.id])
   const estadoDis = dis && dis.estado
-  const lectura = estadoDis === 'en_diseno' || estadoDis === 'asignado'
+  const [conAbierta, setConAbierta] = useState(false) // el docente corrige guiones mientras tenga una corrección abierta (el curso sigue asignado)
+  useEffect(() => { api('GET', '/diseno/correcciones?proyecto=' + encodeURIComponent(s.id)).then((r) => setConAbierta(((r && r.correcciones) || []).some((c) => c.estado === 'abierta'))).catch(() => {}) }, [s.id, estadoDis])
+  const lectura = (estadoDis === 'en_diseno' || estadoDis === 'asignado') && !conAbierta
   const revision = estadoDis === 'en_revision_docente'
   const enviarADiseno = async () => {
     const ok = await confirmar({
@@ -141,10 +144,11 @@ export default function Workspace({ s, tab, setTab, unidadSel, setUnidadSel, rec
             <span className={'pill ' + cls}>{txt}</span>
           </div>
         </div>
-        {(lectura || revision) && (
-          <div className="ws-envio">
+        {(lectura || revision || estadoDis) && (
+          <div className="ws-envio ws-envio-fila">
             {lectura && <span className="pill warn">{estadoDis === 'asignado' ? 'Asignado a ' + (dis.disenador || 'un diseñador') : 'En diseño'}</span>}
             {revision && <span className="pill warn">Revisión solicitada</span>}
+            {estadoDis && <CorreccionesCurso proyecto={s.id} refrescar={estadoDis} onCambio={() => api('GET', '/diseno/correcciones?proyecto=' + encodeURIComponent(s.id)).then((r) => setConAbierta(((r && r.correcciones) || []).some((c) => c.estado === 'abierta'))).catch(() => {})} />}
           </div>
         )}
         {!estadoDis && dis && (
@@ -243,7 +247,7 @@ export default function Workspace({ s, tab, setTab, unidadSel, setUnidadSel, rec
             : <div className="msg info" style={{ marginBottom: 10 }}>{estadoDis
               ? <><b>Las matrices y los recursos H5P los genera el diseñador asignado.</b> Estado de diseño: {estadoDis === 'asignado' ? 'asignado a ' + ((dis && dis.disenador) || 'un diseñador') : estadoDis === 'en_diseno' ? 'en diseño, pendiente de asignar' : 'revisión solicitada'}.</>
               : <><b>Las matrices y los recursos H5P los genera el diseñador asignado.</b> Envíe el curso a diseño cuando sus guiones estén aprobados.</>}</div>}
-          <Cierre activo={lectura || revision}><MatricesH5P s={s} soloLectura={!esAdmin} /></Cierre>
+          <MatricesH5P s={s} soloLectura={!esAdmin} />
         </>
       )}
 

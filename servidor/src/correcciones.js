@@ -1,5 +1,5 @@
 // Fase 4 del diseño: el diseñador pide al docente corregir algo de un recurso (depende del guion) y ambos conversan en un hilo.
-//  abierta (pidió el diseñador; el curso pasa a en_revision_docente) → corregida (el docente) → cerrada (el diseñador) o reabrir (vuelve a abierta).
+//  abierta (pidió el diseñador; el estado del curso no cambia: solo se bloquea ese recurso) → corregida (el docente) → cerrada (el diseñador) o reabrir (vuelve a abierta).
 // Mientras haya una corrección abierta o corregida en un recurso, no se aprueba/publica; regenerar solo se permite si está corregida.
 import { conTransaccion, sinUsuario } from './db.js'
 import { Q } from './consultas.js'
@@ -26,11 +26,10 @@ export async function crear(usuario, { propietario, proyecto, recursoId, mensaje
   const id = await conTransaccion(async (c) => {
     const nueva = (await c.query(Q.corrCrear, [propietario, proyecto, rec.id, rec.codigo || null, usuario.id])).rows[0].id
     await c.query(Q.corrMensajeCrear, [nueva, usuario.id, 'disenador', msg])
-    await c.query(Q.corrCursoEstado, [propietario, proyecto, 'en_revision_docente', ['asignado', 'en_revision_docente']])
     return nueva
   })
   if (auditar) await auditar('correccion.pedir', 'correccion', id)
-  return { codigo: 201, cuerpo: { ok: true, id, estado: 'abierta', curso: 'en_revision_docente' } }
+  return { codigo: 201, cuerpo: { ok: true, id, estado: 'abierta', curso: 'asignado' } }
 }
 
 // { correcciones, estado }. proyecto null = todas las abiertas/corregidas del docente (para su tablero).
@@ -96,12 +95,11 @@ export async function reabrir(usuario, id, mensaje, auditar) {
   const ok = await conTransaccion(async (c) => {
     if (!(await c.query(Q.corrEstado, [id, ['corregida', 'cerrada'], 'abierta'])).rowCount) return false
     await c.query(Q.corrMensajeCrear, [id, usuario.id, 'disenador', msg])
-    await c.query(Q.corrCursoEstado, [f.propietario_id, f.proyecto_id, 'en_revision_docente', ['asignado', 'en_revision_docente']])
     return true
   })
   if (!ok) return falla(409, 'Solo se puede reabrir una solicitud corregida o cerrada.')
   if (auditar) await auditar('correccion.reabrir', 'correccion', id)
-  return { codigo: 200, cuerpo: { ok: true, estado: 'abierta', curso: 'en_revision_docente' } }
+  return { codigo: 200, cuerpo: { ok: true, estado: 'abierta', curso: 'asignado' } }
 }
 
 // ---- pipeline

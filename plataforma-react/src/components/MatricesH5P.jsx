@@ -187,8 +187,11 @@ function Cronometro({ desde }) {
   return <span className="mx3-crono">{Math.floor(seg / 60)}:{String(seg % 60).padStart(2, '0')}</span>
 }
 
-function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, enviada, desdeEnvio, editar, aprobar, regenerar, bloqueado, puedePublicar, fase }) {
-  const [todos, setTodos] = useState(false)
+// Unidades cuya lista de recursos H5P abrió la persona durante la sesión (la lista sale cerrada por defecto).
+const listasAbiertas = {}
+function Unidad({ clave, unidad, nombre, matriz, recursos, puede, ocupado, lanzar, enviada, desdeEnvio, editar, aprobar, regenerar, bloqueado, puedePublicar, fase }) {
+  const [todos, setTodos0] = useState(() => !!listasAbiertas[clave])
+  const setTodos = (v) => { listasAbiertas[clave] = !!v; setTodos0(!!v) }
   const [filtro, setFiltro] = useState('todos')
   const [confirmar, setConfirmar] = useState(false)
   const conteo = useMemo(() => {
@@ -197,8 +200,6 @@ function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, envi
     return c
   }, [recursos])
   const nRev = conteo.POR_REVISAR || 0
-  // Cuando hay recursos listos para revisar, la unidad se abre sola mostrando solo esos: no hay que desplegar nada para encontrarlos.
-  useEffect(() => { if (nRev > 0) { setTodos(true); setFiltro('revisar') } }, [nRev > 0]) // eslint-disable-line react-hooks/exhaustive-deps
   const esHecho = (r) => r.estado === 'GENERADO' && !r.sinRespuesta
   const filas = recursos.filter((r) => (filtro === 'generados' ? esHecho(r) : filtro === 'revisar' ? r.estado === 'POR_REVISAR' : filtro === 'pendientes' ? !esHecho(r) && r.estado !== 'POR_REVISAR' : true)).sort((a, b) => temaDe(a) - temaDe(b) || esHecho(b) - esHecho(a) || (b.estado === 'ERROR') - (a.estado === 'ERROR') || String(a.codigo || a.id).localeCompare(String(b.codigo || b.id), undefined, { numeric: true }))
   const porGenerar = conteo.PENDIENTE + conteo.EN_PROCESO
@@ -245,21 +246,15 @@ function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, envi
           <b>{matrizMal ? 'La matriz no se generó' : 'Matriz lista'}</b>
           <span>{matriz.formacion ? ' · ' + matriz.formacion : ''} · actualizada {hace(matriz.actualizadoEn)}</span>
         </div>
-        {matriz.matrizUrl && <a className="mx4-lk" href={matriz.matrizUrl} target="_blank" rel="noopener noreferrer" title={matriz.matrizNombre || ''}>Abrir matriz ↗</a>}
+        {matriz.matrizUrl && <a className="mx4-lk" href={matriz.matrizUrl} target="_blank" rel="noopener noreferrer" title={matriz.matrizNombre || ''} aria-label={'Abrir la matriz de la Unidad ' + unidad + ' (se abre en otra pestaña)'}>Abrir matriz<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" /></svg></a>}
         {puede && matrizMal && <button type="button" className="btn sm" disabled={ocupado} onClick={() => lanzar([unidad], false)}>Reintentar la matriz</button>}
-        {puede && !matrizMal && ['creada', 'omitida', 'reemplazada', 'actualizada'].includes(matriz.estado) && !confirmar && (
+        {fase === 1 && puede && !matrizMal && ['creada', 'omitida', 'reemplazada', 'actualizada'].includes(matriz.estado) && !confirmar && (
           <button type="button" className="mx4-q" disabled={ocupado} onClick={() => setConfirmar(true)} aria-label={'Volver a generar la matriz de la Unidad ' + unidad}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" /></svg>
             Volver a generar
           </button>
         )}
-        {puede && !matrizMal && ['creada', 'omitida', 'reemplazada', 'actualizada'].includes(matriz.estado) && !confirmar && (
-          <button type="button" className="mx4-q" disabled={ocupado} onClick={() => lanzar([unidad], false, true)} title="Conserva estados y enlaces; solo añade la columna de actividades" aria-label={'Agregar actividades a la matriz de la Unidad ' + unidad}>
-            Agregar actividades a la matriz
-          </button>
-        )}
       </div>
-      {puede && !matrizMal && ['creada', 'omitida', 'reemplazada', 'actualizada'].includes(matriz.estado) && !confirmar && <p className="mx-detalle">«Agregar actividades a la matriz»: conserva estados y enlaces; solo añade la columna de actividades.</p>}
       {matriz.sinRespuesta && <p className="mx-detalle mal">n8n empezó a generar esta matriz {hace(matriz.actualizadoEn)} y no ha vuelto a avisar. Puede haberse interrumpido.</p>}
       {matriz.detalle && matriz.estado === 'error' && <p className="mx-detalle mal">{matriz.detalle}</p>}
       {confirmar && (
@@ -291,7 +286,7 @@ function Unidad({ unidad, nombre, matriz, recursos, puede, ocupado, lanzar, envi
               <span className="mx4-cifra"><strong>{conteo.GENERADO}</strong> de {conteo.total} generados{conteo.actividades > 0 && <em className="mx4-cifra-rv">{conteo.actividades} son actividades</em>}{nRev > 0 && <em className="mx4-cifra-rv">{nRev} por revisar</em>}{conteo.enCola > 0 && <em className="mx4-cifra-rv">{conteo.enCola} en cola</em>}{conteo.ERROR > 0 ? ' · ' + conteo.ERROR + ' con error' : ''}</span>
             </div>
             <button type="button" className="mx4-ver" aria-expanded={todos} onClick={() => setTodos(!todos)}>
-              {todos ? 'Ocultar recursos' : 'Ver los ' + conteo.total + ' recursos'}
+              {todos ? 'Ocultar recursos' : 'Ver recursos (' + conteo.total + ')'}
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ transform: todos ? 'rotate(180deg)' : 'none' }}><path d="M6 9l6 6 6-6" /></svg>
             </button>
           </div>
@@ -692,7 +687,7 @@ export default function MatricesH5P({ s, propietario, soloLectura = false }) {
           <h4 className="mx2-h mx3-h">Unidades</h4>
           <div className="mx-grid mx3-lista">
             {unidades.map((u) => (
-              <Unidad key={u.unidad} unidad={u.unidad} nombre={u.nombre} matriz={d.matrices.find((m) => m.unidad === u.unidad)} recursos={d.recursos.filter((r) => r.unidad === u.unidad)} puede={puede} ocupado={ocupado} lanzar={lanzar} enviada={lanzadoReciente && enviadas.includes(u.unidad)} desdeEnvio={yaEnCurso ? 0 : lanzadoEn} editar={setEditando} aprobar={aprobarDesdeFila} regenerar={regenerarDesdeFila} bloqueado={h5pOcupado} puedePublicar={puedePublicar} fase={fase} />
+              <Unidad key={u.unidad} clave={String((s && s.id) || '') + ':' + u.unidad} unidad={u.unidad} nombre={u.nombre} matriz={d.matrices.find((m) => m.unidad === u.unidad)} recursos={d.recursos.filter((r) => r.unidad === u.unidad)} puede={puede} ocupado={ocupado} lanzar={lanzar} enviada={lanzadoReciente && enviadas.includes(u.unidad)} desdeEnvio={yaEnCurso ? 0 : lanzadoEn} editar={setEditando} aprobar={aprobarDesdeFila} regenerar={regenerarDesdeFila} bloqueado={h5pOcupado} puedePublicar={puedePublicar} fase={fase} />
             ))}
           </div>
         </>

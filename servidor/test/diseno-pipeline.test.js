@@ -140,16 +140,14 @@ test('diseñador no asignado y otro diseñador: 403', async () => {
   await estado('c1', 'asignado', ids.dina)
 })
 
-test('en revisión del docente: el diseñador lee (200) pero no lanza (409)', async () => {
+test('en_revision_docente (heredado): el diseñador sigue operando el pipeline, sin bloqueo por revisión', async () => {
   const dina = await entrar('dina@u.co')
   await estado('c1', 'en_revision_docente', ids.dina)
   const n = recibidas.length
   assert.equal((await dina('GET', '/proyectos/c1/pipeline' + q())).status, 200)
   assert.equal((await dina('GET', '/diseno/cursos/' + ids.ana + '/c1')).status, 200)
   const r = await dina('POST', '/proyectos/c1/pipeline/h5p' + q(), {})
-  assert.equal(r.status, 409); assert.match((await r.json()).error, /revisión del docente/)
-  assert.equal((await dina('POST', '/proyectos/c1/pipeline/matrices' + q(), { unidades: [1], forzar: true })).status, 409)
-  assert.equal(recibidas.length, n)
+  assert.ok(!(await r.json()).bloqueado)
   await estado('c1', 'asignado', ids.dina)
 })
 

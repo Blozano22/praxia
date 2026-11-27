@@ -234,7 +234,13 @@ async function aplicar(c, ev, o, fecha, sec) {
           const clave = await claveFila(c, P, Y, om.id, om.codigo)
           n += (await c.query(Q.pipeRecursoOmitir, [P, Y, clave, om.motivo, fecha, sec])).rowCount
           // «regenerar» que n8n omitió: la fila no se va a procesar, vuelve a lo que era
-          if (!aGenerar.has(clave)) n += (await c.query(Q.pipeRegenerarRestaurar, [P, Y, [clave], 'No se regeneró: n8n lo omitió (' + om.motivo + ')', fecha])).rowCount
+          if (!aGenerar.has(clave)) {
+            const r = await c.query(Q.pipeRegenerarRestaurar, [P, Y, [clave], 'No se regeneró: n8n lo omitió (' + om.motivo + ')', fecha])
+            n += r.rowCount
+            // superó el máximo de n8n: vuelve a la cola para la siguiente corrida
+            const cod = om.codigo || (r.rows[0] && r.rows[0].codigo)
+            if (r.rowCount && om.motivo === 'supera_maximo' && cod) await c.query(Q.colaAgregar, [P, Y, [cod], null])
+          }
         }
       }
       return n

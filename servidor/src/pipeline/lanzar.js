@@ -190,8 +190,7 @@ export async function lanzarH5p({ usuario, proyectoId, maximo, unidades, reinten
   return { codigo: 202, cuerpo: { trabajo_id: trabajoId, ...(maximo ? { maximo } : {}), ...(pedidas && !codigosReg ? { unidades: pedidas } : {}), ...(codigosReg ? { regenerar: codigosReg } : {}), reintentarErrores, ...(ejecucion ? { ejecucion_id: ejecucion } : {}) } }
 }
 
-export const MAX_COLA_POR_CORRIDA = 30
-// Al terminar una corrida H5P (aviso h5p_fin): lanza una corrida nueva de «regenerar» con lo que esperaba en la cola (hasta 30; el resto queda para la siguiente).
+// Al terminar una corrida H5P (aviso h5p_fin): lanza una corrida nueva de «regenerar» con lo que esperaba en la cola (todos los códigos en cola; n8n decide su máximo y lo omitido por supera_maximo vuelve a la cola).
 // Nunca lanza errores: si falla, los códigos siguen en la cola y se registra.
 export async function drenarColaRegenerar({ propietarioId, proyectoId, publicarFn = publicar }) {
   try {
@@ -200,7 +199,6 @@ export async function drenarColaRegenerar({ propietarioId, proyectoId, publicarF
     const usuario = { id: propietarioId, permisos: new Set(['proyectos.ver_propios']), roles: [] }
     let lote = []
     for (const c of cola) {
-      if (lote.length >= MAX_COLA_POR_CORRIDA) break
       if ((await sinUsuario(Q.corrAbiertasDeCodigos, [propietarioId, proyectoId, [c]])).rows.length) { await sinUsuario(Q.colaQuitar, [propietarioId, proyectoId, [c]]); continue } // corrección abierta: no se regenera
       lote.push(c)
     }

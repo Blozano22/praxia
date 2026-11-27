@@ -90,14 +90,14 @@ test('preparación: curso c1 de Ana asignado a Dina, con una matriz lista y dos 
   }
 })
 
-test('pedir corrección: el recurso se bloquea y el curso pasa a revisión del docente', async () => {
+test('pedir corrección: el recurso se bloquea y el curso sigue asignado', async () => {
   const dina = await entrar('dina@u.co')
   assert.equal((await dina('POST', '/diseno/correcciones', { propietario: ids.ana, proyecto: 'c1', recursoId: 'r1', mensaje: '   ' })).status, 400)
   assert.equal((await dina('POST', '/diseno/correcciones', { propietario: ids.ana, proyecto: 'c1', recursoId: 'zz', mensaje: 'x' })).status, 404)
   const r = await dina('POST', '/diseno/correcciones', { propietario: ids.ana, proyecto: 'c1', recursoId: 'r1', mensaje: 'ALERTA actividad no generada: el guion no trae bloque de actividad' })
   assert.equal(r.status, 201)
   corrId = (await r.json()).id
-  assert.equal(await estadoCurso('c1'), 'en_revision_docente')
+  assert.equal(await estadoCurso('c1'), 'asignado')
   assert.equal((await dina('POST', '/diseno/correcciones', { propietario: ids.ana, proyecto: 'c1', recursoId: 'r1', mensaje: 'otra' })).status, 409)
   const rec = (await (await dina('GET', '/proyectos/c1/pipeline' + q())).json()).recursos
   assert.deepEqual(rec.find((x) => x.id === 'r1').correccion, { id: corrId, estado: 'abierta' })
@@ -114,8 +114,8 @@ test('con la corrección abierta: aprobar 409 y regenerar 409 (admin, que sí op
   r = await admin('POST', '/proyectos/c1/pipeline/h5p' + q(), { regenerar: ['U1-T1-R1'] })
   assert.equal(r.status, 409); assert.match((await r.json()).error, /corrección pendiente/)
   assert.equal(recibidas.length, 0)
-  // el diseñador, con el curso en revisión, solo lee
-  assert.equal((await dina('POST', '/proyectos/c1/pipeline/h5p' + q(), { regenerar: ['U1-T1-R2'] })).status, 409)
+  // el diseñador sigue operando el resto del curso, pero no regenera el recurso con corrección abierta
+  assert.equal((await dina('POST', '/proyectos/c1/pipeline/h5p' + q(), { regenerar: ['U1-T1-R1'] })).status, 409)
   // otro recurso del mismo curso no está bloqueado por la corrección
   assert.notEqual((await admin('POST', '/proyectos/c1/pipeline/recursos/r2/aprobar' + q(), {})).status, 409)
 })
@@ -142,16 +142,17 @@ test('mensajes visibles para ambos; el docente ve sus solicitudes en su tablero'
   assert.equal((await dina('POST', '/diseno/correcciones/' + corrId + '/mensajes', { texto: 'Gracias' })).status, 200)
   for (const fn of [ana, dina]) {
     const l = await hilo(fn)
-    assert.equal(l.estado, 'en_revision_docente')
+    assert.equal(l.estado, 'asignado')
     assert.deepEqual(l.correcciones[0].mensajes.map((m) => m.rol), ['disenador', 'docente', 'disenador'])
     assert.equal(l.correcciones[0].codigo, 'U1-T1-R1')
   }
   assert.equal((await (await ana('GET', '/diseno/correcciones')).json()).correcciones.length, 1)
 })
 
-test('devolver con solicitudes abiertas: 409; marcar corregida y devolver: ok', async () => {
+test('devolver (compatibilidad, curso heredado en revisión): con solicitudes abiertas 409; corregida y devolver: ok', async () => {
   const ana = await entrar('ana@u.co'); const dina = await entrar('dina@u.co')
-  assert.equal((await ana('POST', '/proyectos/c1/devolver-diseno', {})).status, 409)
+  assert.equal((await ana('POST', '/proyectos/c1/devolver-diseno', {})).status, 409) // el curso ya no pasa a revisión: nada que devolver
+  await pool.query("UPDATE curso_diseno SET estado = 'en_revision_docente' WHERE proyecto_id = 'c1'") // curso heredado del modelo anterior
   assert.equal((await dina('POST', '/diseno/correcciones/' + corrId + '/cerrar', {})).status, 409) // aún abierta
   assert.equal((await ana('POST', '/diseno/correcciones/' + corrId + '/corregida', { mensaje: 'Agregué la actividad al guion' })).status, 200)
   assert.equal((await ana('POST', '/diseno/correcciones/' + corrId + '/corregida', {})).status, 409)
@@ -180,17 +181,16 @@ test('corregida: aprobar sigue bloqueado, regenerar sí; el diseñador cierra y 
   assert.equal((await hilo(dina)).correcciones.length, 1) // con el curso, el hilo cerrado sigue visible
 })
 
-test('reabrir: vuelve a abierta, el curso a revisión y se repite el ciclo', async () => {
+test('reabrir: vuelve a abierta, el curso sigue asignado y se repite el ciclo', async () => {
   const dina = await entrar('dina@u.co'); const ana = await entrar('ana@u.co')
   assert.equal((await dina('POST', '/diseno/correcciones/' + corrId + '/reabrir', {})).status, 400)
   assert.equal((await ana('POST', '/diseno/correcciones/' + corrId + '/reabrir', { mensaje: 'x' })).status, 403)
   assert.equal((await dina('POST', '/diseno/correcciones/' + corrId + '/reabrir', { mensaje: 'Sigue sin actividad' })).status, 200)
-  assert.equal(await estadoCurso('c1'), 'en_revision_docente')
+  assert.equal(await estadoCurso('c1'), 'asignado')
   const l = await hilo(dina)
   assert.equal(l.correcciones[0].estado, 'abierta'); assert.equal(l.correcciones[0].mensajes.at(-1).texto, 'Sigue sin actividad')
   assert.equal((await dina('POST', '/diseno/correcciones/' + corrId + '/reabrir', { mensaje: 'otra vez' })).status, 409)
   assert.equal((await ana('POST', '/diseno/correcciones/' + corrId + '/corregida', {})).status, 200)
-  assert.equal((await ana('POST', '/proyectos/c1/devolver-diseno', {})).status, 200)
   assert.equal((await dina('POST', '/diseno/correcciones/' + corrId + '/cerrar', {})).status, 200)
   const aud = (await pool.query("SELECT accion FROM auditoria WHERE accion LIKE 'correccion.%'")).rows.map((x) => x.accion)
   for (const a of ['correccion.pedir', 'correccion.mensaje', 'correccion.corregida', 'correccion.devolver', 'correccion.cerrar', 'correccion.reabrir']) assert.ok(aud.includes(a), a)
