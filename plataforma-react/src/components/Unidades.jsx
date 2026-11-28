@@ -122,7 +122,7 @@ export function Recursos({ s, sel, setSel, onCambio, onEditar, aviso }) {
                 <h3>{d.nombre}</h3>
                 <Pills rs={rs.length} n={temasDe(s, d.unidad).length} />
                 <div className="row" style={{ marginTop: 'auto', paddingTop: 10 }}>
-                  <button className="btn sm" onClick={() => ir({ u: d.unidad, t: undefined })}>Abrir unidad</button>
+                  <button data-nav className="btn sm" onClick={() => ir({ u: d.unidad, t: undefined })}>Abrir unidad</button>
                 </div>
               </div>
             )
@@ -132,7 +132,7 @@ export function Recursos({ s, sel, setSel, onCambio, onEditar, aviso }) {
               <span className="tipo">Sin unidad</span>
               <h3>Recursos sin unidad asignada</h3>
               <Pills rs={s.recursos.filter((r) => r.unidad == null).length} />
-              <div className="row" style={{ marginTop: 'auto', paddingTop: 10 }}><button className="btn sm" onClick={() => ir({ u: 'sin', t: null })}>Abrir</button></div>
+              <div className="row" style={{ marginTop: 'auto', paddingTop: 10 }}><button data-nav className="btn sm" onClick={() => ir({ u: 'sin', t: null })}>Abrir</button></div>
             </div>
           )}
         </div>
@@ -141,7 +141,7 @@ export function Recursos({ s, sel, setSel, onCambio, onEditar, aviso }) {
   }
 
   const tituloUnidad = sin ? 'Recursos sin unidad asignada' : 'Unidad ' + unidad + ' · ' + (doc ? doc.nombre : '')
-  const crumbsBase = <><button className="lnk" onClick={() => ir({ u: null })}>Unidades</button> › </>
+  const crumbsBase = <><button data-nav className="lnk" onClick={() => ir({ u: null })}>Unidades</button> › </>
 
   // 3) Recursos de un tema (o de la introducción)
   if (t !== undefined) {
@@ -149,7 +149,7 @@ export function Recursos({ s, sel, setSel, onCambio, onEditar, aviso }) {
     const inf = t == null ? { nombre: '', info: {} } : info(t)
     return (
       <div className="fade">
-        <div className="crumbs">{crumbsBase}{sin ? <b>Sin unidad</b> : <><button className="lnk" onClick={() => ir({ u, t: undefined })}>Unidad {unidad}</button> › <b>{t == null ? 'Introducción' : 'Tema ' + t}</b></>}</div>
+        <div className="crumbs">{crumbsBase}{sin ? <b>Sin unidad</b> : <><button data-nav className="lnk" onClick={() => ir({ u, t: undefined })}>Unidad {unidad}</button> › <b>{t == null ? 'Introducción' : 'Tema ' + t}</b></>}</div>
         <div className="pj" style={{ marginTop: 6 }}>
           <div>
             <h2 style={{ margin: 0 }}>{sin ? tituloUnidad : (t == null ? 'Introducción de la unidad ' + unidad : 'Tema ' + t + (nombreTema(t) ? ' · ' + nombreTema(t) : ''))}</h2>
@@ -205,7 +205,7 @@ export function Recursos({ s, sel, setSel, onCambio, onEditar, aviso }) {
             <span className="tipo">Introducción</span>
             <h3>Presentación de la unidad</h3>
             <Pills rs={intro.length} />
-            <div className="row" style={{ marginTop: 'auto', paddingTop: 10 }}><button className="btn sm" onClick={() => ir({ u, t: null })}>Ver recursos</button></div>
+            <div className="row" style={{ marginTop: 'auto', paddingTop: 10 }}><button data-nav className="btn sm" onClick={() => ir({ u, t: null })}>Ver recursos</button></div>
           </div>
         )}
         {temas.map((n) => {
@@ -215,7 +215,7 @@ export function Recursos({ s, sel, setSel, onCambio, onEditar, aviso }) {
               <span className="tipo">Tema {n}</span>
               <h3>{nombreTema(n) || 'Tema sin nombre'}</h3>
               <Pills rs={rs.length} />
-              <div className="row" style={{ marginTop: 'auto', paddingTop: 10 }}><button className="btn sm" onClick={() => ir({ u, t: n })}>Ver recursos</button></div>
+              <div className="row" style={{ marginTop: 'auto', paddingTop: 10 }}><button data-nav className="btn sm" onClick={() => ir({ u, t: n })}>Ver recursos</button></div>
             </div>
           )
         })}
@@ -231,7 +231,7 @@ export function UnidadVista({ s, unidad, onCambio, onVolver, onCrearDeGuiones })
   const temas = temasDe(s, unidad)
   return (
     <div className="fade">
-      <div className="crumbs"><button className="lnk" onClick={onVolver}>Unidades</button> › <b>Unidad {unidad}</b></div>
+      <div className="crumbs"><button data-nav className="lnk" onClick={onVolver}>Unidades</button> › <b>Unidad {unidad}</b></div>
       <div className="pj" style={{ marginTop: 6 }}>
         <div>
           <h2 style={{ margin: 0 }}>Unidad {unidad} · {doc ? doc.nombre : ''}</h2>

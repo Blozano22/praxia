@@ -30,7 +30,7 @@ export function Tarjeta({ r, onAbrir, onDescargar, onDuplicar, onEliminar }) {
         <p className="help" style={{ margin: 0 }}>{d.codigo} · {r.nombre}</p>
         {hayAvisos ? <span className="pill warn">Hay avisos del guion</span> : <span className="pill ok">Completo según el guion</span>}
         <div className="acts">
-          <button className="btn sm" onClick={onAbrir}>Abrir y editar</button>
+          <button data-nav className="btn sm" onClick={onAbrir}>Abrir y editar</button>
           <button className="btn sec sm" onClick={onDescargar}>Descargar</button>
           <button className="btn sec sm" onClick={onDuplicar}>Duplicar</button>
           <button className="btn danger sm" onClick={onEliminar}>Eliminar</button>

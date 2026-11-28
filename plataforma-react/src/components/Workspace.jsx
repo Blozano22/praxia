@@ -17,7 +17,23 @@ import { uid } from '../lib/util.js'
 const ESTADOS = { listo: ['ok', 'Documentos generados'], error: ['warn', 'Con error'], pendiente: ['warn', 'Pendiente de generar'], sin: ['', 'Sin generar'] }
 
 // Deshabilita los controles de un paso (fieldset disabled): en solo lectura todo; en revisión del docente solo queda libre la edición de guiones.
-const Cierre = ({ activo, children }) => (activo ? <fieldset disabled style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>{children}</fieldset> : children)
+// En solo lectura se puede mirar y navegar (botones con data-nav, enlaces, desplegables) pero nada de lo demás: se deshabilita cada control salvo los de navegación.
+const Cierre = ({ activo, children }) => {
+  const ref = useRef(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!activo || !el) return undefined
+    const cerrar = () => el.querySelectorAll('button, input, select, textarea').forEach((c) => {
+      if (c.closest('[data-nav]') || c.hasAttribute('data-nav')) { if (c.dataset.cierre) { c.disabled = false; delete c.dataset.cierre } return }
+      if (!c.disabled) { c.disabled = true; c.dataset.cierre = '1' }
+    })
+    cerrar()
+    const o = new MutationObserver(cerrar)
+    o.observe(el, { childList: true, subtree: true })
+    return () => o.disconnect()
+  }, [activo])
+  return activo ? <div ref={ref} className="ws-lectura">{children}</div> : children
+}
 
 // Espacio de trabajo de UN syllabus: 1) documentos por unidad (se revisan y aprueban), 2) unidades con sus temas y recursos.
 export default function Workspace({ s, tab, setTab, unidadSel, setUnidadSel, recSel, setRecSel, onCambio, onVolver, onEditar, aviso, pendInicial, esAdmin = false }) {
@@ -202,7 +218,7 @@ export default function Workspace({ s, tab, setTab, unidadSel, setUnidadSel, rec
                 <button className="btn sm" onClick={() => setRegenerar(true)}>{docs.length ? 'Volver a generar documentos' : 'Generar documentos'}</button>
               </div>
               <div className="row" style={{ marginTop: 18 }}>
-                <button className="btn gold" onClick={() => irA('docs')}>Continuar a las unidades →</button>
+                <button data-nav className="btn gold" onClick={() => irA('docs')}>Continuar a las unidades →</button>
               </div>
             </>
           )}
@@ -215,7 +231,7 @@ export default function Workspace({ s, tab, setTab, unidadSel, setUnidadSel, rec
           <p className="help">Revise el documento de cada unidad y apruébelo. Al aprobarlas todas se habilitan los guiones.</p>
           <Documentos s={s} onCambio={onCambio} />
           <div className="row" style={{ marginTop: 18 }}>
-            <button className="btn gold" disabled={faltan} onClick={() => irA('unidades')}>Continuar a los guiones →</button>
+            <button data-nav className="btn gold" disabled={faltan} onClick={() => irA('unidades')}>Continuar a los guiones →</button>
             {faltan && <span className="help">Faltan {docs.length - aprobados} documento{docs.length - aprobados === 1 ? '' : 's'} por aprobar.</span>}
           </div>
         </div></Cierre>

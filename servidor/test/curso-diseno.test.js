@@ -113,6 +113,12 @@ test('en_diseno y asignado: el docente no guarda ni usa guiones ni pipeline; lee
     assert.equal((await g.json()).bloqueado, true)
     assert.equal((await ana('GET', '/proyectos/curso-1/pipeline')).status, 200)
     assert.equal((await ana('GET', '/proyectos')).status, 200)
+    assert.equal((await ana('GET', '/proyectos/curso-1/diseno')).status, 200)
+    assert.equal((await ana('GET', '/diseno')).status, 200)
+    assert.equal((await ana('GET', '/proyectos/curso-1/pipeline/recursos/x/contenido')).status === 403, false)
+    const lista = await (await ana('GET', '/proyectos')).json()
+    assert.equal(lista.length, 1) // el curso en diseño sigue en la lista del docente
+    assert.equal(lista[0].syllabus.documentos.length, 2)
   }
 })
 

@@ -184,7 +184,7 @@ function Guion({ a, n, activo, abierto, onAlternar, onVisto, onAprobar, onDesapr
   const titulo = a.nombre_tema ? a.nombre_tema : (a.tema != null ? 'Tema ' + a.tema : a.nombre)
   return (
     <article className={'gu-it' + (a.aprobado ? ' aprobado' : '') + (activo ? ' activo' : '') + (bloqueado ? ' bloq' : '') + (abierto ? ' abierto' : '')}>
-      <button type="button" className="gu-it-cab" aria-expanded={abierto} onClick={onAlternar}>
+      <button type="button" data-nav className="gu-it-cab" aria-expanded={abierto} onClick={onAlternar}>
         <span className="gu-it-n" aria-hidden="true">{a.aprobado ? <Ico d={I_VISTO} s={18} /> : (a.tema != null ? a.tema : n)}</span>
         <span className="gu-it-tit">
           <b>{titulo}</b>
