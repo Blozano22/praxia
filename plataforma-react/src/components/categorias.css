@@ -592,3 +592,6 @@
 .pg-seg{padding:4px}.pg-seg button{height:36px}
 @media(max-width:1100px){.pg-cab>.pg-acc{flex:1 1 100%;justify-content:flex-start}}
 @media(max-width:1480px){.pg-filtro{grid-template-columns:minmax(0,1fr)}.pg-filtro .pg-seg{max-width:100%;overflow-x:auto}}
+
+.cat-var-w{min-width:0;display:flex;flex-direction:column}
+.cat-reemp{font-size:.72rem;font-weight:500;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

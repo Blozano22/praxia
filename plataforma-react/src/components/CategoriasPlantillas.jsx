@@ -173,7 +173,7 @@ function FilaSin({ resaltada, nombre, actual = '', compacta, categorias, puedeCa
   const archivo = useRef(null)
   return (
     <li id={'var-' + nombre} style={resaltada ? { outline: '2px solid #2563eb', outlineOffset: 2, background: '#eff6ff' } : undefined} className={'cs-fila' + (compacta ? ' compacta' : '') + (oculta ? ' oculta' : '') + (puedeCambiar ? '' : ' sin-sel')}>
-      <span className="cat-var-n" title={verNombre(nombre)}>{verNombre(nombre)}{subida && <em className="cat-sub" title={'Subida por ' + (subida.por || 'alguien')}>subida</em>}{oculta && <em className="cat-ocu" title="Oculta para n8n: no sale en el índice ni se descarga">oculta</em>}</span>
+      <span className="cat-var-w"><span className="cat-var-n" title={verNombre(nombre)}>{verNombre(nombre)}{subida && <em className="cat-sub" title={'Subida por ' + (subida.por || 'alguien')}>subida</em>}{oculta && <em className="cat-ocu" title="Oculta para n8n: no sale en el índice ni se descarga">oculta</em>}</span>{subida && subida.reemplazada_por && <span className="cat-reemp">Reemplazada por {subida.reemplazada_por}{subida.reemplazada_en ? ' el ' + new Date(subida.reemplazada_en).toLocaleDateString('es-CO', { dateStyle: 'medium' }) : ''}</span>}</span>
       <button type="button" className="cat-var-ver" onClick={() => onVer(nombre)}>Ver</button>
       {puedeCambiar && <span className="cs-sep" aria-hidden="true" />}
       {puedeCambiar && <SelectCategoria valor={actual} categorias={categorias} ocupado={ocupado} onChange={(v) => v !== actual && onAsignar(nombre, v || null)} etiqueta={'Categoría de ' + nombre} vacio="Sin categoría" />}
