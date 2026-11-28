@@ -115,8 +115,8 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
   const gruposTodos = useMemo(() => GRUPOS.map(([g, l]) => [g, l.filter(([k]) => CATALOGO[k])]).filter(([, l]) => l.length), [])
   const [clase, setClase] = useState('recurso') // qué clase de HTML se ve en la galería: recurso | actividad
   const [ejSubido, setEjSubido] = useState(false) // la variante publicada que se ve trae su propio contenido de ejemplo (plantilla subida)
-  const [vista, setVista] = useState(enlace ? 'categorias' : 'galeria') // galeria | categorias (las categorías que usa n8n)
-  useEffect(() => { if (enlace) setVista('categorias') }, [enlace]) // el enlace llega tras el primer render (la pantalla ya estaba montada)
+  const [vista, setVista] = useState('galeria') // galeria | categorias (las categorías que usa n8n; solo con permiso) | iconos
+  useEffect(() => { if (vista === 'categorias' && !puedeCategorias) setVista('galeria') }, [vista, puedeCategorias]) // guarda: sin permiso nunca se queda en «Categorías»
   const [tipo, setTipo] = useState(() => (gruposTodos.find(([g]) => !esActividad(g)) || gruposTodos[0])[1][0][0])
   const [q, setQ] = useState('')
   const [formacion, setFormacion] = useState('') // '' = todas; si no, el id de la formación (tecnologico, profesional…): filtra las categorías y colorea la vista previa
@@ -299,6 +299,27 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
     if (it) { irADiseno(it); onAbierto && onAbierto() } else if (cats) onAbierto && onAbierto()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [abrirPlantilla, itemsRev, cats])
+  // Enlace profundo (#/plantillas?categoria=…&variante=…): se elige en la galería como si el usuario lo hiciera a mano (clase, formación «Todas», categoría y variante).
+  const enlaceHecho = useRef(null)
+  const [resaltar, setResaltar] = useState('')
+  useEffect(() => {
+    if (!enlace || !cats || enlaceHecho.current === enlace) return
+    enlaceHecho.current = enlace
+    const vb = String(enlace.variante || '').replace(/\.html$/i, '').toLowerCase()
+    const nomDe = (i) => (i.k.startsWith('pub-') ? i.k.slice(4) : (nombrePublico(i.k) || '')).toLowerCase()
+    const it = (vb && itemsRev.find((i) => nomDe(i) === vb)) || (enlace.categoria && itemsRev.find((i) => i.cat === enlace.categoria))
+    setVista('galeria')
+    if (!it) { if (aviso) aviso('No se encontró la variante o categoría de ese enlace (puede estar archivada o ser de otra formación).'); return }
+    irADiseno(it)
+    if (vb && nomDe(it) !== vb && aviso) aviso('No se encontró la variante ' + enlace.variante + '; se muestra su categoría.')
+    else setResaltar(it.k)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enlace, cats, itemsRev])
+  useEffect(() => {
+    if (!resaltar || vista !== 'galeria') return undefined
+    const t = setTimeout(() => { const el = document.querySelector('.pl2-lista button.on'); if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' }) }, 300)
+    return () => clearTimeout(t)
+  }, [resaltar, vista, tipo])
   const busca = q.trim().toLowerCase()
   const res = busca ? todos.filter((t) => (t.n + ' ' + t.g).toLowerCase().includes(busca)) : null
   const elegir = (k) => { setTipo(k); setQ('') }
@@ -381,7 +402,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
           <Titulo icono="codigo"><h1>Plantillas HTML</h1></Titulo>
         </div>
         <div className="pg-fila-tabs">{pestanas}</div>
-        <CategoriasPlantillas enlace={enlace} puedeCambiar={puedeRevisar} esAdmin={!!(yo && yo.permisos && yo.permisos.includes('usuarios.gestionar'))} aviso={aviso} />
+        <CategoriasPlantillas puedeCambiar={puedeRevisar} esAdmin={!!(yo && yo.permisos && yo.permisos.includes('usuarios.gestionar'))} aviso={aviso} />
       </div>
     )
   }
