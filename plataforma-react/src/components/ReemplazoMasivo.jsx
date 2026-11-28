@@ -40,7 +40,7 @@ function Mini({ etiqueta, html, cargar, nombre, onAmpliar }) {
 // Ventana «Reemplazar en masa»: varias variantes de una categoría (y formación) se reemplazan TODAS a la vez o NINGUNA.
 // Cada archivo se asocia a su variante por el nombre del archivo (act-e-10-tec-p-v1.html ↔ act-e-10-tec-p-v1); se puede corregir la asociación.
 export default function ReemplazoMasivo({ categoria, formacion = '', cats, onCerrar, onHecho }) {
-  const variantes = Object.keys(cats.subidas || {}).filter((n) => (cats.asignaciones || {})[n] === categoria && (!formacion || !cats.subidas[n].formacion || cats.subidas[n].formacion === formacion)).sort()
+  const variantes = Object.keys(cats.subidas || {}).filter((n) => (cats.asignaciones || {})[n] === categoria).sort() // todas las formaciones: el nombre del archivo decide, no el filtro de pantalla
   const [items, setItems] = useState([]) // { id, archivo, html, variante }
   const [res, setRes] = useState(null) // resultados del servidor por variante
   const [verificado, setVerificado] = useState(false)
@@ -73,7 +73,7 @@ export default function ReemplazoMasivo({ categoria, formacion = '', cats, onCer
   const enviar = async (soloVerificar) => {
     setOcupado(true); setError('')
     try {
-      const r = await api('POST', '/plantillas/subidas/reemplazo-masivo', { archivos: items.map((i) => ({ nombre: i.variante, html: i.html })), soloVerificar })
+      const r = await api('POST', '/plantillas/subidas/reemplazo-masivo', { archivos: items.map((i) => ({ nombre: i.variante, html: i.html, archivo: i.archivo })), soloVerificar })
       setRes(r.resultados); setVerificado(true)
       if (!soloVerificar) { setHecho(true); onHecho && onHecho(r.resultados.length) }
     } catch (e) {
@@ -92,7 +92,7 @@ export default function ReemplazoMasivo({ categoria, formacion = '', cats, onCer
         <div className="sv-cuerpo rm-cuerpo">
           {error && <div className="msg bad" role="alert">{error}</div>}
           {hecho && <div className="msg ok" role="status">Se reemplazaron las {items.length} variantes.</div>}
-          <p className="help">Se reemplazan <b>todas a la vez o ninguna</b>. Los campos se comparan entre los archivos nuevos y con las variantes de la categoría{formacion ? ' y formación' : ''} que no se reemplacen. Cada archivo se asocia a su variante por el nombre del archivo.</p>
+          <p className="help">Se reemplazan <b>todas a la vez o ninguna</b>. Los campos se comparan entre los archivos nuevos y con las variantes de la categoría que no se reemplacen. Cada archivo se asocia a su variante por el nombre del archivo (de cualquier formación) y su formación debe coincidir con la de la variante: un reemplazo nunca la cambia.</p>
           {!hecho && (
             <div className={'rm-zona' + (sobre ? ' sobre' : '')} onDragOver={(e) => { e.preventDefault(); setSobre(true) }} onDragLeave={() => setSobre(false)} onDrop={soltar}>
               <input ref={entrada} type="file" multiple accept=".html,.htm,text/html" onChange={elegir} disabled={ocupado} hidden />

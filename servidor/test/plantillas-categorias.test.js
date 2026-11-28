@@ -604,7 +604,7 @@ test('en una categoría compartida cada formación tiene sus propios campos: se 
   assert.equal((await edi('PUT', '/plantillas/subidas/' + creadas[1], { html: con(B, 'especializacion') })).status, 200)
   // una variante sin formación en una categoría compartida (como las subidas antes de este cambio) no sirve de referencia a nadie y pide formación al reemplazarla
   await pool.query('UPDATE plantilla_subidas SET formacion = NULL WHERE nombre = $1', [creadas[1]])
-  assert.equal((await edi('PUT', '/plantillas/subidas/' + creadas[1], { html: con(B) })).status, 400)
+  assert.equal((await edi('PUT', '/plantillas/subidas/' + creadas[1], { html: con(B) })).status, 200) // ahora la formación sale del código del nombre (-esp-), no se pide
   assert.equal((await edi('PUT', '/plantillas/subidas/' + creadas[1], { html: con(B), formacion: 'especializacion' })).status, 200) // la de especialización más antigua con campos es la otra B: coincide
   // una categoría de una sola formación se compara con toda la categoría, venga la formación que venga
   assert.equal((await dani('PUT', '/plantillas/categorias/G-04/formaciones', { formaciones: [{ formacion: 'tecnologico' }] })).status, 200)

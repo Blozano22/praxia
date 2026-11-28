@@ -201,7 +201,27 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
   const prioridadEn = (id) => { const f = formacion && cats ? ((cats.formaciones || {})[id] || []).find((x) => x.formacion === formacion) : null; return f ? f.prioridad : '' }
   const grupos = gruposClase[clase]
   // si el diseño elegido ya no está en lo que se muestra (cambió la clase o llegaron las categorías), se elige el primero
-  useEffect(() => { if (grupos.length && !grupos.some(([, l]) => l.some(([k]) => k === tipo))) setTipo(grupos[0][1][0][0]) }, [grupos]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Al cambiar de formación se conserva la categoría (recurso) que se estaba viendo: se abre su variante en la misma posición o, si en esa formación no tiene variantes, se queda en ella con un aviso.
+  const [vacioCat, setVacioCat] = useState(null) // { id, nombre, formacion } la categoría vista no tiene variantes en la formación elegida
+  const conservar = useRef(null) // { id, nombre, pos } de la categoría que se veía al cambiar la formación
+  useEffect(() => {
+    if (grupos.some(([, l]) => l.some(([k]) => k === tipo))) { if (vacioCat) setVacioCat(null); return }
+    const c = conservar.current
+    if (c) {
+      conservar.current = null
+      const g = grupos.find(([, , id]) => id === c.id)
+      if (g) { setVacioCat(null); setTipo(g[1][Math.min(c.pos, g[1].length - 1)][0]); return }
+      setVacioCat({ id: c.id, nombre: c.nombre, formacion }); return
+    }
+    if (vacioCat) return
+    if (grupos.length) setTipo(grupos[0][1][0][0])
+  }, [grupos]) // eslint-disable-line react-hooks/exhaustive-deps
+  const cambiarFormacion = (f) => {
+    const g = gruposClase[clase].find(([, l]) => l.some(([k]) => k === tipo))
+    const previa = g ? { id: g[2], nombre: g[0], pos: g[1].findIndex(([k]) => k === tipo) } : vacioCat ? { id: vacioCat.id, nombre: vacioCat.nombre, pos: 0 } : null
+    conservar.current = previa && previa.id ? previa : null
+    setFormacion(f); setQ('')
+  }
 
   // Enlace corto y público para ver la variante con su ejemplo (para ponerlo en los guiones): sin «praxia» en la dirección (lo atiende el nginx).
   const [copiado, setCopiado] = useState(false)
@@ -284,7 +304,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
   const itemsClase = useMemo(() => itemsRev.filter((i) => i.clase === clase), [itemsRev, clase])
   const [slotRev, setSlotRev] = useState(null) // hueco del encabezado donde va el botón «Revisión»
   useEffect(() => { setSlotRev(document.getElementById('slot-revision')) }, [])
-  const irADiseno = (i) => { setVista('galeria'); setClase(i.clase); setFormacion(''); setQ(''); setTipo(i.k) }
+  const irADiseno = (i) => { conservar.current = null; setVacioCat(null); setVista('galeria'); setClase(i.clase); setFormacion(''); setQ(''); setTipo(i.k) }
   // Cuando llega un aviso temporal, lo que se ve en la galería (estados de revisión, categorías) ya cambió: se recarga para que no quede desactualizado.
   useEffect(() => {
     if (!pulsoAvisos) return
@@ -301,6 +321,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
   }, [abrirPlantilla, itemsRev, cats])
   // Enlace profundo (#/plantillas?categoria=…&variante=…): se elige en la galería como si el usuario lo hiciera a mano (clase, formación «Todas», categoría y variante).
   const enlaceHecho = useRef(null)
+  const [seleccionRestaurada, setSeleccionRestaurada] = useState(!enlace) // sin enlace profundo no hay nada que restaurar
   const [resaltar, setResaltar] = useState('')
   useEffect(() => {
     if (!enlace || !cats || enlaceHecho.current === enlace) return
@@ -309,12 +330,24 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
     const nomDe = (i) => (i.k.startsWith('pub-') ? i.k.slice(4) : (nombrePublico(i.k) || '')).toLowerCase()
     const it = (vb && itemsRev.find((i) => nomDe(i) === vb)) || (enlace.categoria && itemsRev.find((i) => i.cat === enlace.categoria))
     setVista('galeria')
-    if (!it) { if (aviso) aviso('No se encontró la variante o categoría de ese enlace (puede estar archivada o ser de otra formación).'); return }
+    if (!it) { setSeleccionRestaurada(true); if (aviso) aviso('No se encontró la variante o categoría de ese enlace (puede estar archivada o ser de otra formación).'); return }
     irADiseno(it)
+    if (enlace.formacion && FORMACIONES.some((f) => f.id === enlace.formacion)) setFormacion(enlace.formacion)
+    setSeleccionRestaurada(true)
     if (vb && nomDe(it) !== vb && aviso) aviso('No se encontró la variante ' + enlace.variante + '; se muestra su categoría.')
     else setResaltar(it.k)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enlace, cats, itemsRev])
+  // La selección (categoría, formación y variante) vive en el hash para que recargar la página la conserve; replaceState no llena el historial.
+  useEffect(() => {
+    if (!seleccionRestaurada || vista !== 'galeria' || !cats || vacioCat || !codigoActual) return
+    const n = tipo.startsWith('pub-') ? tipo.slice(4) : nombrePublico(tipo)
+    const qs = new URLSearchParams({ categoria: codigoActual.id })
+    if (formacion) qs.set('formacion', formacion)
+    if (n) qs.set('variante', n)
+    const h = '#/plantillas?' + qs.toString()
+    if (location.hash !== h) history.replaceState(null, '', h)
+  }, [seleccionRestaurada, vista, cats, vacioCat, codigoActual, tipo, formacion]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!resaltar || vista !== 'galeria') return undefined
     const t = setTimeout(() => { const el = document.querySelector('.pl2-lista button.on'); if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' }) }, 300)
@@ -358,7 +391,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
   }
   const resumenCat = resumenDe(lista)
   const opcionesCat = grupos.map(([g, l, id], i) => ({ i, id: id || '', nombre: corto(g), n: l.length, c: resumenDe(l), pc: id ? prioridadEn(id) : '' }))
-  const irACategoria = (i) => { const [, l] = grupos[(i + grupos.length) % grupos.length]; setQ(''); setTipo(l[0][0]) }
+  const irACategoria = (i) => { const [, l] = grupos[(i + grupos.length) % grupos.length]; setQ(''); setVacioCat(null); setTipo(l[0][0]) }
   const [subiendo, setSubiendo] = useState(false)
   const [masivo, setMasivo] = useState(false)
   const recargarCats = () => api('GET', '/plantillas/categorias').then(setCats).catch(() => {})
@@ -442,18 +475,18 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
             {['recurso', 'actividad', 'bibliografia'].map((c) => {
               const g = gruposClase[c]
               const total = g.reduce((a, [, l]) => a + l.length, 0)
-              return <button key={c} type="button" role="tab" aria-selected={clase === c} className={clase === c ? 'on' : ''} onClick={() => { setClase(c); setQ('') }}>{CLASES[c]} <span>· {total}</span></button>
+              return <button key={c} type="button" role="tab" aria-selected={clase === c} className={clase === c ? 'on' : ''} onClick={() => { conservar.current = null; setVacioCat(null); setClase(c); setQ('') }}>{CLASES[c]} <span>· {total}</span></button>
             })}
           </div>
         </div>
         <div className="pg-forma">
           <span className="pg-lb">Formación</span>
           <div className="pg-chips" role="radiogroup" aria-label="Formación">
-            <button type="button" role="radio" aria-checked={!formacion} className={'pg-chipf' + (!formacion ? ' on' : '')} onClick={() => setFormacion('')}>Todas</button>
+            <button type="button" role="radio" aria-checked={!formacion} className={'pg-chipf' + (!formacion ? ' on' : '')} onClick={() => cambiarFormacion('')}>Todas</button>
             {FORMACIONES.map((f) => {
               const on = formacion === f.id
               return (
-                <button key={f.id} type="button" role="radio" aria-checked={on} className={'pg-chipf' + (on ? ' on' : '')} style={on ? { background: f.base, borderColor: f.base } : undefined} onClick={() => { setFormacion(f.id); setQ('') }}>
+                <button key={f.id} type="button" role="radio" aria-checked={on} className={'pg-chipf' + (on ? ' on' : '')} style={on ? { background: f.base, borderColor: f.base } : undefined} onClick={() => cambiarFormacion(f.id)}>
                   {on ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" /></svg> : <i style={{ background: f.base }} aria-hidden="true" />}
                   {f.nombre}
                 </button>
@@ -471,7 +504,12 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
         </div>
       </div>
 
-      {grupos.length === 0 ? (
+      {vacioCat ? (
+        <div className="card pg-vacio">
+          <b>{vacioCat.id} no tiene variantes de {NOMBRE_FORMACION[vacioCat.formacion] || 'esta formación'}.</b>
+          <span>Elija otra formación o «Todas» para volver a ver sus variantes, u otra categoría en la lista.</span>
+        </div>
+      ) : grupos.length === 0 ? (
         <div className="card pg-vacio">
           <b>{formacion ? 'Ninguna categoría de ' + CLASES[clase].toLowerCase() + ' sirve a ' + (NOMBRE_FORMACION[formacion] || 'esta formación') + ' todavía.' : 'Todavía no hay diseños en esta clase.'}</b>
           <span>{formacion ? 'Pruebe con otra formación o con «Todas». Quien administra las categorías puede asignarlas en «Categorías para n8n».' : (puedeSubir ? 'Suba la primera con «Subir variante»: aquí solo se ofrecen las categorías de ' + CLASES[clase].toLowerCase() + '.' : '')}</span>

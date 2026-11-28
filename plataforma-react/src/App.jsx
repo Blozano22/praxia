@@ -86,7 +86,7 @@ export default function App() {
     } else if (['dashboard', 'nuevo'].includes(p[0]) && perm('proyectos.ver_propios')) setVista(p[0])
     else if (p[0] === 'plantillas' && perm('plantillas.ver')) {
       const qs = new URLSearchParams(location.hash.split('?')[1] || '')
-      if (qs.get('categoria') || qs.get('variante')) setEnlacePlant({ categoria: qs.get('categoria') || '', variante: qs.get('variante') || '' })
+      if (qs.get('categoria') || qs.get('variante')) setEnlacePlant({ categoria: qs.get('categoria') || '', variante: qs.get('variante') || '', formacion: qs.get('formacion') || '' })
       setVista('plantillas')
     } else if (p[0] === 'plantillas-imagenes' && perm('plantillas.imagenes')) setVista('plantillas-imagenes')
     else if (p[0] === 'rubricas' && perm('rubricas.generar')) setVista('rubricas')
@@ -108,7 +108,7 @@ export default function App() {
     let h = '#/' + vista
     if (vista === 'workspace' && actualId) h = '#/syllabus/' + actualId + '/' + tab + (unidadSel != null ? '/' + unidadSel : '')
     else if (vista === 'editor' && actualId && recId) h = '#/editor/' + actualId + '/' + recId
-    if (location.hash !== h && !(['auditor-guiones', 'mis-cursos-diseno', 'workspace'].includes(vista) && location.hash.startsWith(h + '?'))) history.replaceState(null, '', h)
+    if (location.hash !== h && !(['auditor-guiones', 'mis-cursos-diseno', 'workspace', 'plantillas'].includes(vista) && location.hash.startsWith(h + '?'))) history.replaceState(null, '', h)
   }, [restaurado, vista, actualId, tab, unidadSel, recId])
 
   useEffect(() => { api('GET', '/auth/yo').then(setYo).catch(() => setYo(null)) }, [])

@@ -874,13 +874,18 @@ const soloLoPropio = async (req, res, next) => {
 }
 // Prepara el reemplazo de una variante (compartido por el reemplazo individual y el masivo): arma el HTML, resuelve formación y tipo.
 // Devuelve { status, body } si no se puede, o { armada, fo, act, categoria } si sí.
+// La formación de una variante NO cambia al reemplazarla: manda la guardada (o, si no tiene, la que dice el código de su nombre); ni la ficha del archivo ni el filtro de pantalla la tocan.
+const formacionDelNombre = (n) => { const m = /-(tec|pro|esp|doc)-/.exec(String(n || '').toLowerCase()); return m ? FORMACION_DE_SUFIJO[m[1].toUpperCase()] : null }
 const prepararReemplazo = async (nombre, html, pedido = {}) => {
   const armada = armarSubida(html)
   if (!armada.ok) return { status: 400, body: { error: armada.error } }
   const enCat = (await sinUsuario(Q.categoriasAsignaciones)).rows.find((x) => x.plantilla === nombre)
   const actual = (await sinUsuario(Q.subidaEsquema, [nombre])).rows[0]
   // formación: la elegida, la de la ficha o la que ya tenía la variante
-  const fo = await formacionDeSubida(enCat && enCat.categoria, pedido.formacion || armada.ficha.formacion || (actual && actual.formacion) || null)
+  const destino = (actual && actual.formacion) || formacionDelNombre(nombre) || null
+  const delArchivo = formacionDelNombre(pedido.archivo)
+  if (delArchivo && destino && delArchivo !== destino) return { status: 400, body: { error: 'El archivo ' + pedido.archivo + ' es de la formación ' + delArchivo + ' (lo dice su nombre) y la variante ' + nombre + ' es de ' + destino + '. Un reemplazo no cambia la formación: elija la variante de su misma formación.' } }
+  const fo = await formacionDeSubida(enCat && enCat.categoria, destino || pedido.formacion || armada.ficha.formacion || null)
   if (fo.falta || fo.invalida) return { status: 400, body: errorFormacion(enCat.categoria, fo) }
   const act = await contextoActividad(enCat && enCat.categoria, pedido.calificable, armada.ficha.calificable, actual && actual.calificable)
   if (act.falta) return { status: 400, body: errorTipo(enCat.categoria) }
@@ -902,7 +907,7 @@ rutas.put('/plantillas/subidas/:nombre', exigirSesion, exigirAlguno('plantillas.
 // Reemplazo en masa: varias variantes (de una o más categorías) se reemplazan todas a la vez o ninguna. Los campos se comparan solo entre las nuevas
 // de cada grupo (categoría + formación + tipo) y contra las del grupo que NO se reemplazan. «soloVerificar» no guarda nada.
 rutas.post('/plantillas/subidas/reemplazo-masivo', exigirSesion, exigirAlguno('plantillas.revisar', 'plantillas.subir'), limiteSubir, validar(z.object({
-  archivos: z.array(z.object({ nombre: NombreSubida, html: HtmlSubido }).strict()).min(1).max(40),
+  archivos: z.array(z.object({ nombre: NombreSubida, html: HtmlSubido, archivo: z.string().max(200).optional() }).strict()).min(1).max(40),
   soloVerificar: z.boolean().optional()
 }).strict(), 'body'), async (req, res, next) => {
   try {
@@ -916,7 +921,7 @@ rutas.post('/plantillas/subidas/reemplazo-masivo', exigirSesion, exigirAlguno('p
       const f = (await sinUsuario(Q.subidaDueno, [a.nombre])).rows[0]
       if (!f) { detalle[a.nombre] = { ok: false, error: 'No hay una plantilla subida con ese nombre (las del sistema no se reemplazan desde aquí).' }; continue }
       if (!req.usuario.permisos.has('plantillas.revisar') && f.subida_por !== req.usuario.id) return res.status(403).json({ error: 'Solo puedes cambiar las plantillas que subiste tú.' })
-      const p = await prepararReemplazo(a.nombre, a.html, {})
+      const p = await prepararReemplazo(a.nombre, a.html, { archivo: a.archivo })
       if (p.status) { detalle[a.nombre] = { ok: false, error: p.body.error }; continue }
       listos.push({ nombre: a.nombre, html: a.html, ...p })
       detalle[a.nombre] = { ok: true, faltan: [], sobran: [], referencia: null }

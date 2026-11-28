@@ -126,3 +126,31 @@ test('reemplazar no cambia el autor: el admin reemplaza (suelto y en masa) y que
   // sigue siendo suya: puede editarla
   assert.equal((await edi('PUT', '/plantillas/subidas/' + a, { html: html(NUEVO) })).status, 200)
 })
+
+test('reemplazar nunca cambia la formación: en masa con 3 formaciones y archivo de otra formación rechazado', async () => {
+  const dani = await entrar('dani@u.co')
+  const subir = async (formacion) => { const r = await dani('POST', '/plantillas/subidas', { html: html(NUEVO), categoria: 'G-10', formacion }); const j = await r.json(); assert.ok(r.status < 300, JSON.stringify(j)); return j.nombre }
+  const formas = ['tecnologico', 'especializacion', 'profesional']
+  const nombres = []
+  for (const f of formas) nombres.push(await subir(f))
+  const formacionDe = async (n) => (await pool.query('SELECT formacion FROM plantilla_subidas WHERE nombre = $1', [n])).rows[0].formacion
+  assert.deepEqual(await Promise.all(nombres.map(formacionDe)), formas)
+  // la ficha de los archivos dice «tecnologico» (como el filtro de pantalla): no debe pisar la formación de ninguna variante
+  const masivo = (archivos, soloVerificar) => dani('POST', '/plantillas/subidas/reemplazo-masivo', { archivos, soloVerificar })
+  const codigo = { tecnologico: 'tec', especializacion: 'esp', profesional: 'pro' }
+  const buenos = nombres.map((nombre, i) => ({ nombre, html: html(NUEVO), archivo: 'g-10-' + codigo[formas[i]] + '-v01.html' }))
+  assert.equal((await masivo(buenos)).status, 200)
+  assert.deepEqual(await Promise.all(nombres.map(formacionDe)), formas)
+  // el reemplazo individual tampoco la cambia, aunque se pida otra
+  assert.equal((await dani('PUT', '/plantillas/subidas/' + nombres[2], { html: html(NUEVO), formacion: 'tecnologico' })).status, 200)
+  assert.equal(await formacionDe(nombres[2]), 'profesional')
+  // archivo con código de otra formación que la variante destino: rechazado y no se guarda nada
+  const malos = [buenos[0], { ...buenos[1], archivo: 'g-10-pro-v01.html' }, buenos[2]]
+  const r = await masivo(malos, true)
+  assert.equal(r.status, 409)
+  const j = await r.json()
+  assert.deepEqual(j.resultados.map((x) => x.ok), [true, false, true])
+  assert.match(j.resultados[1].error, /formación profesional/)
+  assert.equal((await masivo(malos)).status, 409)
+  assert.deepEqual(await Promise.all(nombres.map(formacionDe)), formas)
+})
