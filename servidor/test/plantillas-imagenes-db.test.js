@@ -33,8 +33,8 @@ before(async () => {
   const { hashClave } = await import('../src/seguridad.js')
   const { Q } = await import('../src/consultas.js')
   pool = db.pool
-  for (const [nombre, correo, rol] of [['Dani', 'dani@u.co', 'disenador'], ['Edu', 'edu@u.co', 'editor_html'], ['Ela', 'ela@u.co', 'editor_imagenes'], ['Admin', 'admin@u.co', 'admin'], ['Rita', 'rita@u.co', 'generador_rubricas']]) {
-    await pool.query(Q.usuarioCrear, [nombre, correo, await hashClave(CLAVE), [rol]])
+  for (const [nombre, correo, rol] of [['Dani', 'dani@u.co', ['admin', 'disenador']], ['Edu', 'edu@u.co', 'editor_html'], ['Ela', 'ela@u.co', 'editor_imagenes'], ['Admin', 'admin@u.co', 'admin'], ['Rita', 'rita@u.co', 'generador_rubricas']]) {
+    await pool.query(Q.usuarioCrear, [nombre, correo, await hashClave(CLAVE), [rol].flat()])
   }
   servidor = crearApp().listen(0)
   base = 'http://127.0.0.1:' + servidor.address().port

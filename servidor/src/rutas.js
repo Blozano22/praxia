@@ -586,7 +586,7 @@ const CuerpoFormaciones = z.object({ formaciones: z.array(z.object({ formacion: 
   .refine((b) => new Set(b.formaciones.map((x) => x.formacion)).size === b.formaciones.length)
 const ListaFormaciones = z.array(z.object({ formacion: z.enum(FORMACIONES), prioridad: z.enum(['P', 'C']).default('P') }).strict()).max(4)
   .refine((l) => new Set(l.map((x) => x.formacion)).size === l.length)
-rutas.post('/plantillas/categorias', exigirSesion, exigirPermiso('plantillas.revisar'), validar(z.object({ id: IdCategoria, nombre: NombreCategoria, tipo: TipoPlantilla.default('recurso'), formaciones: ListaFormaciones.optional() }).strict(), 'body'), async (req, res, next) => {
+rutas.post('/plantillas/categorias', exigirSesion, exigirPermiso('plantillas.categorias'), validar(z.object({ id: IdCategoria, nombre: NombreCategoria, tipo: TipoPlantilla.default('recurso'), formaciones: ListaFormaciones.optional() }).strict(), 'body'), async (req, res, next) => {
   try {
     const { id, nombre, tipo } = req.bodyOk
     let formaciones = req.bodyOk.formaciones || []
@@ -605,7 +605,7 @@ rutas.post('/plantillas/categorias', exigirSesion, exigirPermiso('plantillas.rev
     res.status(201).json({ id, nombre })
   } catch (e) { next(e) }
 })
-rutas.put('/plantillas/categorias/:id', exigirSesion, exigirPermiso('plantillas.revisar'), validar(z.object({ id: IdCategoria }), 'params'), validar(z.object({ nombre: NombreCategoria.optional(), tipo: TipoPlantilla.optional() }).strict().refine((b) => b.nombre !== undefined || b.tipo !== undefined), 'body'), async (req, res, next) => {
+rutas.put('/plantillas/categorias/:id', exigirSesion, exigirPermiso('plantillas.categorias'), validar(z.object({ id: IdCategoria }), 'params'), validar(z.object({ nombre: NombreCategoria.optional(), tipo: TipoPlantilla.optional() }).strict().refine((b) => b.nombre !== undefined || b.tipo !== undefined), 'body'), async (req, res, next) => {
   try {
     const r = await sinUsuario(Q.categoriaRenombrar, [req.paramsOk.id, req.bodyOk.nombre ?? null, req.bodyOk.tipo ?? null])
     if (!r.rowCount) return res.status(404).json({ error: 'No encontrado' })
@@ -613,7 +613,7 @@ rutas.put('/plantillas/categorias/:id', exigirSesion, exigirPermiso('plantillas.
     res.json({ ok: true })
   } catch (e) { next(e) }
 })
-rutas.delete('/plantillas/categorias/:id', exigirSesion, exigirPermiso('plantillas.revisar'), validar(z.object({ id: IdCategoria }), 'params'), async (req, res, next) => {
+rutas.delete('/plantillas/categorias/:id', exigirSesion, exigirPermiso('plantillas.categorias'), validar(z.object({ id: IdCategoria }), 'params'), async (req, res, next) => {
   try {
     // sus plantillas quedan sin categoría y lo asignado con ellas en algún curso queda inválido
     const r = await conTransaccion(async (c) => { await invalidarAsignaciones(c, Q.asignInvalidarCategoria, [req.paramsOk.id]); return c.query(Q.categoriaBorrar, [req.paramsOk.id]) })
@@ -622,7 +622,7 @@ rutas.delete('/plantillas/categorias/:id', exigirSesion, exigirPermiso('plantill
     res.json({ ok: true })
   } catch (e) { next(e) }
 })
-rutas.put('/plantillas/categorias/:id/formaciones', exigirSesion, exigirPermiso('plantillas.revisar'), validar(z.object({ id: IdCategoria }), 'params'), validar(CuerpoFormaciones, 'body'), async (req, res, next) => {
+rutas.put('/plantillas/categorias/:id/formaciones', exigirSesion, exigirPermiso('plantillas.categorias'), validar(z.object({ id: IdCategoria }), 'params'), validar(CuerpoFormaciones, 'body'), async (req, res, next) => {
   try {
     const { id } = req.paramsOk
     if (!(await sinUsuario(Q.categoriasListar)).rows.some((c) => c.id === id)) return res.status(404).json({ error: 'No encontrado' })

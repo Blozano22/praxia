@@ -22,7 +22,7 @@ before(async () => {
   dueno = new pg.Client({ connectionString: `postgres://postgres:duenio@localhost:${PUERTO_PG}/ova` })
   await dueno.connect()
   await dueno.query("CREATE ROLE ova_app LOGIN PASSWORD 'appclave' NOSUPERUSER NOBYPASSRLS")
-  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql', '014_tipo_bibliografia.sql', '015_imagen_consumo_recurso.sql', '017_partes_recurso.sql', '018_estado_previo.sql', '019_actividad_tipos.sql', '020_alerta_actividad.sql', '021_matriz_actualizada.sql', '024_curso_diseno.sql', '025_asignar_diseno.sql', '026_correcciones.sql', '027_cola_regenerar.sql', '028_cola_partes.sql', '029_permiso_h5p.sql', '030_plantilla_reemplazada.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
+  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql', '014_tipo_bibliografia.sql', '015_imagen_consumo_recurso.sql', '017_partes_recurso.sql', '018_estado_previo.sql', '019_actividad_tipos.sql', '020_alerta_actividad.sql', '021_matriz_actualizada.sql', '024_curso_diseno.sql', '025_asignar_diseno.sql', '026_correcciones.sql', '027_cola_regenerar.sql', '028_cola_partes.sql', '029_permiso_h5p.sql', '030_plantilla_reemplazada.sql', '031_disenador_sin_categorias.sql']) await dueno.query(fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8'))
   process.env.DATABASE_URL = `postgres://ova_app:appclave@localhost:${PUERTO_PG}/ova`
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex')
   process.env.LIMITE_LOGIN = '1000'
@@ -33,7 +33,7 @@ before(async () => {
   avisos = await import('../src/avisos.js')
   pool = db.pool
   for (const [nombre, correo, rol] of [['Dani', 'dani@u.co', 'disenador'], ['Edu', 'edu@u.co', 'editor_html'], ['Eva', 'eva@u.co', 'editor_html'], ['Admin', 'admin@u.co', 'admin'], ['Ana', 'ana@u.co', 'docente']]) {
-    await pool.query(Q.usuarioCrear, [nombre, correo, await hashClave(CLAVE), [rol]])
+    await pool.query(Q.usuarioCrear, [nombre, correo, await hashClave(CLAVE), [rol].flat()])
   }
   servidor = crearApp().listen(0)
   base = 'http://127.0.0.1:' + servidor.address().port
@@ -58,7 +58,7 @@ const subirComo = async (u, categoria) => { const r = await u('POST', '/plantill
 
 test('a quien subió la plantilla le llega un aviso cuando el diseñador la aprueba; se recoge una sola vez y el diseñador no recibe el suyo', async () => {
   const dani = await entrar('dani@u.co'); const edu = await entrar('edu@u.co')
-  assert.equal((await dani('POST', '/plantillas/categorias', { id: 'G-71', nombre: 'Prueba de avisos' })).status, 201)
+  assert.equal((await (await entrar('admin@u.co'))('POST', '/plantillas/categorias', { id: 'G-71', nombre: 'Prueba de avisos' })).status, 201)
   const nombre = await subirComo(edu, 'G-71')
   assert.equal(nombre, 'g-71-v01')
   assert.equal((await enviar(dani, 'pub-' + nombre, 'aprobada', 'Está bien')).status, 201)

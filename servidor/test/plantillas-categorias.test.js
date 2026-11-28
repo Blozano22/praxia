@@ -31,7 +31,7 @@ before(async () => {
   await dueno.connect()
   await dueno.query("CREATE ROLE ova_app LOGIN PASSWORD 'appclave' NOSUPERUSER NOBYPASSRLS")
   const sql = (f) => fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8')
-  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql', '014_tipo_bibliografia.sql', '015_imagen_consumo_recurso.sql', '017_partes_recurso.sql', '018_estado_previo.sql', '019_actividad_tipos.sql', '020_alerta_actividad.sql', '021_matriz_actualizada.sql', '024_curso_diseno.sql', '025_asignar_diseno.sql', '026_correcciones.sql', '027_cola_regenerar.sql', '028_cola_partes.sql', '029_permiso_h5p.sql', '030_plantilla_reemplazada.sql']) await dueno.query(sql(f))
+  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql', '014_tipo_bibliografia.sql', '015_imagen_consumo_recurso.sql', '017_partes_recurso.sql', '018_estado_previo.sql', '019_actividad_tipos.sql', '020_alerta_actividad.sql', '021_matriz_actualizada.sql', '024_curso_diseno.sql', '025_asignar_diseno.sql', '026_correcciones.sql', '027_cola_regenerar.sql', '028_cola_partes.sql', '029_permiso_h5p.sql', '030_plantilla_reemplazada.sql', '031_disenador_sin_categorias.sql']) await dueno.query(sql(f))
   await dueno.query(sql('001_esquema.sql')) // volver a migrar no debe repetir ni pisar el punto de partida
   await dueno.end()
   process.env.DATABASE_URL = `postgres://ova_app:appclave@localhost:${PUERTO_PG}/ova`
@@ -44,7 +44,7 @@ before(async () => {
   const { hashClave } = await import('../src/seguridad.js')
   const { Q } = await import('../src/consultas.js')
   pool = db.pool
-  for (const [n, c, r] of [['Admin', 'admin@u.co', ['admin', 'disenador']], ['Dani', 'dani@u.co', 'disenador'], ['Ana', 'ana@u.co', 'docente'], ['Edi', 'edi@u.co', 'editor_html'], ['Edu', 'edu@u.co', 'editor_html']]) await pool.query(Q.usuarioCrear, [n, c, await hashClave(CLAVE), [r].flat()])
+  for (const [n, c, r] of [['Admin', 'admin@u.co', ['admin', 'disenador']], ['Dani', 'dani@u.co', ['admin', 'disenador']], ['Dora', 'dora@u.co', 'disenador'], ['Ana', 'ana@u.co', 'docente'], ['Edi', 'edi@u.co', 'editor_html'], ['Edu', 'edu@u.co', 'editor_html']]) await pool.query(Q.usuarioCrear, [n, c, await hashClave(CLAVE), [r].flat()])
   servidor = crearApp().listen(0)
   base = 'http://127.0.0.1:' + servidor.address().port
 })
@@ -676,7 +676,7 @@ test('eliminar en bloque las plantillas subidas: exige confirmar, solo la admini
   assert.equal((await admin('POST', '/plantillas/subidas/eliminar-todas', { confirmar: false })).status, 400)
   assert.equal((await admin('POST', '/plantillas/subidas/eliminar-todas', { confirmar: true, extra: 1 })).status, 400)
   assert.equal((await ana('POST', '/plantillas/subidas/eliminar-todas', { confirmar: true })).status, 403)
-  assert.equal((await dani('POST', '/plantillas/subidas/eliminar-todas', { confirmar: true })).status, 403) // quien revisa plantillas tampoco: solo la administración
+  assert.equal((await (await entrar('dora@u.co'))('POST', '/plantillas/subidas/eliminar-todas', { confirmar: true })).status, 403) // quien revisa plantillas tampoco: solo la administración
   assert.equal((await fetch(base + '/plantillas-html/' + a1 + '.html')).status, 200)
   // solo las archivadas de una categoría: archivo a2 y elimino solo esas
   assert.equal((await dani('PUT', '/plantillas/subidas/' + a2 + '/archivo', { archivada: true })).status, 200)
@@ -856,6 +856,15 @@ test('banco de íconos (auditoría): lo hostil no se guarda, vaciar datos funcio
     meta('degr', 4, { svg: '<svg viewBox="0 0 24 24"><defs><linearGradient id="g"><stop offset="0" stop-color="currentColor" stop-opacity=".5"/></linearGradient></defs><path d="M9 9h5v5z" fill="url(#g)"/></svg>' })] })
   assert.deepEqual((await g1.json()).renombrados, [{ id: 'degr', como: 'degr-2' }])
   assert.match((await (await servicio('/degr')).json()).svg, /id="degr-g"/); assert.match((await (await servicio('/degr-2')).json()).svg, /id="degr-2-g"/)
+})
+
+test('«Categorías para n8n»: el diseñador solo (sin ser administrador) no puede cambiarlas ni tiene el permiso; el administrador sí', async () => {
+  const dora = await entrar('dora@u.co'); const admin = await entrar('admin@u.co')
+  assert.equal((await (await dora('GET', '/auth/yo')).json()).permisos.includes('plantillas.categorias'), false)
+  assert.equal((await dora('POST', '/plantillas/categorias', { id: 'G-77', nombre: 'No' })).status, 403)
+  assert.equal((await dora('DELETE', '/plantillas/categorias/G-09')).status, 403)
+  assert.equal((await admin('POST', '/plantillas/categorias', { id: 'G-77', nombre: 'Sí' })).status, 201)
+  assert.equal((await admin('DELETE', '/plantillas/categorias/G-77')).status, 200)
 })
 
 test('borrar una categoría deja sus plantillas sin categoría; si falla la base de datos se entrega el archivo del build tal cual', async () => {
