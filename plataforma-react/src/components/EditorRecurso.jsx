@@ -201,6 +201,93 @@ function ListaRecursos({ recursos, actualId, puedePublicar, sucio, onElegir, onA
   )
 }
 
+// Panel «Todos los textos»: cajón sobre la vista previa con todos los campos de la parte activa (lista que envía el iframe). Edita por el mismo camino que el clic.
+const CLAVE_TEXTOS = 'praxia.editor.textos'
+function CampoTexto({ c, soloLectura, onGuardar, onVer }) {
+  const [v, setV] = useState(c.valor)
+  const [foco, setFoco] = useState(false)
+  const ta = useRef(null)
+  useEffect(() => { if (!foco) setV(c.valor) }, [c.valor, foco])
+  useEffect(() => { const t = ta.current; if (t) { t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight + 2, 260) + 'px' } }, [v])
+  const confirmar = () => { if (soloLectura) return; if (v.trim() === '') setV(c.valor); else if (v !== c.valor) onGuardar(c.ruta, v) }
+  const pal = v.trim() ? v.trim().split(/\s+/).length : 0
+  return (
+    <div className={'er-tx-campo' + (foco ? ' foco' : '')}>
+      <div className="er-tx-fila">
+        <label htmlFor={'er-tx-' + c.ruta}>{c.etiqueta || c.ruta}</label>
+        {!c.enPantalla && <span className="er-tx-no" title="Este texto no se ve en la pantalla actual de la vista previa">no visible en pantalla</span>}
+        <button type="button" className="er-tx-ver" onClick={() => onVer(c.ruta)} disabled={!c.enPantalla} aria-label={'Ver «' + (c.etiqueta || c.ruta) + '» en la vista'} title="Ver en la vista">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" /><circle cx="12" cy="12" r="3" /></svg>
+        </button>
+      </div>
+      <textarea id={'er-tx-' + c.ruta} ref={ta} rows={1} value={v} disabled={soloLectura} onChange={(e) => setV(e.target.value)}
+        onFocus={() => { setFoco(true); if (c.enPantalla) onVer(c.ruta) }}
+        onBlur={() => { setFoco(false); confirmar() }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); e.currentTarget.blur() }
+          else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setV(c.valor); const t = e.currentTarget; setTimeout(() => t.blur(), 0) }
+        }} />
+      <small className="er-tx-cnt">{v.length} caracteres · {pal} {pal === 1 ? 'palabra' : 'palabras'}</small>
+    </div>
+  )
+}
+
+function PanelTextos({ campos, abierto, onAbrir, onCerrar, soloLectura, onGuardar, onVer }) {
+  const [q, setQ] = useState('')
+  const [plegadas, setPlegadas] = useState({})
+  const n = campos.length
+  const grupos = useMemo(() => {
+    const t = q.trim().toLowerCase()
+    const m = new Map()
+    campos.forEach((c) => {
+      if (t && !((c.etiqueta || '') + ' ' + c.ruta + ' ' + (c.valor || '')).toLowerCase().includes(t)) return
+      const k = c.seccion || 'General'
+      if (!m.has(k)) m.set(k, [])
+      m.get(k).push(c)
+    })
+    return [...m.entries()]
+  }, [campos, q])
+  return (
+    <>
+      {!abierto && (
+        <button type="button" className="er-tx-tab" onClick={onAbrir} aria-expanded="false" aria-controls="er-tx-panel" title="Ver y editar todos los textos del recurso">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10" /></svg>
+          Textos ({n})
+        </button>
+      )}
+      <aside id="er-tx-panel" className={'er-tx' + (abierto ? ' abierto' : '')} aria-label="Todos los textos" aria-hidden={!abierto}>
+        <header className="er-tx-cab">
+          <b>Todos los textos <span>{n}</span></b>
+          <button type="button" className="er-tx-cerrar" onClick={onCerrar} aria-label="Cerrar el panel de textos" tabIndex={abierto ? 0 : -1}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+            <span>Cerrar</span>
+          </button>
+        </header>
+        <div className="er-tx-busca">
+          <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar en los textos…" aria-label="Buscar en los textos" tabIndex={abierto ? 0 : -1} />
+          {soloLectura && <small>Solo lectura: no se pueden editar.</small>}
+        </div>
+        <div className="er-tx-lista">
+          {n === 0 && <p className="er-vacio">Todavía no hay textos para mostrar.</p>}
+          {n > 0 && grupos.length === 0 && <p className="er-vacio">Ningún texto coincide con la búsqueda.</p>}
+          {abierto && grupos.map(([sec, lista]) => {
+            const cerrada = !!plegadas[sec] && !q.trim()
+            return (
+              <section key={sec} className="er-tx-sec">
+                <button type="button" className="er-tx-sec-t" aria-expanded={!cerrada} onClick={() => setPlegadas((p) => ({ ...p, [sec]: !p[sec] }))}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ transform: cerrada ? 'rotate(-90deg)' : 'none', transition: 'transform .15s' }}><path d="M6 9l6 6 6-6" /></svg>
+                  <b>{sec}</b><span>{lista.length}</span>
+                </button>
+                {!cerrada && lista.map((c) => <CampoTexto key={c.ruta} c={c} soloLectura={soloLectura} onGuardar={onGuardar} onVer={onVer} />)}
+              </section>
+            )
+          })}
+        </div>
+      </aside>
+    </>
+  )
+}
+
 // «Más acciones ⋮»: menú desplegable con teclado (flechas, Inicio/Fin, Esc, Tab) y cierre al hacer clic fuera.
 function MenuAcciones({ items }) {
   const [abierto, setAbierto] = useState(false)
@@ -263,6 +350,9 @@ export default function EditorRecurso({ proyecto, propietario, soloLectura = fal
   // partes: por cada una { contenido, esqueleto, titulo }; sucias: las partes con cambios sin guardar
   const ref = useRef({ partes: {}, parte: 'recurso', formacion: null, activo: !soloLectura, sucias: new Set() })
   const marco = useRef(null)
+  const [campos, setCampos] = useState([]) // lista de textos de la parte activa (la envía el iframe)
+  const [textosAbierto, setTextosAbierto] = useState(() => { try { return localStorage.getItem(CLAVE_TEXTOS) === '1' } catch { return false } })
+  const abrirTextos = (v) => { setTextosAbierto(v); try { localStorage.setItem(CLAVE_TEXTOS, v ? '1' : '0') } catch { /* sin almacenamiento */ } }
   const marcoMapa = useRef(null) // iframe oculto con el contenido marcado
   const [marcada, setMarcada] = useState(null) // { parte, html } de la página marcada que se está mapeando
   const parteDeseada = useRef(parteInicial) // parte a abrir al terminar de cargar (la de la dirección, o la que se tenía al recargar la versión nueva)
@@ -354,7 +444,9 @@ export default function EditorRecurso({ proyecto, propietario, soloLectura = fal
       }
       if (!marco.current || e.source !== marco.current.contentWindow) return
       if (!d || d.fuente !== 'praxia-editor') return
+      if ((d.tipo === 'listo' || d.tipo === 'lista') && Array.isArray(d.campos)) setCampos(d.campos.filter((c) => c && typeof c.ruta === 'string'))
       if (d.tipo === 'listo') { enviarMapa(); return }
+      if (d.tipo === 'lista') return
       if (soloLectura && (d.tipo === 'campo' || d.tipo === 'imagen_clic')) return
       if (d.tipo === 'campo' && typeof d.ruta === 'string' && typeof d.valor === 'string') {
         if (!ponerRuta(ref.current.partes[ref.current.parte].contenido, d.ruta, d.valor)) return
@@ -373,6 +465,16 @@ export default function EditorRecurso({ proyecto, propietario, soloLectura = fal
     return () => window.removeEventListener('message', alMensaje)
   }, [pintar, soloLectura])
 
+  // Edición desde el panel: mismo camino que el clic (JSON de la parte + marca de cambios sin guardar); se avisa al iframe para que lo cambie en pantalla.
+  const editarCampo = (rutaCampo, valor) => {
+    if (soloLectura || !ref.current.partes[ref.current.parte]) return
+    if (!ponerRuta(ref.current.partes[ref.current.parte].contenido, rutaCampo, valor)) return
+    ref.current.sucias.add(ref.current.parte)
+    setSucio(true); setMsg(null)
+    setCampos((l) => l.map((c) => (c.ruta === rutaCampo ? { ...c, valor, largo: valor.length } : c)))
+    try { marco.current && marco.current.contentWindow.postMessage({ fuente: 'praxia-editor', tipo: 'actualizar', ruta: rutaCampo, valor }, '*') } catch { /* iframe aún sin cargar */ }
+  }
+  const resaltarCampo = (rutaCampo) => { try { marco.current && marco.current.contentWindow.postMessage({ fuente: 'praxia-editor', tipo: 'resaltar', ruta: rutaCampo }, '*') } catch { /* iframe aún sin cargar */ } }
   const cambiarParte = (k) => { if (k === ref.current.parte || !ref.current.partes[k]) return; ref.current.parte = k; setParte(k); if (onParte) onParte(k); pintar(ref.current.activo) }
   const cambiarModo = (v) => {
     ref.current.activo = v; setActivo(v)
@@ -613,6 +715,7 @@ export default function EditorRecurso({ proyecto, propietario, soloLectura = fal
               <div className="er-vista">
                 {estado === 'listo' && marcada && <iframe key={marcada.parte} ref={marcoMapa} title="Mapa de textos" aria-hidden="true" tabIndex={-1} sandbox="allow-scripts" srcDoc={marcada.html} style={{ position: 'absolute', left: -10000, top: 0, width: 1024, height: 768, border: 0, visibility: 'hidden', pointerEvents: 'none' }} />}
                 {estado === 'listo' && <iframe ref={marco} className="er-marco" title="Vista del recurso" sandbox="allow-scripts" srcDoc={pagina} />}
+                {estado === 'listo' && <PanelTextos campos={campos} abierto={textosAbierto} onAbrir={() => abrirTextos(true)} onCerrar={() => abrirTextos(false)} soloLectura={soloLectura} onGuardar={editarCampo} onVer={resaltarCampo} />}
                 {estado === 'sinContenido' && <div className="er-estado">{actual.esperando || actual.estado === 'EN_PROCESO' || actual.publicando ? <CargaRecurso tam="grande" /> : <i className="er-estado-ic info" aria-hidden="true">{actual.estado === 'PENDIENTE' ? '…' : 'i'}</i>}<b>{actual.esperando ? 'Los recursos se están generando' : actual.publicando ? 'Este recurso se está publicando' : actual.estado === 'EN_PROCESO' ? 'Este recurso se está generando' : actual.estado === 'PENDIENTE' ? 'Este recurso todavía no se genera' : 'Este recurso no se puede editar aquí'}</b><span>{actual.esperando ? 'Se irán habilitando en la lista a medida que se generen; el primero se abrirá solo.' : actual.publicando ? 'n8n está armando el H5P y subiéndolo a Drive. Cuando termine, el recurso aparecerá como «Generado».' : actual.estado === 'EN_PROCESO' || actual.estado === 'PENDIENTE' ? 'Cuando n8n termine, aparecerá en la lista como «Por revisar» y podrá abrirlo para corregir sus textos.' : 'Se generó antes de que Praxia guardara su contenido, así que sus textos no se pueden corregir desde esta pantalla.'}</span></div>}
                 {estado === 'cargando' && <div className="er-estado"><CargaRecurso tam="grande" etiqueta="Abriendo el recurso" /><b>Abriendo el recurso…</b><span>Se está preparando la plantilla con su contenido.</span></div>}
                 {estado === 'error' && <div className="er-estado mal" role="alert"><i className="er-estado-ic" aria-hidden="true">!</i><b>No se pudo abrir el editor</b><span>{error}</span></div>}
