@@ -624,6 +624,8 @@ export const Q = Object.freeze({
              WHERE d->>'aprobado' = 'true')::int AS unidades_aprobadas,
            (SELECT count(*) FROM jsonb_each(CASE WHEN jsonb_typeof(p.datos->'guionesUnidad') = 'object' THEN p.datos->'guionesUnidad' ELSE '{}'::jsonb END) g
              WHERE jsonb_typeof(g.value->'archivos') = 'array' AND jsonb_array_length(g.value->'archivos') > 0)::int AS unidades_con_guion,
+           (SELECT coalesce(sum(jsonb_array_length(g.value->'archivos')), 0) FROM jsonb_each(CASE WHEN jsonb_typeof(p.datos->'guionesUnidad') = 'object' THEN p.datos->'guionesUnidad' ELSE '{}'::jsonb END) g
+             WHERE jsonb_typeof(g.value->'archivos') = 'array')::int AS guiones_generados,
            jsonb_array_length(CASE WHEN jsonb_typeof(p.datos->'guiones') = 'array' THEN p.datos->'guiones' ELSE '[]'::jsonb END) AS guiones_cargados,
            jsonb_array_length(CASE WHEN jsonb_typeof(p.datos->'recursos') = 'array' THEN p.datos->'recursos' ELSE '[]'::jsonb END) AS recursos
       FROM proyectos p
@@ -683,6 +685,16 @@ export const Q = Object.freeze({
       LEFT JOIN proyectos p ON p.propietario_id = t.propietario_id AND p.datos->>'bibliografiaId' = t.id::text
      ORDER BY t.creado DESC
      LIMIT 300`,
+  // Guiones de cada curso (lo que Praxia guardó de ellos) que contienen el texto buscado; el recorte del texto se hace en la ruta. $1 = patrón ILIKE escapado.
+  bibGuionesConTexto: `
+    SELECT p.id, p.curso, p.programa, u.nombre AS responsable, p.datos->'guionesUnidad' AS guiones,
+           (p.datos->>'bibliografiaId') IS NOT NULL AS tiene_bibliografia,
+           (SELECT coalesce(jsonb_agg(jsonb_build_object('url', f.url, 'url_final', f.url_final, 'doi', f.doi)), '[]'::jsonb)
+              FROM bib_fuentes f WHERE f.trabajo_id::text = p.datos->>'bibliografiaId') AS fuentes
+      FROM proyectos p JOIN usuarios u ON u.id = p.propietario_id
+     WHERE jsonb_typeof(p.datos->'guionesUnidad') = 'object' AND (p.datos->'guionesUnidad')::text ILIKE $1
+     ORDER BY p.creado DESC
+     LIMIT 100`,
   bibTrabajosListar: `
     SELECT id, proyecto_id, estado, total, resueltas, fallidas, creado FROM bib_trabajos
      WHERE propietario_id = $1 AND ($2::text IS NULL OR proyecto_id = $2) ORDER BY creado DESC LIMIT 100`,

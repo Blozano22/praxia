@@ -17,6 +17,82 @@ const Apa = ({ t }) => String(t || '').split(/(\*[^*]+\*)/).map((p, i) => (p.sta
 
 const POR_VEZ = 10
 
+// El formulario «Enlace del syllabus» (leer una bibliografía pegando un enlace) ya no se usa en esta pantalla: se deja oculto.
+const MOSTRAR_FORMULARIO = false
+
+// Búsqueda de las CITAS que traen los guiones (referencias en APA con su enlace), en todos los cursos: sirve para ver qué cita pone cada guion y sacar sus enlaces.
+function BuscarReferencias() {
+  const [q, setQ] = useState('')
+  const [guiones, setGuiones] = useState(null)
+  const [error, setError] = useState('')
+  const [aviso, setAviso] = useState('')
+  const [cargando, setCargando] = useState(false)
+  useEffect(() => {
+    const t = q.trim()
+    setAviso('')
+    if (t.length < 2) { setGuiones(null); setError(''); return undefined }
+    let vivo = true
+    const id = setTimeout(() => {
+      setCargando(true)
+      api('GET', '/bibliografia/buscar-en-guiones?q=' + encodeURIComponent(t))
+        .then((g) => { if (vivo) { setGuiones(g); setError('') } })
+        .catch((e) => { if (vivo) setError(e.message || 'No se pudo buscar.') })
+        .finally(() => { if (vivo) setCargando(false) })
+    }, 350)
+    return () => { vivo = false; clearTimeout(id) }
+  }, [q])
+  const [mostrar, setMostrar] = useState('todas')
+  // Se muestran solo los guiones con citas del tipo elegido (todas, las que no están en la bibliografía del syllabus o las que no traen enlace).
+  const pasa = (x) => mostrar === 'todas' || (mostrar === 'no' ? x.bibliografia === 'no' : x.bibliografia === 'sin_enlace')
+  const visibles = (guiones || []).map((g) => ({ ...g, fragmentos: g.fragmentos.filter(pasa) })).filter((g) => g.fragmentos.length)
+  const urls = [...new Set(visibles.flatMap((g) => g.fragmentos.flatMap((x) => x.urls)))]
+  const total = visibles.reduce((a, g) => a + g.fragmentos.length, 0)
+  const ETIQ = { si: ['ok', 'Está en la bibliografía del syllabus'], no: ['warn', 'No está en la bibliografía del syllabus'], sin_enlace: ['', 'La cita no trae enlace'], sin_lectura: ['', 'El curso no tiene bibliografía leída'] }
+  const copiar = async (texto, msg) => { try { await navigator.clipboard.writeText(texto); setAviso(msg) } catch { setAviso('No se pudo copiar.') } }
+  return (
+    <section className="card bib-lecturas" aria-label="Buscar citas en los guiones">
+      <div className="bib-lec-cab">
+        <div><h2>Citas de los guiones</h2><p className="help">Busca entre las citas que ponen los guiones de todos los cursos: autor, título, año o enlace. Sirve para ver qué cita trae cada guion y sacar sus enlaces.</p></div>
+        <label className="pl2-busca"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></svg>
+          <input aria-label="Buscar citas en los guiones" placeholder="Autor, título, año o enlace" value={q} onChange={(e) => setQ(e.target.value)} /></label>
+      </div>
+      {error && <div className="msg bad" role="alert">{error}</div>}
+      {cargando && <p className="help">Buscando…</p>}
+      {guiones && !cargando && (
+        <>
+          <div className="row" style={{ alignItems: 'center', margin: '8px 0' }}>
+            <span className="help" role="status">{total + ' cita' + (total === 1 ? '' : 's') + ' en ' + visibles.length + ' guion' + (visibles.length === 1 ? '' : 'es') + ' · ' + urls.length + ' enlace' + (urls.length === 1 ? '' : 's')}</span>
+            <select aria-label="Qué citas mostrar" value={mostrar} onChange={(e) => setMostrar(e.target.value)}>
+              <option value="todas">Todas las citas</option>
+              <option value="no">Las que no están en la bibliografía</option>
+              <option value="sin_enlace">Las que no traen enlace</option>
+            </select>
+            <button className="btn sec sm" disabled={!urls.length} onClick={() => copiar(urls.join('\n'), urls.length + ' enlaces copiados.')}>Copiar los enlaces</button>
+          </div>
+          {aviso && <div className="msg info" role="status">{aviso}</div>}
+          {visibles.length === 0 ? <div className="db2-vacio">Ningún guion tiene una cita así.</div> : (
+            <div style={{ display: 'grid', gap: 8 }}>
+              {visibles.map((g, i) => (
+                <article key={g.proyecto_id + g.unidad + g.guion + i} style={{ border: '1px solid var(--line, #d9e1e6)', borderRadius: 12, padding: '10px 12px' }}>
+                  <p style={{ margin: 0 }}><b>{g.guion || ('Tema ' + g.tema)}</b> <span className="help">· {(g.curso || 'Sin nombre') + ' · ' + g.responsable + ' · Unidad ' + g.unidad}</span></p>
+                  {g.fragmentos.map((x, k) => (
+                    <div key={k} style={{ marginTop: 6 }}>
+                      <p style={{ margin: 0 }}><Apa t={x.texto} /></p>
+                      <span className={'pill ' + ETIQ[x.bibliografia][0]} style={{ marginTop: 4, display: 'inline-block' }}>{ETIQ[x.bibliografia][1]}</span>
+                      {x.urls.map((u) => <p key={u} style={{ margin: '2px 0 0', wordBreak: 'break-all' }}><a href={u} target="_blank" rel="noopener noreferrer">{u}</a> <button className="lnk" onClick={() => copiar(u, 'Enlace copiado.')}>copiar</button></p>)}
+                    </div>
+                  ))}
+                  {g.url_guion && <p className="help" style={{ margin: '6px 0 0' }}><a href={g.url_guion} target="_blank" rel="noopener noreferrer">Abrir el guion en Drive</a></p>}
+                </article>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  )
+}
+
 // Lector del texto completo de un documento, con el número de página y la cita lista para copiar.
 function Lector({ doc, fuente, onCerrar, onAviso }) {
   const [desde, setDesde] = useState(1)
@@ -65,7 +141,7 @@ function Lector({ doc, fuente, onCerrar, onAviso }) {
   )
 }
 
-export default function Bibliografia({ lista = [], fijo = null, onEstado }) {
+export default function Bibliografia({ lista = [], fijo = null, onEstado, yo = null }) {
   const conUrl = lista.filter((s) => s.syllabusUrl)
   const [url, setUrl] = useState(conUrl[0] ? conUrl[0].syllabusUrl : '')
   const [proyecto, setProyecto] = useState(conUrl[0] ? conUrl[0].id : '')
@@ -215,7 +291,7 @@ export default function Bibliografia({ lista = [], fijo = null, onEstado }) {
         <p className="lead">Encuentra las referencias del syllabus, lee cada fuente completa (PDF o página web) y arma la cita y la bibliografía en APA 7. No usa inteligencia artificial: solo lectura de los archivos y sus metadatos.</p>
       </Titulo></div>}
 
-      {!fijo && <section className="card bib-form">
+      {!fijo && MOSTRAR_FORMULARIO && <section className="card bib-form">
         <label className="l" htmlFor="bib-url" style={{ marginTop: 0 }}>Enlace del syllabus (Google Docs)</label>
         <div className="bib-fila">
           {conUrl.length > 0 && (
@@ -242,6 +318,8 @@ export default function Bibliografia({ lista = [], fijo = null, onEstado }) {
           </div>
         )}
       </section>}
+
+      {!fijo && resumen && resumen.length > 0 && <BuscarReferencias />}
 
       {!fijo && resumen && resumen.length > 0 && (() => {
         const personas = [...new Set(resumen.map((r) => r.responsable))].sort((a, b) => a.localeCompare(b))
@@ -280,9 +358,9 @@ export default function Bibliografia({ lista = [], fijo = null, onEstado }) {
                       </span>
                       <span><span className={'pill ' + cls}>{txt}</span></span>
                     </button>
-                    <button type="button" className="bib-lec-borrar" title="Borrar esta lectura" aria-label={'Borrar la lectura ' + (r.curso || 'sin syllabus vinculado')} onClick={() => borrar(r.id, r.curso)}>
+                    {(!yo || yo.permisos.includes('proyectos.ver_todos') || r.correo === yo.correo) && <button type="button" className="bib-lec-borrar" title="Borrar esta lectura" aria-label={'Borrar la lectura ' + (r.curso || 'sin syllabus vinculado')} onClick={() => borrar(r.id, r.curso)}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v5M14 11v5" /></svg>
-                    </button>
+                    </button>}
                     </div>
                   )
                 })}

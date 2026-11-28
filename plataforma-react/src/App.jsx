@@ -97,7 +97,7 @@ export default function App() {
     else if (p[0] === 'plan-estudio' && perm('proyectos.ver_todos')) setVista('plan-estudio')
     else if (p[0] === 'pipeline' && perm('proyectos.ver_todos')) setVista('pipeline')
     else if (p[0] === 'curso-piloto' && perm('proyectos.crear')) setVista('curso-piloto')
-    else if (p[0] === 'bibliografia' && perm('usuarios.gestionar')) setVista('bibliografia')
+    else if (p[0] === 'bibliografia' && (perm('usuarios.gestionar') || perm('bibliografia.ver_todas'))) setVista('bibliografia')
     else if (p[0] === 'usuarios' && perm('usuarios.gestionar')) setVista('usuarios')
     else if (p[0] === 'conexion' && perm('usuarios.gestionar')) setVista('conexion')
     setRestaurado(true)
@@ -125,8 +125,8 @@ export default function App() {
   // Si cambian los permisos de la persona (por ejemplo, se quitó un rol a sí misma) y la pantalla en que está ya no le corresponde, vuelve al inicio que le toca.
   useEffect(() => {
     if (!yo) return
-    const exige = { usuarios: 'usuarios.gestionar', bibliografia: 'usuarios.gestionar', conexion: 'usuarios.gestionar', plantillas: 'plantillas.ver', 'plantillas-imagenes': 'plantillas.imagenes', rubricas: 'rubricas.generar', 'auditor-guiones': 'guiones.auditar', 'asignacion-diseno': 'diseno.asignar', seguimiento: 'proyectos.ver_todos', 'plan-estudio': 'proyectos.ver_todos', pipeline: 'proyectos.ver_todos', 'curso-piloto': 'proyectos.crear' }
-    if (exige[vista] && !yo.permisos.includes(exige[vista])) setVista(yo.permisos.includes('proyectos.ver_propios') ? 'dashboard' : (yo.permisos.includes('plantillas.ver') ? 'plantillas' : (yo.permisos.includes('plantillas.imagenes') ? 'plantillas-imagenes' : (yo.permisos.includes('rubricas.generar') ? 'rubricas' : (yo.permisos.includes('guiones.auditar') ? 'auditor-guiones' : 'dashboard')))))
+    const exige = { usuarios: 'usuarios.gestionar', bibliografia: ['usuarios.gestionar', 'bibliografia.ver_todas'], conexion: 'usuarios.gestionar', plantillas: 'plantillas.ver', 'plantillas-imagenes': 'plantillas.imagenes', rubricas: 'rubricas.generar', 'auditor-guiones': 'guiones.auditar', 'asignacion-diseno': 'diseno.asignar', seguimiento: 'proyectos.ver_todos', 'plan-estudio': 'proyectos.ver_todos', pipeline: 'proyectos.ver_todos', 'curso-piloto': 'proyectos.crear' }
+    if (exige[vista] && ![].concat(exige[vista]).some((c) => yo.permisos.includes(c))) setVista(yo.permisos.includes('proyectos.ver_propios') ? 'dashboard' : (yo.permisos.includes('plantillas.ver') ? 'plantillas' : (yo.permisos.includes('plantillas.imagenes') ? 'plantillas-imagenes' : (yo.permisos.includes('rubricas.generar') ? 'rubricas' : (yo.permisos.includes('guiones.auditar') ? 'auditor-guiones' : 'dashboard')))))
   }, [yo, vista])
 
   const importarLocales = async () => {
@@ -270,6 +270,7 @@ export default function App() {
   const verImagenes = yo.permisos.includes('plantillas.imagenes') // rol «Editor de imágenes»: ve, valida y edita las imágenes de las plantillas
   const verAsignacion = yo.permisos.includes('diseno.asignar') // coordinación y administración: asignan los cursos enviados a diseño
   const esDisenador = yo.roles.includes('disenador')
+  const veBibliografia = esAdmin || yo.permisos.includes('bibliografia.ver_todas') // lectura de la bibliografía de todas las personas
   const veTodos = yo.permisos.includes('proyectos.ver_todos') // coordinación: ve el avance de todos los cursos
 
   return (
@@ -301,7 +302,7 @@ export default function App() {
         {veTodos && <ItemMenu on={vista === 'seguimiento'} icono="M4 19V9M10 19V5M16 19v-7M22 19H2" texto="Seguimiento" onClick={() => ir('seguimiento')} />}
         {veTodos && <ItemMenu on={vista === 'plan-estudio'} icono="M4 5h16M4 12h16M4 19h10" texto="Plan de estudios" onClick={() => ir('plan-estudio')} />}
         {veTodos && <ItemMenu on={vista === 'pipeline'} icono="M4 6h16M4 12h10M4 18h6M18 14l3 3-3 3" texto="Pipeline H5P" onClick={() => ir('pipeline')} />}
-        {esAdmin && <ItemMenu on={vista === 'bibliografia'} icono="M5 4h11a3 3 0 013 3v13H8a3 3 0 01-3-3V4z" texto="Bibliografía" onClick={() => ir('bibliografia')} />}
+        {veBibliografia && <ItemMenu on={vista === 'bibliografia'} icono="M5 4h11a3 3 0 013 3v13H8a3 3 0 01-3-3V4z" texto="Bibliografía" onClick={() => ir('bibliografia')} />}
         {verPlantillas && <ItemMenu on={vista === 'plantillas'} icono="M8 7l-5 5 5 5M16 7l5 5-5 5" texto="Plantillas HTML" onClick={() => ir('plantillas')} />}
         {verImagenes && <ItemMenu on={vista === 'plantillas-imagenes'} icono="M4 5h16v14H4V5zM8.5 10a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM4 17l5-5 4 4 3-3 4 4" texto="Plantillas con imágenes" onClick={() => ir('plantillas-imagenes')} />}
         {verRubricas && <ItemMenu on={vista === 'rubricas'} icono="M6 3h9l4 4v14H6zM14 3v5h5M9 13l2 2 4-4M9 18h6" texto="Generar rúbrica" onClick={() => ir('rubricas')} />}
@@ -314,7 +315,7 @@ export default function App() {
       {vista === 'plantillas-imagenes' && verImagenes && <PlantillasImagenes aviso={aviso} />}
       {vista === 'rubricas' && verRubricas && <GenerarRubrica />}
       {vista === 'auditor-guiones' && verAuditor && <AuditorGuiones />}
-      {vista === 'bibliografia' && esAdmin && <Bibliografia lista={lista} />}
+      {vista === 'bibliografia' && veBibliografia && <Bibliografia lista={lista} yo={yo} />}
       {vista === 'usuarios' && esAdmin && <Usuarios yo={yo} aviso={aviso} onYo={() => api('GET', '/auth/yo').then(setYo).catch(() => {})} />}
       {vista === 'conexion' && esAdmin && <Conexiones aviso={aviso} />}
       {vista === 'asignacion-diseno' && verAsignacion && <AsignacionDiseno />}

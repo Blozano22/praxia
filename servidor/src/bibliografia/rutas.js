@@ -5,13 +5,17 @@ import rateLimit, { ipKeyGenerator } from 'express-rate-limit'
 import { z } from 'zod'
 import { conUsuario } from '../db.js'
 import { Q } from '../consultas.js'
-import { exigirPermiso, exigirSesion } from '../seguridad.js'
+import { exigirAlguno, exigirPermiso, exigirSesion } from '../seguridad.js'
 import { extraerEntradas, parseEntrada } from './entrada.js'
 import express from 'express'
 import { correrTrabajo, esHuerfana, leerArchivoSubido } from './orquestador.js'
 import { aHtml, asignarLetras, citaEnTexto, listaDeReferencias, referencia } from './apa.js'
 
 export const rutasBibliografia = Router()
+
+// Permiso de solo lectura sobre la bibliografía de todas las personas (docentes incluidos): dentro de la consulta se trata como quien ve todo; escribir sigue siendo de quien la montó.
+const PERM_BIB = 'bibliografia.ver_todas'
+const lector = (u) => (u.permisos.has(PERM_BIB) ? { id: u.id, permisos: new Set([...u.permisos, 'proyectos.ver_todos']) } : u)
 rutasBibliografia.use(exigirSesion)
 
 const Id = z.string().uuid()
@@ -91,10 +95,49 @@ rutasBibliografia.post('/trabajos', exigirPermiso('proyectos.crear'), limiteCrea
 })
 
 // Todas las lecturas con su responsable y el syllabus al que quedaron vinculadas (solo quien puede ver el trabajo de todos).
-rutasBibliografia.get('/resumen', exigirPermiso('proyectos.ver_todos'), limiteLeer, async (req, res, next) => {
+rutasBibliografia.get('/resumen', exigirAlguno('proyectos.ver_todos', PERM_BIB), limiteLeer, async (req, res, next) => {
   try {
-    const r = await conUsuario(req.usuario, (cx) => cx.query(Q.bibResumenTodos))
+    const r = await conUsuario(lector(req.usuario), (cx) => cx.query(Q.bibResumenTodos))
     res.json(r.rows)
+  } catch (e) { next(e) }
+})
+
+// Lo mismo, pero en el contenido de los GUIONES (las citas y enlaces que escribió el flujo o que alguien puso a mano en el documento).
+// Devuelve, por guion, los textos que contienen lo buscado y los enlaces que hay en ellos.
+rutasBibliografia.get('/buscar-en-guiones', exigirAlguno('proyectos.ver_todos', PERM_BIB), limiteLeer, validar(z.object({ q: z.string().trim().min(2).max(200) }).strict(), 'query'), async (req, res, next) => {
+  try {
+    const q = req.queryOk.q
+    const patron = '%' + q.replace(/[\\%_]/g, '\\$&') + '%'
+    const filas = (await conUsuario(lector(req.usuario), (cx) => cx.query(Q.bibGuionesConTexto, [patron]))).rows
+    const minus = q.toLowerCase()
+    // Solo cuentan las CITAS: textos con el año de APA entre paréntesis, «(2004, 1 de septiembre).», «(2024a).» o «(s. f.).»; no el resto del guion.
+    const RE_CITA = /\((?:\d{4}[a-z]?|s\.\s?f\.)(?:,[^)]{1,30})?\)\./
+    const textos = (v, salida) => {
+      if (typeof v === 'string') { if (RE_CITA.test(v) && v.toLowerCase().includes(minus)) salida.push(v) } else if (Array.isArray(v)) v.forEach((x) => textos(x, salida))
+      else if (v && typeof v === 'object') Object.values(v).forEach((x) => textos(x, salida))
+      return salida
+    }
+    // Para comparar enlaces: sin protocolo, sin «www.», sin # ni barra final, en minúsculas.
+    const norm = (u) => String(u || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\d*\./, '').replace(/#.*$/, '').replace(/\/+$/, '')
+    const salida = []
+    for (const f of filas) {
+      const enBib = new Set((f.fuentes || []).flatMap((x) => [norm(x.url), norm(x.url_final), x.doi ? norm('doi.org/' + x.doi) : '']).filter(Boolean))
+      for (const [unidad, g] of Object.entries(f.guiones || {})) {
+        for (const a of (g && g.archivos) || []) {
+          const encontrados = textos(a.guion, [])
+          if (!encontrados.length) continue
+          const fragmentos = encontrados.slice(0, 20).map((t) => {
+            const limpio = t.replace(/\s+/g, ' ').trim()
+            const urls = [...new Set(limpio.match(/https?:\/\/[^\s"'<>)\]]+/g) || [])].map((u) => u.replace(/[.,;]+$/, ''))
+            // En la bibliografía del syllabus: 'si' (algún enlace de la cita está en ella), 'no' (no está), 'sin_enlace' (la cita no trae URL) o 'sin_lectura' (el curso no tiene bibliografía leída).
+            const bibliografia = !f.tiene_bibliografia ? 'sin_lectura' : !urls.length ? 'sin_enlace' : urls.some((u) => enBib.has(norm(u))) ? 'si' : 'no'
+            return { texto: limpio.slice(0, 800), urls, bibliografia }
+          })
+          salida.push({ proyecto_id: f.id, curso: f.curso, programa: f.programa, responsable: f.responsable, unidad, guion: a.nombre || '', tema: a.tema ?? null, url_guion: a.url || '', fragmentos })
+        }
+      }
+    }
+    res.json(salida.slice(0, 300))
   } catch (e) { next(e) }
 })
 
@@ -120,7 +163,7 @@ rutasBibliografia.get('/trabajos/por-syllabus', limiteLeer, validar(QueryPorSyll
 rutasBibliografia.get('/trabajos/:id', limiteLeer, validar(z.object({ id: Id }), 'params'), async (req, res, next) => {
   try {
     const { id } = req.paramsOk
-    const salida = await conUsuario(req.usuario, async (cx) => {
+    const salida = await conUsuario(lector(req.usuario), async (cx) => {
       const t = (await cx.query(Q.bibTrabajoObtener, [id])).rows[0]
       if (!t) return null
       const fuentes = (await cx.query(Q.bibFuentesDelTrabajo, [id])).rows
@@ -148,7 +191,7 @@ rutasBibliografia.delete('/trabajos/:id', exigirPermiso('proyectos.crear'), limi
 rutasBibliografia.get('/trabajos/:id/referencias', limiteLeer, validar(z.object({ id: Id }), 'params'), async (req, res, next) => {
   try {
     const { id } = req.paramsOk
-    const fuentes = await conUsuario(req.usuario, async (cx) => conAutores((await cx.query(Q.bibFuentesDelTrabajo, [id])).rows, (await cx.query(Q.bibAutoresDelTrabajo, [id])).rows))
+    const fuentes = await conUsuario(lector(req.usuario), async (cx) => conAutores((await cx.query(Q.bibFuentesDelTrabajo, [id])).rows, (await cx.query(Q.bibAutoresDelTrabajo, [id])).rows))
     if (!fuentes.length) return res.status(404).json({ error: 'No encontrado' })
     const lista = listaDeReferencias(fuentes)
     res.json({ norma: 'APA 7.ª edición', total: lista.length, referencias: lista.map((x) => ({ ...x, html: aHtml(x.referencia) })), texto: lista.map((x) => x.referencia.replace(/\*/g, '')).join('\n\n') })
@@ -158,7 +201,7 @@ rutasBibliografia.get('/trabajos/:id/referencias', limiteLeer, validar(z.object(
 // Búsqueda de texto completo en todo lo leído; cada resultado trae la cita con el número de página.
 rutasBibliografia.get('/trabajos/:id/buscar', limiteLeer, validar(z.object({ id: Id }), 'params'), validar(z.object({ q: z.string().min(2).max(200) }).strict(), 'query'), async (req, res, next) => {
   try {
-    const r = await conUsuario(req.usuario, (cx) => cx.query(Q.bibBuscar, [req.paramsOk.id, req.queryOk.q]))
+    const r = await conUsuario(lector(req.usuario), (cx) => cx.query(Q.bibBuscar, [req.paramsOk.id, req.queryOk.q]))
     res.json(r.rows.map((x) => ({ fuenteId: x.fuente_id, documentoId: x.documento_id, formato: x.formato, pagina: x.numero, fragmento: x.fragmento, relevancia: x.relevancia, cita: x.cita_apa ? x.cita_apa.replace(/\)$/, ', ' + (x.formato === 'pdf' ? 'p. ' : 'bloque ') + x.numero + ')') : null, referencia: x.referencia_apa })))
   } catch (e) { next(e) }
 })
@@ -168,7 +211,7 @@ rutasBibliografia.get('/documentos/:id/paginas', limiteLeer, validar(z.object({ 
   validar(z.object({ desde: z.coerce.number().int().min(1).default(1), hasta: z.coerce.number().int().min(1).default(20) }).strict(), 'query'), async (req, res, next) => {
     try {
       const { desde, hasta } = req.queryOk
-      const r = await conUsuario(req.usuario, (cx) => cx.query(Q.bibPaginasDeDocumento, [req.paramsOk.id, desde, Math.min(hasta, desde + 99)]))
+      const r = await conUsuario(lector(req.usuario), (cx) => cx.query(Q.bibPaginasDeDocumento, [req.paramsOk.id, desde, Math.min(hasta, desde + 99)]))
       res.json(r.rows)
     } catch (e) { next(e) }
   })
@@ -254,7 +297,7 @@ rutasBibliografia.post('/fuentes/:id/archivo', exigirPermiso('proyectos.crear'),
 // Cita en el texto (y referencia) de una fuente, opcionalmente con página: /fuentes/:id/cita?pagina=12
 rutasBibliografia.get('/fuentes/:id/cita', limiteLeer, validar(z.object({ id: Id }), 'params'), validar(z.object({ pagina: z.string().regex(/^\d{1,5}(?:[-–]\d{1,5})?$/).optional() }).strict(), 'query'), async (req, res, next) => {
   try {
-    const f = await conUsuario(req.usuario, async (cx) => {
+    const f = await conUsuario(lector(req.usuario), async (cx) => {
       const fuente = (await cx.query(Q.bibFuenteObtener, [req.paramsOk.id])).rows[0]
       if (!fuente) return null
       const todas = conAutores((await cx.query(Q.bibFuentesDelTrabajo, [fuente.trabajo_id])).rows, (await cx.query(Q.bibAutoresDelTrabajo, [fuente.trabajo_id])).rows)
