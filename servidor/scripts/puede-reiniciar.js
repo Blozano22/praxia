@@ -11,6 +11,7 @@ if (!url) {
 const cliente = new pg.Client({ connectionString: url })
 try {
   await cliente.connect()
+  await cliente.query("SELECT set_config('app.ver_todos', 'on', false)") // con el usuario de la app, sin esto la base oculta las lecturas de bibliografía de otros
   const r = await trabajosEnCurso((t, v) => cliente.query(t, v))
   console.log(textoTrabajos(r))
   await cliente.end()
