@@ -518,7 +518,7 @@ rutas.get('/config/n8n', exigirSesion, async (req, res, next) => {
 })
 // Solo lectura: lo que se perdería si se reinicia el servidor ahora.
 rutas.get('/admin/trabajos-en-curso', ...admin, async (req, res, next) => {
-  try { res.json(await trabajosEnCurso(sinUsuario)) } catch (e) { next(e) }
+  try { res.json(await conTransaccion(async (cx) => { await cx.query("SELECT set_config('app.ver_todos', 'on', true)"); return trabajosEnCurso((t, v) => cx.query(t, v)) })) } catch (e) { next(e) }
 })
 const UrlN8n = z.union([z.literal(''), z.string().trim().max(500).regex(/^https:\/\/\S+$/)])
 rutas.put('/config/n8n', ...admin, validar(z.object({ syllabus: UrlN8n.optional(), guiones: UrlN8n.optional(), matrices: UrlN8n.optional(), h5p: UrlN8n.optional(), publicar: UrlN8n.optional(), preparacion: UrlN8n.optional(), rubricas: UrlN8n.optional(), auditor: UrlN8n.optional(), compartir_carpeta: UrlN8n.optional(), pruebas_plantillas: z.boolean().optional() }).strict(), 'body'),
