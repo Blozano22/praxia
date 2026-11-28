@@ -116,6 +116,7 @@ export default function Plantillas({ puedeRevisar = false, puedeCorregir = false
   const [clase, setClase] = useState('recurso') // qué clase de HTML se ve en la galería: recurso | actividad
   const [ejSubido, setEjSubido] = useState(false) // la variante publicada que se ve trae su propio contenido de ejemplo (plantilla subida)
   const [vista, setVista] = useState(enlace ? 'categorias' : 'galeria') // galeria | categorias (las categorías que usa n8n)
+  useEffect(() => { if (enlace) setVista('categorias') }, [enlace]) // el enlace llega tras el primer render (la pantalla ya estaba montada)
   const [tipo, setTipo] = useState(() => (gruposTodos.find(([g]) => !esActividad(g)) || gruposTodos[0])[1][0][0])
   const [q, setQ] = useState('')
   const [formacion, setFormacion] = useState('') // '' = todas; si no, el id de la formación (tecnologico, profesional…): filtra las categorías y colorea la vista previa

@@ -231,7 +231,8 @@ export default function CategoriasPlantillas({ puedeCambiar = false, esAdmin = f
   useEffect(() => {
     if (!enlace || !d || enlaceHecho.current) return
     enlaceHecho.current = true
-    const nom = enlace.variante ? d.plantillas.find((n) => n === enlace.variante || n === enlace.variante.replace(/\.html$/i, '')) : ''
+    const vb = String(enlace.variante || '').replace(/\.html$/i, '').toLowerCase()
+    const nom = vb ? d.plantillas.find((n) => String(n).replace(/\.html$/i, '').toLowerCase() === vb) || '' : ''
     const id = (nom && d.asignaciones[nom]) || enlace.categoria
     const cat = id && d.categorias.find((c) => c.id.toUpperCase() === String(id).toUpperCase())
     if (!cat) { if (aviso) aviso('No se encontró la categoría o la variante de ese enlace.'); return }
@@ -239,8 +240,18 @@ export default function CategoriasPlantillas({ puedeCambiar = false, esAdmin = f
     if (!nom) { if (aviso) aviso('No se encontró la variante ' + enlace.variante + '; se muestra su categoría.') }
     if (puedeCambiar) setGestionando(cat.id)
     if (nom) { setResaltada(nom); if (!puedeCambiar) setViendo(nom) }
-    setTimeout(() => { const el = document.getElementById('var-' + (nom || 'cat-' + cat.id)) || document.getElementById('cat-' + cat.id); if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' }) }, 300)
+    setIntentos(1)
   }, [enlace, d, puedeCambiar, aviso])
+  // Cuando la lista ya está pintada, scroll a la fila; si aún no existe el elemento, reintenta unas veces.
+  const [intentos, setIntentos] = useState(0)
+  useEffect(() => {
+    if (!intentos) return
+    const el = (resaltada && document.getElementById('var-' + resaltada)) || (gestionando && document.getElementById('cat-' + gestionando))
+    if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); setIntentos(0); return }
+    if (intentos > 15) { setIntentos(0); return }
+    const t = setTimeout(() => setIntentos((n) => n + 1), 200)
+    return () => clearTimeout(t)
+  }, [intentos, resaltada, gestionando, d, ver])
 
   const hacer = async (fn, ok) => {
     setOcupado(true); setError('')
