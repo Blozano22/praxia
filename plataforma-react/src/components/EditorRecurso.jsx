@@ -29,7 +29,16 @@ function ponerRuta(obj, ruta, valor) {
 // La página de la plantilla con el contenido puesto (igual que la vista de ejemplo) y el editor inyectado.
 // IMAGEN_EJEMPLO: la plantilla declara la imagen principal en una constante; en el .h5p final la librería la reemplaza por imagen_url. Aquí se hace igual.
 const RE_IMG = /(IMAGEN_EJEMPLO\s*=\s*)(?:'([^']*)'|"([^"]*)")/
-function armarPagina(esqueleto, contenido, titulo, formacion, activo, imagenUrl) {
+// Mapa exacto de textos: el módulo del editor se evalúa aquí (sin tocar la página) solo para marcar el contenido con centinelas invisibles.
+let moduloEditor
+function editorMarcas() {
+  if (moduloEditor === undefined) {
+    try { const g = {}; new Function('window', codigoEditor)(g); moduloEditor = g.PraxiaEditor || null } catch { moduloEditor = null }
+  }
+  return moduloEditor
+}
+// marcado: { rutas } → página para el iframe oculto (contenido ya marcado); calcula el mapa ruta → posición en el DOM y lo envía al padre.
+function armarPagina(esqueleto, contenido, titulo, formacion, activo, imagenUrl, marcado) {
   const marca = NIVEL[formacion] ? '<script>window.__NIVEL=' + JSON.stringify(NIVEL[formacion]) + '</script>' : ''
   let h = esqueleto.replace('{{TITULO}}', () => esc(titulo || 'Recurso')).replace('/*CONTENIDO*/', () => json(contenido))
   const original = (RE_IMG.exec(h) || [])[2] ?? (RE_IMG.exec(h) || [])[3]
@@ -39,6 +48,12 @@ function armarPagina(esqueleto, contenido, titulo, formacion, activo, imagenUrl)
   { const leyendas = '<style>figure figcaption{display:none!important}</style>'; h = /<head(?:\s[^>]*)?>/i.test(h) ? h.replace(/<head(?:\s[^>]*)?>/i, (m) => m + leyendas) : leyendas + h } // las leyendas no se ven (igual que en la librería H5P)
   if (usar && original !== undefined) { const est = '<style>.figura-marca{display:none !important}</style>'; h = /<\/head>/i.test(h) ? h.replace(/<\/head>/i,() => est + '</head>') : est + h } // con imagen reemplazada no se muestra el rótulo «Imagen de ejemplo»
   if (marca) h = /<head[^>]*>/i.test(h) ? h.replace(/<head[^>]*>/i, (m) => m + marca) : marca + h
+  if (marcado) {
+    const err = '<script>window.__praxiaErr=0;window.addEventListener("error",function(){window.__praxiaErr++});window.addEventListener("unhandledrejection",function(){window.__praxiaErr++})</script>'
+    h = /<head[^>]*>/i.test(h) ? h.replace(/<head[^>]*>/i, (m) => m + err) : err + h
+    const mapeo = '<script>' + codigoEditor + '</script><script>PraxiaEditor.mapear({ rutas: ' + json(marcado.rutas) + ' })</script>'
+    return /<\/body>/i.test(h) ? h.replace(/<\/body>/i, () => mapeo + '</body>') : h + mapeo
+  }
   const editor = '<script>' + codigoEditor + '</script><script>PraxiaEditor.iniciar({ contenido: ' + json(contenido) + ', activo: ' + (activo ? 'true' : 'false') + ', imagenes: ' + json(imagenes) + ', imagenNueva: ' + json(usar) + ', imagenOriginal: ' + json(original || '') + ' })</script>'
   return /<\/body>/i.test(h) ? h.replace(/<\/body>/i, () => editor + '</body>') : h + editor
 }
@@ -248,6 +263,8 @@ export default function EditorRecurso({ proyecto, propietario, soloLectura = fal
   // partes: por cada una { contenido, esqueleto, titulo }; sucias: las partes con cambios sin guardar
   const ref = useRef({ partes: {}, parte: 'recurso', formacion: null, activo: !soloLectura, sucias: new Set() })
   const marco = useRef(null)
+  const marcoMapa = useRef(null) // iframe oculto con el contenido marcado
+  const [marcada, setMarcada] = useState(null) // { parte, html } de la página marcada que se está mapeando
   const parteDeseada = useRef(parteInicial) // parte a abrir al terminar de cargar (la de la dirección, o la que se tenía al recargar la versión nueva)
   const versionCargada = useRef('') // «actualizadoEn» del recurso que se cargó (para detectar una regeneración nueva)
   const [recarga, setRecarga] = useState(0)
@@ -268,6 +285,14 @@ export default function EditorRecurso({ proyecto, propietario, soloLectura = fal
     pintadaImg.current = imgUrlRef.current
     setImgEstado(null)
     setPagina(armarPagina(p.esqueleto, p.contenido, p.titulo, r.formacion, activoAhora, url))
+    if (!r.mapas) r.mapas = {}
+    if (r.mapas[r.parte] === undefined) { // una sola vez por parte: el mapa no cambia al editar textos
+      r.mapas[r.parte] = null
+      try {
+        const mk = editorMarcas() && editorMarcas().marcar(p.contenido)
+        if (mk && mk.rutas.length) setMarcada({ parte: r.parte, html: armarPagina(p.esqueleto, mk.contenido, p.titulo, r.formacion, false, url, { rutas: mk.rutas }) })
+      } catch { /* sin mapa: queda la comparación por texto */ }
+    }
   }, [])
 
   useEffect(() => {
@@ -297,7 +322,7 @@ export default function EditorRecurso({ proyecto, propietario, soloLectura = fal
         const deseada = partes[parteDeseada.current] ? parteDeseada.current : 'recurso'
         parteDeseada.current = ''
         versionCargada.current = String(c.actualizadoEn || '')
-        ref.current = { partes, parte: deseada, formacion: c.formacion || null, activo: soloLectura ? false : ref.current.activo, sucias: new Set() } // conserva «Editar con clic» al cambiar de recurso
+        ref.current = { mapas: {}, partes, parte: deseada, formacion: c.formacion || null, activo: soloLectura ? false : ref.current.activo, sucias: new Set() } // conserva «Editar con clic» al cambiar de recurso
         setParte(deseada); if (onParte) onParte(deseada)
         setPartesDisp(['recurso', 'actividad', 'bibliografia'].filter((k) => partes[k]))
         if (faltan.length) setMsg({ tipo: 'warn', texto: 'No se encontró la plantilla de ' + faltan.join(' ni de ') + ': esa parte no se puede editar aquí.' })
@@ -308,12 +333,28 @@ export default function EditorRecurso({ proyecto, propietario, soloLectura = fal
     return () => { vivo = false }
   }, [ruta, pintar, recurso.conContenido, recarga]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const marcadaRef = useRef(null)
+  marcadaRef.current = marcada
+  const enviarMapa = () => {
+    const m = ref.current.mapas && ref.current.mapas[ref.current.parte]
+    if (m) try { marco.current && marco.current.contentWindow.postMessage({ fuente: 'praxia-editor', tipo: 'mapa', entradas: m }, '*') } catch { /* iframe aún sin cargar */ }
+  }
   // Mensajes del módulo del iframe
   useEffect(() => {
     const alMensaje = (e) => {
-      if (!marco.current || e.source !== marco.current.contentWindow) return
       const d = e.data
+      if (marcoMapa.current && e.source === marcoMapa.current.contentWindow) { // el iframe oculto terminó de mapear
+        if (!d || d.fuente !== 'praxia-editor' || d.tipo !== 'mapa') return
+        const r = ref.current, k = marcadaRef.current && marcadaRef.current.parte
+        if (!k || !r.mapas) return
+        r.mapas[k] = d.error || !Array.isArray(d.entradas) ? null : d.entradas
+        setMarcada(null)
+        if (r.mapas[k] && k === r.parte) enviarMapa()
+        return
+      }
+      if (!marco.current || e.source !== marco.current.contentWindow) return
       if (!d || d.fuente !== 'praxia-editor') return
+      if (d.tipo === 'listo') { enviarMapa(); return }
       if (soloLectura && (d.tipo === 'campo' || d.tipo === 'imagen_clic')) return
       if (d.tipo === 'campo' && typeof d.ruta === 'string' && typeof d.valor === 'string') {
         if (!ponerRuta(ref.current.partes[ref.current.parte].contenido, d.ruta, d.valor)) return
@@ -570,6 +611,7 @@ export default function EditorRecurso({ proyecto, propietario, soloLectura = fal
 
             <div ref={cuerpo} className={'er-cuerpo er-m-' + modo + ' er-o-' + orient + (invertido ? ' er-inv' : '')} style={{ '--f': frac }}>
               <div className="er-vista">
+                {estado === 'listo' && marcada && <iframe key={marcada.parte} ref={marcoMapa} title="Mapa de textos" aria-hidden="true" tabIndex={-1} sandbox="allow-scripts" srcDoc={marcada.html} style={{ position: 'absolute', left: -10000, top: 0, width: 1024, height: 768, border: 0, visibility: 'hidden', pointerEvents: 'none' }} />}
                 {estado === 'listo' && <iframe ref={marco} className="er-marco" title="Vista del recurso" sandbox="allow-scripts" srcDoc={pagina} />}
                 {estado === 'sinContenido' && <div className="er-estado">{actual.esperando || actual.estado === 'EN_PROCESO' || actual.publicando ? <CargaRecurso tam="grande" /> : <i className="er-estado-ic info" aria-hidden="true">{actual.estado === 'PENDIENTE' ? '…' : 'i'}</i>}<b>{actual.esperando ? 'Los recursos se están generando' : actual.publicando ? 'Este recurso se está publicando' : actual.estado === 'EN_PROCESO' ? 'Este recurso se está generando' : actual.estado === 'PENDIENTE' ? 'Este recurso todavía no se genera' : 'Este recurso no se puede editar aquí'}</b><span>{actual.esperando ? 'Se irán habilitando en la lista a medida que se generen; el primero se abrirá solo.' : actual.publicando ? 'n8n está armando el H5P y subiéndolo a Drive. Cuando termine, el recurso aparecerá como «Generado».' : actual.estado === 'EN_PROCESO' || actual.estado === 'PENDIENTE' ? 'Cuando n8n termine, aparecerá en la lista como «Por revisar» y podrá abrirlo para corregir sus textos.' : 'Se generó antes de que Praxia guardara su contenido, así que sus textos no se pueden corregir desde esta pantalla.'}</span></div>}
                 {estado === 'cargando' && <div className="er-estado"><CargaRecurso tam="grande" etiqueta="Abriendo el recurso" /><b>Abriendo el recurso…</b><span>Se está preparando la plantilla con su contenido.</span></div>}

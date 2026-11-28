@@ -2,7 +2,10 @@
  *
  * Se inyecta DENTRO de la página de la plantilla ya pintada (iframe srcdoc propio de Praxia). Con el modo de edición activo, al hacer clic en un texto
  * que viene del JSON de contenido se abre un cuadro para editarlo; al guardar avisa a la página padre por postMessage. No modifica la plantilla:
- * solo asocia lo que se ve con el campo del JSON comparando textos (igualdad y contención, sin tildes ni mayúsculas ni signos).
+ * asocia lo que se ve con el campo del JSON de dos maneras: (1) MAPA EXACTO por marcas: la pantalla padre pinta una vez la plantilla en un iframe oculto con
+ * el contenido «marcado» (cada texto editable lleva delante un centinela invisible de caracteres de ancho cero que codifica su índice; ver marcar y mapear),
+ * recorre el DOM y envía el mapa { ruta, camino DOM, nodo de texto o atributo }; (2) respaldo: comparar textos (igualdad y contención, sin tildes ni
+ * mayúsculas ni signos) para lo que el mapa no cubre o cuando el mapa ya no coincide con el DOM (plantillas que repintan pestañas/diapositivas).
  *
  * Uso (dentro del iframe, después de pintar la plantilla):
  *   PraxiaEditor.iniciar({ contenido: <objeto JSON final>, activo: false });   // activo: modo de edición al arrancar
@@ -11,18 +14,35 @@
  *   { tipo: 'listo', campos: [...] }                                   al iniciar (lista de respaldo, ver listaCampos)
  *   { tipo: 'campo', ruta, valor, anterior, parchado, ambiguo }        el usuario guardó un texto (parchado: ya se cambió en pantalla; si es false, recargar con el JSON nuevo)
  *   { tipo: 'sin_campo', texto }                                       clic en un texto que no se pudo asociar a un campo
- *   { tipo: 'lista', campos: [...] }                                   respuesta a { tipo: 'lista' }
+ *   { tipo: 'lista', campos: [...] }                                   respuesta a { tipo: 'lista' } (y se reenvía sola cuando llega el mapa)
+ *        cada campo: { ruta, etiqueta (legible), seccion (primer nivel de la ruta), valor, largo, enPantalla, mapeado }
+ *        enPantalla: hay un elemento visible con ese texto (por mapa o, si no hay, por comparación de textos); mapeado: tiene entrada exacta en el mapa
+ *   { tipo: 'resaltado', ruta, encontrado }                            respuesta a { tipo: 'resaltar' }
+ *   { tipo: 'mapa', entradas: [...], error }                           (solo del iframe oculto de marcas; el padre lo reenvía al visible)
  * Mensajes del padre al iframe (event.source debe ser window.parent):
  *   { fuente: 'praxia-editor', tipo: 'modo', activo: true|false }
  *   { fuente: 'praxia-editor', tipo: 'actualizar', ruta, valor }       cambia un campo (por ejemplo desde un formulario de respaldo)
  *   { fuente: 'praxia-editor', tipo: 'lista' }                         pide la lista de campos
+ *   { fuente: 'praxia-editor', tipo: 'resaltar', ruta }                hace scroll y resalta en la vista el elemento de ese campo si está visible
+ *   { fuente: 'praxia-editor', tipo: 'mapa', entradas: [...] }         mapa exacto calculado por el iframe oculto (lo envía el padre)
+ * Iframe oculto de marcas: PraxiaEditor.marcar(contenido) → { contenido: copia marcada, rutas: [...] } (se usa en el padre) y
+ *   PraxiaEditor.mapear({ rutas }) dentro de la página marcada (espera a que la plantilla termine de pintar y envía { tipo: 'mapa' }).
+ * Panel «Todos los textos» (padre): usar 'lista' para pintar los campos, 'actualizar' para editar, 'resaltar' al pasar el cursor o enfocar un campo.
  */
 (function (global) {
   'use strict';
   var FUENTE = 'praxia-editor';
-  // Campos que no son texto editable (valores cerrados, nombres de ícono, datos internos).
-  var NO_EDITABLES = /(^|\.)(icono|encabezado|tipo|id|codigo|variante|plantilla|nombre_plantilla|altura|nivel)$/;
-  var est = { imagenes: [], contenido: {}, hojas: [], activo: false, elemento: null, hoja: null, resalte: null, caja: null, listo: false };
+  // Datos internos que nunca son texto del guion (por nombre de clave), y claves que a veces son un valor cerrado y a veces texto (se decide por contenido).
+  var INTERNOS = /^(icono|id|codigo|variante|plantilla|nombre_plantilla|altura|nivel|imagen_url|url|enlace|color|colores)$/;
+  var SEGUN_CONTENIDO = /^(encabezado|nombre|tipo)$/;
+  var RE_ENLACE = /^(?:[a-z][a-z0-9+.-]*:\/\/|\/\/|data:|mailto:)/i, RE_COLOR = /^(?:#[0-9a-f]{3,8}|(?:rgb|hsl)a?\(.*\))$/i;
+  function esEditable(ruta, v) {
+    var m = /([^.\[\]]+)(?:\[\d+\])*$/.exec(ruta), clave = m ? m[1] : '', t = String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
+    if (t.length < 2 || /^np_[0-9]+$/.test(t) || INTERNOS.test(clave) || RE_ENLACE.test(t) || RE_COLOR.test(t)) return false;
+    if (SEGUN_CONTENIDO.test(clave)) return t.split(' ').length >= 2 && /\p{L}{2}/u.test(t);   // valor cerrado («tipo»: «reto») no; texto del guion (≥2 palabras) sí
+    return true;
+  }
+  var est = { mapa: [], imagenes: [], contenido: {}, hojas: [], activo: false, elemento: null, hoja: null, resalte: null, caja: null, listo: false };
 
   function norm(s) { return String(s == null ? '' : s).replace(/\s+/g, ' ').trim(); }
   function plano(s) { return norm(s).normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^a-z0-9]+/g, ''); }
@@ -31,7 +51,7 @@
   // ---------- hojas de texto del JSON ----------
   function recoger(v, ruta, salida) {
     if (typeof v === 'string') {
-      if (!NO_EDITABLES.test(ruta) && !/^np_[0-9]+$/.test(v) && norm(v).length >= 2) salida.push({ ruta: ruta, valor: v, plano: plano(v) });
+      if (esEditable(ruta, v)) salida.push({ ruta: ruta, valor: v, plano: plano(v) });
     } else if (Array.isArray(v)) { v.forEach(function (x, i) { recoger(x, ruta + '[' + i + ']', salida); }); }
     else if (v && typeof v === 'object') { Object.keys(v).forEach(function (k) { recoger(v[k], ruta ? ruta + '.' + k : k, salida); }); }
     return salida;
@@ -60,7 +80,129 @@
     return iguales.length ? { hoja: iguales[0], tipo: 'exacto', ambiguo: iguales.length > 1 } : null;
   }
   function textoPropio(el) { return norm(Array.prototype.filter.call(el.childNodes, function (n) { return n.nodeType === 3; }).map(function (n) { return n.textContent; }).join(' ')); }
-  function resolver(el) {
+  // ---------- mapa exacto (marcas) ----------
+  var DIG = ['\u200B', '\u200C', '\u200D'], RE_MARCA = /\u2060([\u200B\u200C\u200D]+)\u2060/g, ATRIBUTOS = ['alt', 'title', 'aria-label', 'placeholder', 'value'];
+  function centinela(i) { var d = ''; do { d = DIG[i % 3] + d; i = Math.floor(i / 3); } while (i > 0); return '\u2060' + d + '\u2060'; }
+  function decodificar(d) { var n = 0; for (var i = 0; i < d.length; i++) n = n * 3 + DIG.indexOf(d.charAt(i)); return n; }
+  // Copia del contenido con un centinela invisible delante de cada texto editable. rutas[i] es la ruta del centinela i.
+  function marcar(contenido) {
+    var rutas = [];
+    function ir(v, ruta) {
+      if (typeof v === 'string') { if (esEditable(ruta, v)) { rutas.push(ruta); return centinela(rutas.length - 1) + v; } return v; }
+      if (Array.isArray(v)) return v.map(function (x, i) { return ir(x, ruta + '[' + i + ']'); });
+      if (v && typeof v === 'object') { var o = {}; Object.keys(v).forEach(function (k) { o[k] = ir(v[k], ruta ? ruta + '.' + k : k); }); return o; }
+      return v;
+    }
+    return { contenido: ir(contenido, ''), rutas: rutas };
+  }
+  function caminoDe(el) { var c = []; for (var a = el; a && a !== document.body; a = a.parentElement) { if (!a.parentElement) return null; c.unshift(Array.prototype.indexOf.call(a.parentElement.children, a)); } return c; }
+  // En la página marcada: recorre el DOM ya pintado y envía el mapa. Si la plantilla dio error de JS no hay mapa (el visible usa el respaldo por texto).
+  function mapear(op) {
+    var rutas = (op && op.rutas) || [], hecho = false;
+    function recorrer() {
+      var ent = [], w = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, null);
+      for (var n = w.nextNode(); n; n = w.nextNode()) {
+        var host = n.nodeType === 3 ? n.parentElement : n;
+        if (!host || /^(SCRIPT|STYLE|TEMPLATE|NOSCRIPT)$/.test(host.tagName)) continue;
+        var camino = caminoDe(host); if (!camino) continue;
+        if (n.nodeType === 3) {
+          var t = n.nodeValue, m, quitado = 0, nodo = Array.prototype.indexOf.call(host.childNodes, n); RE_MARCA.lastIndex = 0;
+          while ((m = RE_MARCA.exec(t))) { var r = rutas[decodificar(m[1])]; if (r) ent.push({ ruta: r, camino: camino, nodo: nodo, attr: null, desde: m.index - quitado }); quitado += m[0].length; }
+        } else {
+          for (var i = 0; i < ATRIBUTOS.length; i++) {
+            var v = n.getAttribute(ATRIBUTOS[i]); RE_MARCA.lastIndex = 0; var m2 = v ? RE_MARCA.exec(v) : null;
+            if (m2 && rutas[decodificar(m2[1])]) ent.push({ ruta: rutas[decodificar(m2[1])], camino: camino, nodo: -1, attr: ATRIBUTOS[i], desde: 0 });
+          }
+        }
+      }
+      return ent;
+    }
+    function fin() {
+      if (hecho) return; hecho = true;
+      var error = !!(global.__praxiaErr > 0), ent = [];
+      if (!error) { try { ent = recorrer(); } catch (e) { error = true; } }
+      emitir({ tipo: 'mapa', error: error, entradas: ent.slice(0, 5000) });
+    }
+    function esperar() {                       // espera a que la plantilla termine de pintar: DOM quieto 350 ms (máximo 4 s)
+      var t = setTimeout(fin, 600), mo = global.MutationObserver ? new MutationObserver(function () { clearTimeout(t); t = setTimeout(fin, 350); }) : null;
+      if (mo) mo.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true });
+      setTimeout(fin, 4000);
+    }
+    if (document.readyState === 'complete') esperar(); else global.addEventListener('load', esperar);
+  }
+  function hojaDe(ruta) { for (var i = 0; i < est.hojas.length; i++) if (est.hojas[i].ruta === ruta) return est.hojas[i]; return null; }
+  function enlazar(en) {                         // resuelve el elemento/nodo de la entrada en el DOM actual y comprueba que sigue siendo ese texto
+    var a = document.body, h = hojaDe(en.ruta);
+    en.ok = false; en.el = null; en.nd = null;
+    for (var i = 0; a && i < en.camino.length; i++) a = a.children[en.camino[i]];
+    if (!a || !h) return false;
+    en.el = a;
+    var p = plano(h.valor).slice(0, 12), actual;
+    if (en.attr) actual = a.getAttribute(en.attr); else { en.nd = a.childNodes[en.nodo]; actual = en.nd && en.nd.nodeType === 3 ? en.nd.nodeValue : null; }
+    if (actual == null) return false;
+    en.ok = p.length < 2 || plano(actual).indexOf(p) >= 0;
+    return en.ok;
+  }
+  function resolverMapa(target, ev) {
+    if (!est.mapa.length) return null;
+    est.mapa.forEach(enlazar);
+    for (var a = target; a && a !== document.body && a !== document.documentElement; a = a.parentElement) {
+      if (a.closest && a.closest('#praxia-editor-caja')) return null;
+      var aqui = est.mapa.filter(function (en) { return en.ok && en.el === a; });
+      if (!aqui.length) continue;
+      aqui.sort(function (x, y) { return (x.attr ? 1 : 0) - (y.attr ? 1 : 0); });
+      var en = aqui[0];
+      if (ev && aqui.length > 1 && document.caretRangeFromPoint) {      // varios campos en el mismo nodo de texto: el más cercano al clic
+        var rg = document.caretRangeFromPoint(ev.clientX, ev.clientY);
+        if (rg) { var mismos = aqui.filter(function (x) { return x.nd === rg.startContainer; }); mismos.forEach(function (x) { if (x.desde <= rg.startOffset) en = x; }); if (mismos.length && mismos.indexOf(en) < 0) en = mismos[0]; }
+      }
+      return { elemento: a, hoja: hojaDe(en.ruta), tipo: 'mapa', ambiguo: false, entrada: en };
+    }
+    return null;
+  }
+  function parcharEntrada(en, anterior, nuevo) {   // cambia solo la parte del valor dentro del nodo (conserva numeración/etiquetas que agregó la plantilla)
+    try {
+      if (!enlazar(en)) return false;
+      var texto = String(nuevo).split(/\n{2,}/).join(' ');
+      if (en.attr) { en.el.setAttribute(en.attr, texto); return true; }
+      var t = en.nd.nodeValue, i = t.indexOf(anterior);
+      if (i < 0) { if (norm(t) !== norm(anterior)) return false; en.nd.nodeValue = texto; return true; }
+      en.nd.nodeValue = t.slice(0, i) + texto + t.slice(i + anterior.length);
+      var delta = texto.length - anterior.length;
+      est.mapa.forEach(function (x) { if (x !== en && x.camino.join() === en.camino.join() && x.nodo === en.nodo && x.desde > en.desde) x.desde += delta; });
+      return true;
+    } catch (e) { return false; }
+  }
+  function recibirMapa(entradas) {
+    est.mapa = (Array.isArray(entradas) ? entradas : []).filter(function (x) { return x && typeof x.ruta === 'string' && Array.isArray(x.camino); })
+      .map(function (x) { return { ruta: x.ruta, camino: x.camino.map(Number), nodo: Number(x.nodo), attr: typeof x.attr === 'string' ? x.attr : null, desde: Number(x.desde) || 0 }; });
+    emitir({ tipo: 'lista', campos: listaCampos() });
+  }
+  function visible(el) {
+    try { return !!(el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden'); } catch (e) { return false; }
+  }
+  function elementoDe(ruta) {                      // elemento visible del campo: por mapa y, si no, por comparación de textos
+    est.mapa.forEach(enlazar);
+    var cand = est.mapa.filter(function (x) { return x.ok && x.ruta === ruta; }).map(function (x) { return x.el; });
+    if (!cand.length) {
+      var h = hojaDe(ruta), todos = document.body.querySelectorAll('*');
+      for (var i = 0; h && i < todos.length; i++) {
+        var e = todos[i]; if (/^(SCRIPT|STYLE)$/.test(e.tagName) || e.closest('#praxia-editor-caja')) continue;
+        var pr = textoPropio(e), r = pr ? buscarCampo(pr) : null;
+        if (r && r.hoja.ruta === ruta) cand.push(e);
+      }
+    }
+    for (var j = 0; j < cand.length; j++) if (visible(cand[j])) return cand[j];
+    return null;
+  }
+  function resaltarRuta(ruta) {
+    var el = elementoDe(ruta);
+    if (el) { try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) { el.scrollIntoView(); } if (!est.elemento) { resaltar(el); clearTimeout(est.tResalte); est.tResalte = setTimeout(function () { if (!est.elemento) resaltar(null); }, 2500); } }
+    emitir({ tipo: 'resaltado', ruta: ruta, encontrado: !!el });
+  }
+
+  function resolver(el, ev) {
+    var viaMapa = resolverMapa(el, ev); if (viaMapa) return viaMapa;
     for (var i = 0, a = el; a && a !== document.body && i < 6; i++, a = a.parentElement) {
       if (a.closest && a.closest('#praxia-editor-caja')) return null;
       var r = null, propio = textoPropio(a);
@@ -138,7 +280,9 @@
   function aplicar(ruta, valor, elemento, ambiguo) {
     var anterior = leer(ruta);
     if (typeof anterior !== 'string' || !poner(ruta, valor)) return false;
-    var parchado = elemento ? parchar(elemento, anterior, valor) : false;
+    var ents = est.mapa.filter(function (x) { return x.ruta === ruta; }), parchado = false;
+    if (ents.length) { est.mapa.forEach(enlazar); parchado = ents.every(function (x) { return x.ok && parcharEntrada(x, anterior, valor); }); }
+    if (!parchado && elemento && !ents.length) parchado = parchar(elemento, anterior, valor);
     var tag = document.getElementById('contenido'); if (tag) { try { tag.textContent = JSON.stringify(est.contenido); } catch (e) { /* sin etiqueta de contenido */ } }
     indexar();
     emitir({ tipo: 'campo', ruta: ruta, valor: valor, anterior: anterior, parchado: parchado, ambiguo: !!ambiguo });
@@ -158,9 +302,11 @@
     return ruta.replace(/\[(\d+)\]/g, function (_, n) { return ' ' + (Number(n) + 1); }).replace(/\./g, ' · ').replace(/_/g, ' ');
   }
   function listaCampos() {
+    est.mapa.forEach(enlazar);
     var visibles = coberturaDom();
     return est.hojas.map(function (h) {
-      return { ruta: h.ruta, etiqueta: etiqueta(h.ruta), valor: leer(h.ruta), largo: palabras(h.valor) > 25, enPantalla: !!visibles[h.ruta] };
+      var mapeado = est.mapa.some(function (x) { return x.ruta === h.ruta && x.ok; });
+      return { ruta: h.ruta, etiqueta: etiqueta(h.ruta), seccion: h.ruta.split(/[.\[]/)[0], valor: leer(h.ruta), largo: palabras(h.valor) > 25, enPantalla: mapeado ? !!elementoDe(h.ruta) : !!visibles[h.ruta], mapeado: mapeado };
     });
   }
   function coberturaDom() {                      // qué campos tienen un texto equivalente en algún lugar de la página (visible u oculto)
@@ -276,13 +422,13 @@
     var im = imagenEn(e);
     if (im) { resaltar(im.el); im.el.title = 'Clic para cambiar el enlace de la imagen'; document.documentElement.style.cursor = 'pointer'; return; }
     document.documentElement.style.cursor = 'text';
-    var r = resolver(e.target); resaltar(r ? r.elemento : null);
+    var r = resolver(e.target, e); resaltar(r ? r.elemento : null);
   }
   function alClic(e) {
     if (!est.activo || (est.caja && est.caja.contains(e.target))) return;
     var im = imagenEn(e);
     if (im) { e.preventDefault(); e.stopPropagation(); emitir({ tipo: 'imagen_clic', url: im.url }); return; }
-    var r = resolver(e.target);
+    var r = resolver(e.target, e);
     if (!r) { var t = norm(e.target && e.target.textContent).slice(0, 120); if (t) emitir({ tipo: 'sin_campo', texto: t }); return; }
     e.preventDefault(); e.stopPropagation(); abrir(r);
   }
@@ -291,6 +437,8 @@
     var d = e.data; if (!d || d.fuente !== FUENTE) return;
     if (d.tipo === 'modo') modo(!!d.activo);
     else if (d.tipo === 'actualizar') { if (typeof d.ruta === 'string' && typeof d.valor === 'string') aplicar(d.ruta, d.valor, null, false); }
+    else if (d.tipo === 'mapa') recibirMapa(d.entradas);
+    else if (d.tipo === 'resaltar') { if (typeof d.ruta === 'string') resaltarRuta(d.ruta); }
     else if (d.tipo === 'lista') emitir({ tipo: 'lista', campos: listaCampos() });
   }
   function modo(activo) { est.activo = !!activo; if (!est.activo) cerrar(); document.documentElement.style.cursor = est.activo ? 'text' : ''; }
@@ -321,7 +469,7 @@
   }
 
   global.PraxiaEditor = {
-    iniciar: iniciar, modo: modo, listaCampos: listaCampos, aplicar: function (r, v) { return aplicar(r, v, null, false); },
+    iniciar: iniciar, marcar: marcar, mapear: mapear, esEditable: esEditable, resaltarRuta: resaltarRuta, modo: modo, listaCampos: listaCampos, aplicar: function (r, v) { return aplicar(r, v, null, false); },
     contenido: function () { return JSON.parse(JSON.stringify(est.contenido)); },
     _cobertura: function () {
       var v = coberturaDom(), cuerpo = plano(document.body.textContent), cubiertos = {};
