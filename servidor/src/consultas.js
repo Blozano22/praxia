@@ -520,7 +520,7 @@ export const Q = Object.freeze({
   categoriaQuitar: `DELETE FROM plantilla_categoria WHERE plantilla = $1`,
   // ---- plantillas HTML subidas desde la pantalla
   // «calificable» se lee con to_jsonb para que el índice público y la pantalla sigan respondiendo aunque se reinicie el servidor antes de correr npm run db:migrar (sin la columna sale null).
-  subidasListar: `SELECT nombre, subida_nombre AS por, subida_por, creado, esquema, formacion, (to_jsonb(s) ->> 'calificable')::boolean AS calificable, (to_jsonb(s) ->> 'archivada_en')::timestamptz AS archivada_en, to_jsonb(s) ->> 'archivada_por' AS archivada_por, actualizado, position('/*FIN-CONTENIDO*/' in html_crudo) > 0 AS ejemplo FROM plantilla_subidas s ORDER BY nombre`,
+  subidasListar: `SELECT nombre, subida_nombre AS por, subida_por, creado, esquema, formacion, (to_jsonb(s) ->> 'calificable')::boolean AS calificable, (to_jsonb(s) ->> 'archivada_en')::timestamptz AS archivada_en, to_jsonb(s) ->> 'archivada_por' AS archivada_por, actualizado, to_jsonb(s) ->> 'reemplazada_nombre' AS reemplazada_por_nombre, (to_jsonb(s) ->> 'reemplazada_en')::timestamptz AS reemplazada_en, position('/*FIN-CONTENIDO*/' in html_crudo) > 0 AS ejemplo FROM plantilla_subidas s ORDER BY nombre`,
   subidaHtml: `SELECT html FROM plantilla_subidas WHERE nombre = $1`,
   subidaCrudo: `SELECT html_crudo FROM plantilla_subidas WHERE nombre = $1`,
   // Descarga masiva: cada subida con su original, categoría, formación, tipo de actividad y último estado de revisión.
@@ -531,7 +531,7 @@ export const Q = Object.freeze({
     FROM plantilla_subidas s LEFT JOIN plantilla_categoria pc ON pc.plantilla = s.nombre LEFT JOIN plantilla_categorias c ON c.id = pc.categoria
     WHERE ($1::text IS NULL OR c.tipo = $1::text) AND ($2::text IS NULL OR pc.categoria = $2::text) ORDER BY pc.categoria, s.nombre`,
   subidaCrear: `INSERT INTO plantilla_subidas (nombre, html_crudo, html, subida_por, subida_nombre, esquema, formacion, calificable) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8) ON CONFLICT (nombre) DO NOTHING RETURNING nombre`,
-  subidaReemplazar: `UPDATE plantilla_subidas SET html_crudo = $2, html = $3, subida_por = $4, subida_nombre = $5, esquema = $6::jsonb, formacion = coalesce($7, formacion), calificable = coalesce($8, calificable), actualizado = now() WHERE nombre = $1 RETURNING nombre`,
+  subidaReemplazar: `UPDATE plantilla_subidas SET html_crudo = $2, html = $3, reemplazada_por = $4, reemplazada_nombre = $5, reemplazada_en = now(), esquema = $6::jsonb, formacion = coalesce($7, formacion), calificable = coalesce($8, calificable), actualizado = now() WHERE nombre = $1 RETURNING nombre`,
   esquemaReferencia: `SELECT s.nombre, s.esquema FROM plantilla_subidas s JOIN plantilla_categoria pc ON pc.plantilla = s.nombre
      WHERE pc.categoria = $1 AND (to_jsonb(s) ->> 'archivada_en') IS NULL AND s.esquema IS NOT NULL AND s.nombre <> $2 AND ($3::text IS NULL OR s.formacion = $3::text) AND ($4::boolean IS NULL OR s.calificable = $4::boolean) ORDER BY s.creado, s.nombre LIMIT 1`,
   // Referencia para el reemplazo en masa: variantes del grupo que NO se reemplazan (nombres en $2, un arreglo)

@@ -578,7 +578,7 @@ rutas.get('/plantillas/categorias', exigirSesion, exigirPermiso('plantillas.ver'
     res.json({
       categorias: c.rows, formaciones: formacionesPorCategoria(fo.rows), asignaciones: Object.fromEntries(a.rows.map((x) => [x.plantilla, x.categoria])), plantillas, ocultas: o.rows.filter((x) => !x.eliminada).map((x) => x.plantilla),
       archivadas: archivadas.map((x) => ({ nombre: x.nombre, archivadaEn: x.archivada_en, por: x.archivada_por || null, categoria: catDe[x.nombre] || null, formacion: x.formacion || null })).sort((p, q) => String(q.archivadaEn).localeCompare(String(p.archivadaEn)) || p.nombre.localeCompare(q.nombre)),
-      subidas: Object.fromEntries(activas.map((x) => [x.nombre, { por: x.por, actualizado: x.actualizado, ejemplo: !!x.ejemplo, propia: x.subida_por === req.usuario.id, formacion: x.formacion || null }]))
+      subidas: Object.fromEntries(activas.map((x) => [x.nombre, { por: x.por, actualizado: x.actualizado, reemplazada_por: x.reemplazada_por_nombre || null, reemplazada_en: x.reemplazada_en || null, ejemplo: !!x.ejemplo, propia: x.subida_por === req.usuario.id, formacion: x.formacion || null }]))
     })
   } catch (e) { next(e) }
 })

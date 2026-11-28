@@ -30,7 +30,7 @@ before(async () => {
   await dueno.connect()
   await dueno.query("CREATE ROLE ova_app LOGIN PASSWORD 'appclave' NOSUPERUSER NOBYPASSRLS")
   const sql = (f) => fs.readFileSync(path.join(aqui, '..', 'sql', f), 'utf8')
-  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql', '014_tipo_bibliografia.sql', '015_imagen_consumo_recurso.sql', '017_partes_recurso.sql', '018_estado_previo.sql', '019_actividad_tipos.sql', '020_alerta_actividad.sql', '021_matriz_actualizada.sql', '024_curso_diseno.sql', '025_asignar_diseno.sql', '026_correcciones.sql', '027_cola_regenerar.sql', '028_cola_partes.sql', '029_permiso_h5p.sql']) await dueno.query(sql(f))
+  for (const f of ['001_esquema.sql', '002_bibliografia.sql', '005_asignacion_variantes.sql', '007_pipeline_plantilla.sql', '008_pipeline_contenido.sql', '009_pipeline_contenido_editado.sql', '010_pipeline_aprobacion.sql', '011_plantilla_archivo.sql', '012_banco_iconos.sql', '013_asignacion_por_unidad.sql', '014_tipo_bibliografia.sql', '015_imagen_consumo_recurso.sql', '017_partes_recurso.sql', '018_estado_previo.sql', '019_actividad_tipos.sql', '020_alerta_actividad.sql', '021_matriz_actualizada.sql', '024_curso_diseno.sql', '025_asignar_diseno.sql', '026_correcciones.sql', '027_cola_regenerar.sql', '028_cola_partes.sql', '029_permiso_h5p.sql', '030_plantilla_reemplazada.sql']) await dueno.query(sql(f))
   await dueno.query(sql('001_esquema.sql')) // volver a migrar no debe repetir ni pisar el punto de partida
   await dueno.end()
   process.env.DATABASE_URL = `postgres://ova_app:appclave@localhost:${PUERTO_PG}/ova`
@@ -107,4 +107,22 @@ test('reemplazo en masa: de punta a punta, validaciones, atomicidad y permisos',
   assert.ok(e1 && e2 && d1)
   assert.equal((await masivo(edi, [e1, e2, d1].map((nombre) => ({ nombre, html: html(NUEVO) })))).status, 403) // d1 es de otra persona: nada se guarda
   assert.equal((await masivo(edi, [e1, e2].map((nombre) => ({ nombre, html: html(NUEVO) })))).status, 200)
+})
+
+test('reemplazar no cambia el autor: el admin reemplaza (suelto y en masa) y queda registrado quién', async () => {
+  const edi = await entrar('edi@u.co'), admin = await entrar('admin@u.co')
+  const subir = async () => (await (await edi('POST', '/plantillas/subidas', { html: html(BASE), categoria: 'G-12' })).json()).nombre
+  const a = await subir(), b = await subir()
+  const fila = async (n) => (await pool.query('SELECT subida_por, subida_nombre, reemplazada_nombre, reemplazada_en FROM plantilla_subidas WHERE nombre = $1', [n])).rows[0]
+  const antes = await fila(a)
+  assert.equal(antes.subida_nombre, 'Edi'); assert.equal(antes.reemplazada_en, null)
+  assert.equal((await admin('POST', '/plantillas/subidas/reemplazo-masivo', { archivos: [a, b].map((nombre) => ({ nombre, html: html(NUEVO) })) })).status, 200)
+  assert.equal((await admin('PUT', '/plantillas/subidas/' + a, { html: html(NUEVO) })).status, 200)
+  for (const n of [a, b]) {
+    const f = await fila(n)
+    assert.equal(f.subida_nombre, 'Edi'); assert.equal(f.reemplazada_nombre, 'Admin'); assert.ok(f.reemplazada_en)
+  }
+  assert.equal((await fila(a)).subida_por, antes.subida_por)
+  // sigue siendo suya: puede editarla
+  assert.equal((await edi('PUT', '/plantillas/subidas/' + a, { html: html(NUEVO) })).status, 200)
 })
