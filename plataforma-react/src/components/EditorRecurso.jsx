@@ -56,8 +56,6 @@ const TEXTO_ESTADO = { POR_REVISAR: 'Por revisar', ERROR: 'Con error', EN_PROCES
 function ListaRecursos({ recursos, actualId, puedePublicar, sucio, onElegir, onAprobar }) {
   const [filtro, setFiltro] = useState(() => (recursos.some((r) => r.estado !== 'PENDIENTE' || r.enCola) ? 'con' : 'todos')) // con = los que ya tienen algo que ver; revisar; todos
   const [confirmar, dialogo] = useConfirmar()
-  const [veGestion, setVeGestion] = useState(false) // quien ve «Plantillas HTML» abre la plantilla ahí; el resto, la vista pública
-  useEffect(() => { apiBase('GET', '/auth/yo').then((y) => setVeGestion(!!(y && y.permisos && y.permisos.includes('plantillas.ver')))).catch(() => {}) }, [])
   const [cerradas, setCerradas] = useState({})
   const [ocupados, setOcupados] = useState({}) // id → true mientras se aprueba
   const [unidadBusy, setUnidadBusy] = useState(null)
@@ -234,6 +232,8 @@ function MenuAcciones({ items }) {
 
 export default function EditorRecurso({ proyecto, propietario, soloLectura = false, recurso, recursos = [], puedePublicar, onAprobar, onRegenerar, parteInicial = '', onParte, onElegir, onCerrar, onActualizar }) {
   const [confirmar, dialogo] = useConfirmar()
+  const [veGestion, setVeGestion] = useState(false) // quien ve «Plantillas HTML» abre la plantilla ahí; el resto, la vista pública
+  useEffect(() => { apiBase('GET', '/auth/yo').then((y) => setVeGestion(!!(y && y.permisos && y.permisos.includes('plantillas.ver')))).catch(() => {}) }, [])
   const api = useCallback((metodo, ruta, cuerpo) => apiBase(metodo, conPropietario(ruta, propietario), cuerpo), [propietario])
   const [estado, setEstado] = useState('cargando') // cargando | listo | error
   const [error, setError] = useState('')
